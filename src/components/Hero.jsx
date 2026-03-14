@@ -6,7 +6,7 @@ import { Sparkle, WandIcon, Constellation } from "./Icons";
 
 export default function Hero({ onScrollTo }) {
   return (
-    <section style={{ position: "relative", minHeight: "100vh", overflow: "hidden", background: "#2c2420" }}>
+    <section style={{ position: "relative", minHeight: "100vh", overflow: "hidden", background: "linear-gradient(to right, #45413D, #C6C4C2)" }}>
 
       {/* Constellations */}
       <div style={{ position: "absolute", top: 90, left: 40, pointerEvents: "none" }}>
@@ -41,13 +41,13 @@ export default function Hero({ onScrollTo }) {
               Your home,
             </h1>
             <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 6vw, 86px)", fontWeight: 300, lineHeight: 1.02, marginBottom: 34, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-              <span style={{ color: "#e8d9c0" }}>transformed</span>
+              <span style={{ color: "#e8d9c0" }}>Transformed</span>
               <span style={{ color: "#c8b89a", marginLeft: 14 }}>✦</span>
             </h1>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 14, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 400, marginBottom: 44, fontWeight: 300 }}>
               Discreet, meticulous cleaning for East London homes. We work a little
-              magic on every room — and the results speak for themselves.
+              magic on every room,and the results speak for themselves.
             </p>
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 52 }}>
@@ -82,7 +82,12 @@ export default function Hero({ onScrollTo }) {
           <img
             src={HERO_IMAGE}
             alt="London Cleaning Wizard"
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
+            style={{ position: "absolute", top: 0,
+    left: "-20%",   // moves image left
+    width: "100%",  // gives extra image space
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "30% 40%" }}
           />
          
          
