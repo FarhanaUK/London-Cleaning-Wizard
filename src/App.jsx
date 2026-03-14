@@ -7,7 +7,7 @@ function App() {
   
         <div className="hero">
         
-          <h1>Get started</h1>
+          <h1 className="text-3xl font-bold underline">Get started</h1>
         
      
  
