@@ -5,10 +5,12 @@ export const PHOTOS = {
   bathroom: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=900&q=80&fit=crop",
   bedroom:  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=900&q=80&fit=crop",
   cleaner1: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=900&q=80&fit=crop",
-  cleaner2: "https://images.unsplash.com/photo-1527515637462-cff94edd56f9?w=900&q=80&fit=crop",
   hallway:  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&q=80&fit=crop",
   dining:   "https://images.unsplash.com/photo-1617806118233-18e1de247200?w=900&q=80&fit=crop",
+
 };
+
+export const HERO_IMAGE = "/wizard.png";
 
 export const SERVICES = [
   { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "The Refresh Spell" },
@@ -60,3 +62,9 @@ export const NAV_LINKS = [
   { id: "about",    label: "Our Craft" },
   { id: "contact",  label: "Contact"   },
 ];
+
+//There is no export default — 
+// every icon is a named export because there are multiple in one file. So when you import them you use curly braces: import { Sparkle, WandIcon } from "./Icons"
+//aria-hidden="true" is on every icon so screen readers ignore them — they're decorative
+//Constellation is the dot-and-line star pattern used as background decoration in several sections
+//LogoMark is the circular star used in the Navbar and Footer
