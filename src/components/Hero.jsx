@@ -72,9 +72,9 @@ export default function Hero({ onScrollTo }) {
     <div style={{ padding: "16px 20px 0" }}>
       <div style={{ background: "#c8b89a", padding: "12px 16px" }}>
         <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1410", marginBottom: 2 }}>East London's</div>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>most affordable luxury clean</div>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable Luxury Clean</div>
         <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 6, marginBottom: 5 }} />
-        <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "#2c2420" }}>From £15/hr · No contracts</div>
+ 
       </div>
     </div>
 
@@ -153,9 +153,9 @@ export default function Hero({ onScrollTo }) {
               zIndex: 10,
             }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1410", marginBottom: 3 }}>East London's</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>most affordable<br />luxury clean</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable<br />Luxury Clean</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
-              <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "#2c2420" }}>From £15/hr · No contracts</div>
+              
             </div>
           </div>
 
@@ -273,9 +273,9 @@ export default function Hero({ onScrollTo }) {
               zIndex: 10,
             }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16, fontWeight: 600, letterSpacing: "0.22em", textTransform: "uppercase", color: "#1a1410", marginBottom: 6 }}>East London's</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 46, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>most affordable<br />luxury clean</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 46, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable<br />Luxury Clean</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />
-              <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "#2c2420" }}>From £15/hr · No contracts</div>
+              
             </div>
           </div>
         </div>
