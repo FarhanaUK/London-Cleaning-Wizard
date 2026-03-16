@@ -4,12 +4,18 @@ import { useState, useEffect } from "react";
 
 export default function Hero({ onScrollTo }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1024);
+    };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const isDesktop = !isMobile && !isTablet;
 
   return (
     <section style={{ position: "relative", minHeight: "100vh", overflow: "hidden", background: "linear-gradient(to right, #45413D, #C6C4C2)" }}>
@@ -46,7 +52,7 @@ export default function Hero({ onScrollTo }) {
       ))}
 
       {/* Constellations — desktop only */}
-      {!isMobile && (
+      {isDesktop && (
         <>
           <div style={{ position: "absolute", top: 90, left: 40, pointerEvents: "none" }}>
             <Constellation width={200} height={120} color="#c8b89a" opacity={0.08} />
@@ -61,86 +67,144 @@ export default function Hero({ onScrollTo }) {
       {isMobile && (
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingTop: 76 }}>
 
-          {/* Hero image — top, full width */}
-          <div style={{ position: "relative", height: "30vh", overflow: "hidden", flexShrink: 0 }}>
+          {/* Hero image */}
+          <div style={{ position: "relative", height: "40vh", overflow: "hidden", flexShrink: 0 }}>
             <img
               src={HERO_IMAGE}
               alt="London Cleaning Wizard"
-              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 100%" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%" }}
             />
-            {/* Dark overlay at bottom so text below reads well */}
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, background: "linear-gradient(to top, #45413D, transparent)" }} />
+          </div>
 
-            {/* Callout badge — sits in bottom left of image */}
-            <div style={{
-              position: "absolute",
-              bottom: 16,
-              left: 16,
-              background: "#c8b89a",
-              padding: "10px 16px",
-              zIndex: 10,
-            }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1410", marginBottom: 3 }}>East London's</div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>most affordable<br />luxury clean</div>
+          {/* Callout badge */}
+          <div style={{ padding: "0 20px", marginTop: -2, zIndex: 5, position: "relative" }}>
+            <div style={{ background: "#c8b89a", padding: "12px 16px" }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1410", marginBottom: 2 }}>East London's</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>most affordable luxury clean</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 6, marginBottom: 5 }} />
               <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "#2c2420" }}>From £15/hr · No contracts</div>
             </div>
           </div>
 
-          {/* Text content — below image */}
-          <div style={{ padding: "36px 24px 60px", flex: 1 }}>
+          {/* Text content */}
+          <div style={{ padding: "24px 20px 48px", flex: 1 }}>
 
-            <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
               <Sparkle size={7} color="#c8b89a" />
               Residential Cleaning · East London
               <Sparkle size={7} color="#c8b89a" />
             </div>
 
-            <div style={{ width: 32, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 20 }} />
+            <div style={{ width: 28, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 16 }} />
 
-            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(38px, 10vw, 56px)", fontWeight: 300, lineHeight: 1.02, color: "#f5f0e8", marginBottom: 4, letterSpacing: "-0.015em" }}>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(36px, 9vw, 52px)", fontWeight: 300, lineHeight: 1.02, color: "#f5f0e8", marginBottom: 4, letterSpacing: "-0.015em" }}>
               Your home,
             </h1>
-            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(38px, 10vw, 56px)", fontWeight: 300, lineHeight: 1.02, marginBottom: 24, letterSpacing: "-0.015em", fontStyle: "italic" }}>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(36px, 9vw, 52px)", fontWeight: 300, lineHeight: 1.02, marginBottom: 20, letterSpacing: "-0.015em", fontStyle: "italic" }}>
               <span style={{ color: "#e8d9c0" }}>Transformed</span>
               <span style={{ color: "#c8b89a", marginLeft: 10 }}>✦</span>
             </h1>
 
-            <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 13, lineHeight: 1.85, color: "rgba(245,240,232,0.65)", marginBottom: 32, fontWeight: 300 }}>
+            <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 13, lineHeight: 1.8, color: "rgba(245,240,232,0.65)", marginBottom: 28, fontWeight: 300 }}>
               Discreet, meticulous cleaning for East London homes. We work a little
               magic on every room — and the results speak for themselves.
             </p>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 36 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32 }}>
               <button
                 onClick={() => onScrollTo("contact")}
-                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "15px 24px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%" }}
+                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "14px 24px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%" }}
               >
                 <WandIcon size={14} color="#c8b89a" /> Request a Quote
               </button>
               <button
                 onClick={() => onScrollTo("our-work")}
-                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 300, padding: "14px 24px", background: "transparent", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.4)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%" }}
+                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 300, padding: "13px 24px", background: "transparent", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.4)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%" }}
               >
                 View Our Work
               </button>
             </div>
 
-            {/* Mini stats */}
-            <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 24, borderTop: "1px solid rgba(200,184,154,0.12)" }}>
-              {[["500+", "Homes Cleaned"], ["4.9", "Avg Rating"], ["100%", "Guaranteed"]].map(([n, l]) => (
-                <div key={l} style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, color: "#c8b89a", lineHeight: 1 }}>{n}</div>
-                  <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 8, letterSpacing: "0.14em", color: "rgba(245,240,232,0.35)", textTransform: "uppercase", marginTop: 4 }}>{l}</div>
-                </div>
-              ))}
+           
+          </div>
+        </div>
+      )}
+
+      {/* ── TABLET LAYOUT ── */}
+      {isTablet && (
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingTop: 76 }}>
+
+          {/* Image */}
+          <div style={{ position: "relative", height: "50vh", overflow: "hidden", flexShrink: 0 }}>
+            <img
+              src={HERO_IMAGE}
+              alt="London Cleaning Wizard"
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%" }}
+            />
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, background: "linear-gradient(to top, #45413D, transparent)" }} />
+
+            {/* Callout badge on image for tablet */}
+            <div style={{
+              position: "absolute",
+              bottom: 24,
+              right: 32,
+              background: "#c8b89a",
+              padding: "12px 18px",
+              zIndex: 10,
+            }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1410", marginBottom: 3 }}>East London's</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>most affordable<br />luxury clean</div>
+              <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
+              <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "#2c2420" }}>From £15/hr · No contracts</div>
             </div>
+          </div>
+
+          {/* Text content */}
+          <div style={{ padding: "40px 48px 60px" }}>
+            <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 10, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+              <Sparkle size={8} color="#c8b89a" />
+              Residential Cleaning · East London
+              <Sparkle size={8} color="#c8b89a" />
+            </div>
+
+            <div style={{ width: 32, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 20 }} />
+
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 300, lineHeight: 1.02, color: "#f5f0e8", marginBottom: 4, letterSpacing: "-0.015em" }}>
+              Your home,
+            </h1>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 300, lineHeight: 1.02, marginBottom: 24, letterSpacing: "-0.015em", fontStyle: "italic" }}>
+              <span style={{ color: "#e8d9c0" }}>Transformed</span>
+              <span style={{ color: "#c8b89a", marginLeft: 12 }}>✦</span>
+            </h1>
+
+            <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 14, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 500, marginBottom: 36, fontWeight: 300 }}>
+              Discreet, meticulous cleaning for East London homes. We work a little
+              magic on every room — and the results speak for themselves.
+            </p>
+
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 40 }}>
+              <button
+                onClick={() => onScrollTo("contact")}
+                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "15px 40px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
+              >
+                <WandIcon size={15} color="#c8b89a" /> Request a Quote
+              </button>
+              <button
+                onClick={() => onScrollTo("our-work")}
+                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 300, padding: "14px 36px", background: "transparent", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.4)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
+              >
+                View Our Work
+              </button>
+            </div>
+
+           
           </div>
         </div>
       )}
 
       {/* ── DESKTOP LAYOUT ── */}
-      {!isMobile && (
+      {isDesktop && (
         <div style={{
           position: "relative",
           zIndex: 2,
@@ -190,24 +254,16 @@ export default function Hero({ onScrollTo }) {
                 </button>
               </div>
 
-              {/* Mini stats */}
-              <div style={{ display: "flex", gap: 36, paddingTop: 32, borderTop: "1px solid rgba(200,184,154,0.12)" }}>
-                {[["500+", "Homes Cleaned"], ["4.9", "Avg Rating"], ["100%", "Guaranteed"]].map(([n, l]) => (
-                  <div key={l}>
-                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(26px, 2.8vw, 40px)", fontWeight: 300, color: "#c8b89a", lineHeight: 1 }}>{n}</div>
-                    <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.16em", color: "rgba(245,240,232,0.35)", textTransform: "uppercase", marginTop: 5 }}>{l}</div>
-                  </div>
-                ))}
-              </div>
+               
             </div>
           </div>
 
           {/* RIGHT — image */}
-          <div style={{ position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "relative", overflow: "hidden," }}>
             <img
               src={HERO_IMAGE}
               alt="London Cleaning Wizard"
-              style={{ position: "absolute", top: 0, left: "-20%", width: "120%", height: "100%", objectFit: "cover", objectPosition: "30% 40%" }}
+              style={{ position: "absolute", top: 0, left: "-35%", width: "120%", height: "100%", objectFit: "cover", objectPosition: "30% 40%" }}
             />
 
             {/* Callout badge */}

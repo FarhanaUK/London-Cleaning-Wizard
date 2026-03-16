@@ -49,10 +49,10 @@ export default function Contact() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       newErrors.email = "Please enter a valid email address.";
 
-    if (!form.phone.trim())
-      newErrors.phone = "Please enter your phone number.";
-    else if (!/^[\d\s\+\-\(\)]{7,}$/.test(form.phone))
-      newErrors.phone = "Please enter a valid phone number.";
+   if (!form.phone.trim())
+  newErrors.phone = "Please enter your phone number.";
+else if (!/^(\+44\s?7\d{3}|\(?07\d{3}\)?)\s?\d{3}\s?\d{3}$/.test(form.phone.replace(/\s/g, ""))) 
+  newErrors.phone = "Please enter a valid UK mobile number (e.g. 07700 900 123).";
 
     if (!form.postcode.trim())
       newErrors.postcode = "Please enter your postcode.";
