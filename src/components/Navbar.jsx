@@ -45,10 +45,10 @@ export default function Navbar() {
             innerColor={scrolled ? "#8b7355" : "rgba(200,184,154,0.6)"}
           />
           <div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 16, letterSpacing: "0.05em", lineHeight: 1.1, color: scrolled ? "#2c2420" : "#f5f0e8" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 500, fontSize: 18, letterSpacing: "0.05em", lineHeight: 1.1, color: scrolled ? "#2c2420" : "#f5f0e8" }}>
               London Cleaning Wizard
             </div>
-            <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 8, letterSpacing: "0.22em", color: scrolled ? "#c8b89a" : "rgba(200,184,154,0.65)", textTransform: "uppercase", marginTop: 1 }}>
+            <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.22em", color: scrolled ? "#c8b89a" : "rgba(200,184,154,0.65)", textTransform: "uppercase", marginTop: 1 }}>
               Est. East London
             </div>
           </div>
@@ -59,7 +59,7 @@ export default function Navbar() {
           <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
             {NAV_LINKS.map(({ id, label }) => (
               <span key={id} onClick={() => scrollTo(id)} style={{
-                fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.12em",
+                fontFamily: "'Jost', sans-serif", fontSize: 12, letterSpacing: "0.12em",
                 textTransform: "uppercase", cursor: "pointer",
                 color: scrolled ? "#5a4e44" : "rgba(245,240,232,0.75)",
                 transition: "color 0.3s",
@@ -68,7 +68,7 @@ export default function Navbar() {
               </span>
             ))}
             <button onClick={() => scrollTo("contact")} style={{
-              fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em",
+              fontFamily: "'Jost', sans-serif", fontSize: 12, letterSpacing: "0.14em",
               textTransform: "uppercase", fontWeight: 500, padding: "10px 26px",
               background: scrolled ? "#2c2420" : "transparent",
               border: scrolled ? "none" : "1px solid rgba(245,240,232,0.45)",
