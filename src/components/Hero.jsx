@@ -71,7 +71,7 @@ export default function Hero({ onScrollTo }) {
     {/* Callout badge — above image */}
     <div style={{ padding: "16px 20px 0" }}>
       <div style={{ background: "#c8b89a", padding: "12px 16px" }}>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1410", marginBottom: 2 }}>East London's</div>
+      
         <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable Luxury Clean</div>
         <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 6, marginBottom: 5 }} />
  
@@ -93,17 +93,17 @@ export default function Hero({ onScrollTo }) {
 
       <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 10, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
         <Sparkle size={7} color="#c8b89a" />
-        Residential Cleaning · East London
+        Residential Cleaning
         <Sparkle size={7} color="#c8b89a" />
       </div>
 
       <div style={{ width: 28, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 16 }} />
 
       <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(36px, 9vw, 52px)", fontWeight: 300, lineHeight: 1.0, color: "#f5f0e8", marginBottom: 0, letterSpacing: "-0.015em" }}>
-        Your home,
+       Transforming,
       </h1>
       <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(36px, 9vw, 52px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 4, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-        <span style={{ color: "#e8d9c0" }}>Transformed</span>
+        <span style={{ color: "#e8d9c0" }}>East London</span>
         <span style={{ color: "#c8b89a", marginLeft: 10 }}>✦</span>
       </h1>
 
@@ -152,7 +152,7 @@ export default function Hero({ onScrollTo }) {
               padding: "12px 18px",
               zIndex: 10,
             }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1410", marginBottom: 3 }}>East London's</div>
+            
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable<br />Luxury Clean</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
               
@@ -163,17 +163,17 @@ export default function Hero({ onScrollTo }) {
           <div style={{ padding: "40px 48px 60px" }}>
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 15, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
               <Sparkle size={8} color="#c8b89a" />
-              Residential Cleaning · East London
+              Residential Cleaning
               <Sparkle size={8} color="#c8b89a" />
             </div>
 
             <div style={{ width: 32, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 20 }} />
 
             <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 300, lineHeight: 1.02, color: "#f5f0e8", marginBottom: 4, letterSpacing: "-0.015em" }}>
-              Your home,
+             Transforming,
             </h1>
             <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 300, lineHeight: 1.02, marginBottom: 24, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-              <span style={{ color: "#e8d9c0" }}>Transformed</span>
+              <span style={{ color: "#e8d9c0" }}>East London</span>
               <span style={{ color: "#c8b89a", marginLeft: 12 }}>✦</span>
             </h1>
 
@@ -219,17 +219,17 @@ export default function Hero({ onScrollTo }) {
 
     <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 16, letterSpacing: "0.2em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
       <Sparkle size={12} color="#c8b89a" />
-      Residential Cleaning · East London
+      Residential Cleaning
       <Sparkle size={12} color="#c8b89a" />
     </div>
 
     <div style={{ width: 40, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 0 }} />
 
     <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 6vw, 86px)", fontWeight: 300, lineHeight: 1.0, color: "#f5f0e8", marginBottom: 0, letterSpacing: "-0.015em" }}>
-      Your home,
+     Transforming,
     </h1>
     <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 6vw, 86px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop:10, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-      <span style={{ color: "#e8d9c0" }}>Transformed</span>
+      <span style={{ color: "#e8d9c0" }}>East London</span>
       <span style={{ color: "#c8b89a", marginLeft: 14 }}>✦</span>
     </h1>
 
@@ -272,7 +272,7 @@ export default function Hero({ onScrollTo }) {
               padding: "14px 22px",
               zIndex: 10,
             }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16, fontWeight: 600, letterSpacing: "0.22em", textTransform: "uppercase", color: "#1a1410", marginBottom: 6 }}>East London's</div>
+              
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 46, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable<br />Luxury Clean</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />
               

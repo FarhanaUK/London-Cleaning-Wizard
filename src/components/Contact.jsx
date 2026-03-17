@@ -102,21 +102,7 @@ else if (!/^(\+44\s?7\d{3}|\(?07\d{3}\)?)\s?\d{3}\s?\d{3}$/.test(form.phone.repl
         import.meta.env.VITE_EMAILJS_PUBLIC_KEY
       );
 
-      await emailjs.send(
-        import.meta.env.VITE_EMAILJS_SERVICE_ID,
-        import.meta.env.VITE_EMAILJS_AUTO_REPLY_TEMPLATE_ID,
-        {
-          from_name: form.name,
-          from_email: form.email,
-          phone: form.phone,
-          postcode: form.postcode,
-          service: form.service,
-          notes: form.notes,
-          how_heard: howHeardFinal,
-        },
-        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-      );
-
+      
       setSent(true);
     } catch (err) {
       console.error("EmailJS error:", err);
