@@ -17,6 +17,18 @@ export default function Hero({ onScrollTo }) {
 
   const isDesktop = !isMobile && !isTablet;
 
+  const sparkles = [
+    [5,  22, "twinkle1", 0.7, 20],
+    [78, 22, "twinkle2", 1.1, 17],
+    [88, 45, "twinkle3", 0.5, 20],
+    [5,  55, "twinkle1", 1.4, 17],
+    [92, 72, "twinkle2", 0.8, 15],
+    [15, 80, "twinkle3", 0.3, 17],
+    [45, 15, "twinkle1", 1.8, 19],
+    [65, 60, "twinkle2", 0.6, 17],
+    [30, 40, "twinkle3", 1.2, 18],
+  ];
+
   return (
     <section style={{ position: "relative", minHeight: "100vh", overflow: "hidden", background: "linear-gradient(to right, #45413D, #C6C4C2)" }}>
 
@@ -27,17 +39,7 @@ export default function Hero({ onScrollTo }) {
       `}</style>
 
       {/* Twinkling sparkles */}
-      {[
-        [5,  22, "twinkle1", 0.7, 20],
-        [78, 22, "twinkle2", 1.1, 17],
-        [88, 45, "twinkle3", 0.5, 20],
-        [5,  55, "twinkle1", 1.4, 17],
-        [92, 72, "twinkle2", 0.8, 15],
-        [15, 80, "twinkle3", 0.3, 17],
-        [45, 15, "twinkle1", 1.8, 19],
-        [65, 60, "twinkle2", 0.6, 17],
-        [30, 40, "twinkle3", 1.2, 18],
-      ].map(([x, y, anim, delay, size], i) => (
+      {sparkles.map(([x, y, anim, delay, size], i) => (
         <div key={i} style={{
           position: "absolute",
           left: `${x}%`,
@@ -88,7 +90,6 @@ export default function Hero({ onScrollTo }) {
           {/* Text content */}
           <div style={{ padding: "24px 20px 48px", flex: 1 }}>
 
-            {/* Hidden SEO H1 */}
             <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, margin: 0 }}>
               Professional Home Cleaning Services in East London, London
             </h1>
@@ -105,7 +106,7 @@ export default function Hero({ onScrollTo }) {
               Transforming,
             </p>
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(36px, 9vw, 52px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 4, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-              <span style={{ color: "#e8d9c0" }}>East London</span>
+              <span style={{ color: "#e8d9c0" }}>East London Homes</span>
               <span style={{ color: "#c8b89a", marginLeft: 10 }}>✦</span>
             </p>
 
@@ -136,7 +137,6 @@ export default function Hero({ onScrollTo }) {
       {isTablet && (
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingTop: 76 }}>
 
-          {/* Image */}
           <div style={{ position: "relative", height: "50vh", overflow: "hidden", flexShrink: 0 }}>
             <img
               src={HERO_IMAGE}
@@ -145,7 +145,7 @@ export default function Hero({ onScrollTo }) {
             />
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, background: "linear-gradient(to top, #45413D, transparent)" }} />
 
-            {/* Callout badge on image for tablet */}
+            {/* Callout badge */}
             <div style={{ position: "absolute", bottom: 24, right: 32, background: "#c8b89a", padding: "12px 18px", zIndex: 10 }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable<br />Luxury Clean</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
@@ -155,7 +155,6 @@ export default function Hero({ onScrollTo }) {
           {/* Text content */}
           <div style={{ padding: "40px 48px 60px" }}>
 
-            {/* Hidden SEO H1 */}
             <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, margin: 0 }}>
               Professional Home Cleaning Services in East London, London
             </h1>
@@ -172,7 +171,7 @@ export default function Hero({ onScrollTo }) {
               Transforming,
             </p>
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 300, lineHeight: 1.02, marginBottom: 24, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-              <span style={{ color: "#e8d9c0" }}>East London</span>
+              <span style={{ color: "#e8d9c0" }}>East London Homes</span>
               <span style={{ color: "#c8b89a", marginLeft: 12 }}>✦</span>
             </p>
 
@@ -214,7 +213,6 @@ export default function Hero({ onScrollTo }) {
           <div style={{ display: "flex", alignItems: "center", paddingLeft: "clamp(24px, 8vw, 100px)", paddingRight: "clamp(20px, 3vw, 48px)", paddingTop: 48, paddingBottom: 64 }}>
             <div style={{ maxWidth: 520, width: "100%" }}>
 
-              {/* Hidden SEO H1 */}
               <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, margin: 0 }}>
                 Professional Home Cleaning Services in East London, London
               </h1>
@@ -227,11 +225,11 @@ export default function Hero({ onScrollTo }) {
 
               <div style={{ width: 40, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 0 }} />
 
-              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 6vw, 86px)", fontWeight: 300, lineHeight: 1.0, color: "#f5f0e8", marginBottom: 0, letterSpacing: "-0.015em" }}>
+              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 4.5vw, 72px)", fontWeight: 300, lineHeight: 1.0, color: "#f5f0e8", marginBottom: 0, letterSpacing: "-0.015em" }}>
                 Transforming,
               </p>
-              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 6vw, 86px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-                <span style={{ color: "#e8d9c0" }}>East London</span>
+              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 4.5vw, 72px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic", whiteSpace: "nowrap" }}>
+                <span style={{ color: "#e8d9c0" }}>East London Homes</span>
                 <span style={{ color: "#c8b89a", marginLeft: 14 }}>✦</span>
               </p>
 
