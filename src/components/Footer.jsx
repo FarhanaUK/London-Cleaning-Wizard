@@ -1,88 +1,249 @@
 import { Sparkle, LogoMark } from "./Icons";
 import { NAV_LINKS } from "../data/siteData";
 import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function Footer() {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [screen, setScreen] = useState(() => {
+    if (typeof window === "undefined") return "desktop";
+    const width = window.innerWidth;
+    if (width < 768) return "mobile";
+    if (width < 1024) return "tablet";
+    return "desktop";
+  });
+
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < 768) setScreen("mobile");
+      else if (width < 1024) setScreen("tablet");
+      else setScreen("desktop");
+    };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const scrollTo = (id) => {
+    if (location.pathname !== "/") {
+      navigate("/");
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    } else {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const isMobile = screen === "mobile";
+  const isTablet = screen === "tablet";
 
   return (
-    <footer style={{ position: "relative", background: "#100c09", padding: "48px clamp(24px, 6vw, 100px)", overflow: "hidden" }}>
-
+    <footer
+      role="contentinfo"
+      aria-label="London Cleaning Wizard footer"
+      style={{
+        position: "relative",
+        background: "#1a1410",
+        padding: isMobile
+          ? "40px 20px"
+          : isTablet
+          ? "48px 40px"
+          : "48px clamp(24px, 6vw, 100px)",
+        overflow: "hidden",
+      }}
+    >
       {/* Top gold line */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(200,184,154,0.3), transparent)" }} />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 1,
+          background:
+            "linear-gradient(to right, transparent, rgba(200,184,154,0.3), transparent)",
+        }}
+      />
 
       {/* Top row */}
-      <div style={{
-        display: "flex",
-        flexDirection: isMobile ? "column" : "row",
-        alignItems: isMobile ? "flex-start" : "center",
-        justifyContent: "space-between",
-        gap: isMobile ? 24 : 0,
-        borderBottom: "1px solid rgba(200,184,154,0.1)",
-        paddingBottom: 32,
-        marginBottom: 28,
-      }}>
-
+      <div
+        style={{
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: isMobile ? "flex-start" : "center",
+          justifyContent: "space-between",
+          gap: isMobile ? 28 : isTablet ? 20 : 0,
+          borderBottom: "1px solid rgba(200,184,154,0.1)",
+          paddingBottom: isMobile ? 32 : 24,
+          marginBottom: isMobile ? 28 : 24,
+        }}
+      >
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <LogoMark size={32} color="rgba(200,184,154,0.4)" />
           <div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, color: "#f5f0e8", fontWeight: 400, letterSpacing: "0.04em" }}>
+            <div
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: isMobile ? 16 : isTablet ? 17 : 18,
+                color: "#f5f0e8",
+                fontWeight: 400,
+                letterSpacing: "0.04em",
+              }}
+            >
               London Cleaning Wizard
             </div>
-            <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 8, letterSpacing: "0.22em", color: "#8b7355", textTransform: "uppercase", marginTop: 3 }}>
+            <div
+              style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: isMobile ? 8 : isTablet ? 8.5 : 9,
+                letterSpacing: "0.22em",
+                color: "#8b7355",
+                textTransform: "uppercase",
+                marginTop: 3,
+              }}
+            >
               Residential Cleaning · East London
             </div>
           </div>
         </div>
 
         {/* Nav links */}
-        <div style={{
+        <nav aria-label="Footer navigation">
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: isMobile ? "14px 24px" : isTablet ? 24 : 32,
+              marginTop: isMobile ? 20 : 0,
+            }}
+          >
+            {NAV_LINKS.map(({ id, label }) => (
+              <span
+                key={id}
+                onClick={() => scrollTo(id)}
+                role="link"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && scrollTo(id)}
+                style={{
+                  fontFamily: "'Jost', sans-serif",
+                  fontSize: isMobile ? 11 : isTablet ? 12 : 13,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "rgba(245,240,232,0.35)",
+                  cursor: "pointer",
+                }}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        </nav>
+      </div>
+
+      {/* Social media links */}
+      <div
+        style={{
+          display: "flex",
+          gap: isTablet ? 12 : 16,
+          marginBottom: 28,
+          flexWrap: "wrap",
+        }}
+      >
+        {[
+          { label: "Instagram", href: "https://instagram.com/londoncleaningwizard" },
+          { label: "Facebook", href: "https://facebook.com/londoncleaningwizard" },
+          { label: "TikTok", href: "https://tiktok.com/@londoncleaningwizard" },
+        ].map(({ label, href }) => (
+          <a
+            key={label}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Follow London Cleaning Wizard on ${label}`}
+            style={{
+              fontFamily: "'Jost', sans-serif",
+              fontSize: isMobile ? 10 : isTablet ? 10.5 : 11,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "rgba(245,240,232,0.35)",
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Sparkle size={6} color="#8b7355" /> {label}
+          </a>
+        ))}
+      </div>
+
+      {/* Legal links */}
+      <div
+        style={{
           display: "flex",
           flexWrap: "wrap",
-          gap: isMobile ? "14px 24px" : 32,
-        }}>
-          {NAV_LINKS.map(({ id, label }) => (
-            <span
-              key={id}
-              onClick={() => scrollTo(id)}
-              style={{
-                fontFamily: "'Jost', sans-serif",
-                fontSize: 10,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                color: "rgba(245,240,232,0.35)",
-                cursor: "pointer",
-              }}
-            >
-              {label}
-            </span>
-          ))}
-        </div>
+          gap: isMobile ? "10px 20px" : isTablet ? 16 : 24,
+          marginBottom: 24,
+        }}
+      >
+        {[
+          { label: "Privacy Policy", href: "/privacy-policy" },
+          { label: "Terms & Conditions", href: "/terms-and-conditions" },
+          { label: "FAQs", href: "/faqs" },
+        ].map(({ label, href }) => (
+          <a
+            key={label}
+            href={href}
+            style={{
+              fontFamily: "'Jost', sans-serif",
+              fontSize: isMobile ? 10 : isTablet ? 10.5 : 11,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "rgba(245,240,232,0.25)",
+              textDecoration: "none",
+            }}
+          >
+            {label}
+          </a>
+        ))}
       </div>
 
       {/* Bottom row */}
-      <div style={{
-        display: "flex",
-        flexDirection: isMobile ? "column" : "row",
-        alignItems: isMobile ? "flex-start" : "center",
-        justifyContent: "space-between",
-        gap: 12,
-      }}>
-        <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 10, color: "rgba(245,240,232,0.2)", letterSpacing: "0.08em" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: isMobile ? "flex-start" : "center",
+          justifyContent: "space-between",
+          gap: 12,
+          borderTop: "1px solid rgba(200,184,154,0.06)",
+          paddingTop: 20,
+        }}
+      >
+        <p
+          style={{
+            fontFamily: "'Jost', sans-serif",
+            fontSize: isMobile ? 10 : isTablet ? 10.5 : 11,
+            color: "rgba(245,240,232,0.2)",
+            letterSpacing: "0.08em",
+          }}
+        >
           © {new Date().getFullYear()} London Cleaning Wizard · All rights reserved.
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Sparkle size={8} color="#8b7355" />
-          <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 10, color: "#8b7355", letterSpacing: "0.1em" }}>
+          <p
+            style={{
+              fontFamily: "'Jost', sans-serif",
+              fontSize: isMobile ? 10 : isTablet ? 10.5 : 11,
+              color: "#8b7355",
+              letterSpacing: "0.1em",
+            }}
+          >
             Crafted with care · East London
           </p>
           <Sparkle size={8} color="#8b7355" />

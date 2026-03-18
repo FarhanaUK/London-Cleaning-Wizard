@@ -1,21 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkle } from "./Icons";
 import Reveal from "./Reveal";
 import { SERVICES } from "../data/siteData";
 
 export default function Services() {
   const [hovered, setHovered] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   return (
-    <section id="services" style={{ padding: "100px clamp(24px, 6vw, 100px)", background: "#faf9f7" }}>
+    <section id="services" style={{ padding: isMobile ? "60px 20px" : "100px clamp(24px, 6vw, 100px)", background: "#faf9f7" }}>
 
-      {/* Heading */}
       <Reveal>
-        <div style={{ textAlign: "center", marginBottom: 64 }}>
+        <div style={{ textAlign: "center", marginBottom: isMobile ? 36 : 64 }}>
           <div style={{
             fontFamily: "'Jost', sans-serif",
-            fontSize: 10,
-            letterSpacing: "0.28em",
+            fontSize: isMobile ? 13 : 16,
+            letterSpacing: "0.2em",
             color: "#8b7355",
             textTransform: "uppercase",
             marginBottom: 16,
@@ -28,7 +38,7 @@ export default function Services() {
           </div>
           <h2 style={{
             fontFamily: "'Cormorant Garamond', serif",
-            fontSize: "clamp(36px, 5vw, 62px)",
+            fontSize: isMobile ? "clamp(28px, 7vw, 38px)" : "clamp(36px, 4.5vw, 56px)",
             fontWeight: 300,
             letterSpacing: "-0.01em",
             lineHeight: 1.1,
@@ -40,24 +50,23 @@ export default function Services() {
         </div>
       </Reveal>
 
-      {/* Grid */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-        gap: 2,
+        gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
+        gap: isMobile ? 3 : 2,
         maxWidth: 1200,
         margin: "0 auto",
       }}>
         {SERVICES.map((service, i) => (
           <Reveal key={service.title} delay={i * 75}>
             <div
-              style={{ overflow: "hidden", position: "relative", background: "#1a1410", aspectRatio: "4/3", cursor: "default" }}
+              style={{ overflow: "hidden", position: "relative", background: "#10121a", aspectRatio: "4/3", cursor: "default" }}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
             >
               <img
                 src={service.img}
-                alt={service.title}
+                alt={service.alt}
                 style={{
                   width: "100%",
                   height: "100%",
@@ -74,24 +83,47 @@ export default function Services() {
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "flex-end",
-                padding: "26px 28px 30px",
+                padding: isMobile ? "16px 16px 18px" : "26px 28px 30px",
               }}>
-                <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.22em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 6 }}>
+                <div style={{
+                  fontFamily: "'Jost', sans-serif",
+                  fontSize: isMobile ? 10 : isTablet ? 13 : 16,
+                  letterSpacing: "0.2em",
+                  color: "rgb(255, 255, 255)",
+                  textTransform: "uppercase",
+                  marginBottom: isMobile ? 3 : 6,
+                }}>
                   {service.tag}
                 </div>
-                <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 400, color: "#f5f0e8", marginBottom: 8 }}>
+                <h3 style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: isMobile ? 20 : isTablet ? 22 : 34,
+                  fontWeight: 400,
+                  color: "#f5f0e8",
+                  marginBottom: isMobile ? 4 : 8,
+                }}>
                   {service.title}
                 </h3>
-                <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 12.5, lineHeight: 1.75, color: "rgba(245,240,232,0.6)", fontWeight: 300, marginBottom: 10 }}>
+                <p style={{
+                  fontFamily: "'Jost', sans-serif",
+                  fontSize: isMobile ? 13 : isTablet ? 15 : 18,
+                  lineHeight: 1.65,
+                  color: "rgba(245,240,232,0.6)",
+                  fontWeight: 300,
+                  marginBottom: isMobile ? 6 : 10,
+                  display: isMobile ? "-webkit-box" : "block",
+                  WebkitLineClamp: isMobile ? 2 : "unset",
+                  WebkitBoxOrient: isMobile ? "vertical" : "unset",
+                  overflow: isMobile ? "hidden" : "visible",
+                }}>
                   {service.desc}
                 </p>
-                {/* Spell name — reveals on hover */}
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <Sparkle size={8} color="#c8b89a" style={{ opacity: hovered === i ? 1 : 0, transition: "opacity 0.4s" }} />
                   <span style={{
                     fontFamily: "'Cormorant Garamond', serif",
                     fontStyle: "italic",
-                    fontSize: 12,
+                    fontSize: isMobile ? 13 : 18,
                     color: "#c8b89a",
                     opacity: hovered === i ? 1 : 0,
                     transition: "opacity 0.4s",
@@ -110,11 +142,11 @@ export default function Services() {
           fontFamily: "'Jost', sans-serif",
           textAlign: "center",
           marginTop: 32,
-          fontSize: 11,
+          fontSize: isMobile ? 13 : 16,
           letterSpacing: "0.1em",
           color: "#8b7355",
         }}>
-          Hover a service to reveal its spell ✦
+          {isMobile ? "Tap a service to reveal its spell ✦" : "Hover a service to reveal its spell ✦"}
         </p>
       </Reveal>
     </section>

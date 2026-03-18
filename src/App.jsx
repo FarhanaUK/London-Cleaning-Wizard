@@ -8,13 +8,17 @@ import Testimonials from "./components/Testimonials";
 import Areas from "./components/Areas";
 import Contact from "./components/Contact";
 import Footer from "./components/Footer";
+import TermsAndCondition from "./components/TermsAndCondition";
+import PrivacyPolicy from "./components/PrivacyPolicy"
+import Faqs from "./components/Faqs";
+import CookieBanner from "./components/CookieBanner";
+import { Routes, Route } from "react-router-dom";
 
 const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
-export default function App() {
+function MainPage() {
   return (
-    <div style={{ overflowX: "hidden" }}>
-      <Navbar />
+    <>
       <Hero onScrollTo={scrollTo} />
       <StatsStrip />
       <Services />
@@ -23,7 +27,22 @@ export default function App() {
       <Testimonials />
       <Areas />
       <Contact />
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <div style={{ overflowX: "hidden" }}>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<MainPage />} />
+        <Route path="/terms-and-conditions" element={<TermsAndCondition />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/faqs" element={<Faqs />} />
+      </Routes>
       <Footer />
+      <CookieBanner />
     </div>
   );
 }

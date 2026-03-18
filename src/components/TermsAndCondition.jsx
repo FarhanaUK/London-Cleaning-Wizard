@@ -1,0 +1,215 @@
+import { useState, useEffect } from "react";
+
+export default function TermsAndConditions() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return (
+    <div style={{
+      background: "#faf9f7",
+      minHeight: "100vh",
+      padding: isMobile ? "100px 20px 60px" : "120px clamp(20px, 6vw, 160px) 80px",
+    }}>
+      <div style={{ maxWidth: 800, margin: "0 auto" }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: isMobile ? 36 : 52, borderBottom: "1px solid #d4c4ae", paddingBottom: isMobile ? 24 : 32 }}>
+          <div style={{
+            fontFamily: "'Jost', sans-serif",
+            fontSize: 11,
+            letterSpacing: "0.22em",
+            color: "#8b7355",
+            textTransform: "uppercase",
+            marginBottom: 16,
+          }}>
+            Legal
+          </div>
+          <h1 style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: isMobile ? "clamp(28px, 8vw, 38px)" : "clamp(32px, 5vw, 52px)",
+            fontWeight: 300,
+            color: "#1a1410",
+            lineHeight: 1.1,
+            marginBottom: 16,
+          }}>
+            Terms & Conditions
+          </h1>
+          <p style={{
+            fontFamily: "'Jost', sans-serif",
+            fontSize: 14,
+            color: "#8b7355",
+            letterSpacing: "0.06em",
+          }}>
+            Last Updated: March 2026
+          </p>
+        </div>
+
+        {/* Intro */}
+        <p style={{ fontFamily: "'Jost', sans-serif", fontSize: isMobile ? 14 : 16, lineHeight: 1.9, color: "#5a4e44", marginBottom: isMobile ? 32 : 48 }}>
+          Welcome to London Cleaning Wizard. By requesting a quote, booking a service, or using our website or social media platforms, you agree to these Terms and Conditions.
+        </p>
+
+        {[
+          {
+            title: "1. About Us",
+            content: (
+              <>
+                <p>London Cleaning Wizard is a sole trader business operating in the United Kingdom.</p>
+                <p style={{ marginTop: 16 }}><strong>Contact Details:</strong></p>
+                <p>Email: info@londoncleaningwizard.com</p>
+                <p>Phone: 07377 156 973</p>
+              </>
+            ),
+          },
+          {
+            title: "2. Services",
+            content: (
+              <>
+                <p>We provide cleaning services including:</p>
+                <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {["Regular home cleaning", "Deep cleaning", "End of tenancy cleaning", "Airbnb cleaning", "Bedroom refresh services"].map(s => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+                <p style={{ marginTop: 16 }}>Our services primarily cover East London. We may accept bookings outside of this area at our discretion. Additional travel or service fees may apply for locations outside East London. Service availability depends on location and scheduling.</p>
+              </>
+            ),
+          },
+          {
+            title: "3. Quotes & Bookings",
+            content: (
+              <p>Quotes can be requested via our website, email, phone, or social media platforms. Customers may be required to send photos or videos for accurate quoting. Quotes are based on the information provided. A booking is confirmed once both parties agree and a deposit has been paid.</p>
+            ),
+          },
+          {
+            title: "4. Deposits & Payments",
+            content: (
+              <>
+                <p>A £50 deposit is required to secure your booking. The deposit goes toward the total cost and covers administrative and call-out costs. Full payment is due immediately after the service is completed, unless agreed otherwise.</p>
+                <p style={{ marginTop: 16 }}><strong>Payment Methods:</strong></p>
+                <ul style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <li>Card (Stripe invoice)</li>
+                  <li>Cash (by prior agreement)</li>
+                </ul>
+                <p style={{ marginTop: 16 }}><strong>Non-Payment:</strong> If payment is not made, a formal invoice will be issued with a payment deadline. An administration fee of £15 may be added after the deadline. Additional admin fees may be applied for continued non-payment. Future services may be refused and unpaid balances may result in debt recovery or legal action.</p>
+              </>
+            ),
+          },
+          {
+            title: "5. Cancellations & Refunds",
+            content: (
+              <>
+                <ul style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <li>More than 24 hours' notice: Full refund of deposit</li>
+                  <li>Less than 24 hours' notice: Deposit is non-refundable</li>
+                  <li>Same-day cancellation or no access provided: The full deposit will be retained</li>
+                </ul>
+                <p style={{ marginTop: 16 }}>If we cannot complete the service due to our fault, a full refund will be issued.</p>
+              </>
+            ),
+          },
+          {
+            title: "6. Access & Responsibilities",
+            content: (
+              <>
+                <p>Customers must provide clear access instructions, ensure safe working conditions, provide electricity and water, inform us of any pets in advance, ensure dogs or disruptive animals are secured during the service, and provide parking details where needed.</p>
+                <p style={{ marginTop: 16 }}><strong>Conduct Towards Staff:</strong> Customers must treat our staff with respect and professionalism. Any form of abuse, harassment, or threatening behaviour will result in immediate termination of the service. In such cases, the deposit will be retained and any completed work will be chargeable.</p>
+              </>
+            ),
+          },
+          {
+            title: "7. Right to Refuse or Stop Service",
+            content: (
+              <>
+                <p>We may refuse or stop a job if the environment is unsafe, there are health risks such as mould or hazardous waste not disclosed, the customer behaves inappropriately, the property condition differs significantly from what was described, or utilities are unavailable.</p>
+                <p style={{ marginTop: 16 }}>In these cases, the deposit will be retained to cover call-out costs. Any work completed will be charged and additional fees may apply if applicable.</p>
+              </>
+            ),
+          },
+          {
+            title: "8. Photography",
+            content: (
+              <p>Our cleaners will take before and after photos for quality control, training, and dispute protection. Photos will not be shared publicly without consent. Customers may be required to send photos before booking. If the property differs from what was shown, the price may increase or the service may be refused.</p>
+            ),
+          },
+          {
+            title: "9. Satisfaction Guarantee",
+            content: (
+              <p>Issues must be reported within 24 hours. We offer a free re-clean where appropriate. Refunds are not provided if a re-clean is offered and declined.</p>
+            ),
+          },
+          {
+            title: "10. Complaints",
+            content: (
+              <>
+                <p>Email: info@londoncleaningwizard.com</p>
+                <p style={{ marginTop: 8 }}>We aim to respond within 48 hours and resolve all complaints as soon as possible.</p>
+              </>
+            ),
+          },
+          {
+            title: "11. Liability",
+            content: (
+              <p>We take reasonable care in all services. We are not liable for pre-existing damage, normal wear and tear, or undisclosed fragile or valuable items. Customers should secure valuable items before cleaning. We maintain appropriate public liability insurance.</p>
+            ),
+          },
+          {
+            title: "12. Website & Platform Use",
+            content: (
+              <p>You agree not to misuse our website or social media, submit false information, or copy content without permission.</p>
+            ),
+          },
+          {
+            title: "13. Data Protection",
+            content: (
+              <p>We comply with UK GDPR. We may collect your name, contact details, address, and booking information. We use your data to provide services, communicate with you, and send marketing communications. We do not sell your data. You may opt out of marketing at any time.</p>
+            ),
+          },
+          {
+            title: "14. Changes to Terms",
+            content: <p>We may update these terms at any time. Continued use of our services following any changes constitutes acceptance of the updated terms.</p>,
+          },
+          {
+            title: "15. Governing Law",
+            content: <p>These terms are governed by the laws of England and Wales.</p>,
+          },
+          {
+            title: "16. Contact",
+            content: (
+              <>
+                <p>Email: info@londoncleaningwizard.com</p>
+                <p style={{ marginTop: 8 }}>Phone: 07377 156 973</p>
+              </>
+            ),
+          },
+        ].map(({ title, content }) => (
+          <div key={title} style={{ marginBottom: isMobile ? 28 : 40, paddingBottom: isMobile ? 28 : 40, borderBottom: "1px solid #ece6dc" }}>
+            <h2 style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: isMobile ? "clamp(18px, 5vw, 22px)" : "clamp(20px, 3vw, 26px)",
+              fontWeight: 400,
+              color: "#1a1410",
+              marginBottom: 12,
+            }}>
+              {title}
+            </h2>
+            <div style={{
+              fontFamily: "'Jost', sans-serif",
+              fontSize: isMobile ? 13 : 15,
+              lineHeight: 1.9,
+              color: "#5a4e44",
+            }}>
+              {content}
+            </div>
+          </div>
+        ))}
+
+      </div>
+    </div>
+  );
+}

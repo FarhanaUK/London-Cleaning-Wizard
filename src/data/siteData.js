@@ -13,21 +13,21 @@ export const PHOTOS = {
 export const HERO_IMAGE = "/wizard.png";
 
 export const SERVICES = [
-  { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "The Refresh Spell" },
-  { img: PHOTOS.kitchen,  title: "Deep Kitchen Clean",  tag: "One-off · Seasonal",     desc: "Degreasing, descaling and scrubbing every surface until your kitchen gleams like new.", spell: "The Gleam Enchantment" },
-  { img: PHOTOS.bathroom, title: "Bathroom & Ensuite",  tag: "Included in all plans",  desc: "Sanitised to perfection. Limescale banished, surfaces polished, mirrors streak-free.", spell: "The Purity Ritual" },
-  { img: PHOTOS.bedroom,  title: "Bedroom Refresh",     tag: "Linen change available", desc: "Fresh, airy bedrooms. Dusting, vacuuming, linen changes and meticulous attention.", spell: "The Serenity Cast" },
-  { img: PHOTOS.hallway,  title: "End of Tenancy",      tag: "Deposit guaranteed",     desc: "A landlord-approved full clean. Every inch, every surface — nothing left to chance.", spell: "The Grand Restoration" },
-  { img: PHOTOS.cleaner1, title: "Move-In Preparation", tag: "Fresh start",            desc: "Move into a home that feels truly yours from day one. Magic from the very first step.", spell: "The Welcome Charm" },
+  { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "The Refresh Spell",       alt: "Regularly cleaned living room in East London home" },
+  { img: PHOTOS.kitchen,  title: "Deep Kitchen Clean",  tag: "One-off · Seasonal",     desc: "Degreasing, descaling and scrubbing every surface until your kitchen gleams like new.", spell: "The Gleam Enchantment", alt: "Professionally deep cleaned kitchen in East London" },
+  { img: PHOTOS.bathroom, title: "Bathroom & Ensuite",  tag: "Included in all plans",  desc: "Sanitised to perfection. Limescale banished, surfaces polished, mirrors streak-free.", spell: "The Purity Ritual",     alt: "Spotless cleaned bathroom and ensuite in East London" },
+  { img: PHOTOS.bedroom,  title: "Bedroom Refresh",     tag: "Linen change available", desc: "Fresh, airy bedrooms. Dusting, vacuuming, linen changes and meticulous attention.", spell: "The Serenity Cast",       alt: "Fresh and clean bedroom refresh service in East London" },
+  { img: PHOTOS.hallway,  title: "Airbnb/End of Tenancy",      tag: "Deposit guaranteed",     desc: "A landlord-approved full clean. Every inch, every surface — nothing left to chance.", spell: "The Grand Restoration", alt: "End of tenancy clean in East London rental property" },
+  { img: PHOTOS.cleaner1, title: "Move-In Preparation", tag: "Fresh start",            desc: "Move into a home that feels truly yours from day one. Magic from the very first step.", spell: "The Welcome Charm",    alt: "Move-in cleaning preparation service by London Cleaning Wizard" },
 ];
 
 export const GALLERY = [
-  { img: PHOTOS.kitchen,  label: "Kitchen" },
-  { img: PHOTOS.living,   label: "Living Room" },
-  { img: PHOTOS.bathroom, label: "Bathroom" },
-  { img: PHOTOS.bedroom,  label: "Bedroom" },
-  { img: PHOTOS.hallway,  label: "Hallway" },
-  { img: PHOTOS.dining,   label: "Dining Room" },
+  { img: PHOTOS.kitchen,  label: "Kitchen",     alt: "Professionally cleaned kitchen in East London" },
+  { img: PHOTOS.living,   label: "Living Room", alt: "Spotless living room cleaned by London Cleaning Wizard" },
+  { img: PHOTOS.bathroom, label: "Bathroom",    alt: "Gleaming bathroom cleaned in East London home" },
+  { img: PHOTOS.bedroom,  label: "Bedroom",     alt: "Fresh bedroom after professional clean in East London" },
+  { img: PHOTOS.hallway,  label: "Hallway",     alt: "Clean bright hallway in East London property" },
+  { img: PHOTOS.dining,   label: "Dining Room", alt: "Professionally cleaned dining room in East London" },
 ];
 
 export const TESTIMONIALS = [
@@ -51,8 +51,8 @@ export const STATS = [
 ];
 
 export const CONTACT_INFO = [
-  { label: "Phone", value: "07700 900 123" },
-  { label: "Email", value: "hello@londoncleaningwizard.co.uk" },
+  { label: "Phone", value: "07377 156 973" },
+  { label: "Email", value: "info@londoncleaningwizard.com" },
   { label: "Hours", value: "Monday – Sunday · 7am to 9pm" },
 ];
 

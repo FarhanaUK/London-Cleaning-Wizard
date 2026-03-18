@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
 import { LogoMark, WandIcon } from "./Icons";
 import { NAV_LINKS } from "../data/siteData";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isDark = scrolled || location.pathname !== "/";
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 60);
@@ -24,7 +29,20 @@ export default function Navbar() {
 
   const scrollTo = (id) => {
     setMenuOpen(false);
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    if (location.pathname !== "/") {
+      navigate("/");
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    } else {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const goHome = () => {
+    setMenuOpen(false);
+    navigate("/");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -33,20 +51,20 @@ export default function Navbar() {
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: isMobile ? "0 20px" : isTablet ? "0 32px" : "0 clamp(20px, 5vw, 72px)",
-        height: scrolled ? "60px" : "76px",
-        background: scrolled ? "rgba(250,249,247,0.97)" : "transparent",
-        backdropFilter: scrolled ? "blur(18px)" : "none",
-        borderBottom: scrolled ? "1px solid rgba(200,184,154,0.2)" : "none",
+        height: isDark ? "60px" : "76px",
+        background: isDark ? "rgba(250,249,247,0.97)" : "transparent",
+        backdropFilter: isDark ? "blur(18px)" : "none",
+        borderBottom: isDark ? "1px solid rgba(200,184,154,0.2)" : "none",
         transition: "all 0.4s cubic-bezier(.4,0,.2,1)",
       }}>
 
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 8 : 12, cursor: "pointer" }}
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+          onClick={goHome}>
           <LogoMark
             size={isTablet ? 28 : 36}
-            color={scrolled ? "#c8b89a" : "rgba(200,184,154,0.85)"}
-            innerColor={scrolled ? "#8b7355" : "rgba(200,184,154,0.6)"}
+            color={isDark ? "#c8b89a" : "rgba(200,184,154,0.85)"}
+            innerColor={isDark ? "#8b7355" : "rgba(200,184,154,0.6)"}
           />
           <div>
             <div style={{
@@ -55,7 +73,7 @@ export default function Navbar() {
               fontSize: isTablet ? 14 : 18,
               letterSpacing: "0.05em",
               lineHeight: 1.1,
-              color: scrolled ? "#2c2420" : "#f5f0e8"
+              color: isDark ? "#2c2420" : "#f5f0e8",
             }}>
               London Cleaning Wizard
             </div>
@@ -63,9 +81,9 @@ export default function Navbar() {
               fontFamily: "'Jost', sans-serif",
               fontSize: 8,
               letterSpacing: "0.22em",
-              color: scrolled ? "#c8b89a" : "rgba(200,184,154,0.65)",
+              color: isDark ? "#c8b89a" : "rgba(200,184,154,0.65)",
               textTransform: "uppercase",
-              marginTop: 1
+              marginTop: 1,
             }}>
               Est. East London
             </div>
@@ -82,7 +100,7 @@ export default function Navbar() {
                 letterSpacing: isTablet ? "0.08em" : "0.12em",
                 textTransform: "uppercase",
                 cursor: "pointer",
-                color: scrolled ? "#5a4e44" : "rgba(245,240,232,0.75)",
+                color: isDark ? "#5a4e44" : "rgba(245,240,232,0.75)",
                 transition: "color 0.3s",
               }}>
                 {label}
@@ -95,8 +113,8 @@ export default function Navbar() {
               textTransform: "uppercase",
               fontWeight: 500,
               padding: isTablet ? "8px 16px" : "10px 26px",
-              background: scrolled ? "#2c2420" : "transparent",
-              border: scrolled ? "none" : "1px solid rgba(245,240,232,0.45)",
+              background: isDark ? "#2c2420" : "transparent",
+              border: isDark ? "none" : "1px solid rgba(245,240,232,0.45)",
               color: "#f5f0e8",
               cursor: "pointer",
               display: "flex",
@@ -112,7 +130,7 @@ export default function Navbar() {
         {isMobile && (
           <button onClick={() => setMenuOpen(!menuOpen)} style={{
             background: "none", border: "none", cursor: "pointer",
-            fontSize: 22, color: scrolled ? "#2c2420" : "#f5f0e8",
+            fontSize: 22, color: isDark ? "#2c2420" : "#f5f0e8",
           }}>
             {menuOpen ? "✕" : "☰"}
           </button>
