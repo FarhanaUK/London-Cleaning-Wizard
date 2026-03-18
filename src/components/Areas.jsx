@@ -18,6 +18,7 @@ export default function Areas() {
 
   return (
     <section
+    id="areas"
       aria-label="Areas we serve in East London"
       style={{ padding: isMobile ? "60px 20px" : "80px clamp(24px, 6vw, 100px)", background: "#f2ede6", position: "relative", overflow: "hidden" }}
     >
