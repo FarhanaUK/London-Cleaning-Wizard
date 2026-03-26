@@ -74,6 +74,20 @@ export default function Hero({ onScrollTo }) {
             <div style={{ background: "#c8b89a", padding: "12px 16px" }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable Luxury Clean</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 6, marginBottom: 5 }} />
+              <a
+                href="tel:02081370026"
+                style={{
+                  fontFamily: "'Jost', sans-serif",
+                  fontSize: 13,
+                  letterSpacing: "0.08em",
+                  color: "#1a1410",
+                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontWeight: 500,
+                }}
+              >020 8137 0026</a>
             </div>
           </div>
 
@@ -150,6 +164,21 @@ End of Tenancy | Airbnb Services
             <div style={{ position: "absolute", bottom: 24, right: 32, background: "#c8b89a", padding: "12px 18px", zIndex: 10 }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable<br />Luxury Clean</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
+               <a
+                href="tel:02081370026"
+                style={{
+                  fontFamily: "'Jost', sans-serif",
+                  fontSize: 14,
+                  letterSpacing: "0.08em",
+                  color: "#1a1410",
+                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontWeight: 500,
+                }}
+                
+              >020 8137 0026</a>
             </div>
           </div>
 
@@ -269,7 +298,22 @@ End of Tenancy | Airbnb Services
             {/* Callout badge */}
             <div style={{ position: "absolute", top: 120, right: 40, background: "#c8b89a", padding: "14px 22px", zIndex: 10 }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 46, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable<br />Luxury Clean</div>
-              <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />
+              <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />   <a
+    href="tel:02081370026"
+    style={{
+      fontFamily: "'Jost', sans-serif",
+      fontSize: 26,
+      letterSpacing: "0.08em",
+      color: "#1a1410",
+      textDecoration: "none",
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      fontWeight: 500,
+    }}
+  >
+    020 8137 0026
+  </a>
             </div>
           </div>
         </div>
