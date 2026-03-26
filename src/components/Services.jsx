@@ -85,14 +85,17 @@ export default function Services() {
                 justifyContent: "flex-end",
                 padding: isMobile ? "16px 16px 18px" : "26px 28px 30px",
               }}>
-                <div style={{
-                  fontFamily: "'Jost', sans-serif",
-                  fontSize: isMobile ? 10 : isTablet ? 13 : 16,
-                  letterSpacing: "0.2em",
-                  color: "rgb(255, 255, 255)",
-                  textTransform: "uppercase",
-                  marginBottom: isMobile ? 3 : 6,
-                }}>
+               <div style={{
+  fontFamily: "'Jost', sans-serif",
+  fontSize: isMobile ? 10 : isTablet ? 13 : 16,
+  letterSpacing: "0.2em",
+  color: "rgb(255, 255, 255)",
+  textTransform: "uppercase",
+  marginBottom: isMobile ? 3 : 6,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+}}>
                   {service.tag}
                 </div>
                 <h3 style={{

@@ -75,19 +75,24 @@ export default function Hero({ onScrollTo }) {
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable Luxury Clean</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 6, marginBottom: 5 }} />
               <a
-                href="tel:02081370026"
-                style={{
-                  fontFamily: "'Jost', sans-serif",
-                  fontSize: 13,
-                  letterSpacing: "0.08em",
-                  color: "#1a1410",
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontWeight: 500,
-                }}
-              >020 8137 0026</a>
+  href="tel:02081370026"
+  style={{
+    fontFamily: "'Jost', sans-serif",
+    fontSize: 13,
+    letterSpacing: "0.08em",
+    color: "#1a1410",
+    textDecoration: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    fontWeight: 500,
+    zIndex: 20,           // <-- add this
+    position: "relative", // <-- and this
+  }}
+>
+  020 8137 0026
+</a>
+             
             </div>
           </div>
 
@@ -314,6 +319,8 @@ End of Tenancy | Airbnb Services
   >
     020 8137 0026
   </a>
+
+  
             </div>
           </div>
         </div>

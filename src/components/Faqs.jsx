@@ -196,56 +196,119 @@ export default function Faqs() {
             </div>
           ))}
         </div>
+{/* Contact Info */}
+
+
 
         {/* CTA */}
-        <div style={{
-          marginTop: isMobile ? 40 : 60,
-          padding: isMobile ? "28px 20px" : "40px",
-          background: "#2c2420",
-          textAlign: "center",
-        }}>
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 16 }}>
-            <Sparkle size={10} color="#c8b89a" />
-            <Sparkle size={14} color="#c8b89a" />
-            <Sparkle size={10} color="#c8b89a" />
-          </div>
-          <h2 style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: isMobile ? "clamp(22px, 6vw, 28px)" : "clamp(24px, 4vw, 36px)",
-            fontWeight: 300,
-            color: "#f5f0e8",
-            marginBottom: 12,
-          }}>
-            Still have questions?
-          </h2>
-          <p style={{
-            fontFamily: "'Jost', sans-serif",
-            fontSize: isMobile ? 13 : 15,
-            color: "rgba(245,240,232,0.65)",
-            marginBottom: 24,
-            fontWeight: 300,
-          }}>
-            We're happy to help. Reach out and we'll get back to you within a few hours.
-          </p>
-          <a
-            href="mailto:bookings@londoncleaningwizard.com"
-            style={{
-              fontFamily: "'Jost', sans-serif",
-              fontSize: isMobile ? 11 : 12,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              fontWeight: 500,
-              padding: isMobile ? "12px 28px" : "14px 36px",
-              background: "#c8b89a",
-              color: "#1a1410",
-              textDecoration: "none",
-              display: "inline-block",
-            }}
-          >
-            Get In Touch
-          </a>
-        </div>
+       <div
+  style={{
+    marginTop: isMobile ? 40 : 60,
+    padding: isMobile ? "28px 20px" : "40px",
+    background: "#2c2420",
+    textAlign: "center",
+  }}
+>
+  {/* Sparkle icons */}
+  <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 16 }}>
+    <Sparkle size={10} color="#c8b89a" />
+    <Sparkle size={14} color="#c8b89a" />
+    <Sparkle size={10} color="#c8b89a" />
+  </div>
 
+  {/* Heading */}
+  <h2
+    style={{
+      fontFamily: "'Cormorant Garamond', serif",
+      fontSize: isMobile ? "clamp(22px, 6vw, 28px)" : "clamp(24px, 4vw, 36px)",
+      fontWeight: 300,
+      color: "#f5f0e8",
+      marginBottom: 12,
+    }}
+  >
+    Still have questions?
+  </h2>
+
+  {/* Subtext */}
+  <p
+    style={{
+      fontFamily: "'Jost', sans-serif",
+      fontSize: isMobile ? 13 : 15,
+      color: "rgba(245,240,232,0.65)",
+      marginBottom: 24,
+      fontWeight: 300,
+    }}
+  >
+    We're happy to help. Reach out and we'll get back to you within 24 hours.
+  </p>
+<p
+  style={{
+    fontFamily: "'Jost', sans-serif",
+    fontSize: isMobile ? 13 : 15,
+    color: "rgba(245,240,232,0.65)",
+    marginTop: 16,
+    fontWeight: 300,
+  }}
+>
+  Customer Service Hours<br />
+  Monday – Sunday · 9am to 5pm
+</p>
+  {/* Buttons / Links */}
+  <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center" }}>
+    <a
+      href="mailto:bookings@londoncleaningwizard.com"
+      style={{
+        fontFamily: "'Jost', sans-serif",
+        fontSize: isMobile ? 11 : 12,
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        fontWeight: 500,
+        padding: isMobile ? "12px 28px" : "14px 36px",
+        background: "#c8b89a",
+        color: "#1a1410",
+        textDecoration: "none",
+        display: "inline-block",
+      }}
+    >
+      Get In Touch
+    </a>
+
+    <a
+      href="tel:02081370026"
+      style={{
+        fontFamily: "'Cormorant Garamond', serif",
+        fontSize: isMobile ? 20 : 26,
+        fontWeight: 400,
+        color: "#f7f3f1",
+        textDecoration: "none",
+       marginTop: 20,
+      }}
+    >
+      020 8137 0026
+    </a>
+
+    {/* Emails */}
+    {["bookings@londoncleaningwizard.com", "careers@londoncleaningwizard.com"].map((email) => (
+      <a
+        key={email}
+        href={`mailto:${email}`}
+        style={{
+          fontFamily: "'Jost', sans-serif",
+          fontSize: isMobile ? 11 : 12,
+          letterSpacing: "0.14em",
+          textTransform: "none",
+          fontWeight: 300,
+          padding: isMobile ? "12px 28px" : "14px 36px",
+          color: "#ffffff",
+          textDecoration: "none",
+          display: "inline-block",
+        }}
+      >
+        {email}
+      </a>
+    ))}
+  </div>
+</div>
       </div>
     </div>
   );

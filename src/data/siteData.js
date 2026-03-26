@@ -13,11 +13,11 @@ export const PHOTOS = {
 export const HERO_IMAGE = "/wizard.png";
 
 export const SERVICES = [
-  { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "The Refresh Spell",       alt: "Regularly cleaned living room in East London home" },
+  { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly · Monthly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "The Refresh Spell",       alt: "Regularly cleaned living room in East London home" },
   { img: PHOTOS.kitchen,  title: "Deep Kitchen Clean",  tag: "One-off · Seasonal",     desc: "Degreasing, descaling and scrubbing every surface until your kitchen gleams like new.", spell: "The Gleam Enchantment", alt: "Professionally deep cleaned kitchen in East London" },
-  { img: PHOTOS.bathroom, title: "Bathroom & Ensuite",  tag: "Included in all plans",  desc: "Sanitised to perfection. Limescale banished, surfaces polished, mirrors streak-free.", spell: "The Purity Ritual",     alt: "Spotless cleaned bathroom and ensuite in East London" },
+  { img: PHOTOS.bathroom, title: "Bathroom & Ensuite",  tag: "Luxury standard",  desc: "Sanitised to perfection. Limescale banished, surfaces polished, mirrors streak-free.", spell: "The Purity Ritual",     alt: "Spotless cleaned bathroom and ensuite in East London" },
   { img: PHOTOS.bedroom,  title: "Bedroom Refresh",     tag: "Linen change available", desc: "Fresh, airy bedrooms. Dusting, vacuuming, linen changes and meticulous attention.", spell: "The Serenity Cast",       alt: "Fresh and clean bedroom refresh service in East London" },
-  { img: PHOTOS.hallway,  title: "Airbnb/End of Tenancy",      tag: "Deposit guaranteed",     desc: "A landlord-approved full clean. Every inch, every surface — nothing left to chance.", spell: "The Grand Restoration", alt: "End of tenancy clean in East London rental property" },
+  { img: PHOTOS.hallway,  title: "Airbnb/End of Tenancy", tag: "Get your deposit back",     desc: "A landlord-approved full clean. Every inch, every surface — nothing left to chance.", spell: "The Grand Restoration", alt: "End of tenancy clean in East London rental property" },
   { img: PHOTOS.cleaner1, title: "Move-In Preparation", tag: "Fresh start",            desc: "Move into a home that feels truly yours from day one. Magic from the very first step.", spell: "The Welcome Charm",    alt: "Move-in cleaning preparation service by London Cleaning Wizard" },
 ];
 
@@ -54,7 +54,7 @@ export const CONTACT_INFO = [
   { label: "Phone", value: "020 8137 0026" },
   { label: "Email", value: "bookings@londoncleaningwizard.com" },
   { label: "Service Hours", value: "Monday – Sunday · 7am to 9pm" },
-  { label: "Customer Service Hours", value: "Monday – Sunday · 9am to 6pm" },
+  { label: "Customer Service Hours", value: "Monday – Sunday · 9am to 5pm" },
 ];
 
 export const NAV_LINKS = [
