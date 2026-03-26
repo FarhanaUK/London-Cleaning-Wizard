@@ -61,8 +61,8 @@ export default function PrivacyPolicy() {
               <>
                 <p>London Cleaning Wizard is a sole trader business operating in the United Kingdom.</p>
                 <p style={{ marginTop: 16 }}><strong>Contact Details:</strong></p>
-                <p>Email: info@londoncleaningwizard.com</p>
-                <p>Phone: 07377 156 973</p>
+                <p>Email: bookings@londoncleaningwizard.com</p>
+                <p>Phone:  020 8137 0026</p>
               </>
             ),
           },
@@ -123,7 +123,7 @@ export default function PrivacyPolicy() {
           {
             title: "5. Marketing Communications",
             content: (
-              <p>We may send you marketing emails, messages, or offers. You can opt out at any time by clicking unsubscribe where applicable, or by contacting us directly at info@londoncleaningwizard.com.</p>
+              <p>We may send you marketing emails, messages, or offers. You can opt out at any time by clicking unsubscribe where applicable, or by contacting us directly at bookings@londoncleaningwizard.com.</p>
             ),
           },
           {
@@ -171,7 +171,7 @@ export default function PrivacyPolicy() {
                     "Withdraw consent (for marketing)",
                   ].map(item => <li key={item}>{item}</li>)}
                 </ul>
-                <p style={{ marginTop: 16 }}>To exercise these rights, contact: info@londoncleaningwizard.com</p>
+                <p style={{ marginTop: 16 }}>To exercise these rights, contact: bookings@londoncleaningwizard.com</p>
               </>
             ),
           },
@@ -210,8 +210,8 @@ export default function PrivacyPolicy() {
             content: (
               <>
                 <p>If you have any questions about this policy or your data:</p>
-                <p style={{ marginTop: 8 }}>Email: info@londoncleaningwizard.com</p>
-                <p style={{ marginTop: 8 }}>Phone: 07377 156 973</p>
+                <p style={{ marginTop: 8 }}>Email: bookings@londoncleaningwizard.com</p>
+                <p style={{ marginTop: 8 }}>Phone: 020 8137 0026</p>
               </>
             ),
           },

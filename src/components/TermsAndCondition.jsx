@@ -61,8 +61,8 @@ export default function TermsAndConditions() {
               <>
                 <p>London Cleaning Wizard is a sole trader business operating in the United Kingdom.</p>
                 <p style={{ marginTop: 16 }}><strong>Contact Details:</strong></p>
-                <p>Email: info@londoncleaningwizard.com</p>
-                <p>Phone: 07377 156 973</p>
+                <p>Email: bookings@londoncleaningwizard.com</p>
+                <p>Phone: 020 8137 0026</p>
               </>
             ),
           },
@@ -147,7 +147,7 @@ export default function TermsAndConditions() {
             title: "10. Complaints",
             content: (
               <>
-                <p>Email: info@londoncleaningwizard.com</p>
+                <p>Email: bookings@londoncleaningwizard.com</p>
                 <p style={{ marginTop: 8 }}>We aim to respond within 48 hours and resolve all complaints as soon as possible.</p>
               </>
             ),
@@ -182,7 +182,7 @@ export default function TermsAndConditions() {
             title: "16. Contact",
             content: (
               <>
-                <p>Email: info@londoncleaningwizard.com</p>
+                <p>Email: bookings@londoncleaningwizard.com</p>
                 <p style={{ marginTop: 8 }}>Phone: 07377 156 973</p>
               </>
             ),

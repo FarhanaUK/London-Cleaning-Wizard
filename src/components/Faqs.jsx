@@ -24,7 +24,7 @@ const FAQS = [
   },
   {
     question: "How do I book?",
-    answer: "Simply fill in the quote request form on our website, email us at info@londoncleaningwizard.com, or call us on 07377 156 973. We'll get back to you within a few hours with a personalised quote.",
+    answer: "Simply fill in the quote request form on our website, email us at bookings@londoncleaningwizard.com, or call us on 020 8137 0026. We'll get back to you within a few hours with a personalised quote.",
   },
   {
     question: "How much does a clean cost?",
@@ -130,7 +130,7 @@ export default function Faqs() {
             color: "#5a4e44",
             fontWeight: 300,
           }}>
-            Everything you need to know about London Cleaning Wizard. Can't find your answer? Get in touch at info@londoncleaningwizard.com
+            Everything you need to know about London Cleaning Wizard. Can't find your answer? Get in touch at bookings@londoncleaningwizard.com
           </p>
         </div>
 
@@ -228,7 +228,7 @@ export default function Faqs() {
             We're happy to help. Reach out and we'll get back to you within a few hours.
           </p>
           <a
-            href="mailto:info@londoncleaningwizard.com"
+            href="mailto:bookings@londoncleaningwizard.com"
             style={{
               fontFamily: "'Jost', sans-serif",
               fontSize: isMobile ? 11 : 12,

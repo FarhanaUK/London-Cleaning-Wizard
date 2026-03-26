@@ -51,9 +51,10 @@ export const STATS = [
 ];
 
 export const CONTACT_INFO = [
-  { label: "Phone", value: "07377 156 973" },
-  { label: "Email", value: "info@londoncleaningwizard.com" },
-  { label: "Hours", value: "Monday – Sunday · 7am to 9pm" },
+  { label: "Phone", value: "020 8137 0026" },
+  { label: "Email", value: "bookings@londoncleaningwizard.com" },
+  { label: "Service Hours", value: "Monday – Sunday · 7am to 9pm" },
+  { label: "Customer Service Hours", value: "Monday – Sunday · 9am to 6pm" },
 ];
 
 export const NAV_LINKS = [

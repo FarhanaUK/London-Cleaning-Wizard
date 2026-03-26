@@ -96,7 +96,8 @@ export default function Hero({ onScrollTo }) {
 
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 10, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
               <Sparkle size={7} color="#c8b89a" />
-              Residential Cleaning
+           Premium Residential Cleaning <br />
+End of Tenancy | Airbnb Services
               <Sparkle size={7} color="#c8b89a" />
             </div>
 
@@ -161,7 +162,8 @@ export default function Hero({ onScrollTo }) {
 
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 15, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
               <Sparkle size={8} color="#c8b89a" />
-              Residential Cleaning
+            Premium Residential Cleaning <br />
+End of Tenancy | Airbnb Services
               <Sparkle size={8} color="#c8b89a" />
             </div>
 
@@ -219,7 +221,8 @@ export default function Hero({ onScrollTo }) {
 
               <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, letterSpacing: "0.2em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
                 <Sparkle size={12} color="#c8b89a" />
-                Residential Cleaning
+            Premium Residential Cleaning <br />
+End of Tenancy | Airbnb Services
                 <Sparkle size={12} color="#c8b89a" />
               </div>
 
