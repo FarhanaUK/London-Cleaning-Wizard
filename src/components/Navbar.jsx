@@ -29,6 +29,15 @@ export default function Navbar() {
 
   const scrollTo = (id) => {
     setMenuOpen(false);
+
+    if (id === "contact") {
+    // Navigate to FAQS page and scroll to bottom
+    navigate("/faqs");
+    setTimeout(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    }, 100);
+    return; // stop here for contact
+  }
     if (location.pathname !== "/") {
       navigate("/");
       setTimeout(() => {

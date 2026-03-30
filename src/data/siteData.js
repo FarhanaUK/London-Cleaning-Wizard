@@ -64,6 +64,129 @@ export const NAV_LINKS = [
   { id: "contact",  label: "Contact"   },
 ];
 
+
+export const PROPERTY_TYPES = [
+  { id: 'flat',  label: 'Flat / Apartment / Studio', multiplier: 1.00, note: '' },
+  { id: 'house', label: 'House', multiplier: 1.10, note: '+10% on all packages' },
+];
+
+export const PACKAGES = [
+  {
+    id: 'refresh', name: 'The Refresh', popular: false,
+    desc: 'Studio & 1-bed entire home. ~2.5hrs. Hotel-standard finish.',
+    tags: ['Whole home', 'Eco products', 'Photos sent', 'Fragrance finish'],
+    showFreq: true, showAddons: true,
+    sizes: [
+      { id: 'studio', label: 'Studio',    basePrice: 115 },
+      { id: '1bed',   label: '1 Bedroom', basePrice: 115 },
+    ],
+  },
+  {
+    id: 'standard', name: 'The Standard', popular: true,
+    desc: '2–3 bed entire home. ~3.5hrs. Same dedicated cleaner, linen change included.',
+    tags: ['Whole home', 'Same cleaner', 'Linen change', 'Hotel finish'],
+    showFreq: true, showAddons: true,
+    sizes: [
+      { id: '2bed', label: '2 Bedroom', basePrice: 165 },
+      { id: '3bed', label: '3 Bedroom', basePrice: 180 },
+    ],
+  },
+  {
+    id: 'grand', name: 'The Grand', popular: false,
+    desc: '4-bed family home. Two-person team. Priority slot protected.',
+    tags: ['Whole home', '2-person team', 'Priority slot', 'Full turndown'],
+    showFreq: true, showAddons: true,
+    sizes: [
+      { id: '4bed', label: '4+ Bedroom', basePrice: 235 },
+    ],
+  },
+  {
+    id: 'deep', name: 'Deep Clean', popular: false,
+    desc: 'One-off intensive. Oven, fridge, inside cupboards, behind appliances.',
+    tags: ['Oven included', 'Inside fridge', 'Behind appliances', 'Photo report'],
+    showFreq: false, showAddons: true,
+    sizes: [
+      { id: 'studio', label: 'Studio',    basePrice: 265 },
+      { id: '1bed',   label: '1 Bedroom', basePrice: 265 },
+      { id: '2bed',   label: '2 Bedroom', basePrice: 330 },
+      { id: '3bed',   label: '3 Bedroom', basePrice: 395 },
+    ],
+  },
+  {
+    id: 'eot', name: 'End of Tenancy', popular: false,
+    desc: 'Deposit-back guaranteed. Letting agent standard. Free re-clean if needed.',
+    tags: ['Deposit guaranteed', 'Photo report', 'Re-clean included'],
+    showFreq: false, showAddons: false,
+    sizes: [
+      { id: 'studio', label: 'Studio',    basePrice: 285 },
+      { id: '1bed',   label: '1 Bedroom', basePrice: 285 },
+      { id: '2bed',   label: '2 Bedroom', basePrice: 375 },
+      { id: '3bed',   label: '3 Bedroom', basePrice: 495 },
+      { id: '4bed',   label: '4 Bedroom', basePrice: 595 },
+    ],
+  },
+  {
+    id: 'movein', name: 'Move-In Prep', popular: false,
+    desc: 'Arrive to a home that feels like yours from the first step.',
+    tags: ['Pre-arrival clean', 'Linen made up', 'Welcome kit'],
+    showFreq: false, showAddons: false,
+    sizes: [
+      { id: 'studio', label: 'Studio',    basePrice: 250 },
+      { id: '1bed',   label: '1 Bedroom', basePrice: 250 },
+      { id: '2bed',   label: '2 Bedroom', basePrice: 310 },
+      { id: '3bed',   label: '3 Bedroom', basePrice: 380 },
+    ],
+  },
+  {
+    id: 'airbnb', name: 'Airbnb Turnaround', popular: false,
+    desc: 'Guest-ready between every booking. Completion photo sent to you.',
+    tags: ['Guest-ready', 'Photo report', 'Same-day available'],
+    showFreq: false, showAddons: false,
+    sizes: [
+      { id: 'studio', label: 'Studio',    basePrice: 95  },
+      { id: '1bed',   label: '1 Bedroom', basePrice: 120 },
+      { id: '2bed',   label: '2 Bedroom', basePrice: 155 },
+      { id: '3bed',   label: '3 Bedroom', basePrice: 195 },
+      { id: '4bed',   label: '4 Bedroom', basePrice: 250 },
+    ],
+  },
+];
+
+export const FREQUENCIES = [
+  { id: 'one-off',     label: 'One-off',      saving: 0,  note: 'No commitment' },
+  { id: 'monthly',     label: 'Monthly',      saving: 7,  note: 'Save £7 per clean' },
+  { id: 'fortnightly', label: 'Fortnightly',  saving: 15, note: 'Save £15 per clean' },
+  { id: 'weekly',      label: 'Weekly',       saving: 30, note: 'Save £30 per clean' },
+];
+
+export const ADDONS = [
+  { id: 'oven',      name: 'Oven deep clean',              note: 'Interior, racks, door & casing', price: 75 },
+  { id: 'fridge',    name: 'Inside fridge & freezer',      note: 'Full interior clean',             price: 40 },
+  { id: 'windows',   name: 'Interior windows',             note: 'All panes, streak-free',          price: 55 },
+  { id: 'cupboards', name: 'Inside kitchen cupboards',     note: 'All interiors wiped',             price: 60 },
+  { id: 'microwave', name: 'Inside and outside microwave', note: 'Full clean',                      price: 10 },
+];
+
+export const SURCHARGES = {
+  weekend: 25,
+  sameDay: 30,
+};
+
+export function calculateTotal({ sizePrice, propertyType, frequency, addons, surcharge }) {
+  const mult     = propertyType === 'house' ? 1.10 : 1.0;
+  const base     = Math.round(sizePrice * mult);
+  const freqSave = frequency?.saving || 0;
+  const addnSum  = (addons || []).reduce((s, a) => s + a.price, 0);
+  const sur      = surcharge || 0;
+  const subtotal = base - freqSave + addnSum + sur;
+  return {
+    base,
+    houseExtra: propertyType === 'house' ? Math.round(sizePrice * 0.10) : 0,
+    freqSave, addnSum, surcharge: sur, subtotal,
+    deposit:   Math.round(subtotal * 0.30),
+    remaining: Math.round(subtotal * 0.70),
+  };
+}
 //There is no export default — 
 // every icon is a named export because there are multiple in one file. So when you import them you use curly braces: import { Sparkle, WandIcon } from "./Icons"
 //aria-hidden="true" is on every icon so screen readers ignore them — they're decorative

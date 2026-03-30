@@ -27,6 +27,18 @@ export default function Footer() {
   }, []);
 
   const scrollTo = (id) => {
+    if (id === "contact") {
+      if (location.pathname !== "/faqs") {
+        navigate("/faqs");
+        setTimeout(() => {
+          window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+        }, 100);
+      } else {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      }
+      return;
+    }
+
     if (location.pathname !== "/") {
       navigate("/");
       setTimeout(() => {
@@ -111,37 +123,6 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Nav links */}
-        <nav aria-label="Footer navigation">
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: isMobile ? "14px 24px" : isTablet ? 24 : 32,
-              marginTop: isMobile ? 20 : 0,
-            }}
-          >
-            {NAV_LINKS.map(({ id, label }) => (
-              <span
-                key={id}
-                onClick={() => scrollTo(id)}
-                role="link"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && scrollTo(id)}
-                style={{
-                  fontFamily: "'Jost', sans-serif",
-                  fontSize: isMobile ? 11 : isTablet ? 12 : 13,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "rgba(245,240,232,0.35)",
-                  cursor: "pointer",
-                }}
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        </nav>
       </div>
 
       {/* Social media links */}
@@ -181,36 +162,54 @@ export default function Footer() {
         ))}
       </div>
 
-      {/* Legal links */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: isMobile ? "10px 20px" : isTablet ? 16 : 24,
-          marginBottom: 24,
-        }}
-      >
-        {[
-          { label: "Privacy Policy", href: "/privacy-policy" },
-          { label: "Terms & Conditions", href: "/terms-and-conditions" },
-          { label: "FAQs", href: "/faqs" },
-        ].map(({ label, href }) => (
-          <a
-            key={label}
-            href={href}
-            style={{
-              fontFamily: "'Jost', sans-serif",
-              fontSize: isMobile ? 10 : isTablet ? 10.5 : 11,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "rgba(245,240,232,0.25)",
-              textDecoration: "none",
-            }}
-          >
-            {label}
-          </a>
-        ))}
-      </div>
+     {/* Legal links */}
+<div
+  style={{
+    display: "flex",
+    flexDirection: isMobile ? "column" : "row", // stack on mobile
+    alignItems: isMobile ? "flex-start" : "center",
+    gap: isMobile ? 10 : isTablet ? 16 : 24,
+    marginBottom: 24,
+  }}
+>
+  {[ 
+    { label: "Privacy Policy", href: "/privacy-policy" },
+    { label: "Terms & Conditions", href: "/terms-and-conditions" },
+    { label: "FAQs", href: "/faqs" },
+  ].map(({ label, href }) => (
+    <a
+      key={label}
+      href={href}
+      style={{
+        fontFamily: "'Jost', sans-serif",
+        fontSize: isMobile ? 10 : isTablet ? 10.5 : 11,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        color: "rgba(245,240,232,0.25)",
+        textDecoration: "none",
+        marginBottom: isMobile ? 8 : 0, // add spacing between stacked links
+      }}
+    >
+      {label}
+    </a>
+  ))}
+
+  {/* Contacts link scrolling to bottom of FAQs */}
+  <span
+    onClick={() => scrollTo("contact")}
+    style={{
+      fontFamily: "'Jost', sans-serif",
+      fontSize: isMobile ? 10 : isTablet ? 10.5 : 11,
+      letterSpacing: "0.12em",
+      textTransform: "uppercase",
+      color: "rgba(245,240,232,0.25)",
+      cursor: "pointer",
+      marginBottom: isMobile ? 8 : 0, // same spacing
+    }}
+  >
+    Contacts
+  </span>
+</div>
 
       {/* Bottom row */}
       <div

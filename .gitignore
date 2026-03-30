@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.local
+.env.production
+functions/service-account.json
+functions/node_modules
