@@ -12,6 +12,7 @@ import TermsAndCondition from "./components/TermsAndCondition";
 import PrivacyPolicy from "./components/PrivacyPolicy"
 import Faqs from "./components/Faqs";
 import CookieBanner from "./components/CookieBanner";
+import AdminPage from "./components/AdminPage"
 import { Routes, Route } from "react-router-dom";
 
 const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/faqs" element={<Faqs />} />
         <Route path="/book" element={<BookingPage />} />
+        <Route path="/admin" element={<AdminPage />} />
       </Routes>
       <Footer />
       <CookieBanner />

@@ -26,6 +26,11 @@ export default function BookingPage() {
   const [result,    setResult]    = useState(null);
   const [isMobile,  setIsMobile]  = useState(window.innerWidth < 768);
 
+  const goToStep = (n) => {
+    setStep(n);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', h);
@@ -37,13 +42,16 @@ export default function BookingPage() {
   const update = (partial) => setBooking(b => ({ ...b, ...partial }));
 
   useEffect(() => {
-  // Temporarily remove overflow hidden from the app wrapper so sticky works
-  const appWrapper = document.querySelector('[style*="overflow"]');
-  if (appWrapper) {
-    appWrapper.style.overflowX = 'visible';
-    return () => { appWrapper.style.overflowX = 'hidden'; };
-  }
-}, []);
+    // Patch any overflow:hidden ancestor so sticky works
+    const appWrapper = document.querySelector('[style*="overflow"]');
+    if (appWrapper) {
+      appWrapper.style.overflowX = 'visible';
+      return () => { appWrapper.style.overflowX = 'hidden'; };
+    }
+  }, []);
+
+  // navbar(60) + progressBar(~72) + breathing room(16)
+  const SIDEBAR_TOP = 148;
 
   return (
     <>
@@ -53,11 +61,15 @@ export default function BookingPage() {
 
       {/* Progress bar */}
       <div style={{
+        position: 'sticky',
+        top: isMobile ? 105 : 60,
+        zIndex: 20,
         background: '#1a1410',
-        paddingTop: isMobile ? 16 : 72,
-        paddingBottom: 20,
+        paddingTop: 16,
+        paddingBottom: 16,
         paddingLeft: 28,
         paddingRight: 28,
+        borderBottom: '1px solid rgba(200,184,154,0.1)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', maxWidth: 560 }}>
           {STEPS.map((label, i) => {
@@ -95,30 +107,36 @@ export default function BookingPage() {
           })}
         </div>
       </div>
-<div style={{paddingTop: isMobile ? 2 : 4,}}>
-        <h1>The Booking form is currently under construction. <br/>Please call 020 8137 0026 for bookings</h1>
-</div>
-      {/* Grid wrapper — this must exist for sticky to work */}
+
+      {/* Grid wrapper */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr' : '1fr 300px',
+        alignItems: 'start',          // ← stops grid stretching both columns to same height
         maxWidth: 1100,
         margin: '0 auto',
-        padding: isMobile ? '28px 16px' : '40px 28px',
+        padding: isMobile ? '28px 16px' : '40px 28px 40px',
         gap: 0,
       }}>
 
         {/* Steps column */}
-        <div style={{ paddingRight: isMobile ? 0 : 40 }}>
-          {step === 1 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => setStep(2)} />}
-          {step === 2 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => setStep(3)} onBack={() => setStep(1)} />}
-          {step === 3 && <BookingStep3 booking={booking} onUpdate={update} onNext={() => setStep(4)} onBack={() => setStep(2)} isMobile={isMobile} />}
-          {step === 4 && <BookingStep4 booking={booking} onUpdate={update} onSuccess={(res) => { setResult(res); setConfirmed(true); }} onBack={() => setStep(3)} />}
+        <div style={{ paddingRight: isMobile ? 0 : 40, paddingTop: 80 }}>
+          {step === 1 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => goToStep(2)} />}
+          {step === 2 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(3)} onBack={() => goToStep(1)} />}
+          {step === 3 && <BookingStep3 booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} isMobile={isMobile} />}
+          {step === 4 && <BookingStep4 booking={booking} onUpdate={update} onSuccess={(res) => { setResult(res); setConfirmed(true); }} onBack={() => goToStep(3)} />}
         </div>
 
         {/* Desktop invoice sidebar */}
         {!isMobile && (
-          <div style={{ position: 'sticky', top: 90, height: 'fit-content', alignSelf: 'start' }}>
+          <div style={{
+            position: 'sticky',
+            top: SIDEBAR_TOP,
+            alignSelf: 'start',
+            maxHeight: `calc(100vh - ${SIDEBAR_TOP + 20}px)`,  // ← never taller than remaining viewport
+            overflowY: 'auto',                                  // ← scrolls internally if content overflows
+            marginTop: 20,
+          }}>
             <BookingInvoice booking={booking} />
           </div>
         )}

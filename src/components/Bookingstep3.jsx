@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { validateForm, validateField } from '../utils/validation';
 import { SectionSpinner } from './LoadingStates';
 import { Sparkle, WandIcon } from './Icons';
@@ -34,23 +34,41 @@ const ERR = { fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', m
 const HOW_HEARD = ['Google Search','Instagram','Facebook','TikTok','Word of Mouth','Leaflet','Nextdoor','Other'];
 const PARKING   = ['Free street parking nearby','Permit zone — I will arrange','Private driveway / bay','No parking available'];
 
+// Module-level component — stable reference, never remounts
+function Field({ name, label, type = 'text', placeholder, readOnly, value, error, onChange }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> {label}</label>
+      <input
+        type={type}
+        name={name}
+        value={value}
+        readOnly={readOnly}
+        placeholder={placeholder}
+        onChange={e => onChange(name, e.target.value)}
+        onBlur={e => onChange(name, e.target.value)}
+        style={{ ...INPUT(!!error), background: readOnly ? '#faf9f7' : 'transparent' }}
+        autoComplete={name}
+      />
+      {error && <p style={ERR}>{error}</p>}
+    </div>
+  );
+}
+
 export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobile }) {
-  // Customer type: null | 'new' | 'returning'
-  const [custType,     setCustType]     = useState(null);
+  const [custType,      setCustType]      = useState(null);
 
-  // Returning flow
-  const [retEmail,     setRetEmail]     = useState('');
-  const [retEmailErr,  setRetEmailErr]  = useState('');
-  const [codeSent,     setCodeSent]     = useState(false);
-  const [sendingCode,  setSendingCode]  = useState(false);
-  const [code,         setCode]         = useState('');
-  const [codeErr,      setCodeErr]      = useState('');
-  const [verifying,    setVerifying]    = useState(false);
-  const [secondsLeft,  setSecondsLeft]  = useState(600);
+  const [retEmail,      setRetEmail]      = useState('');
+  const [retEmailErr,   setRetEmailErr]   = useState('');
+  const [codeSent,      setCodeSent]      = useState(false);
+  const [sendingCode,   setSendingCode]   = useState(false);
+  const [code,          setCode]          = useState('');
+  const [codeErr,       setCodeErr]       = useState('');
+  const [verifying,     setVerifying]     = useState(false);
+  const [secondsLeft,   setSecondsLeft]   = useState(600);
   const [profileLoaded, setProfileLoaded] = useState(false);
-  const [lastBooking,  setLastBooking]  = useState(null);
+  const [lastBooking,   setLastBooking]   = useState(null);
 
-  // Form fields
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '',
     addr1: '', postcode: '', floor: '', parking: '', keys: '', notes: '', source: '',
@@ -58,7 +76,6 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
 
-  // Countdown timer for verification code
   useEffect(() => {
     if (!codeSent || secondsLeft <= 0) return;
     const t = setTimeout(() => setSecondsLeft(s => s - 1), 1000);
@@ -67,11 +84,11 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
   const timeDisplay = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`;
 
-  const updateField = (field, value) => {
+  const updateField = useCallback((field, value) => {
     setForm(f => ({ ...f, [field]: value }));
     const err = validateField(field, value);
     setFieldErrors(e => ({ ...e, [field]: err }));
-  };
+  }, []);
 
   const handleSendCode = async () => {
     if (!retEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(retEmail)) {
@@ -106,8 +123,6 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
       });
       const data = await res.json();
       if (!res.ok) { setCodeErr(data.error); return; }
-
-      // Pre-fill form from profile
       if (data.profile) {
         const p = data.profile;
         setForm({
@@ -118,12 +133,9 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
           keys: p.keys || '', notes: p.notes || '', source: '',
         });
         setLastBooking(p.lastPackageName ? {
-          service:  p.lastPackageName,
-          date:     p.lastDate,
-          cleaner:  p.lastCleaner,
-          pkg:      p.lastPackage,
-          size:     p.lastSize,
-          price:    p.lastPrice,
+          service: p.lastPackageName, date: p.lastDate,
+          cleaner: p.lastCleaner, pkg: p.lastPackage,
+          size: p.lastSize, price: p.lastPrice,
         } : null);
       } else {
         setForm(f => ({ ...f, email: retEmail }));
@@ -156,40 +168,25 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
     onNext();
   };
 
-  const Field = ({ name, label, type = 'text', placeholder, readOnly, style }) => (
-    <div style={{ marginBottom: 20, ...style }}>
-      <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> {label}</label>
-      <input
-        type={type}
-        value={form[name]}
-        readOnly={readOnly}
-        placeholder={placeholder}
-        onChange={e => updateField(name, e.target.value)}
-        onBlur={e => updateField(name, e.target.value)}
-        style={{ ...INPUT(!!fieldErrors[name]), background: readOnly ? '#faf9f7' : 'transparent' }}
-        autoComplete={name}
-      />
-      {fieldErrors[name] && <p style={ERR}>{fieldErrors[name]}</p>}
-    </div>
-  );
+  const cols = isMobile ? '1fr' : '1fr 1fr';
 
-  const FullForm = () => (
+  const formBody = (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '0 20px' }}>
-        <Field name="firstName" label="First Name *"    placeholder="Sophie" />
-        <Field name="lastName"  label="Last Name *"     placeholder="Lewis" />
-        <Field name="email"     label="Email Address *" placeholder="you@example.com" type="email" readOnly={custType === 'returning'} />
-        <Field name="phone"     label="Phone Number *"  placeholder="07700 000 000" type="tel" />
+      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px' }}>
+        <Field key="firstName" name="firstName" label="First Name *"    placeholder="Sophie"          value={form.firstName} error={fieldErrors.firstName} onChange={updateField} />
+        <Field key="lastName"  name="lastName"  label="Last Name *"     placeholder="Lewis"           value={form.lastName}  error={fieldErrors.lastName}  onChange={updateField} />
+        <Field key="email"     name="email"     label="Email Address *" placeholder="you@example.com" value={form.email}     error={fieldErrors.email}     onChange={updateField} type="email" readOnly={custType === 'returning'} />
+        <Field key="phone"     name="phone"     label="Phone Number *"  placeholder="07700 000 000"   value={form.phone}     error={fieldErrors.phone}     onChange={updateField} type="tel" />
       </div>
 
       <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#8b7355', margin: '8px 0 16px', paddingTop: 8, borderTop: '1px solid rgba(200,184,154,0.2)' }}>
         Property Details
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '0 20px' }}>
-        <Field name="addr1"    label="Address Line 1 *" placeholder="Flat 3, 42 Mare Street" />
-        <Field name="postcode" label="Postcode *"        placeholder="E8 1HL" />
-        <Field name="floor"    label="Floor / Access Notes" placeholder="2nd floor, no lift" />
+      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px' }}>
+        <Field key="addr1"    name="addr1"    label="Address Line 1 *"    placeholder="Flat 3, 42 Mare Street" value={form.addr1}    error={fieldErrors.addr1}    onChange={updateField} />
+        <Field key="postcode" name="postcode" label="Postcode *"           placeholder="E8 1HL"                 value={form.postcode} error={fieldErrors.postcode} onChange={updateField} />
+        <Field key="floor"    name="floor"    label="Floor / Access Notes" placeholder="2nd floor, no lift"     value={form.floor}    error={fieldErrors.floor}    onChange={updateField} />
         <div style={{ marginBottom: 20 }}>
           <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Parking</label>
           <select value={form.parking} onChange={e => setForm(f => ({ ...f, parking: e.target.value }))}
@@ -200,8 +197,8 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
         </div>
       </div>
 
-      <Field name="keys"  label="Key Instructions" placeholder="Key with concierge, smart lock code 1234, I'll be home" />
-      <Field name="notes" label="Preferences & Notes" placeholder="e.g. allergic to strong fragrances, dog in the house..." />
+      <Field key="keys"  name="keys"  label="Key Instructions"    placeholder="Key with concierge, smart lock code 1234, I'll be home" value={form.keys}  error={fieldErrors.keys}  onChange={updateField} />
+      <Field key="notes" name="notes" label="Preferences & Notes" placeholder="e.g. allergic to strong fragrances, dog in the house..."  value={form.notes} error={fieldErrors.notes} onChange={updateField} />
 
       <div style={{ marginBottom: 20 }}>
         <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> How did you hear about us?</label>
@@ -216,7 +213,6 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
   return (
     <div>
-      {/* Customer type selector */}
       {!custType && (
         <>
           <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 300, marginBottom: 20 }}>
@@ -240,10 +236,9 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
         </>
       )}
 
-      {/* New customer */}
       {custType === 'new' && (
         <>
-          <FullForm />
+          {formBody}
           {submitError && <p style={{ ...ERR, marginBottom: 12 }}>{submitError}</p>}
           <div style={{ display: 'flex', gap: 12 }}>
             <button onClick={() => setCustType(null)} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>← Back</button>
@@ -252,10 +247,8 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
         </>
       )}
 
-      {/* Returning customer */}
       {custType === 'returning' && (
         <>
-          {/* Step 1: Email entry */}
           {!codeSent && !profileLoaded && (
             <>
               <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 300, marginBottom: 20 }}>
@@ -282,7 +275,6 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
             </>
           )}
 
-          {/* Step 2: Code entry */}
           {codeSent && !profileLoaded && (
             <>
               <div style={{ background: '#fff8eb', borderLeft: '2px solid #c8b89a', padding: '10px 14px', marginBottom: 20, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#7a5c00', fontWeight: 300 }}>
@@ -313,7 +305,6 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
             </>
           )}
 
-          {/* Step 3: Profile loaded */}
           {profileLoaded && (
             <>
               <div style={{ background: '#f3faf6', borderLeft: '2px solid #2d6a4f', padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -324,7 +315,6 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
                 </div>
               </div>
 
-              {/* Last booking summary */}
               {lastBooking && (
                 <div style={{ background: '#1a1410', padding: '16px 20px', marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, color: '#c8b89a', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>Your Last Booking</div>
@@ -341,7 +331,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
                 </div>
               )}
 
-              <FullForm />
+              {formBody}
               {submitError && <p style={{ ...ERR, marginBottom: 12 }}>{submitError}</p>}
               <div style={{ display: 'flex', gap: 12 }}>
                 <button onClick={() => { setCustType(null); setProfileLoaded(false); setCodeSent(false); }} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>← Back</button>

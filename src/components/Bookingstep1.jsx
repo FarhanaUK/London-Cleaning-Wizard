@@ -159,20 +159,21 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
             {PACKAGES.filter(p => p.id !== 'airbnb').map(pkg => (
               <div key={pkg.id}>
                 <div style={CARD(booking.pkg?.id === pkg.id)} onClick={() => handlePackageSelect(pkg)}>
-                  {pkg.popular && (
-                    <div style={{
-                      position: 'absolute', top: -10, left: 16,
-                      background: '#c8b89a', color: '#1a1410',
-                      fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
-                      padding: '3px 10px',
-                    }}>Most Popular</div>
-                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                     <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 19, fontWeight: 400, color: '#1a1410' }}>
                       {pkg.name}
                     </div>
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#c8b89a', flexShrink: 0, marginLeft: 12 }}>
-                      from £{pkg.sizes[0].basePrice}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0, marginLeft: 12 }}>
+                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#c8b89a' }}>
+                        from £{pkg.sizes[0].basePrice}
+                      </div>
+                      {pkg.popular && (
+                        <div style={{
+                          background: '#c8b89a', color: '#1a1410',
+                          fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
+                          padding: '3px 10px',
+                        }}>Most Popular</div>
+                      )}
                     </div>
                   </div>
                   <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#6b5e56', fontWeight: 300, marginBottom: 10, lineHeight: 1.6 }}>
