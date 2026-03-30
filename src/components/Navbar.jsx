@@ -115,7 +115,7 @@ export default function Navbar() {
                 {label}
               </span>
             ))}
-            <button onClick={() => scrollTo("contact")} style={{
+            <button onClick={() => navigate("/book")} style={{
               fontFamily: "'Jost', sans-serif",
               fontSize: isTablet ? 10 : 12,
               letterSpacing: "0.12em",
@@ -161,7 +161,7 @@ export default function Navbar() {
               {label}
             </span>
           ))}
-          <button onClick={() => scrollTo("contact")} style={{
+          <button onClick={() => { setMenuOpen(false); navigate("/book"); }} style={{
             fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em",
             textTransform: "uppercase", fontWeight: 500, padding: "15px 44px",
             background: "#2c2420", color: "#f5f0e8", border: "none", cursor: "pointer",

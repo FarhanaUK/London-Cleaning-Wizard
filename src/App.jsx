@@ -6,7 +6,7 @@ import Gallery from "./components/Gallery";
 import About from "./components/About";
 import Testimonials from "./components/Testimonials";
 import Areas from "./components/Areas";
-
+import BookingPage from "./components/BookingPage";
 import Footer from "./components/Footer";
 import TermsAndCondition from "./components/TermsAndCondition";
 import PrivacyPolicy from "./components/PrivacyPolicy"
@@ -40,6 +40,7 @@ export default function App() {
         <Route path="/terms-and-conditions" element={<TermsAndCondition />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/faqs" element={<Faqs />} />
+        <Route path="/book" element={<BookingPage />} />
       </Routes>
       <Footer />
       <CookieBanner />
