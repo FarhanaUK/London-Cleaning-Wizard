@@ -70,8 +70,8 @@ const PACKAGE_DETAIL = {
 };
 
 const LABEL = {
-  fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.2em',
-  textTransform: 'uppercase', color: '#8b7355', marginBottom: 10,
+  fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.08em',
+  textTransform: 'uppercase', color: '#5a4e44', marginBottom: 10,
   display: 'flex', alignItems: 'center', gap: 7,
 };
 
@@ -83,9 +83,9 @@ const BTN = {
 };
 
 const CARD = (selected) => ({
-  border: selected ? '1px solid #c8b89a' : '1px solid rgba(200,184,154,0.3)',
-  background: selected ? 'rgba(200,184,154,0.06)' : 'transparent',
-  padding: '16px 18px', cursor: 'pointer', transition: 'all 0.2s',
+  border: selected ? '1.5px solid #c8b89a' : '1px solid rgba(200,184,154,0.4)',
+  background: selected ? 'rgba(200,184,154,0.12)' : '#fdf8f3',
+  padding: '18px 20px', cursor: 'pointer', transition: 'all 0.2s',
   position: 'relative',
 });
 
@@ -160,11 +160,11 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               <div key={pkg.id}>
                 <div style={CARD(booking.pkg?.id === pkg.id)} onClick={() => handlePackageSelect(pkg)}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 19, fontWeight: 400, color: '#1a1410' }}>
+                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 21, fontWeight: 400, color: '#1a1410' }}>
                       {pkg.name}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0, marginLeft: 12 }}>
-                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#c8b89a' }}>
+                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#5a4e44' }}>
                         from £{pkg.sizes[0].basePrice}
                       </div>
                       {pkg.popular && (
@@ -254,7 +254,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, color: '#1a1410', marginBottom: 4 }}>
                     {size.label}
                   </div>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: '#c8b89a' }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: '#2c2420' }}>
                     £{displayPrice}
                   </div>
                 </div>
@@ -326,7 +326,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                       {addon.note}
                     </div>
                   </div>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#c8b89a', flexShrink: 0 }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#2c2420', flexShrink: 0 }}>
                     +£{addon.price}
                   </div>
                 </div>

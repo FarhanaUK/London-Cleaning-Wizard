@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(node -e \"try { require\\(''./index.js''\\); console.log\\(''OK''\\); } catch\\(e\\) { console.error\\(e.message\\); }\")",
+      "Bash(firebase deploy:*)"
+    ]
+  }
+}

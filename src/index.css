@@ -3,3 +3,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(139, 115, 85, 0.35) !important;
+  font-weight: 300;
+}

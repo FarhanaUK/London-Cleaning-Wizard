@@ -4,15 +4,15 @@ import { SectionSpinner } from './LoadingStates';
 import { Sparkle, WandIcon } from './Icons';
 
 const LABEL = {
-  fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.2em',
-  textTransform: 'uppercase', color: '#8b7355', marginBottom: 6,
+  fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.08em',
+  textTransform: 'uppercase', color: '#5a4e44', marginBottom: 8,
   display: 'flex', alignItems: 'center', gap: 7,
 };
 
 const INPUT = (hasError) => ({
-  width: '100%', background: 'transparent', border: 'none',
-  borderBottom: `1px solid ${hasError ? '#8b2020' : 'rgba(200,184,154,0.4)'}`,
-  padding: '10px 0', fontFamily: "'Jost',sans-serif", fontSize: 14,
+  width: '100%', background: '#fdf8f3', boxSizing: 'border-box',
+  border: `1px solid ${hasError ? '#8b2020' : 'rgba(200,184,154,0.45)'}`,
+  padding: '11px 14px', fontFamily: "'Jost',sans-serif", fontSize: 14,
   color: '#1a1410', outline: 'none',
 });
 
@@ -24,15 +24,49 @@ const BTN = {
 };
 
 const CARD = (selected) => ({
-  border: selected ? '1px solid #c8b89a' : '1px solid rgba(200,184,154,0.3)',
-  background: selected ? 'rgba(200,184,154,0.06)' : 'transparent',
+  border: selected ? '1.5px solid #c8b89a' : '1px solid rgba(200,184,154,0.4)',
+  background: selected ? 'rgba(200,184,154,0.12)' : '#fdf8f3',
   padding: '20px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
 });
 
-const ERR = { fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginTop: 4 };
+const ERR = { fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginTop: 6 };
+
+const SECTION = {
+  background: '#fdf8f3', border: '1px solid rgba(200,184,154,0.3)',
+  padding: '20px 20px 4px', marginBottom: 16,
+};
+
+const SECTION_TITLE = {
+  fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.18em',
+  textTransform: 'uppercase', color: '#8b7355', marginBottom: 18,
+  paddingBottom: 10, borderBottom: '1px solid rgba(200,184,154,0.2)',
+};
 
 const HOW_HEARD = ['Google Search','Instagram','Facebook','TikTok','Word of Mouth','Leaflet','Nextdoor','Other'];
 const PARKING   = ['Free street parking nearby','Permit zone — I will arrange','Private driveway / bay','No parking available'];
+
+function SelectField({ label, value, options, onChange, placeholder = 'Select…', error }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> {label}</label>
+      <div style={{ position: 'relative' }}>
+        <select
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          style={{ ...INPUT(!!error), appearance: 'none', cursor: 'pointer', paddingRight: 36 }}
+        >
+          <option value="">{placeholder}</option>
+          {options.map(o => <option key={o}>{o}</option>)}
+        </select>
+        <span style={{
+          position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
+          pointerEvents: 'none', color: '#8b7355', fontSize: 11,
+        }}>▼</span>
+      </div>
+      {error && <p style={ERR}>{error}</p>}
+    </div>
+  );
+}
 
 // Module-level component — stable reference, never remounts
 function Field({ name, label, type = 'text', placeholder, readOnly, value, error, onChange }) {
@@ -47,7 +81,7 @@ function Field({ name, label, type = 'text', placeholder, readOnly, value, error
         placeholder={placeholder}
         onChange={e => onChange(name, e.target.value)}
         onBlur={e => onChange(name, e.target.value)}
-        style={{ ...INPUT(!!error), background: readOnly ? '#faf9f7' : 'transparent' }}
+        style={{ ...INPUT(!!error), background: readOnly ? '#faf9f7' : 'white' }}
         autoComplete={name}
       />
       {error && <p style={ERR}>{error}</p>}
@@ -55,7 +89,7 @@ function Field({ name, label, type = 'text', placeholder, readOnly, value, error
   );
 }
 
-export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobile }) {
+export default function BookingStep3({ onUpdate, onNext, onBack, isMobile }) {
   const [custType,      setCustType]      = useState(null);
 
   const [retEmail,      setRetEmail]      = useState('');
@@ -72,6 +106,8 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '',
     addr1: '', postcode: '', floor: '', parking: '', keys: '', notes: '', source: '',
+    hasPets: null, petTypes: '',
+    signatureTouch: true, signatureTouchNotes: '',
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
@@ -131,6 +167,8 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
           addr1: p.addr1 || '', postcode: p.postcode || '',
           floor: p.floor || '', parking: p.parking || '',
           keys: p.keys || '', notes: p.notes || '', source: '',
+          hasPets: p.hasPets ?? null, petTypes: p.petTypes || '',
+          signatureTouch: p.signatureTouch ?? true, signatureTouchNotes: p.signatureTouchNotes || '',
         });
         setLastBooking(p.lastPackageName ? {
           service: p.lastPackageName, date: p.lastDate,
@@ -151,6 +189,9 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
   const handleNext = () => {
     const errors = validateForm(form);
+    if (!form.source) errors.source = 'Please let us know how you heard about us.';
+    if (form.hasPets === null) errors.hasPets = 'Please let us know whether there are pets at the property.';
+    if (form.hasPets === true && !form.petTypes.trim()) errors.petTypes = 'Please describe your pets.';
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       setSubmitError('Please fix the errors above.');
@@ -163,6 +204,8 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
       addr1: form.addr1, postcode: form.postcode.toUpperCase(),
       floor: form.floor, parking: form.parking,
       keys: form.keys, notes: form.notes, source: form.source,
+      hasPets: form.hasPets, petTypes: form.petTypes,
+      signatureTouch: form.signatureTouch, signatureTouchNotes: form.signatureTouchNotes,
       isReturning: custType === 'returning',
     });
     onNext();
@@ -172,41 +215,127 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
   const formBody = (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px' }}>
-        <Field key="firstName" name="firstName" label="First Name *"    placeholder="Sophie"          value={form.firstName} error={fieldErrors.firstName} onChange={updateField} />
-        <Field key="lastName"  name="lastName"  label="Last Name *"     placeholder="Lewis"           value={form.lastName}  error={fieldErrors.lastName}  onChange={updateField} />
-        <Field key="email"     name="email"     label="Email Address *" placeholder="you@example.com" value={form.email}     error={fieldErrors.email}     onChange={updateField} type="email" readOnly={custType === 'returning'} />
-        <Field key="phone"     name="phone"     label="Phone Number *"  placeholder="07700 000 000"   value={form.phone}     error={fieldErrors.phone}     onChange={updateField} type="tel" />
+      {/* Personal details */}
+      <div style={SECTION}>
+        <div style={SECTION_TITLE}>Your Details</div>
+        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px' }}>
+          <Field key="firstName" name="firstName" label="First Name *"    placeholder="Sophie"          value={form.firstName} error={fieldErrors.firstName} onChange={updateField} />
+          <Field key="lastName"  name="lastName"  label="Last Name *"     placeholder="Lewis"           value={form.lastName}  error={fieldErrors.lastName}  onChange={updateField} />
+          <Field key="email"     name="email"     label="Email Address *" placeholder="you@example.com" value={form.email}     error={fieldErrors.email}     onChange={updateField} type="email" readOnly={custType === 'returning'} />
+          <Field key="phone"     name="phone"     label="Phone Number *"  placeholder="07700 000 000"   value={form.phone}     error={fieldErrors.phone}     onChange={updateField} type="tel" />
+        </div>
+
       </div>
 
-      <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#8b7355', margin: '8px 0 16px', paddingTop: 8, borderTop: '1px solid rgba(200,184,154,0.2)' }}>
-        Property Details
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px' }}>
-        <Field key="addr1"    name="addr1"    label="Address Line 1 *"    placeholder="Flat 3, 42 Mare Street" value={form.addr1}    error={fieldErrors.addr1}    onChange={updateField} />
-        <Field key="postcode" name="postcode" label="Postcode *"           placeholder="E8 1HL"                 value={form.postcode} error={fieldErrors.postcode} onChange={updateField} />
-        <Field key="floor"    name="floor"    label="Floor / Access Notes" placeholder="2nd floor, no lift"     value={form.floor}    error={fieldErrors.floor}    onChange={updateField} />
-        <div style={{ marginBottom: 20 }}>
-          <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Parking</label>
-          <select value={form.parking} onChange={e => setForm(f => ({ ...f, parking: e.target.value }))}
-            style={{ ...INPUT(false), appearance: 'none', cursor: 'pointer' }}>
-            <option value="">Select...</option>
-            {PARKING.map(p => <option key={p}>{p}</option>)}
-          </select>
+      {/* Property details */}
+      <div style={SECTION}>
+        <div style={SECTION_TITLE}>Property Details</div>
+        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px' }}>
+          <Field key="addr1"    name="addr1"    label="Address Line 1 *"    placeholder="Flat 3, 42 Mare Street" value={form.addr1}    error={fieldErrors.addr1}    onChange={updateField} />
+          <Field key="postcode" name="postcode" label="Postcode *"           placeholder="E8 1HL"                 value={form.postcode} error={fieldErrors.postcode} onChange={updateField} />
+          <Field key="floor"    name="floor"    label="Floor / Access Notes" placeholder="2nd floor, no lift"     value={form.floor}    error={fieldErrors.floor}    onChange={updateField} />
+          <SelectField
+            label="Parking"
+            value={form.parking}
+            options={PARKING}
+            onChange={v => setForm(f => ({ ...f, parking: v }))}
+          />
         </div>
       </div>
 
-      <Field key="keys"  name="keys"  label="Key Instructions"    placeholder="Key with concierge, smart lock code 1234, I'll be home" value={form.keys}  error={fieldErrors.keys}  onChange={updateField} />
-      <Field key="notes" name="notes" label="Preferences & Notes" placeholder="e.g. allergic to strong fragrances, dog in the house..."  value={form.notes} error={fieldErrors.notes} onChange={updateField} />
+      {/* Pets */}
+      <div style={SECTION}>
+        <div style={SECTION_TITLE}>Pets at the Property</div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Are there any pets at the property? *</label>
+          <div style={{ display: 'flex', gap: 10, marginBottom: fieldErrors.hasPets ? 6 : 0 }}>
+            {[{ val: false, label: 'No' }, { val: true, label: 'Yes' }].map(opt => (
+              <button
+                key={String(opt.val)}
+                type="button"
+                onClick={() => { setForm(f => ({ ...f, hasPets: opt.val, petTypes: opt.val ? f.petTypes : '' })); setFieldErrors(e => ({ ...e, hasPets: null, petTypes: null })); }}
+                style={{
+                  fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500,
+                  padding: '10px 28px', cursor: 'pointer', border: 'none',
+                  background: form.hasPets === opt.val ? '#2c2420' : 'rgba(200,184,154,0.15)',
+                  color: form.hasPets === opt.val ? '#f5f0e8' : '#5a4e44',
+                  transition: 'all 0.15s',
+                }}
+              >{opt.label}</button>
+            ))}
+          </div>
+          {fieldErrors.hasPets && <p style={ERR}>{fieldErrors.hasPets}</p>}
+        </div>
+        {form.hasPets === true && (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Please describe your pets *</label>
+              <input
+                type="text"
+                placeholder="e.g. 1 dog, 2 cats"
+                value={form.petTypes}
+                onChange={e => { setForm(f => ({ ...f, petTypes: e.target.value })); setFieldErrors(er => ({ ...er, petTypes: null })); }}
+                style={INPUT(!!fieldErrors.petTypes)}
+              />
+              {fieldErrors.petTypes && <p style={ERR}>{fieldErrors.petTypes}</p>}
+            </div>
+            <div style={{ background: '#2c2420', padding: '14px 18px', marginBottom: 20, borderLeft: '3px solid #c8b89a' }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 600, color: '#f5f0e8', marginBottom: 6, letterSpacing: '0.03em' }}>
+                ⚠ Important — Pet Policy
+              </div>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: 'rgba(245,240,232,0.85)', fontWeight: 300, lineHeight: 1.7 }}>
+                All pets must be secured and kept away from our cleaners for the entire duration of the clean. This is required for the safety of both your pet and our team. <strong style={{ color: '#f5f0e8', fontWeight: 600 }}>Failure to do so may result in the clean being abandoned and the loss of your deposit.</strong>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
 
-      <div style={{ marginBottom: 20 }}>
-        <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> How did you hear about us?</label>
-        <select value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}
-          style={{ ...INPUT(false), appearance: 'none', cursor: 'pointer' }}>
-          <option value="">Select...</option>
-          {HOW_HEARD.map(o => <option key={o}>{o}</option>)}
-        </select>
+      {/* Preferences */}
+      <div style={SECTION}>
+        <div style={SECTION_TITLE}>Preferences & Access</div>
+        <Field key="keys"  name="keys"  label="Key Instructions"    placeholder="Key with concierge, smart lock code 1234, I'll be home" value={form.keys}  error={fieldErrors.keys}  onChange={updateField} />
+        <Field key="notes" name="notes" label="Preferences & Notes" placeholder="e.g. allergic to strong fragrances, please avoid certain areas…"  value={form.notes} error={fieldErrors.notes} onChange={updateField} />
+
+        {/* Signature Touch */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '16px', background: form.signatureTouch ? 'rgba(200,184,154,0.1)' : '#faf9f7', border: `1px solid ${form.signatureTouch ? 'rgba(200,184,154,0.5)' : 'rgba(200,184,154,0.25)'}`, marginBottom: 10, transition: 'all 0.2s' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, fontWeight: 600, color: '#2c2420', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ color: '#c8b89a' }}>✦</span> Signature Touch
+              </div>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.7 }}>
+                More than just a clean, a feeling. Our Signature Touch is a complimentary luxury finishing ritual included with every visit. We may leave behind a small gift such as a mini candle, branded cleaning wipes, or a seasonal treat, and finish your home with a spritz of our house fragrance, so you walk in to something that feels hotel-ready. It's our way of going beyond the clean.
+              </div>
+            </div>
+            <div
+              onClick={() => setForm(f => ({ ...f, signatureTouch: !f.signatureTouch, signatureTouchNotes: '' }))}
+              style={{ flexShrink: 0, width: 40, height: 22, borderRadius: 11, position: 'relative', background: form.signatureTouch ? '#c8b89a' : 'rgba(200,184,154,0.2)', cursor: 'pointer', transition: 'background 0.2s', marginTop: 2 }}
+            >
+              <div style={{ position: 'absolute', top: 3, left: form.signatureTouch ? 19 : 3, width: 16, height: 16, background: 'white', borderRadius: '50%', transition: 'left 0.2s' }} />
+            </div>
+          </div>
+          {!form.signatureTouch && (
+            <div>
+              <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Let us know why you're opting out (optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. fragrance allergy, prefer no extras…"
+                value={form.signatureTouchNotes}
+                onChange={e => setForm(f => ({ ...f, signatureTouchNotes: e.target.value }))}
+                style={INPUT(false)}
+              />
+            </div>
+          )}
+        </div>
+
+        <SelectField
+          label="How did you hear about us? *"
+          value={form.source}
+          options={HOW_HEARD}
+          error={fieldErrors.source}
+          onChange={v => { setForm(f => ({ ...f, source: v })); setFieldErrors(e => ({ ...e, source: null })); }}
+        />
       </div>
     </div>
   );
@@ -254,7 +383,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
               <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 300, marginBottom: 20 }}>
                 Enter your email and we'll send a verification code.
               </p>
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 20 }}>
                 <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Email Address</label>
                 <input
                   type="email" value={retEmail}
@@ -277,20 +406,21 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
           {codeSent && !profileLoaded && (
             <>
-              <div style={{ background: '#fff8eb', borderLeft: '2px solid #c8b89a', padding: '10px 14px', marginBottom: 20, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#7a5c00', fontWeight: 300 }}>
-                A 6-digit code has been sent to <strong>{retEmail}</strong>. {secondsLeft > 0 ? `Expires in ${timeDisplay}` : 'Code expired — please request a new one.'}
+              <div style={{ background: '#fff8eb', borderLeft: '2px solid #c8b89a', padding: '12px 16px', marginBottom: 24, fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#7a5c00', fontWeight: 300 }}>
+                A 6-digit code has been sent to <strong>{retEmail}</strong>.<br />
+                {secondsLeft > 0 ? `Expires in ${timeDisplay}` : 'Code expired — please request a new one.'}
               </div>
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 20 }}>
                 <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Verification Code</label>
                 <input
                   type="text" value={code} maxLength={6}
                   onChange={e => { setCode(e.target.value.replace(/\D/g,'')); setCodeErr(''); }}
-                  placeholder="e.g. 482917"
-                  style={{ ...INPUT(!!codeErr), fontSize: 24, letterSpacing: '0.2em', textAlign: 'center', fontFamily: "'Cormorant Garamond',serif" }}
+                  placeholder="Enter 6-digit code"
+                  style={{ ...INPUT(!!codeErr), fontSize: 26, letterSpacing: '0.3em', textAlign: 'center', fontFamily: "'Cormorant Garamond',serif" }}
                 />
                 {codeErr && <p style={ERR}>{codeErr}</p>}
               </div>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b7355', marginBottom: 16 }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b7355', marginBottom: 20 }}>
                 Didn't receive it?{' '}
                 <span style={{ color: '#c8b89a', cursor: 'pointer', textDecoration: 'underline' }}
                   onClick={() => { setCodeSent(false); setCode(''); setCodeErr(''); }}>
@@ -307,20 +437,20 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
           {profileLoaded && (
             <>
-              <div style={{ background: '#f3faf6', borderLeft: '2px solid #2d6a4f', padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ color: '#2d6a4f', fontSize: 18 }}>✓</span>
+              <div style={{ background: '#f3faf6', borderLeft: '2px solid #2d6a4f', padding: '14px 18px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ color: '#2d6a4f', fontSize: 20 }}>✓</span>
                 <div>
-                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#2d6a4f' }}>Profile loaded — welcome back!</div>
-                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300 }}>Your details are pre-filled. Update anything that has changed.</div>
+                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, fontWeight: 500, color: '#2d6a4f' }}>Profile loaded — welcome back!</div>
+                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, marginTop: 2 }}>Your details are pre-filled. Update anything that has changed.</div>
                 </div>
               </div>
 
               {lastBooking && (
-                <div style={{ background: '#1a1410', padding: '16px 20px', marginBottom: 20 }}>
+                <div style={{ background: '#1a1410', padding: '16px 20px', marginBottom: 24 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, color: '#c8b89a', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>Your Last Booking</div>
                   {[
                     { l: 'Service', v: lastBooking.service },
-                    { l: 'Date',    v: lastBooking.date },
+                    { l: 'Date',    v: lastBooking.date ? lastBooking.date.split('-').reverse().join('/') : '—' },
                     { l: 'Cleaner', v: lastBooking.cleaner || '—' },
                   ].map(r => (
                     <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '4px 0', borderBottom: '0.5px solid rgba(200,184,154,0.1)' }}>

@@ -1,8 +1,10 @@
 import { HERO_IMAGE } from "../data/siteData"
 import { Sparkle, WandIcon, Constellation } from "./Icons";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Hero({ onScrollTo }) {
+  const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
 
@@ -137,10 +139,10 @@ End of Tenancy | Airbnb Services
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32 }}>
               <button
-                onClick={() => onScrollTo("contact")}
+                onClick={() => navigate("/book")}
                 style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "14px 24px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%" }}
               >
-                <WandIcon size={14} color="#c8b89a" /> Request a free Quote
+                <WandIcon size={14} color="#c8b89a" /> Reclaim Your Space — Book Now
               </button>
               <button
                 onClick={() => onScrollTo("our-work")}
@@ -218,10 +220,10 @@ End of Tenancy | Airbnb Services
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 40 }}>
               <button
-                onClick={() => onScrollTo("contact")}
+                onClick={() => navigate("/book")}
                 style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "15px 40px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
               >
-                <WandIcon size={15} color="#c8b89a" /> Request a free Quote
+                <WandIcon size={15} color="#c8b89a" /> Reclaim Your Space — Book Now
               </button>
               <button
                 onClick={() => onScrollTo("our-work")}
@@ -277,10 +279,10 @@ End of Tenancy | Airbnb Services
 
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 52 }}>
                 <button
-                  onClick={() => onScrollTo("contact")}
+                  onClick={() => navigate("/book")}
                   style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "15px 44px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
                 >
-                  <WandIcon size={15} color="#c8b89a" /> Request a free Quote
+                  <WandIcon size={15} color="#c8b89a" /> Reclaim Your Space — Book Now
                 </button>
                 <button
                   onClick={() => onScrollTo("our-work")}

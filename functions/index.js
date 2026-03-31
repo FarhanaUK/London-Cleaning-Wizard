@@ -105,9 +105,15 @@ exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, re
   if (!Number.isInteger(amount) || amount <= 0 || amount > 1000000) {
     res.status(400).json({ error:'Invalid amount' }); return;
   }
-  const stripe = new Stripe(STRIPE_KEY.value());
-  const intent = await stripe.paymentIntents.create({ amount, currency:'gbp', metadata:{ bookingRef } });
-  res.json({ clientSecret: intent.client_secret });
+  const stripe   = new Stripe(STRIPE_KEY.value());
+  const customer = await stripe.customers.create();
+  const intent   = await stripe.paymentIntents.create({
+    amount, currency: 'gbp',
+    customer: customer.id,
+    setup_future_usage: 'off_session',
+    metadata: { bookingRef },
+  });
+  res.json({ clientSecret: intent.client_secret, customerId: customer.id });
 });
 
 // ── 4. Save booking after payment succeeds ────────────────────
@@ -131,12 +137,15 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       phone: clean(d.phone), addr1: clean(d.addr1), postcode: clean(d.postcode).toUpperCase(),
       propertyType: d.propertyType, floor: clean(d.floor||''), parking: clean(d.parking||''),
       keys: clean(d.keys||''), notes: clean(d.notes||''),
+      hasPets: d.hasPets || false, petTypes: clean(d.petTypes||''),
+      signatureTouch: d.signatureTouch !== false, signatureTouchNotes: clean(d.signatureTouchNotes||''),
       package: d.package, packageName: d.packageName, size: d.size,
       frequency: d.frequency || 'one-off', addons: d.addons || [], isAirbnb: d.isAirbnb || false,
       cleanDate: d.cleanDate, cleanTime: d.cleanTime,
       cleanDateUTC: toUTCISO(d.cleanDate, d.cleanTime),
       total: d.total, deposit: d.deposit, remaining: d.remaining,
       stripeDepositIntentId: d.stripeDepositIntentId,
+      stripeCustomerId: d.stripeCustomerId || '',
       status: 'deposit_paid', source: clean(d.source||''), createdAt: new Date(),
     });
     tx.set(cRef, {
@@ -144,6 +153,8 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       addr1: clean(d.addr1), postcode: clean(d.postcode).toUpperCase(),
       floor: clean(d.floor||''), parking: clean(d.parking||''),
       keys: clean(d.keys||''), notes: clean(d.notes||''),
+      hasPets: d.hasPets || false, petTypes: clean(d.petTypes||''),
+      signatureTouch: d.signatureTouch !== false, signatureTouchNotes: clean(d.signatureTouchNotes||''),
       bookingCount: count + 1, lastBookingId: id, lastBookingRef: ref,
       lastPackage: d.package, lastPackageName: d.packageName, lastSize: d.size,
       lastPrice: d.total, lastDate: d.cleanDate, lastCleaner: '',
@@ -162,7 +173,23 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       calendarId: process.env.GOOGLE_CALENDAR_ID,
       resource: {
         summary:     `${d.packageName} — ${d.firstName} ${d.lastName}`,
-        description: `Ref: ${ref}\nAddress: ${d.addr1}, ${d.postcode}\nPhone: ${d.phone}\nKeys: ${d.keys || 'N/A'}\nNotes: ${d.notes || 'None'}`,
+        description: [
+            `Ref: ${ref}`,
+            `Customer: ${d.firstName} ${d.lastName}`,
+            `Email: ${d.email}`,
+            `Phone: ${d.phone}`,
+            `Address: ${d.addr1}, ${d.postcode}`,
+            `Property: ${d.propertyType} · ${d.size}`,
+            `Frequency: ${d.frequency || 'One-off'}`,
+            `Floor / Lift: ${d.floor || '—'}`,
+            `Parking: ${d.parking || '—'}`,
+            `Keys: ${d.keys || 'N/A'}`,
+            `Add-ons: ${(d.addons||[]).map(a => a.name).join(', ') || 'None'}`,
+            `Pets: ${d.hasPets ? `Yes — ${d.petTypes || 'not specified'}` : 'No'}`,
+            `Signature Touch: ${d.signatureTouch !== false ? 'Opted in' : `Opted out${d.signatureTouchNotes ? ` — ${d.signatureTouchNotes}` : ''}`}`,
+            `Notes: ${d.notes || 'None'}`,
+            `Total: £${d.total} | Deposit: £${d.deposit} | Remaining: £${d.remaining}`,
+          ].join('\n'),
         start: { dateTime: slotStart, timeZone: 'Europe/London' },
         end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
         colorId: '2',
@@ -173,12 +200,17 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
   }
 
   const eData = {
-    booking_ref: ref, package_name: d.packageName, date: d.cleanDate, time: d.cleanTime,
+    booking_ref: ref, package_name: d.packageName, date: d.cleanDate.split('-').reverse().join('/'), date_subject: d.cleanDate.split('-').reverse().join('.'), time: d.cleanTime,
     address: `${d.addr1}, ${d.postcode}`, total: `£${d.total}`,
     deposit_paid: `£${d.deposit}`, remaining: `£${d.remaining}`,
     notes: clean(d.notes||''), keys: clean(d.keys||''),
     addons: (d.addons||[]).map(a => a.name).join(', ') || 'None',
-    property_type: d.propertyType,
+    property_type: `${d.propertyType} · ${d.size}`,
+    frequency: d.frequency || 'One-off',
+    floor: clean(d.floor||'—'), parking: clean(d.parking||'—'),
+    pets: d.hasPets ? `Yes — ${clean(d.petTypes||'not specified')}` : 'No',
+    signature_touch: d.signatureTouch !== false ? 'Opted in' : `Opted out${d.signatureTouchNotes ? ` — ${clean(d.signatureTouchNotes)}` : ''}`,
+    source: clean(d.source||'—'), is_returning: d.isReturning ? 'Returning customer' : 'New customer',
   };
   await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE,
     { ...eData, to_name: d.firstName, to_email: d.email }, EMAILJS_KEY.value());
@@ -241,11 +273,56 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
   }
 
   try {
+    const depositIntent   = await stripe.paymentIntents.retrieve(b.stripeDepositIntentId);
+    const paymentMethodId = depositIntent.payment_method;
+    if (!paymentMethodId) {
+      res.status(400).json({ error: 'No saved payment method found for this booking. Please charge manually in Stripe.' }); return;
+    }
+
+    // Use saved customer if available, otherwise find/create from the deposit intent
+    let customerId = b.stripeCustomerId || depositIntent.customer;
+    if (!customerId) {
+      const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+      customerId = pm.customer;
+    }
+    if (!customerId) {
+      const customer = await stripe.customers.create();
+      try {
+        await stripe.paymentMethods.attach(paymentMethodId, { customer: customer.id });
+      } catch (attachErr) {
+        // Already attached — retrieve the pm again to get its customer
+        const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+        customerId = pm.customer;
+      }
+      if (!customerId) customerId = customer.id;
+    }
+    await snap.ref.update({ stripeCustomerId: customerId });
+
     const intent = await stripe.paymentIntents.create({
-      amount:   Math.round(b.remaining * 100),
-      currency: 'gbp',
+      amount:         Math.round(b.remaining * 100),
+      currency:       'gbp',
+      customer:       customerId,
+      payment_method: paymentMethodId,
+      confirm:        true,
+      off_session:    true,
       metadata: { bookingRef: b.bookingRef, type: 'remaining_balance' },
     });
+
+    if (intent.status !== 'succeeded') {
+      const errMsg = `Unexpected intent status: ${intent.status}`;
+      await snap.ref.update({ status: 'payment_failed', paymentError: errMsg });
+      await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
+        to_email:       'bookings@londoncleaningwizard.com',
+        booking_ref:    b.bookingRef,
+        customer_name:  `${b.firstName} ${b.lastName}`,
+        customer_email: b.email,
+        customer_phone: b.phone,
+        amount:         `£${b.remaining}`,
+        date:           b.cleanDate.split('-').reverse().join('/'),
+        error_message:  errMsg,
+      }, EMAILJS_KEY.value());
+      res.status(400).json({ error: 'Payment was not completed successfully. Please retry.' }); return;
+    }
 
     await snap.ref.update({
       status: 'fully_paid',
@@ -253,26 +330,35 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       stripeRemainingIntentId: intent.id,
     });
 
-    await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE, {
-      to_name:      b.firstName,
-      to_email:     b.email,
-      booking_ref:  b.bookingRef,
-      package_name: b.packageName,
-      date:         b.cleanDate,
-      time:         b.cleanTime,
-      address:      `${b.addr1}, ${b.postcode}`,
-      total:        `£${b.total}`,
-      deposit_paid: `£${b.deposit}`,
-      remaining:    `£${b.remaining} — now charged`,
-      notes:        b.notes || '',
-      keys:         b.keys || '',
-      addons:       (b.addons||[]).map(a => a.name).join(', ') || 'None',
-      property_type: b.propertyType,
+    const receiptData = {
+      booking_ref:    b.bookingRef,
+      package_name:   b.packageName,
+      date:           b.cleanDate.split('-').reverse().join('/'),
+      address:        `${b.addr1}, ${b.postcode}`,
+      total:          `£${b.total}`,
+      deposit_paid:   `£${b.deposit}`,
+      amount_charged: `£${b.remaining}`,
+    };
+    await sendEmail(process.env.EMAILJS_RECEIPT_TEMPLATE, {
+      ...receiptData, to_name: b.firstName, to_email: b.email,
+    }, EMAILJS_KEY.value());
+    await sendEmail(process.env.EMAILJS_RECEIPT_TEMPLATE, {
+      ...receiptData, to_name: 'Admin', to_email: 'bookings@londoncleaningwizard.com',
     }, EMAILJS_KEY.value());
 
     res.json({ success: true, status: 'fully_paid' });
   } catch(e) {
     await snap.ref.update({ status: 'payment_failed', paymentError: e.message });
+    await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
+      to_email:       'bookings@londoncleaningwizard.com',
+      booking_ref:    b.bookingRef,
+      customer_name:  `${b.firstName} ${b.lastName}`,
+      customer_email: b.email,
+      customer_phone: b.phone,
+      amount:         `£${b.remaining}`,
+      date:           b.cleanDate.split('-').reverse().join('/'),
+      error_message:  e.message,
+    }, EMAILJS_KEY.value()).catch(() => {});
     res.status(500).json({ error: e.message });
   }
 });
@@ -287,8 +373,8 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY] }, async (req, res) => 
   if (!snap.exists) { res.status(404).json({ error:'Booking not found' }); return; }
   const b           = snap.data();
   const hoursUntil  = (new Date(b.cleanDateUTC) - new Date()) / 3600000;
-  const refundPence = hoursUntil >= 48 ? b.deposit * 100 : hoursUntil > 0 ? Math.round(b.deposit * 50) : 0;
-  const status      = hoursUntil >= 48 ? 'cancelled_full_refund' : hoursUntil > 0 ? 'cancelled_partial_refund' : 'cancelled_no_refund';
+  const refundPence = hoursUntil >= 48 ? b.deposit * 100 : hoursUntil >= 24 ? Math.round(b.deposit * 50) : 0;
+  const status      = hoursUntil >= 48 ? 'cancelled_full_refund' : hoursUntil >= 24 ? 'cancelled_partial_refund' : 'cancelled_no_refund';
   if (refundPence > 0) {
     await stripe.refunds.create({ payment_intent:b.stripeDepositIntentId, amount:refundPence, reason:'requested_by_customer' });
   }

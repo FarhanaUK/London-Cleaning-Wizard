@@ -67,6 +67,14 @@ export default function Faqs() {
   }, []);
 
   useEffect(() => {
+    if (window.location.hash === '#faq-contact') {
+      setTimeout(() => {
+        document.getElementById('faq-contact')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, []);
+
+  useEffect(() => {
     const schema = {
       "@context": "https://schema.org",
       "@type": "FAQPage",
@@ -202,6 +210,7 @@ export default function Faqs() {
 
         {/* CTA */}
        <div
+  id="faq-contact"
   style={{
     marginTop: isMobile ? 40 : 60,
     padding: isMobile ? "28px 20px" : "40px",

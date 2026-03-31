@@ -73,12 +73,15 @@ export default function AdminPage() {
   const [loginErr,    setLoginErr]    = useState('');
   const [completing,  setCompleting]  = useState(null);
   const [completeErr, setCompleteErr] = useState('');
+  const [cancelling,  setCancelling]  = useState(null);
+  const [cancelErr,   setCancelErr]   = useState('');
   const [deleting,    setDeleting]    = useState(null);
   const [expanded,    setExpanded]    = useState(null);
   const [welcomeMsg,   setWelcomeMsg]   = useState('');
   const [authLoading,   setAuthLoading]   = useState(true);
   const [bannerVisible, setBannerVisible] = useState(false);
   const [statusFilter,  setStatusFilter]  = useState('all');
+  const [selected,      setSelected]      = useState(new Set());
 
   useEffect(() => onAuthStateChanged(auth, u => {
     setUser(u);
@@ -122,6 +125,7 @@ export default function AdminPage() {
         setCompleteErr(data.error || 'Failed to delete booking.');
       } else {
         if (expanded === booking.id) setExpanded(null);
+        setSelected(prev => { const s = new Set(prev); s.delete(booking.id); return s; });
       }
     } catch {
       setCompleteErr('Failed to delete booking.');
@@ -130,12 +134,37 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteSelected = async () => {
+    if (!window.confirm(`Delete ${selected.size} selected booking${selected.size > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setCompleteErr('');
+    for (const id of selected) {
+      try {
+        const res = await fetch(import.meta.env.VITE_CF_DELETE_BOOKING, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId: id }),
+        });
+        if (!res.ok) setCompleteErr('Some bookings could not be deleted.');
+      } catch {
+        setCompleteErr('Some bookings could not be deleted.');
+      }
+    }
+    setSelected(new Set());
+    setExpanded(null);
+  };
+
+  const toggleSelect = (id) => setSelected(prev => {
+    const s = new Set(prev);
+    s.has(id) ? s.delete(id) : s.add(id);
+    return s;
+  });
+
   const handleExportCSV = () => {
     const headers = [
       'Booked On', 'Booking Ref', 'First Name', 'Last Name', 'Email', 'Phone',
       'Clean Date', 'Clean Time', 'Package', 'Property Type', 'Size',
       'Address', 'Postcode', 'Floor/Access', 'Parking', 'Keys',
-      'Frequency', 'Add-ons', 'Notes', 'Total', 'Deposit', 'Remaining', 'Status',
+      'Frequency', 'Add-ons', 'Pets', 'Signature Touch', 'Notes', 'Total', 'Deposit', 'Remaining', 'Status',
     ];
     const escape = v => {
       const s = v == null ? '' : String(v);
@@ -148,6 +177,8 @@ export default function AdminPage() {
       b.addr1, b.postcode, b.floor || '', b.parking || '', b.keys || '',
       b.frequency || 'one-off',
       b.addons?.length ? b.addons.map(a => a.name).join('; ') : '',
+      b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No',
+      b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : 'Opted in',
       b.notes || '',
       b.total, b.deposit, b.remaining,
       STATUS_COLOURS[b.status]?.label || b.status,
@@ -179,6 +210,33 @@ export default function AdminPage() {
       setCompleteErr('Something went wrong. Please try again.');
     } finally {
       setCompleting(null);
+    }
+  };
+
+  const handleCancel = async (booking) => {
+    const hoursUntil = (new Date(booking.cleanDateUTC) - new Date()) / 3600000;
+    const refundPct  = hoursUntil >= 48 ? 100 : hoursUntil >= 24 ? 50 : 0;
+    const refundAmt  = (booking.deposit * refundPct / 100).toFixed(2);
+    const msg        = refundPct === 100
+      ? `Full refund of £${refundAmt} will be issued (more than 48hrs notice).`
+      : refundPct === 50
+      ? `50% refund of £${refundAmt} will be issued (24–48hrs notice).`
+      : `No refund will be issued (less than 24hrs notice).`;
+    if (!window.confirm(`Cancel this booking?\n\n${msg}\n\nThis cannot be undone.`)) return;
+    setCancelling(booking.id);
+    setCancelErr('');
+    try {
+      const res  = await fetch(import.meta.env.VITE_CF_CANCEL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id, reason: 'Cancelled by admin' }),
+      });
+      const data = await res.json();
+      if (!res.ok) setCancelErr(data.error || 'Failed to cancel booking.');
+    } catch {
+      setCancelErr('Something went wrong. Please try again.');
+    } finally {
+      setCancelling(null);
     }
   };
 
@@ -392,7 +450,28 @@ export default function AdminPage() {
         </div>
 
         {/* Toolbar */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {displayedBookings.length > 0 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={selected.size === displayedBookings.length && displayedBookings.length > 0}
+                  onChange={e => setSelected(e.target.checked ? new Set(displayedBookings.map(b => b.id)) : new Set())}
+                  style={{ cursor: 'pointer', accentColor: '#c8b89a', width: 15, height: 15 }}
+                />
+                Select All
+              </label>
+            )}
+            {selected.size > 0 && (
+              <button
+                onClick={handleDeleteSelected}
+                style={{ ...BTN, background: '#8b2020', color: 'white', border: 'none' }}
+              >
+                Delete Selected ({selected.size})
+              </button>
+            )}
+          </div>
           {displayedBookings.length > 0 && (
             <button onClick={handleExportCSV} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>
               Export CSV
@@ -422,10 +501,16 @@ export default function AdminPage() {
 
                 {/* Booking row */}
                 <div
-                  onClick={() => setExpanded(isOpen ? null : b.id)}
-                  style={{ padding: '16px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}
+                  style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}
                 >
-                  <div>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(b.id)}
+                    onChange={() => toggleSelect(b.id)}
+                    onClick={e => e.stopPropagation()}
+                    style={{ cursor: 'pointer', accentColor: '#c8b89a', width: 15, height: 15, flexShrink: 0 }}
+                  />
+                  <div onClick={() => setExpanded(isOpen ? null : b.id)} style={{ flex: 1, cursor: 'pointer' }}>
                     <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 19, fontWeight: 400, color: '#1a1410', marginBottom: 2 }}>
                       {b.firstName} {b.lastName}
                     </div>
@@ -437,7 +522,7 @@ export default function AdminPage() {
                     <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 10px', background: sc.bg, color: sc.color }}>
                       {sc.label}
                     </span>
-                    <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: '#c8b89a' }}>
+                    <span onClick={() => setExpanded(isOpen ? null : b.id)} style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: '#c8b89a', cursor: 'pointer' }}>
                       {isOpen ? '▲' : '▼'}
                     </span>
                   </div>
@@ -458,11 +543,13 @@ export default function AdminPage() {
                         { l: 'Floor/Access', v: b.floor || '—' },
                         { l: 'Parking',      v: b.parking || '—' },
                         { l: 'Keys',         v: b.keys || '—' },
-                        { l: 'Frequency',    v: b.frequency || 'one-off' },
-                        { l: 'Add-ons',      v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : 'None' },
-                        { l: 'Total',        v: `£${b.total}` },
-                        { l: 'Deposit paid', v: `£${b.deposit}` },
-                        { l: 'Remaining',    v: `£${b.remaining}` },
+                        { l: 'Frequency',        v: b.frequency || 'one-off' },
+                        { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : 'None' },
+                        { l: 'Pets',             v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
+                        { l: 'Signature Touch',  v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
+                        { l: 'Total',            v: `£${b.total}` },
+                        { l: 'Deposit paid',     v: `£${b.deposit}` },
+                        { l: 'Remaining',        v: `£${b.remaining}` },
                       ].map((r, i) => (
                         <div key={i}>
                           <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 2 }}>{r.l}</div>
@@ -503,6 +590,15 @@ export default function AdminPage() {
                           {completing === b.id ? 'Retrying...' : `Retry Payment — £${b.remaining}`}
                         </button>
                       )}
+                      {b.status === 'deposit_paid' && (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleCancel(b); }}
+                          disabled={cancelling === b.id}
+                          style={{ ...BTN, background: 'transparent', color: '#8b2020', border: '1px solid rgba(139,32,32,0.3)' }}
+                        >
+                          {cancelling === b.id ? 'Cancelling...' : 'Cancel & Refund'}
+                        </button>
+                      )}
                       <button
                         onClick={e => { e.stopPropagation(); handleDelete(b); }}
                         disabled={deleting === b.id}
@@ -511,6 +607,9 @@ export default function AdminPage() {
                         {deleting === b.id ? 'Deleting...' : 'Delete Booking'}
                       </button>
                     </div>
+                    {cancelErr && expanded === b.id && (
+                      <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginTop: 8 }}>{cancelErr}</p>
+                    )}
                   </div>
                 )}
               </div>

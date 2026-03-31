@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import BookingInvoice  from './BookingInvoice';
-import BookingStep1    from './BookingStep1';
-import BookingStep2    from './BookingStep2';
-import BookingStep3    from './BookingStep3';
-import BookingStep4    from './BookingStep4';
-import BookingConfirm  from './BookingConfirm';
+import BookingStep1    from './Bookingstep1';
+import BookingStep2    from './Bookingstep2';
+import BookingStep3    from './Bookingstep3';
+import BookingStep4    from './Bookingstep4';
+import BookingConfirm  from './Bookingconfirm';
 import Navbar          from './Navbar';
 
 const INIT = {
@@ -124,7 +124,7 @@ export default function BookingPage() {
           {step === 1 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => goToStep(2)} />}
           {step === 2 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(3)} onBack={() => goToStep(1)} />}
           {step === 3 && <BookingStep3 booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} isMobile={isMobile} />}
-          {step === 4 && <BookingStep4 booking={booking} onUpdate={update} onSuccess={(res) => { setResult(res); setConfirmed(true); }} onBack={() => goToStep(3)} />}
+          {step === 4 && <BookingStep4 booking={booking} onUpdate={update} onSuccess={(res) => { setResult(res); setStep(5); setConfirmed(true); }} onBack={() => goToStep(3)} />}
         </div>
 
         {/* Desktop invoice sidebar */}
@@ -144,7 +144,7 @@ export default function BookingPage() {
       </div>
 
       {confirmed && (
-        <BookingConfirm booking={booking} result={result} onClose={() => setConfirmed(false)} />
+        <BookingConfirm booking={booking} result={result} onClose={() => { setConfirmed(false); setBooking(INIT); setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
       )}
     </>
   );

@@ -54,6 +54,7 @@ export default function Footer() {
 
   return (
     <footer
+      id="footer-contact"
       role="contentinfo"
       aria-label="London Cleaning Wizard footer"
       style={{

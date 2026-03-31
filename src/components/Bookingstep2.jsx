@@ -5,8 +5,8 @@ import { SkeletonSlots } from './LoadingStates';
 import { Sparkle, WandIcon } from './Icons';
 
 const LABEL = {
-  fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.22em',
-  textTransform: 'uppercase', color: '#8b7355', marginBottom: 10,
+  fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.08em',
+  textTransform: 'uppercase', color: '#5a4e44', marginBottom: 10,
   display: 'flex', alignItems: 'center', gap: 7,
 };
 
@@ -42,6 +42,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   };
 
   const handleDateClick = async (dateStr) => {
+    setError('');
     onUpdate({
       cleanDate: dateStr,
       cleanDateDisplay: showDate(dateStr),
@@ -79,6 +80,11 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayStr    = todayUK();
+  const tomorrowStr = (() => {
+    const d = new Date(`${todayStr}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
 
   const calDays = [];
   for (let i = 0; i < firstDay; i++) calDays.push(null);
@@ -92,7 +98,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
     <div>
       {/* Calendar */}
       <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Select Date</div>
-      <div style={{ border: '1px solid rgba(200,184,154,0.3)', padding: 20, marginBottom: 24 }}>
+      <div style={{ border: '1px solid rgba(200,184,154,0.35)', background: 'white', padding: 20, marginBottom: 24 }}>
 
         {/* Month navigation */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -127,21 +133,26 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
           {calDays.map((dateStr, i) => {
             if (!dateStr) return <div key={`empty-${i}`} />;
             const isPast     = dateStr < todayStr;
+            const isTooSoon  = dateStr === todayStr || dateStr === tomorrowStr;
+            const isBlocked  = isPast || isTooSoon;
             const isSelected = booking.cleanDate === dateStr;
             return (
               <div
                 key={dateStr}
-                onClick={() => !isPast && handleDateClick(dateStr)}
+                onClick={() => {
+                  if (isTooSoon) { setError('For cleaning jobs required urgently, please contact us directly so we can ensure we have available cleaning wizards in your area.'); return; }
+                  if (!isBlocked) handleDateClick(dateStr);
+                }}
                 style={{
                   aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontFamily: "'Jost',sans-serif", fontWeight: 300,
-                  cursor: isPast ? 'not-allowed' : 'pointer',
+                  fontSize: 14, fontFamily: "'Jost',sans-serif", fontWeight: 300,
+                  cursor: isBlocked ? 'not-allowed' : 'pointer',
                   background: isSelected ? '#c8b89a' : 'transparent',
-                  color: isPast ? '#ccc' : isSelected ? '#1a1410' : '#2c2420',
+                  color: isBlocked ? '#ccc' : isSelected ? '#1a1410' : '#2c2420',
                   border: isSelected ? 'none' : '1px solid transparent',
                   transition: 'all 0.15s',
                 }}
-                onMouseEnter={e => { if (!isPast && !isSelected) e.currentTarget.style.border = '1px solid #c8b89a'; }}
+                onMouseEnter={e => { if (!isBlocked && !isSelected) e.currentTarget.style.border = '1px solid #c8b89a'; }}
                 onMouseLeave={e => { if (!isSelected) e.currentTarget.style.border = '1px solid transparent'; }}
               >
                 {parseInt(dateStr.split('-')[2])}
@@ -158,25 +169,25 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
           {loadSlots ? (
             <SkeletonSlots />
           ) : slots.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 24 }}>
               {slots.map(slot => (
                 <div
                   key={slot.time}
                   onClick={() => handleTimeSelect(slot)}
                   style={{
-                    padding: '10px 8px', textAlign: 'center',
+                    padding: '13px 8px', textAlign: 'center',
                     fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 300,
                     border: booking.cleanTime === slot.time
-                      ? '1px solid #c8b89a'
+                      ? '1.5px solid #c8b89a'
                       : slot.booked
                         ? '1px solid rgba(200,184,154,0.15)'
-                        : '1px solid rgba(200,184,154,0.3)',
-                    background: booking.cleanTime === slot.time ? '#c8b89a' : slot.booked ? '#f5f5f0' : 'transparent',
-                    color: booking.cleanTime === slot.time ? '#1a1410' : slot.booked ? '#ccc' : '#2c2420',
+                        : '1px solid rgba(200,184,154,0.35)',
+                    background: booking.cleanTime === slot.time ? '#c8b89a' : slot.booked ? '#f5f5f0' : '#fdf8f3',
+                    color: booking.cleanTime === slot.time ? '#1a1410' : slot.booked ? '#bbb' : '#2c2420',
                     cursor: slot.booked ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {slot.booked ? 'Booked' : slot.time}
+                  {slot.booked ? 'Unavailable' : slot.time}
                 </div>
               ))}
             </div>

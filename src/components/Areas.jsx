@@ -2,8 +2,10 @@ import { Sparkle } from "./Icons";
 import Reveal from "./Reveal";
 import { AREAS } from "../data/siteData";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Areas() {
+  const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
 
@@ -106,7 +108,11 @@ export default function Areas() {
           letterSpacing: "0.08em",
           padding: isMobile ? "0 16px" : 0,
         }}>
-          Not on the list? <span style={{ color: "#2c2420", fontWeight: 500 }}>Get in touch</span> — we may be able to accommodate you.
+          Not on the list?{' '}
+          <span
+            onClick={() => navigate('/faqs#faq-contact')}
+            style={{ color: "#2c2420", fontWeight: 500, textDecoration: "underline", textDecorationColor: "rgba(44,36,32,0.3)", textUnderlineOffset: 3, cursor: 'pointer' }}
+          >Get in touch</span> — we may be able to accommodate you.
         </p>
       </Reveal>
     </section>
