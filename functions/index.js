@@ -296,7 +296,19 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY] }, async (req, res) => 
   res.json({ success:true, status, refundAmount:refundPence/100 });
 });
 
-// ── 8. Clean up expired verification codes (Scheduled) ───────
+// ── 8. Delete booking (admin only) ───────────────────────────
+exports.deleteBooking = onRequest(async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId } = req.body;
+  if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
+  const db   = admin.firestore();
+  const snap = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
+  await snap.ref.delete();
+  res.json({ success: true });
+});
+
+// ── 9. Clean up expired verification codes (Scheduled) ───────
 exports.cleanupExpiredCodes = onSchedule('every 60 minutes', async () => {
   const db   = admin.firestore();
   const snap = await db.collection('verificationCodes').where('expiresAt','<',new Date()).get();

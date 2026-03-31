@@ -13,7 +13,7 @@ import PrivacyPolicy from "./components/PrivacyPolicy"
 import Faqs from "./components/Faqs";
 import CookieBanner from "./components/CookieBanner";
 import AdminPage from "./components/AdminPage"
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 
 const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
@@ -27,15 +27,18 @@ function MainPage() {
       <About />
       <Testimonials />
       <Areas />
-      
+
     </>
   );
 }
 
 export default function App() {
+  const { pathname } = useLocation();
+  const isAdmin = pathname === '/admin';
+
   return (
     <div style={{ overflowX: "hidden" }}>
-      <Navbar />
+      {!isAdmin && <Navbar />}
       <Routes>
         <Route path="/" element={<MainPage />} />
         <Route path="/terms-and-conditions" element={<TermsAndCondition />} />
@@ -44,8 +47,8 @@ export default function App() {
         <Route path="/book" element={<BookingPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Routes>
-      <Footer />
-      <CookieBanner />
+      {!isAdmin && <Footer />}
+      {!isAdmin && <CookieBanner />}
     </div>
   );
 }
