@@ -78,8 +78,11 @@ export default function AdminPage() {
   const [deleting,    setDeleting]    = useState(null);
   const [expanded,    setExpanded]    = useState(null);
   const [welcomeMsg,   setWelcomeMsg]   = useState('');
+  const [welcomeColor, setWelcomeColor] = useState('#6b5e56');
   const [authLoading,   setAuthLoading]   = useState(true);
   const [bannerVisible, setBannerVisible] = useState(false);
+
+  const WELCOME_COLORS = ['#2563eb','#be185d','#16a34a','#4f46e5','#0e7490','#7c3aed','#b45309'];
   const [statusFilter,  setStatusFilter]  = useState('all');
   const [selected,      setSelected]      = useState(new Set());
 
@@ -88,6 +91,7 @@ export default function AdminPage() {
     setAuthLoading(false);
     if (u) {
       setWelcomeMsg(WELCOME_MESSAGES[Math.floor(Math.random() * WELCOME_MESSAGES.length)]);
+      setWelcomeColor(WELCOME_COLORS[Math.floor(Math.random() * WELCOME_COLORS.length)]);
       setTimeout(() => setBannerVisible(true), 50);
     } else {
       setBannerVisible(false);
@@ -359,7 +363,7 @@ export default function AdminPage() {
             Welcome, {user.displayName?.split(' ')[0] || user.email.split('@')[0]}.
           </div>
           <div style={{
-            fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#6b5e56', fontWeight: 400, marginTop: 8, lineHeight: 1.6,
+            fontFamily: "'Jost',sans-serif", fontSize: 14, color: welcomeColor, fontWeight: 400, marginTop: 8, lineHeight: 1.6,
             opacity: bannerVisible ? 1 : 0,
             transform: bannerVisible ? 'translateX(0)' : 'translateX(-60px)',
             transition: 'opacity 1.4s ease 0.4s, transform 1.6s cubic-bezier(0.22,1,0.36,1) 0.4s',
@@ -550,7 +554,11 @@ export default function AdminPage() {
                         { l: 'Total',            v: `£${b.total}` },
                         { l: 'Deposit paid',     v: `£${b.deposit}` },
                         { l: 'Remaining',        v: `£${b.remaining}` },
-                      ].map((r, i) => (
+                        { l: 'Source',           v: b.source || '—' },
+                        b.stripeDepositIntentId   && { l: 'Stripe Deposit PI',   v: b.stripeDepositIntentId },
+                        b.stripeRemainingIntentId && { l: 'Stripe Remaining PI',  v: b.stripeRemainingIntentId },
+                        b.stripeCustomerId        && { l: 'Stripe Customer ID',   v: b.stripeCustomerId },
+                      ].filter(Boolean).map((r, i) => (
                         <div key={i}>
                           <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 2 }}>{r.l}</div>
                           <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#2c2420', fontWeight: 300 }}>{r.v}</div>
@@ -561,6 +569,29 @@ export default function AdminPage() {
                     {b.notes && (
                       <div style={{ background: '#faf9f7', padding: '10px 14px', marginBottom: 14, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, fontStyle: 'italic' }}>
                         Notes: {b.notes}
+                      </div>
+                    )}
+
+                    {b.status && b.status.startsWith('cancelled') && (
+                      <div style={{ background: '#fdf5f5', border: '1px solid rgba(139,32,32,0.15)', padding: '12px 16px', marginBottom: 14 }}>
+                        <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8b2020', marginBottom: 10 }}>Cancellation Details</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '8px 24px' }}>
+                          {[
+                            { l: 'Cancelled At', v: fmtCreatedAt(b.cancelledAt) },
+                            b.cancellationReason && { l: 'Reason', v: b.cancellationReason },
+                            b.cleanDateUTC && b.cancelledAt && (() => {
+                              const hrs = ((new Date(b.cleanDateUTC) - (b.cancelledAt?.toDate ? b.cancelledAt.toDate() : new Date(b.cancelledAt))) / 3600000);
+                              const policy = hrs >= 48 ? 'Full refund (48hrs+ notice)' : hrs >= 24 ? '50% refund (24–48hrs notice)' : 'No refund (under 24hrs notice)';
+                              return { l: 'Notice Given', v: `${hrs > 0 ? hrs.toFixed(1) : '0'} hrs before clean — ${policy}` };
+                            })(),
+                            { l: 'Refund Amount', v: b.refundAmount != null ? `£${b.refundAmount}` : '—' },
+                          ].filter(Boolean).map((r, i) => (
+                            <div key={i}>
+                              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 2 }}>{r.l}</div>
+                              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#2c2420', fontWeight: 300 }}>{r.v}</div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 

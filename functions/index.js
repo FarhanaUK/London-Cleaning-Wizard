@@ -211,6 +211,8 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
     pets: d.hasPets ? `Yes — ${clean(d.petTypes||'not specified')}` : 'No',
     signature_touch: d.signatureTouch !== false ? 'Opted in' : `Opted out${d.signatureTouchNotes ? ` — ${clean(d.signatureTouchNotes)}` : ''}`,
     source: clean(d.source||'—'), is_returning: d.isReturning ? 'Returning customer' : 'New customer',
+    stripe_deposit_pi: d.stripeDepositIntentId || '—',
+    stripe_customer_id: d.stripeCustomerId || '—',
   };
   await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE,
     { ...eData, to_name: d.firstName, to_email: d.email }, EMAILJS_KEY.value());
@@ -331,13 +333,16 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
     });
 
     const receiptData = {
-      booking_ref:    b.bookingRef,
-      package_name:   b.packageName,
-      date:           b.cleanDate.split('-').reverse().join('/'),
-      address:        `${b.addr1}, ${b.postcode}`,
-      total:          `£${b.total}`,
-      deposit_paid:   `£${b.deposit}`,
-      amount_charged: `£${b.remaining}`,
+      booking_ref:          b.bookingRef,
+      package_name:         b.packageName,
+      date:                 b.cleanDate.split('-').reverse().join('/'),
+      address:              `${b.addr1}, ${b.postcode}`,
+      total:                `£${b.total}`,
+      deposit_paid:         `£${b.deposit}`,
+      amount_charged:       `£${b.remaining}`,
+      stripe_deposit_pi:    b.stripeDepositIntentId || '—',
+      stripe_remaining_pi:  intent.id,
+      stripe_customer_id:   customerId || '—',
     };
     await sendEmail(process.env.EMAILJS_RECEIPT_TEMPLATE, {
       ...receiptData, to_name: b.firstName, to_email: b.email,
@@ -364,7 +369,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
 });
 
 // ── 7. Cancel booking and refund ──────────────────────────────
-exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY] }, async (req, res) => {
+exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
   const { bookingId, reason } = req.body;
   const db     = admin.firestore();
@@ -374,12 +379,36 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY] }, async (req, res) => 
   const b           = snap.data();
   const hoursUntil  = (new Date(b.cleanDateUTC) - new Date()) / 3600000;
   const refundPence = hoursUntil >= 48 ? b.deposit * 100 : hoursUntil >= 24 ? Math.round(b.deposit * 50) : 0;
+  const refundAmt   = refundPence / 100;
   const status      = hoursUntil >= 48 ? 'cancelled_full_refund' : hoursUntil >= 24 ? 'cancelled_partial_refund' : 'cancelled_no_refund';
+  const refundMsg   = refundPence > 0 ? `£${refundAmt.toFixed(2)} will be returned to your original payment method within 5–10 business days.` : 'No refund is applicable as the cancellation was made less than 24 hours before the scheduled clean.';
+  const noticeMsg   = hoursUntil >= 48 ? `${hoursUntil.toFixed(1)} hours notice — full refund applied` : hoursUntil >= 24 ? `${hoursUntil.toFixed(1)} hours notice — 50% refund applied` : `${hoursUntil > 0 ? hoursUntil.toFixed(1) : '0'} hours notice — no refund applied`;
+
   if (refundPence > 0) {
     await stripe.refunds.create({ payment_intent:b.stripeDepositIntentId, amount:refundPence, reason:'requested_by_customer' });
   }
-  await snap.ref.update({ status, cancelledAt:new Date(), cancellationReason:clean(reason||''), refundAmount:refundPence/100 });
-  res.json({ success:true, status, refundAmount:refundPence/100 });
+  await snap.ref.update({ status, cancelledAt:new Date(), cancellationReason:clean(reason||''), refundAmount:refundAmt });
+
+  const cancelData = {
+    booking_ref:  b.bookingRef,
+    package_name: b.packageName,
+    date:         b.cleanDate.split('-').reverse().join('/'),
+    time:         b.cleanTime,
+    address:      `${b.addr1}, ${b.postcode}`,
+    refund_amount: refundAmt > 0 ? `£${refundAmt.toFixed(2)}` : 'No refund',
+    refund_message: refundMsg,
+  };
+  await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE,
+    { ...cancelData, to_name: b.firstName, to_email: b.email },
+    EMAILJS_KEY.value()).catch(() => {});
+  await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE,
+    { ...cancelData, to_email: 'bookings@londoncleaningwizard.com',
+      customer_name: `${b.firstName} ${b.lastName}`,
+      customer_email: b.email, customer_phone: b.phone,
+      notice_given: noticeMsg,
+    }, EMAILJS_KEY.value()).catch(() => {});
+
+  res.json({ success:true, status, refundAmount:refundAmt });
 });
 
 // ── 8. Delete booking (admin only) ───────────────────────────
