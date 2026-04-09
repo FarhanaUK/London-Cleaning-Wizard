@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { Sparkle } from "./Icons";
 import Reveal from "./Reveal";
 import { SERVICES } from "../data/siteData";
+import { useNavigate } from "react-router-dom";
 
 export default function Services() {
   const [hovered, setHovered] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleResize = () => {
@@ -60,9 +62,10 @@ export default function Services() {
         {SERVICES.map((service, i) => (
           <Reveal key={service.title} delay={i * 75}>
             <div
-              style={{ overflow: "hidden", position: "relative", background: "#10121a", aspectRatio: "4/3", cursor: "default" }}
-              onMouseEnter={() => setHovered(i)}
-              onMouseLeave={() => setHovered(null)}
+              style={{ overflow: "hidden", position: "relative", background: "#10121a", aspectRatio: "4/3", cursor: "pointer" }}
+              onMouseEnter={() => !isMobile && setHovered(i)}
+              onMouseLeave={() => !isMobile && setHovered(null)}
+              onClick={() => navigate('/book')}
             >
               <img
                 src={service.img}
@@ -71,9 +74,9 @@ export default function Services() {
                   width: "100%",
                   height: "100%",
                   objectFit: "cover",
-                  opacity: hovered === i ? 0.45 : 0.55,
+                  opacity: isMobile ? 0.5 : hovered === i ? 0.45 : 0.55,
                   transition: "opacity 0.5s, transform 0.7s cubic-bezier(.4,0,.2,1)",
-                  transform: hovered === i ? "scale(1.06)" : "scale(1)",
+                  transform: isMobile ? "scale(1.04)" : hovered === i ? "scale(1.06)" : "scale(1)",
                 }}
               />
               <div style={{
@@ -122,13 +125,13 @@ export default function Services() {
                   {service.desc}
                 </p>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <Sparkle size={8} color="#c8b89a" style={{ opacity: hovered === i ? 1 : 0, transition: "opacity 0.4s" }} />
+                  <Sparkle size={8} color="#c8b89a" style={{ opacity: isMobile ? 1 : hovered === i ? 1 : 0, transition: "opacity 0.4s" }} />
                   <span style={{
                     fontFamily: "'Cormorant Garamond', serif",
                     fontStyle: "italic",
                     fontSize: isMobile ? 13 : 18,
                     color: "#c8b89a",
-                    opacity: hovered === i ? 1 : 0,
+                    opacity: isMobile ? 1 : hovered === i ? 1 : 0,
                     transition: "opacity 0.4s",
                   }}>
                     {service.spell}
@@ -149,7 +152,7 @@ export default function Services() {
           letterSpacing: "0.1em",
           color: "#8b7355",
         }}>
-          {isMobile ? "Tap a service to reveal its spell ✦" : "Hover a service to reveal its spell ✦"}
+          {isMobile ? "Tap to reveal the spell · Tap again to book ✦" : "Hover a service to reveal its spell · Click to book ✦"}
         </p>
       </Reveal>
     </section>

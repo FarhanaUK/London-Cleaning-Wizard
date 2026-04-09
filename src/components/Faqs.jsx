@@ -32,11 +32,11 @@ const FAQS = [
   },
   {
     question: "Do you require a deposit?",
-    answer: "Yes, a £50 deposit is required to secure your booking. This goes toward the total cost of your clean. The deposit is fully refundable if you cancel with more than 24 hours notice.",
+    answer: "Yes, a 30% deposit is required to secure your booking. This goes toward the total cost of your clean. The deposit is fully refundable if you cancel more than 48 hours before your scheduled clean.",
   },
   {
     question: "What is your cancellation policy?",
-    answer: "If you cancel with more than 24 hours notice, you will receive a full refund of your deposit. Cancellations with less than 24 hours notice or same-day cancellations will result in the deposit being retained to cover call-out costs.",
+    answer: "If you cancel more than 48 hours before your scheduled clean, you will receive a full refund of your deposit. Cancellations with less than 48 hours notice will result in the deposit being retained in full.",
   },
   {
     question: "Do you offer a satisfaction guarantee?",
@@ -44,7 +44,7 @@ const FAQS = [
   },
   {
     question: "Do you offer Airbnb and end of tenancy cleans?",
-    answer: "Yes. We offer both Airbnb turnaround cleans and full end of tenancy cleans. Our end of tenancy service is landlord-approved and comes with a deposit guarantee. We'll make sure every inch of your property is spotless.",
+    answer: "Yes. We offer both Airbnb turnaround cleans and full end of tenancy cleans. Our end of tenancy service is landlord-approved and designed to maximise your chances of a full deposit return. We'll make sure every inch of your property is spotless.",
   },
   {
     question: "What are your working hours?",

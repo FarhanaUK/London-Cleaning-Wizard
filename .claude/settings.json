@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(firebase functions:secrets:access STRIPE_WEBHOOK_SECRET)",
+      "Bash(firebase functions:secrets:access STRIPE_KEY)"
+    ]
+  }
+}

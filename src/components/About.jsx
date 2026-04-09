@@ -5,7 +5,7 @@ import { PHOTOS } from "../data/siteData";
 
 const FEATURES = [
   "DBS-Checked Team",
-  "Eco-Friendly Products",
+  "Premium Cleaning Products",
   "Fully Insured",
   "Flexible Scheduling",
   "Free Re-clean Guarantee",
@@ -143,8 +143,8 @@ export default function About() {
               marginBottom: 36,
             }}>
               Our team are DBS-checked, trained in premium residential methods,
-              and chosen for their meticulous eye. We use only eco-conscious
-              products, safe for children, pets, and the home you love.
+              and chosen for their meticulous eye. We use professional-grade products,
+              carefully selected to deliver a thorough, high-quality clean every time.
             </p>
 
             <div style={{

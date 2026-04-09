@@ -11,11 +11,11 @@ const PACKAGE_DETAIL = {
     'Bathroom scrubbed — toilet, basin, shower/bath',
     'Mirrors and glass polished streak-free',
     'Bins emptied and relined',
-    'Fresh fragrance finish throughout',
     'Completion photos sent after every clean',
   ],
   standard: [
     'Everything in The Refresh',
+    'Door frames & surfaces wiped',
     'Linen changed and beds made',
     'Inside microwave cleaned',
     'Skirting boards and light switches wiped',
@@ -38,6 +38,7 @@ const PACKAGE_DETAIL = {
     'Inside all kitchen cupboards',
     'Behind and underneath all appliances',
     'Limescale removal — taps, showerheads, tiles',
+    'Internal windows cleaned streak-free',
     'All rooms vacuumed, mopped, and wiped down',
     'Detailed photo report sent on completion',
   ],
@@ -47,15 +48,14 @@ const PACKAGE_DETAIL = {
     'Limescale removal throughout',
     'Windows cleaned inside',
     'Detailed photo report for your landlord',
-    'Free re-clean if any issues raised within 48hrs',
-    'Deposit-back guarantee',
+    'Free re-clean if any issues raised within 24hrs',
+    'Cleaned to maximise your deposit return',
   ],
   movein: [
     'Property cleaned before your arrival',
     'All surfaces disinfected and sanitised',
     'Beds made up with fresh linen',
     'Kitchen and bathrooms hotel-ready',
-    'Welcome kit left for you',
     'Completion photos sent before you arrive',
   ],
   airbnb: [
@@ -101,7 +101,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
   };
 
   const handlePackageSelect = (pkg) => {
-    onUpdate({ pkg, size: null, sizePrice: 0, freq: null, addons: [] });
+    onUpdate({ pkg, size: null, sizePrice: 0, freq: null, addons: [], supplies: null, mopAck: false });
   };
 
   const toggleExpand = (e, pkgId) => {
@@ -268,7 +268,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
       {booking.pkg?.showFreq && !booking.isAirbnb && (
         <>
           <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Frequency</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: 8, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: 8, marginBottom: 12 }}>
             {FREQUENCIES.map(freq => (
               <div
                 key={freq.id}
@@ -284,6 +284,11 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               </div>
             ))}
           </div>
+          {booking.freq && booking.freq.id !== 'one-off' && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '3px solid #16a34a', padding: '10px 14px', marginBottom: 24, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
+              Your first clean is at the full price — the <strong>£{booking.freq.saving} discount</strong> applies from your second clean onwards.
+            </div>
+          )}
         </>
       )}
 
@@ -332,6 +337,52 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                 </div>
               );
             })}
+          </div>
+        </>
+      )}
+
+      {/* Supplies */}
+      {(booking.pkg || booking.isAirbnb) && (
+        <>
+          <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Cleaning Supplies</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+            {[
+              { id: 'customer', title: 'I will provide supplies', sub: 'You supply all cleaning products for the cleaner to use', price: null },
+              { id: 'cleaner',  title: 'Please bring supplies',   sub: 'Our cleaner will arrive with all cleaning products',      price: '+£8' },
+            ].map(opt => (
+              <div
+                key={opt.id}
+                onClick={() => onUpdate({ supplies: opt.id })}
+                style={{ ...CARD(booking.supplies === opt.id), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <div>
+                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410' }}>{opt.title}</div>
+                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontWeight: 300, marginTop: 2 }}>{opt.sub}</div>
+                </div>
+                {opt.price && (
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#2c2420', flexShrink: 0, marginLeft: 12 }}>{opt.price}</div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Mop & vacuum acknowledgment — always required */}
+          <div
+            onClick={() => onUpdate({ mopAck: !booking.mopAck })}
+            style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: '#fdf8f3', border: '1px solid rgba(200,184,154,0.3)', cursor: 'pointer', marginBottom: 24 }}
+          >
+            <div style={{
+              width: 18, height: 18, flexShrink: 0, marginTop: 1,
+              border: booking.mopAck ? 'none' : '1px solid rgba(200,184,154,0.5)',
+              background: booking.mopAck ? '#c8b89a' : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#1a1410', fontSize: 11,
+            }}>
+              {booking.mopAck && '✓'}
+            </div>
+            <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
+              I understand that our cleaners do not bring mops or vacuums. I confirm there is a working mop and vacuum available at the property for the cleaner to use.
+            </p>
           </div>
         </>
       )}

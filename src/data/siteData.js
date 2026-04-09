@@ -17,7 +17,7 @@ export const SERVICES = [
   { img: PHOTOS.kitchen,  title: "Deep Kitchen Clean",  tag: "One-off · Seasonal",     desc: "Degreasing, descaling and scrubbing every surface until your kitchen gleams like new.", spell: "The Gleam Enchantment", alt: "Professionally deep cleaned kitchen in East London" },
   { img: PHOTOS.bathroom, title: "Bathroom & Ensuite",  tag: "Luxury standard",  desc: "Sanitised to perfection. Limescale banished, surfaces polished, mirrors streak-free.", spell: "The Purity Ritual",     alt: "Spotless cleaned bathroom and ensuite in East London" },
   { img: PHOTOS.bedroom,  title: "Bedroom Refresh",     tag: "Linen change available", desc: "Fresh, airy bedrooms. Dusting, vacuuming, linen changes and meticulous attention.", spell: "The Serenity Cast",       alt: "Fresh and clean bedroom refresh service in East London" },
-  { img: PHOTOS.hallway,  title: "Airbnb/End of Tenancy", tag: "Get your deposit back",     desc: "A landlord-approved full clean. Every inch, every surface — nothing left to chance.", spell: "The Grand Restoration", alt: "End of tenancy clean in East London rental property" },
+  { img: PHOTOS.hallway,  title: "Airbnb/End of Tenancy", tag: "Maximise your deposit return",     desc: "A landlord-approved full clean. Every inch, every surface — nothing left to chance.", spell: "The Grand Restoration", alt: "End of tenancy clean in East London rental property" },
   { img: PHOTOS.cleaner1, title: "Move-In Preparation", tag: "Fresh start",            desc: "Move into a home that feels truly yours from day one. Magic from the very first step.", spell: "The Welcome Charm",    alt: "Move-in cleaning preparation service by London Cleaning Wizard" },
 ];
 
@@ -74,11 +74,11 @@ export const PACKAGES = [
   {
     id: 'refresh', name: 'The Refresh', popular: false,
     desc: 'Studio & 1-bed entire home. ~2.5hrs. Hotel-standard finish.',
-    tags: ['Whole home', 'Eco products', 'Photos sent', 'Fragrance finish'],
+    tags: ['Whole home', 'Photos sent', 'Fragrance finish'],
     showFreq: true, showAddons: true,
     sizes: [
       { id: 'studio', label: 'Studio',    basePrice: 115 },
-      { id: '1bed',   label: '1 Bedroom', basePrice: 115 },
+      { id: '1bed',   label: '1 Bedroom', basePrice: 125 },
     ],
   },
   {
@@ -89,24 +89,18 @@ export const PACKAGES = [
     sizes: [
       { id: '2bed', label: '2 Bedroom', basePrice: 165 },
       { id: '3bed', label: '3 Bedroom', basePrice: 180 },
+      { id: '4bed', label: '4 Bedroom', basePrice: 220 },
     ],
   },
-  {
-    id: 'grand', name: 'The Grand', popular: false,
-    desc: '4-bed family home. Two-person team. Priority slot protected.',
-    tags: ['Whole home', '2-person team', 'Priority slot', 'Full turndown'],
-    showFreq: true, showAddons: true,
-    sizes: [
-      { id: '4bed', label: '4+ Bedroom', basePrice: 235 },
-    ],
-  },
+  
+
   {
     id: 'deep', name: 'Deep Clean', popular: false,
     desc: 'One-off intensive. Oven, fridge, inside cupboards, behind appliances.',
     tags: ['Oven included', 'Inside fridge', 'Behind appliances', 'Photo report'],
     showFreq: false, showAddons: true,
     sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 265 },
+      { id: 'studio', label: 'Studio',    basePrice: 225 },
       { id: '1bed',   label: '1 Bedroom', basePrice: 265 },
       { id: '2bed',   label: '2 Bedroom', basePrice: 330 },
       { id: '3bed',   label: '3 Bedroom', basePrice: 395 },
@@ -115,7 +109,7 @@ export const PACKAGES = [
   {
     id: 'eot', name: 'End of Tenancy', popular: false,
     desc: 'Deposit-back guaranteed. Letting agent standard. Free re-clean if needed.',
-    tags: ['Deposit guaranteed', 'Photo report', 'Re-clean included'],
+    tags: ['Deposit-focused clean', 'Photo report', 'Re-clean included'],
     showFreq: false, showAddons: false,
     sizes: [
       { id: 'studio', label: 'Studio',    basePrice: 285 },
@@ -154,9 +148,9 @@ export const PACKAGES = [
 
 export const FREQUENCIES = [
   { id: 'one-off',     label: 'One-off',      saving: 0,  note: 'No commitment' },
-  { id: 'monthly',     label: 'Monthly',      saving: 7,  note: 'Save £7 per clean' },
-  { id: 'fortnightly', label: 'Fortnightly',  saving: 15, note: 'Save £15 per clean' },
   { id: 'weekly',      label: 'Weekly',       saving: 30, note: 'Save £30 per clean' },
+  { id: 'fortnightly', label: 'Fortnightly',  saving: 15, note: 'Save £15 per clean' },
+  { id: 'monthly',     label: 'Monthly',      saving: 7,  note: 'Save £7 per clean' },
 ];
 
 export const ADDONS = [
@@ -172,19 +166,28 @@ export const SURCHARGES = {
   sameDay: 30,
 };
 
-export function calculateTotal({ sizePrice, propertyType, frequency, addons, surcharge }) {
-  const mult     = propertyType === 'house' ? 1.10 : 1.0;
-  const base     = Math.round(sizePrice * mult);
-  const freqSave = frequency?.saving || 0;
-  const addnSum  = (addons || []).reduce((s, a) => s + a.price, 0);
-  const sur      = surcharge || 0;
-  const subtotal = base - freqSave + addnSum + sur;
+export const SUPPLIES_FEE = 8;
+
+export function calculateTotal({ sizePrice, propertyType, frequency, addons, surcharge, supplies }) {
+  const mult         = propertyType === 'house' ? 1.10 : 1.0;
+  const base         = Math.round(sizePrice * mult);
+  const freqSave     = frequency?.saving || 0;
+  const addnSum      = (addons || []).reduce((s, a) => s + a.price, 0);
+  const sur          = surcharge || 0;
+  const suppliesFee  = supplies === 'cleaner' ? SUPPLIES_FEE : 0;
+  const subtotal     = base - freqSave + addnSum + sur + suppliesFee;
+  const depositRaw   = Math.round(subtotal * 30) / 100;
+  const fmt = (n) => Number(n).toFixed(2);
   return {
-    base,
-    houseExtra: propertyType === 'house' ? Math.round(sizePrice * 0.10) : 0,
-    freqSave, addnSum, surcharge: sur, subtotal,
-    deposit:   Math.round(subtotal * 0.30),
-    remaining: Math.round(subtotal * 0.70),
+    base:       fmt(base),
+    houseExtra: fmt(propertyType === 'house' ? Math.round(sizePrice * 0.10) : 0),
+    freqSave:   fmt(freqSave),
+    addnSum:    fmt(addnSum),
+    surcharge:  fmt(sur),
+    suppliesFee: fmt(suppliesFee),
+    subtotal:   fmt(subtotal),
+    deposit:    fmt(depositRaw),
+    remaining:  fmt(subtotal - depositRaw),
   };
 }
 //There is no export default — 

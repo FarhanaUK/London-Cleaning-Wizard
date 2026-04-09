@@ -47,12 +47,14 @@ function PaymentForm({ booking, onSuccess, onBack }) {
     if (el.scrollHeight - el.scrollTop <= el.clientHeight + 10) setHasScrolled(true);
   };
 
+  // First booking is always full price — discount applies from 2nd clean onwards
   const T = calculateTotal({
     sizePrice:    booking.size?.basePrice || 0,
     propertyType: booking.propertyType,
-    frequency:    booking.freq,
+    frequency:    null,
     addons:       booking.addons || [],
     surcharge:    0,
+    supplies:     booking.supplies,
   });
 
   const handlePay = async () => {
@@ -60,6 +62,23 @@ function PaymentForm({ booking, onSuccess, onBack }) {
     setPolicyError('');
     setPayError('');
     if (!stripe || !elements) return;
+
+    // Check the date hasn't been blocked since the customer selected it
+    if (booking.cleanDate) {
+      const [y, m] = booking.cleanDate.split('-').map(Number);
+      try {
+        const res  = await fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${y}&month=${m}`);
+        if (!res.ok) throw new Error('Check failed');
+        const data = await res.json();
+        if ((data.blocked || []).includes(booking.cleanDate)) {
+          setPayError('Sorry, this date is no longer available. Please go back and choose another day.');
+          return;
+        }
+      } catch {
+        setPayError('Unable to verify availability. Please refresh the page and try again.');
+        return;
+      }
+    }
 
     setLoading(true);
     setOverlayTitle('Securing your booking…');
@@ -70,7 +89,7 @@ function PaymentForm({ booking, onSuccess, onBack }) {
       const piRes = await fetch(import.meta.env.VITE_CF_CREATE_PAYMENT_INTENT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: T.deposit * 100, bookingRef: 'pending' }),
+        body: JSON.stringify({ amount: Math.round(parseFloat(T.deposit) * 100), bookingRef: 'pending' }),
       });
       const { clientSecret, customerId } = await piRes.json();
 
@@ -102,15 +121,20 @@ function PaymentForm({ booking, onSuccess, onBack }) {
             packageName:           booking.pkg?.name,
             size:                  booking.size?.id,
             frequency:             booking.freq?.id,
-            total:                 T.subtotal,
-            deposit:               T.deposit,
-            remaining:             T.remaining,
+            total:                 parseFloat(T.subtotal),
+            deposit:               parseFloat(T.deposit),
+            remaining:             parseFloat(T.remaining),
             stripeDepositIntentId: paymentIntent.id,
             stripeCustomerId:      customerId,
           }),
         });
 
         const saveData = await saveRes.json();
+        if (!saveRes.ok) {
+          setPayError(saveData.error || 'Your booking could not be saved. Please call us on 020 8137 0026 — your payment has been taken and we will manually confirm your booking.');
+          setLoading(false);
+          return;
+        }
         setLoading(false);
         onSuccess({ bookingRef: saveData.bookingRef, deposit: T.deposit, remaining: T.remaining });
       }
@@ -181,16 +205,17 @@ function PaymentForm({ booking, onSuccess, onBack }) {
         >
           {[
             { heading: '1. Deposit & Payment', body: 'A 30% deposit is required to secure your booking and is charged immediately upon confirmation. The remaining balance will be charged automatically once your clean has been completed and marked as done by our team. By proceeding, you authorise London Cleaning Wizard to charge the remaining balance to your saved payment method upon job completion.' },
-            { heading: '2. Cancellation Policy', body: 'Full refund if cancelled more than 48 hours before the scheduled clean. 50% refund if cancelled between 24 and 48 hours before the clean. No refund if cancelled less than 24 hours before the clean. Cancellations must be made by contacting us directly.' },
+            { heading: '2. Cancellation & Rescheduling Policy', body: 'One-off bookings: Full refund if cancelled more than 48 hours before the scheduled clean. No refund if cancelled less than 48 hours before the clean.\n\nRegular services (weekly, fortnightly or monthly): You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean. No refund will be issued for cancellations or skipped cleans with less than 48 hours notice, as your cleaner\'s time will have been reserved.\n\nCancelling two consecutive cleans will end your recurring arrangement and your recurring discount. A new booking will be required, subject to standard first-clean pricing.\n\nAll cancellations must be made by contacting us directly. We reserve the right to review pricing with a minimum of 4 weeks written notice.' },
             { heading: '3. Pet Policy', body: 'All pets must be secured and kept away from our cleaning team for the entire duration of the clean. This is for the safety of both your pet and our staff. Failure to secure pets may result in the clean being abandoned without refund of the deposit.' },
             { heading: '4. Access to Property', body: 'You agree to ensure our team has full access to the property at the agreed time. If access is not provided within 15 minutes of the scheduled start time, the clean may be abandoned and no refund will be issued.' },
             { heading: '5. Property Condition & Liability', body: 'You confirm that the property details provided are accurate. London Cleaning Wizard carries full public liability insurance. Any damage must be reported within 24 hours of the clean. We are not liable for pre-existing damage or items of exceptional value not declared prior to the clean.' },
-            { heading: '6. Service Standards', body: 'If you are not satisfied with any aspect of your clean, you must notify us within 12 hours and we will arrange a complimentary re-clean of the affected areas. We do not offer refunds after a clean has been completed.' },
-            { heading: '7. Privacy', body: 'Your personal data is processed in accordance with our Privacy Policy. We use your contact details to manage your booking and send confirmations only. We do not sell or share your data with third parties.' },
+            { heading: '6. Service Standards', body: 'If you are not satisfied with any aspect of your clean, you must notify us within 24 hours and we will arrange a complimentary re-clean of the affected areas. We do not offer refunds after a clean has been completed.' },
+            { heading: '7. Cleaner Allocation', body: 'While we always strive to send the same dedicated cleaner for recurring bookings, this cannot be guaranteed. In the event that your usual cleaner is unavailable, we will contact you in advance and arrange an equally skilled replacement.' },
+            { heading: '8. Privacy', body: 'Your personal data is processed in accordance with our Privacy Policy. We use your contact details to manage your booking and send confirmations only. We do not sell or share your data with third parties.' },
           ].map(({ heading, body }) => (
             <div key={heading} style={{ marginBottom: 14 }}>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, fontWeight: 600, color: '#2c2420', marginBottom: 4 }}>{heading}</div>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.7 }}>{body}</div>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.7, whiteSpace: 'pre-line' }}>{body}</div>
             </div>
           ))}
           <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontStyle: 'italic', marginTop: 8 }}>

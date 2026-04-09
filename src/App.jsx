@@ -13,6 +13,7 @@ import PrivacyPolicy from "./components/PrivacyPolicy"
 import Faqs from "./components/Faqs";
 import CookieBanner from "./components/CookieBanner";
 import AdminPage from "./components/AdminPage"
+import DepositPaymentPage from "./components/DepositPaymentPage"
 import { Routes, Route, useLocation } from "react-router-dom";
 
 const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -34,11 +35,13 @@ function MainPage() {
 
 export default function App() {
   const { pathname } = useLocation();
-  const isAdmin = pathname === '/admin';
+  const isAdmin       = pathname === '/admin';
+  const isDepositPage = pathname === '/pay-deposit';
+  const hideChrome    = isAdmin || isDepositPage;
 
   return (
     <div style={{ overflowX: "hidden" }}>
-      {!isAdmin && <Navbar />}
+      {!hideChrome && <Navbar />}
       <Routes>
         <Route path="/" element={<MainPage />} />
         <Route path="/terms-and-conditions" element={<TermsAndCondition />} />
@@ -46,9 +49,10 @@ export default function App() {
         <Route path="/faqs" element={<Faqs />} />
         <Route path="/book" element={<BookingPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/pay-deposit" element={<DepositPaymentPage />} />
       </Routes>
-      {!isAdmin && <Footer />}
-      {!isAdmin && <CookieBanner />}
+      {!hideChrome && <Footer />}
+      {!hideChrome && <CookieBanner />}
     </div>
   );
 }

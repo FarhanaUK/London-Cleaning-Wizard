@@ -9,7 +9,7 @@ import Navbar          from './Navbar';
 
 const INIT = {
   isAirbnb: false, pkg: null, propertyType: null, size: null,
-  freq: null, addons: [], surcharge: 0,
+  freq: null, addons: [], surcharge: 0, supplies: null,
   cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null,
   firstName: '', lastName: '', email: '', phone: '',
   addr1: '', postcode: '', floor: '', parking: '', keys: '',
@@ -26,18 +26,19 @@ export default function BookingPage() {
   const [result,    setResult]    = useState(null);
   const [isMobile,  setIsMobile]  = useState(window.innerWidth < 768);
 
-  const goToStep = (n) => {
-    setStep(n);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const goToStep = (n) => setStep(n);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [step]);
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);
-
-  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const update = (partial) => setBooking(b => ({ ...b, ...partial }));
 
@@ -144,7 +145,7 @@ export default function BookingPage() {
       </div>
 
       {confirmed && (
-        <BookingConfirm booking={booking} result={result} onClose={() => { setConfirmed(false); setBooking(INIT); setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+        <BookingConfirm booking={booking} result={result} onClose={() => { setConfirmed(false); setBooking(INIT); setStep(1); }} />
       )}
     </>
   );

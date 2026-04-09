@@ -45,7 +45,7 @@ export default function TermsAndConditions() {
             color: "#8b7355",
             letterSpacing: "0.06em",
           }}>
-            Last Updated: March 2026
+            Last Updated: April 2026
           </p>
         </div>
 
@@ -90,7 +90,7 @@ export default function TermsAndConditions() {
             title: "4. Deposits & Payments",
             content: (
               <>
-                <p>A £50 deposit is required to secure your booking. The deposit goes toward the total cost and covers administrative and call-out costs. Full payment is due immediately after the service is completed, unless agreed otherwise.</p>
+                <p>A 30% deposit is required to secure your booking and is charged immediately upon confirmation. The deposit goes toward the total cost of your clean. The remaining 70% balance will be charged automatically once your clean has been completed and marked as done by our team. By booking, you authorise London Cleaning Wizard to charge the remaining balance to your saved payment method upon job completion.</p>
                 <p style={{ marginTop: 16 }}><strong>Payment Methods:</strong></p>
                 <ul style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
                   <li>Card (Stripe invoice)</li>
@@ -104,11 +104,14 @@ export default function TermsAndConditions() {
             title: "5. Cancellations & Refunds",
             content: (
               <>
-                <ul style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <li>More than 24 hours' notice: Full refund of deposit</li>
-                  <li>Less than 24 hours' notice: Deposit is non-refundable</li>
+                <p><strong>One-off bookings:</strong></p>
+                <ul style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                  <li>More than 48 hours' notice: Full refund of deposit</li>
+                  <li>Less than 48 hours' notice: Deposit is non-refundable</li>
                   <li>Same-day cancellation or no access provided: The full deposit will be retained</li>
                 </ul>
+                <p style={{ marginTop: 16 }}><strong>Regular services (weekly, fortnightly or monthly):</strong> You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean. No refund will be issued for cancellations or skipped cleans with less than 48 hours notice, as your cleaner's time will have been reserved.</p>
+                <p style={{ marginTop: 16 }}>Cancelling two consecutive cleans will end your recurring arrangement and your recurring discount. A new booking will be required, subject to standard first-clean pricing.</p>
                 <p style={{ marginTop: 16 }}>If we cannot complete the service due to our fault, a full refund will be issued.</p>
               </>
             ),
@@ -138,13 +141,19 @@ export default function TermsAndConditions() {
             ),
           },
           {
-            title: "9. Satisfaction Guarantee",
+            title: "9. Cleaner Allocation",
+            content: (
+              <p>While we always strive to send the same dedicated cleaner for recurring bookings, this cannot be guaranteed. In the event that your usual cleaner is unavailable, we will contact you in advance and arrange an equally skilled replacement.</p>
+            ),
+          },
+          {
+            title: "10. Satisfaction Guarantee",
             content: (
               <p>Issues must be reported within 24 hours. We offer a free re-clean where appropriate. Refunds are not provided if a re-clean is offered and declined.</p>
             ),
           },
           {
-            title: "10. Complaints",
+            title: "11. Complaints",
             content: (
               <>
                 <p>Email: bookings@londoncleaningwizard.com</p>
@@ -153,37 +162,37 @@ export default function TermsAndConditions() {
             ),
           },
           {
-            title: "11. Liability",
+            title: "12. Liability",
             content: (
               <p>We take reasonable care in all services. We are not liable for pre-existing damage, normal wear and tear, or undisclosed fragile or valuable items. Customers should secure valuable items before cleaning. We maintain appropriate public liability insurance.</p>
             ),
           },
           {
-            title: "12. Website & Platform Use",
+            title: "13. Website & Platform Use",
             content: (
               <p>You agree not to misuse our website or social media, submit false information, or copy content without permission.</p>
             ),
           },
           {
-            title: "13. Data Protection",
+            title: "14. Data Protection",
             content: (
               <p>We comply with UK GDPR. We may collect your name, contact details, address, and booking information. We use your data to provide services, communicate with you, and send marketing communications. We do not sell your data. You may opt out of marketing at any time.</p>
             ),
           },
           {
-            title: "14. Changes to Terms",
+            title: "15. Changes to Terms",
             content: <p>We may update these terms at any time. Continued use of our services following any changes constitutes acceptance of the updated terms.</p>,
           },
           {
-            title: "15. Governing Law",
+            title: "16. Governing Law",
             content: <p>These terms are governed by the laws of England and Wales.</p>,
           },
           {
-            title: "16. Contact",
+            title: "17. Contact",
             content: (
               <>
                 <p>Email: bookings@londoncleaningwizard.com</p>
-                <p style={{ marginTop: 8 }}>Phone: 07377 156 973</p>
+                <p style={{ marginTop: 8 }}>Phone: 020 8137 0026</p>
               </>
             ),
           },

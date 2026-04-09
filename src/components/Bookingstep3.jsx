@@ -89,7 +89,7 @@ function Field({ name, label, type = 'text', placeholder, readOnly, value, error
   );
 }
 
-export default function BookingStep3({ onUpdate, onNext, onBack, isMobile }) {
+export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobile }) {
   const [custType,      setCustType]      = useState(null);
 
   const [retEmail,      setRetEmail]      = useState('');
@@ -187,7 +187,7 @@ export default function BookingStep3({ onUpdate, onNext, onBack, isMobile }) {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const errors = validateForm(form);
     if (!form.source) errors.source = 'Please let us know how you heard about us.';
     if (form.hasPets === null) errors.hasPets = 'Please let us know whether there are pets at the property.';
@@ -196,6 +196,17 @@ export default function BookingStep3({ onUpdate, onNext, onBack, isMobile }) {
       setFieldErrors(errors);
       setSubmitError('Please fix the errors above.');
       return;
+    }
+    if (booking.cleanDate) {
+      const d = new Date(booking.cleanDate);
+      try {
+        const res  = await fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${d.getFullYear()}&month=${d.getMonth() + 1}`);
+        const data = await res.json();
+        if ((data.blocked || []).includes(booking.cleanDate)) {
+          setSubmitError('Sorry, the date you selected is no longer available. Please go back and choose another day.');
+          return;
+        }
+      } catch { /* allow through on network error */ }
     }
     setSubmitError('');
     onUpdate({
@@ -305,7 +316,7 @@ export default function BookingStep3({ onUpdate, onNext, onBack, isMobile }) {
                 <span style={{ color: '#c8b89a' }}>✦</span> Signature Touch
               </div>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.7 }}>
-                More than just a clean, a feeling. Our Signature Touch is a complimentary luxury finishing ritual included with every visit. We may leave behind a small gift such as a mini candle, branded cleaning wipes, or a seasonal treat, and finish your home with a spritz of our house fragrance, so you walk in to something that feels hotel-ready. It's our way of going beyond the clean.
+                More than just a clean, a feeling. Our Signature Touch is a complimentary luxury finishing ritual included with every visit. We may leave behind a small surprise gift and finish your home with a spritz of our house fragrance, so you walk in to something that feels hotel-ready. It's our way of going beyond the clean.
               </div>
             </div>
             <div

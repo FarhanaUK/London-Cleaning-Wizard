@@ -1,16 +1,10 @@
 import { Sparkle } from './Icons';
 import { calculateTotal } from '../data/siteData';
 
-const PROMISES = [
-  'Same dedicated cleaner, every visit',
-  'Completion photos after every clean',
-  'Eco-friendly, pet-safe products',
-  'Punctual or 10% off your next clean',
-  'Free re-clean guarantee',
-];
+const PROMISES = [];
 
 // ── Mobile sticky bar — shows at top of form on small screens
-function MobilePriceBar({ booking, T }) {
+function MobilePriceBar({ booking, T, TOneOff }) {
   return (
     <div style={{
       position: 'sticky',
@@ -41,7 +35,12 @@ function MobilePriceBar({ booking, T }) {
           </div>
         )}
         {T && (
-          <div style={{ display: 'flex', gap: 14, marginTop: 2 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 14px', marginTop: 2 }}>
+            {booking.freq && booking.freq.id !== 'one-off' && (
+              <div style={{ width: '100%', fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#6fcf97', fontWeight: 400 }}>
+                £{booking.freq.saving} {booking.freq.label} discount from 2nd clean
+              </div>
+            )}
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: 'rgba(200,184,154,0.4)', fontWeight: 300 }}>
               Deposit today: <span style={{ color: '#e8d9c0', fontWeight: 500 }}>£{T.deposit}</span>
             </div>
@@ -51,14 +50,26 @@ function MobilePriceBar({ booking, T }) {
           </div>
         )}
       </div>
-      <div style={{
-        fontFamily: "'Cormorant Garamond',serif",
-        fontSize: T ? 26 : 14,
-        fontWeight: 300,
-        color: T ? '#c8b89a' : 'rgba(200,184,154,0.25)',
-        fontStyle: T ? 'normal' : 'italic',
-      }}>
-        {T ? `£${T.subtotal}` : '—'}
+      <div style={{ textAlign: 'right' }}>
+        {TOneOff && (
+          <div style={{
+            fontFamily: "'Cormorant Garamond',serif",
+            fontSize: 16, fontWeight: 300,
+            color: 'rgba(200,184,154,0.3)',
+            textDecoration: 'line-through',
+          }}>
+            £{TOneOff.subtotal}
+          </div>
+        )}
+        <div style={{
+          fontFamily: "'Cormorant Garamond',serif",
+          fontSize: T ? 26 : 14,
+          fontWeight: 300,
+          color: T ? '#c8b89a' : 'rgba(200,184,154,0.25)',
+          fontStyle: T ? 'normal' : 'italic',
+        }}>
+          {T ? `£${T.subtotal}` : '—'}
+        </div>
       </div>
     </div>
   );
@@ -136,25 +147,29 @@ function DesktopInvoice({ booking, T, lines }) {
 
 export default function BookingInvoice({ booking, isMobile }) {
   const hasSel = !!booking.size;
+  // First booking always at full price — no frequency discount
   const T = hasSel ? calculateTotal({
     sizePrice:    booking.size.basePrice,
     propertyType: booking.propertyType,
-    frequency:    booking.freq,
+    frequency:    null,
     addons:       booking.addons,
     surcharge:    booking.surcharge,
+    supplies:     booking.supplies,
   }) : null;
+  const TOneOff = null;
 
   const lines = T ? [
     { label: `${booking.pkg?.name} · ${booking.size?.label}`, val: `£${T.base}` },
-T.freqSave > 0   && { label: `${booking.freq?.label} discount`, val: `-£${T.freqSave}`, grn: true },
     ...(booking.addons || []).map(a => ({ label: a.name, val: `+£${a.price}` })),
-    T.surcharge > 0  && { label: 'Surcharge', val: `+£${T.surcharge}` },
+    T.suppliesFee > 0 && { label: 'Cleaning supplies', val: `+£${T.suppliesFee}` },
+    T.surcharge > 0   && { label: 'Surcharge', val: `+£${T.surcharge}` },
+    booking.freq && booking.freq.id !== 'one-off' && { label: `£${booking.freq.saving} ${booking.freq.label} discount`, val: 'from 2nd clean', grn: true },
     booking.cleanDateDisplay && { label: 'Date', val: booking.cleanDateDisplay },
     booking.cleanTime        && { label: 'Time', val: booking.cleanTime },
   ].filter(Boolean) : [];
 
   if (isMobile) {
-    return <MobilePriceBar booking={booking} T={T} />;
+    return <MobilePriceBar booking={booking} T={T} TOneOff={TOneOff} />;
   }
 
   return <DesktopInvoice booking={booking} T={T} lines={lines} />;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { validateStep2 } from '../utils/validation';
 import { toUTCISO, showDate, todayUK } from '../utils/time';
 import { SkeletonSlots } from './LoadingStates';
@@ -30,9 +30,35 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   const today        = new Date();
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [slots,     setSlots]     = useState([]);
-  const [loadSlots, setLoadSlots] = useState(false);
-  const [error,     setError]     = useState('');
+  const [slots,        setSlots]        = useState([]);
+  const [loadSlots,    setLoadSlots]    = useState(false);
+  const [slotsFetched, setSlotsFetched] = useState(false);
+  const [blockedDates, setBlockedDates] = useState([]);
+  const [error,        setError]        = useState('');
+
+  const bookingRef = useRef(booking);
+  useEffect(() => { bookingRef.current = booking; }, [booking]);
+
+  const fetchBlocked = (y, m) =>
+    fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${y}&month=${m + 1}`)
+      .then(r => r.json())
+      .then(data => {
+        const dates = data.blocked || [];
+        setBlockedDates(dates);
+        // If the customer already selected a date that just got blocked, clear it
+        if (bookingRef.current.cleanDate && dates.includes(bookingRef.current.cleanDate)) {
+          onUpdate({ cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null });
+          setSlots([]);
+          setError('The date you selected is no longer available. Please choose another day.');
+        }
+      })
+      .catch(() => {});
+
+  useEffect(() => {
+    fetchBlocked(year, month);
+    const interval = setInterval(() => fetchBlocked(year, month), 30000);
+    return () => clearInterval(interval);
+  }, [year, month]);
 
   const changeMonth = (dir) => {
     let m = month + dir, y = year;
@@ -59,6 +85,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
       setSlots([]);
     } finally {
       setLoadSlots(false);
+      setSlotsFetched(true);
     }
   };
 
@@ -70,9 +97,24 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
     });
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const err = validateStep2(booking);
     if (err) { setError(err); return; }
+    // Fresh server check before proceeding — catches blocks added since last poll
+    try {
+      const res  = await fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${year}&month=${month + 1}`);
+      const data = await res.json();
+      const latest = data.blocked || [];
+      setBlockedDates(latest);
+      if (booking.cleanDate && latest.includes(booking.cleanDate)) {
+        onUpdate({ cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null });
+        setSlots([]);
+        setError('The date you selected is no longer available. Please choose another day.');
+        return;
+      }
+    } catch {
+      // If the check fails, allow through — don't block the customer on a network error
+    }
     setError('');
     onNext();
   };
@@ -132,14 +174,16 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
           {calDays.map((dateStr, i) => {
             if (!dateStr) return <div key={`empty-${i}`} />;
-            const isPast     = dateStr < todayStr;
-            const isTooSoon  = dateStr === todayStr || dateStr === tomorrowStr;
-            const isBlocked  = isPast || isTooSoon;
-            const isSelected = booking.cleanDate === dateStr;
+            const isPast          = dateStr < todayStr;
+            const isTooSoon       = dateStr === todayStr || dateStr === tomorrowStr;
+            const isFullyBlocked  = blockedDates.includes(dateStr);
+            const isBlocked       = isPast || isTooSoon || isFullyBlocked;
+            const isSelected      = booking.cleanDate === dateStr;
             return (
               <div
                 key={dateStr}
                 onClick={() => {
+                  if (isFullyBlocked) { setError('We are not available on this date. Please select another day.'); return; }
                   if (isTooSoon) { setError('For cleaning jobs required urgently, please contact us directly so we can ensure we have available cleaning wizards in your area.'); return; }
                   if (!isBlocked) handleDateClick(dateStr);
                 }}
@@ -147,10 +191,11 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
                   aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 14, fontFamily: "'Jost',sans-serif", fontWeight: 300,
                   cursor: isBlocked ? 'not-allowed' : 'pointer',
-                  background: isSelected ? '#c8b89a' : 'transparent',
+                  background: isSelected ? '#c8b89a' : isFullyBlocked ? '#f0ece6' : 'transparent',
                   color: isBlocked ? '#ccc' : isSelected ? '#1a1410' : '#2c2420',
                   border: isSelected ? 'none' : '1px solid transparent',
                   transition: 'all 0.15s',
+                  textDecoration: isFullyBlocked ? 'line-through' : 'none',
                 }}
                 onMouseEnter={e => { if (!isBlocked && !isSelected) e.currentTarget.style.border = '1px solid #c8b89a'; }}
                 onMouseLeave={e => { if (!isSelected) e.currentTarget.style.border = '1px solid transparent'; }}
@@ -163,7 +208,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
       </div>
 
       {/* Time slots */}
-      {(booking.cleanDate || loadSlots) && (
+      {(loadSlots || slotsFetched) && (
         <>
           <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Available Times</div>
           {loadSlots ? (
