@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../firebase/firebase';
-import { collection, query, orderBy, onSnapshot, limit, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, limit } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { todayUK } from '../utils/time';
 import { Sparkle, LogoMark } from './Icons';
@@ -81,6 +81,7 @@ export default function AdminPage() {
   const [cancelling,       setCancelling]       = useState(null);
   const [cancelErr,        setCancelErr]        = useState('');
   const [deleting,         setDeleting]         = useState(null);
+  const [deleteProgress,   setDeleteProgress]   = useState(null); // { done, total } or null
   const [expanded,         setExpanded]         = useState(null);
   const [markingDeposit,   setMarkingDeposit]   = useState(null);
   const [depositErr,       setDepositErr]       = useState('');
@@ -96,9 +97,12 @@ export default function AdminPage() {
   const [welcomeColor, setWelcomeColor] = useState('#6b5e56');
   const [authLoading,   setAuthLoading]   = useState(true);
   const [bannerVisible, setBannerVisible] = useState(false);
-  const [schedulerLogs, setSchedulerLogs] = useState([]);
+  const [schedulerLogs,     setSchedulerLogs]     = useState([]);
+  const [triggeringScheduler, setTriggeringScheduler] = useState(false);
+  const [triggerResult,       setTriggerResult]       = useState(null);
   const [stoppingRecurring,  setStoppingRecurring]  = useState(null);
   const [stopRecurringErr,   setStopRecurringErr]   = useState('');
+  const [stoppedRecurring,   setStoppedRecurring]   = useState(new Set());
 
   const WELCOME_COLORS = ['#2563eb','#be185d','#16a34a','#4f46e5','#0e7490','#7c3aed','#b45309'];
   const [statusFilter,  setStatusFilter]  = useState('all');
@@ -109,9 +113,13 @@ export default function AdminPage() {
   const HOW_HEARD_OPTIONS = ['Google Search','Instagram','Facebook','TikTok','Word of Mouth','Leaflet','Nextdoor','Other'];
   const BLANK_BOOKING = { firstName:'', lastName:'', email:'', phone:'', addr1:'', postcode:'', propertyType:'flat', floor:'', parking:'', keys:'', notes:'', packageId:'refresh', sizeId:'', frequency:'one-off', cleanDate:'', cleanTime:'9:00 AM', addons:[], hasPets:null, petTypes:'', signatureTouch:true, signatureTouchNotes:'', hearAbout:'', supplies:'customer' };
   const [nb, setNb] = useState(BLANK_BOOKING);
-  const [nbSaving,   setNbSaving]   = useState(false);
-  const [nbErr,      setNbErr]      = useState('');
-  const [nbTcAgreed, setNbTcAgreed] = useState(false);
+  const [nbSaving,       setNbSaving]       = useState(false);
+  const [nbErr,          setNbErr]          = useState('');
+  const [nbSubmitted,    setNbSubmitted]    = useState(false);
+  const [nbTouched,      setNbTouched]      = useState({});
+  const [nbBlockedDates, setNbBlockedDates] = useState([]);
+  const [nbCalYear,      setNbCalYear]      = useState(() => new Date().getFullYear());
+  const [nbCalMonth,     setNbCalMonth]     = useState(() => new Date().getMonth());
 
   const nbPkg   = PACKAGES.find(p => p.id === nb.packageId);
   const nbSize  = nbPkg?.sizes.find(s => s.id === nb.sizeId);
@@ -123,13 +131,14 @@ export default function AdminPage() {
   const isValidUKPostcode = p => /^[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}$/i.test(p.trim());
 
   const handleNewBooking = async () => {
-    if (!nb.firstName || !nb.lastName || !nb.email || !nb.phone || !nb.addr1 || !nb.postcode || !nb.sizeId || !nb.cleanDate || !nb.cleanTime || !nb.hearAbout) {
+    setNbSubmitted(true);
+    if (!nb.firstName || !nb.lastName || !nb.email || !nb.phone || !nb.addr1 || !nb.postcode || !nb.sizeId || !nb.cleanDate || !nb.cleanTime || !nb.hearAbout || nb.hasPets === null) {
       setNbErr('Please fill in all required fields.'); return;
     }
     if (!isValidEmail(nb.email))      { setNbErr('Email address is not valid — e.g. name@example.com'); return; }
     if (!isValidUKPhone(nb.phone))    { setNbErr('Phone number is not a valid UK number — e.g. 07700 900123 or 020 8137 0026'); return; }
     if (!isValidUKPostcode(nb.postcode)) { setNbErr('Postcode is not valid — e.g. E1 6AN or SW1A 1AA'); return; }
-    if (!nbTcAgreed) { setNbErr('Please confirm the customer has agreed to the Terms & Conditions.'); return; }
+    if (nbBlockedDates.includes(nb.cleanDate)) { setNbErr('This date is blocked in the calendar. Please choose a different date.'); return; }
     setNbSaving(true); setNbErr('');
     try {
       const res  = await fetch(import.meta.env.VITE_CF_SAVE_BOOKING, {
@@ -155,7 +164,9 @@ export default function AdminPage() {
       setShowNewBooking(false);
       setNb(BLANK_BOOKING);
       setNbTcAgreed(false);
-    } catch { setNbErr('Something went wrong. Please try again.'); }
+      setNbSubmitted(false);
+      setNbTouched({});
+    } catch (err) { setNbErr(`Something went wrong: ${err?.message || err}`); }
     setNbSaving(false);
   };
   const [selected,      setSelected]      = useState(new Set());
@@ -188,6 +199,13 @@ export default function AdminPage() {
       setSchedulerLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
   }, [user]);
+
+  // Fetch blocked dates when calendar month changes
+  useEffect(() => {
+    if (!user) return;
+    fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${nbCalYear}&month=${nbCalMonth + 1}`)
+      .then(r => r.json()).then(data => setNbBlockedDates(data.blocked || [])).catch(() => {});
+  }, [user, nbCalYear, nbCalMonth]);
 
   const handleLogin = async () => {
     setLoginErr('');
@@ -224,20 +242,27 @@ export default function AdminPage() {
   const handleDeleteSelected = async () => {
     if (!window.confirm(`Delete ${selected.size} selected booking${selected.size > 1 ? 's' : ''}? This cannot be undone.`)) return;
     setCompleteErr('');
-    for (const id of selected) {
+    const ids = [...selected];
+    const total = ids.length;
+    setDeleteProgress({ done: 0, total });
+    let failed = 0;
+    for (let i = 0; i < ids.length; i++) {
       try {
         const res = await fetch(import.meta.env.VITE_CF_DELETE_BOOKING, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId: id }),
+          body: JSON.stringify({ bookingId: ids[i] }),
         });
-        if (!res.ok) setCompleteErr('Some bookings could not be deleted.');
+        if (!res.ok) failed++;
       } catch {
-        setCompleteErr('Some bookings could not be deleted.');
+        failed++;
       }
+      setDeleteProgress({ done: i + 1, total });
     }
+    if (failed > 0) setCompleteErr(`${failed} booking${failed > 1 ? 's' : ''} could not be deleted.`);
     setSelected(new Set());
     setExpanded(null);
+    setDeleteProgress(null);
   };
 
   const toggleSelect = (id) => setSelected(prev => {
@@ -366,7 +391,16 @@ export default function AdminPage() {
     setStoppingRecurring(booking.id);
     setStopRecurringErr('');
     try {
-      await updateDoc(doc(db, 'customers', booking.email.toLowerCase()), { recurringActive: false, updatedAt: new Date() });
+      const res = await fetch(import.meta.env.VITE_CF_STOP_RECURRING, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: booking.email, fromDate: booking.cleanDate }),
+      });
+      const data = await res.json();
+      console.log('stopRecurring response:', data);
+      if (!data.success) throw new Error(data.error || 'Failed');
+      setStoppedRecurring(prev => new Set([...prev, booking.id]));
+      console.log('stoppedRecurring updated for:', booking.id);
     } catch {
       setStopRecurringErr('Failed to stop recurring series. Please try again.');
     } finally {
@@ -404,7 +438,7 @@ export default function AdminPage() {
       if (!res.ok) {
         setCancelErr(data.error || 'Failed to cancel booking.');
       } else if (data.consecutiveAlert) {
-        window.alert(`⚠️ This is the 2nd consecutive cancellation for ${booking.firstName} ${booking.lastName}.\n\nYou should stop their recurring series — they have now cancelled 2 cleans in a row and will need to rebook from scratch at full price.\n\nUse the "Stop Recurring Series" button on their next scheduled booking.`);
+        window.alert(`⚠️ 2 consecutive cancellations for ${booking.firstName} ${booking.lastName}.\n\nTheir recurring series has been automatically stopped and all future scheduled bookings have been removed. They will need to rebook from scratch at full price.`);
       }
     } catch {
       setCancelErr('Something went wrong. Please try again.');
@@ -507,15 +541,15 @@ export default function AdminPage() {
       ? (a.cleanTime || '').localeCompare(b.cleanTime || '')
       : a.cleanDate.localeCompare(b.cleanDate));
 
-  const totalValue  = displayedBookings.reduce((s, b) => s + (b.total   || 0), 0);
+  const totalValue  = displayedBookings.reduce((s, b) => s + (parseFloat(b.total)   || 0), 0);
   const collected   = displayedBookings.reduce((s, b) => {
-    if (b.status === 'fully_paid') return s + (b.total || 0);
-    if (['deposit_paid', 'payment_failed'].includes(b.status)) return s + (b.deposit || 0);
+    if (b.status === 'fully_paid') return s + (parseFloat(b.total) || 0);
+    if (['deposit_paid', 'payment_failed'].includes(b.status)) return s + (parseFloat(b.deposit) || 0);
     return s;
   }, 0);
   const outstanding = displayedBookings
     .filter(b => b.status === 'deposit_paid')
-    .reduce((s, b) => s + (b.remaining || 0), 0);
+    .reduce((s, b) => s + (parseFloat(b.remaining) || 0), 0);
 
   const LABEL = { fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 6 };
   const VALUE = { fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 300, color: '#1a1410' };
@@ -690,9 +724,9 @@ export default function AdminPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 12, marginBottom: 28 }}>
           {[
             { label: 'Bookings',    value: displayedBookings.length },
-            { label: 'Total Value', value: `£${totalValue}` },
-            { label: 'Collected',   value: `£${collected}` },
-            { label: 'Outstanding', value: `£${outstanding}` },
+            { label: 'Total Value', value: `£${totalValue.toFixed(2)}` },
+            { label: 'Collected',   value: `£${collected.toFixed(2)}` },
+            { label: 'Outstanding', value: `£${outstanding.toFixed(2)}` },
           ].map((s, i) => (
             <div key={i} style={{ background: 'white', border: '1px solid rgba(200,184,154,0.25)', padding: '16px 20px' }}>
               <div style={LABEL}>{s.label}</div>
@@ -752,6 +786,30 @@ export default function AdminPage() {
           );
         })()}
 
+        {/* Manual scheduler trigger */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+          <button
+            onClick={async () => {
+              setTriggeringScheduler(true); setTriggerResult(null);
+              try {
+                const res  = await fetch(import.meta.env.VITE_CF_TRIGGER_SCHEDULER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+                const data = await res.json();
+                setTriggerResult(data.success ? `Done — ${data.created} created, ${data.skipped} already existed${data.failed > 0 ? `, ${data.failed} failed` : ''}` : `Error: ${data.error}`);
+              } catch (e) { setTriggerResult(`Error: ${e.message}`); }
+              setTriggeringScheduler(false);
+            }}
+            disabled={triggeringScheduler}
+            style={{ ...BTN, background: '#f2ede6', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)', cursor: triggeringScheduler ? 'not-allowed' : 'pointer' }}
+          >
+            {triggeringScheduler ? 'Running…' : '⚙ Run Scheduler Now'}
+          </button>
+          {triggerResult && (
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: triggerResult.startsWith('Error') ? '#8b2020' : '#2d6a4f', fontWeight: 300 }}>
+              {triggerResult}
+            </div>
+          )}
+        </div>
+
         {/* Toolbar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -769,10 +827,21 @@ export default function AdminPage() {
             {selected.size > 0 && (
               <button
                 onClick={handleDeleteSelected}
-                style={{ ...BTN, background: '#8b2020', color: 'white', border: 'none' }}
+                disabled={!!deleteProgress}
+                style={{ ...BTN, background: '#8b2020', color: 'white', border: 'none', opacity: deleteProgress ? 0.6 : 1, cursor: deleteProgress ? 'not-allowed' : 'pointer' }}
               >
-                Delete Selected ({selected.size})
+                {deleteProgress ? `Deleting… ${deleteProgress.done}/${deleteProgress.total}` : `Delete Selected (${selected.size})`}
               </button>
+            )}
+            {deleteProgress && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 200 }}>
+                <div style={{ flex: 1, height: 4, background: 'rgba(200,184,154,0.2)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: '#8b2020', borderRadius: 2, width: `${(deleteProgress.done / deleteProgress.total) * 100}%`, transition: 'width 0.2s ease' }} />
+                </div>
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b2020', whiteSpace: 'nowrap' }}>
+                  {Math.round((deleteProgress.done / deleteProgress.total) * 100)}%
+                </div>
+              </div>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -828,7 +897,7 @@ export default function AdminPage() {
                     onClick={e => e.stopPropagation()}
                     style={{ cursor: 'pointer', accentColor: '#c8b89a', width: 15, height: 15, flexShrink: 0 }}
                   />
-                  <div onClick={() => setExpanded(isOpen ? null : b.id)} style={{ flex: 1, cursor: 'pointer' }}>
+                  <div onClick={() => { setExpanded(isOpen ? null : b.id); setStopRecurringErr(''); }} style={{ flex: 1, cursor: 'pointer' }}>
                     <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 19, fontWeight: 400, color: '#1a1410', marginBottom: 2 }}>
                       {b.firstName} {b.lastName}
                     </div>
@@ -843,8 +912,8 @@ export default function AdminPage() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {b.isAutoRecurring && (
-                      <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 10px', background: '#f0fdf4', color: '#166534' }}>
-                        🔄 Auto-recurring
+                      <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 10px', background: stoppedRecurring.has(b.id) ? '#fef3c7' : '#f0fdf4', color: stoppedRecurring.has(b.id) ? '#92400e' : '#166534' }}>
+                        {stoppedRecurring.has(b.id) ? '⛔ Series Stopped' : '🔄 Auto-recurring'}
                       </span>
                     )}
                     {b.isPhoneBooking && !b.isAutoRecurring && (
@@ -880,9 +949,9 @@ export default function AdminPage() {
                         { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : 'None' },
                         { l: 'Pets',             v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
                         { l: 'Signature Touch',  v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
-                        { l: 'Total',            v: `£${b.total}` },
-                        { l: 'Deposit paid',     v: `£${b.deposit}` },
-                        { l: 'Remaining',        v: `£${b.remaining}` },
+                        { l: 'Total',            v: `£${parseFloat(b.total).toFixed(2)}` },
+                        { l: 'Deposit paid',     v: `£${parseFloat(b.deposit).toFixed(2)}` },
+                        { l: 'Remaining',        v: `£${parseFloat(b.remaining).toFixed(2)}` },
                         { l: 'Source',           v: b.source || '—' },
                         b.stripeDepositIntentId   && { l: 'Stripe Deposit PI',   v: b.stripeDepositIntentId },
                         b.stripeRemainingIntentId && { l: 'Stripe Remaining PI',  v: b.stripeRemainingIntentId },
@@ -1012,7 +1081,7 @@ export default function AdminPage() {
                           style={{ ...BTN, background: completing === b.id ? '#8b7355' : '#2d6a4f', display: 'flex', alignItems: 'center', gap: 8 }}
                         >
                           <Sparkle size={8} color="#f5f0e8" />
-                          {completing === b.id ? 'Charging...' : `Mark as Complete — Charge £${b.total}`}
+                          {completing === b.id ? 'Charging...' : `Mark as Complete — Charge £${parseFloat(b.total).toFixed(2)}`}
                         </button>
                       )}
                       {b.status === 'payment_failed' && (
@@ -1021,7 +1090,7 @@ export default function AdminPage() {
                           disabled={completing === b.id}
                           style={{ ...BTN, background: '#8b2020', display: 'flex', alignItems: 'center', gap: 8 }}
                         >
-                          {completing === b.id ? 'Retrying...' : b.isAutoRecurring ? `Retry Payment — £${b.total}` : `Retry Payment — £${b.remaining}`}
+                          {completing === b.id ? 'Retrying...' : b.isAutoRecurring ? `Retry Payment — £${parseFloat(b.total).toFixed(2)}` : `Retry Payment — £${parseFloat(b.remaining).toFixed(2)}`}
                         </button>
                       )}
                       {['deposit_paid', 'pending_deposit', 'scheduled'].includes(b.status) && (
@@ -1040,13 +1109,15 @@ export default function AdminPage() {
                             {cancelling === b.id ? 'Cancelling...' : (b.status === 'pending_deposit' || b.status === 'scheduled') ? 'Cancel Booking' : 'Cancel & Refund'}
                           </button>
                           {b.isAutoRecurring && (
-                            <button
-                              onClick={e => { e.stopPropagation(); handleStopRecurring(b); }}
-                              disabled={stoppingRecurring === b.id}
-                              style={{ ...BTN, background: 'transparent', color: '#7c3d00', border: '1px solid rgba(124,61,0,0.3)' }}
-                            >
-                              {stoppingRecurring === b.id ? 'Stopping...' : 'Stop Recurring Series'}
-                            </button>
+                            stoppedRecurring.has(b.id)
+                              ? <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#166534', background: '#f0fdf4', padding: '6px 12px', borderRadius: 4, margin: 0 }}>✓ Recurring series stopped — no more bookings will be auto-created for this customer.</p>
+                              : <button
+                                  onClick={e => { e.stopPropagation(); handleStopRecurring(b); }}
+                                  disabled={stoppingRecurring === b.id}
+                                  style={{ ...BTN, background: 'transparent', color: '#7c3d00', border: '1px solid rgba(124,61,0,0.3)' }}
+                                >
+                                  {stoppingRecurring === b.id ? 'Stopping...' : 'Stop Recurring Series'}
+                                </button>
                           )}
                         </>
                       )}
@@ -1081,7 +1152,7 @@ export default function AdminPage() {
           <div style={{ width: '100%', maxWidth: 540, background: '#FAF8F4', overflowY: 'auto', padding: '32px 28px', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, color: '#1a1410' }}>New Booking</div>
-              <button onClick={() => { setShowNewBooking(false); setNb(BLANK_BOOKING); setNbErr(''); setNbTcAgreed(false); }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#8b7355' }}>✕</button>
+              <button onClick={() => { setShowNewBooking(false); setNb(BLANK_BOOKING); setNbErr(''); setNbSubmitted(false); setNbTouched({}); }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#8b7355' }}>✕</button>
             </div>
 
             {/* Customer */}
@@ -1103,20 +1174,26 @@ export default function AdminPage() {
               { label: 'Parking',      key: 'parking', placeholder: 'Free street parking nearby' },
               { label: 'Keys',         key: 'keys',    placeholder: 'Key with concierge, smart lock code 1234' },
             ].map(f => {
-              const invalid = f.validate && nb[f.key] && !f.validate(nb[f.key]);
+              const isEmpty  = f.label.includes('*') && !nb[f.key];
+              const touched  = nbTouched[f.key] || nbSubmitted;
+              const invalid  = f.validate && nb[f.key] && touched && !f.validate(nb[f.key]);
+              const showErr  = nbSubmitted && isEmpty;
               return (
                 <div key={f.key} style={{ marginBottom: 14 }}>
-                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 4 }}>{f.label}</div>
+                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: showErr ? '#8b2020' : '#8b7355', marginBottom: 4 }}>{f.label}</div>
                   <input
                     type={f.type || 'text'}
                     value={nb[f.key]}
                     placeholder={f.placeholder}
                     onChange={e => setNb(p => ({ ...p, [f.key]: e.target.value }))}
-                    style={{ ...INPUT, marginBottom: 0, borderBottomColor: invalid ? '#8b2020' : undefined }}
+                    onBlur={() => setNbTouched(p => ({ ...p, [f.key]: true }))}
+                    style={{ ...INPUT, marginBottom: 0, borderBottomColor: (invalid || showErr) ? '#8b2020' : undefined }}
                   />
-                  {invalid
-                    ? <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b2020', marginTop: 4 }}>Not valid — {f.hint}</div>
-                    : f.hint && !nb[f.key] && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: 'rgba(139,115,85,0.6)', marginTop: 4 }}>{f.hint}</div>
+                  {showErr
+                    ? <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b2020', marginTop: 4 }}>This field is required</div>
+                    : invalid
+                      ? <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b2020', marginTop: 4 }}>Not valid — {f.hint}</div>
+                      : f.hint && !nb[f.key] && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: 'rgba(139,115,85,0.6)', marginTop: 4 }}>{f.hint}</div>
                   }
                 </div>
               );
@@ -1125,7 +1202,7 @@ export default function AdminPage() {
             {/* Property type */}
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Property Type</div>
-              <select value={nb.propertyType} onChange={e => setNb(p => ({ ...p, propertyType: e.target.value }))} style={{ ...INPUT, marginBottom: 0 }}>
+              <select value={nb.propertyType} onChange={e => setNb(p => ({ ...p, propertyType: e.target.value, sizeId: e.target.value === 'house' && p.sizeId === 'studio' ? '' : p.sizeId }))} style={{ ...INPUT, marginBottom: 0 }}>
                 <option value="flat">Flat / Apartment / Studio</option>
                 <option value="house">House (+10%)</option>
               </select>
@@ -1143,11 +1220,15 @@ export default function AdminPage() {
               </select>
             </div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Size *</div>
-              <select value={nb.sizeId} onChange={e => setNb(p => ({ ...p, sizeId: e.target.value }))} style={{ ...INPUT, marginBottom: 0 }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: nbSubmitted && !nb.sizeId ? '#8b2020' : '#8b7355', marginBottom: 4 }}>Size *</div>
+              <select value={nb.sizeId} onChange={e => setNb(p => ({ ...p, sizeId: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderBottomColor: nbSubmitted && !nb.sizeId ? '#8b2020' : undefined }}>
                 <option value="">— Select size —</option>
-                {nbPkg?.sizes.map(s => <option key={s.id} value={s.id}>{s.label} — £{s.basePrice}</option>)}
+                {(nbPkg?.sizes || []).filter(s => !(nb.propertyType === 'house' && s.id === 'studio')).map(s => {
+                  const price = Math.round(s.basePrice * (nb.propertyType === 'house' ? 1.10 : 1.0));
+                  return <option key={s.id} value={s.id}>{s.label} — £{price}</option>;
+                })}
               </select>
+              {nbSubmitted && !nb.sizeId && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b2020', marginTop: 4 }}>This field is required</div>}
             </div>
             {nbPkg?.showFreq ? (
               <div style={{ marginBottom: 14 }}>
@@ -1172,13 +1253,91 @@ export default function AdminPage() {
             {/* Date & Time */}
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', margin: '20px 0 12px' }}>Date & Time</div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Date *</div>
-              <input type="date" value={nb.cleanDate} onChange={e => setNb(p => ({ ...p, cleanDate: e.target.value }))} style={{ ...INPUT, marginBottom: 0 }} />
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: nbSubmitted && !nb.cleanDate ? '#8b2020' : '#8b7355', marginBottom: 8 }}>Date *</div>
+              {/* Mini calendar */}
+              {(() => {
+                const MONTHS_CAL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                const DAYS_CAL   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+                const todayStr   = todayUK();
+                const firstDay   = new Date(nbCalYear, nbCalMonth, 1).getDay();
+                const daysInMon  = new Date(nbCalYear, nbCalMonth + 1, 0).getDate();
+                const calDays    = [];
+                for (let i = 0; i < firstDay; i++) calDays.push(null);
+                for (let d = 1; d <= daysInMon; d++) {
+                  const mm = String(nbCalMonth + 1).padStart(2, '0');
+                  const dd = String(d).padStart(2, '0');
+                  calDays.push(`${nbCalYear}-${mm}-${dd}`);
+                }
+                const changeMonth = (dir) => {
+                  let m = nbCalMonth + dir, y = nbCalYear;
+                  if (m < 0)  { m = 11; y--; }
+                  if (m > 11) { m = 0;  y++; }
+                  setNbCalMonth(m); setNbCalYear(y);
+                  fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${y}&month=${m + 1}`)
+                    .then(r => r.json()).then(data => setNbBlockedDates(data.blocked || [])).catch(() => {});
+                };
+                return (
+                  <div style={{ border: '1px solid rgba(200,184,154,0.3)', background: '#fdf8f3', padding: '12px 14px', marginBottom: 4 }}>
+                    {/* Month nav */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <button type="button" onClick={() => changeMonth(-1)} style={{ background: 'none', border: '1px solid rgba(200,184,154,0.3)', width: 26, height: 26, cursor: 'pointer', color: '#2c2420', fontSize: 12 }}>←</button>
+                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, color: '#1a1410' }}>{MONTHS_CAL[nbCalMonth]} {nbCalYear}</div>
+                      <button type="button" onClick={() => changeMonth(1)}  style={{ background: 'none', border: '1px solid rgba(200,184,154,0.3)', width: 26, height: 26, cursor: 'pointer', color: '#2c2420', fontSize: 12 }}>→</button>
+                    </div>
+                    {/* Day headers */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 4 }}>
+                      {DAYS_CAL.map(d => <div key={d} style={{ textAlign: 'center', fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#8b7355', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{d}</div>)}
+                    </div>
+                    {/* Day grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
+                      {calDays.map((dateStr, i) => {
+                        if (!dateStr) return <div key={`e-${i}`} />;
+                        const isPast    = dateStr < todayStr;
+                        const isBlocked = nbBlockedDates.includes(dateStr);
+                        const isOff     = isPast || isBlocked;
+                        const isSel     = nb.cleanDate === dateStr;
+                        return (
+                          <div
+                            key={dateStr}
+                            onClick={() => {
+                              if (isOff) return;
+                              setNb(p => ({ ...p, cleanDate: dateStr, cleanTime: '9:00 AM' }));
+                            }}
+                            style={{
+                              aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 12, fontFamily: "'Jost',sans-serif", fontWeight: 300,
+                              cursor: isOff ? 'not-allowed' : 'pointer',
+                              background: isSel ? '#c8b89a' : isBlocked ? '#fdecea' : 'transparent',
+                              color: isBlocked ? '#c0392b' : isPast ? '#ccc' : isSel ? '#1a1410' : '#2c2420',
+                              textDecoration: isBlocked ? 'line-through' : 'none',
+                              border: isSel ? 'none' : '1px solid transparent',
+                              borderRadius: 1,
+                            }}
+                            onMouseEnter={e => { if (!isOff && !isSel) e.currentTarget.style.border = '1px solid #c8b89a'; }}
+                            onMouseLeave={e => { if (!isSel) e.currentTarget.style.border = '1px solid transparent'; }}
+                          >
+                            {parseInt(dateStr.split('-')[2])}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+              {nb.cleanDate && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Selected: {nb.cleanDate.split('-').reverse().join('/')}</div>}
+              {nbSubmitted && !nb.cleanDate && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b2020', marginTop: 2 }}>This field is required</div>}
             </div>
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Time *</div>
               <select value={nb.cleanTime} onChange={e => setNb(p => ({ ...p, cleanTime: e.target.value }))} style={{ ...INPUT, marginBottom: 0 }}>
-                {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                {TIMES.filter(t => {
+                  if (nb.cleanDate !== todayUK()) return true;
+                  const [time, period] = t.split(' ');
+                  let h = parseInt(time.split(':')[0]);
+                  if (period === 'PM' && h !== 12) h += 12;
+                  if (period === 'AM' && h === 12) h = 0;
+                  return h > new Date().getHours();
+                }).map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
 
@@ -1186,12 +1345,17 @@ export default function AdminPage() {
             {nbPkg?.showAddons && (
               <>
                 <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', margin: '20px 0 12px' }}>Add-ons</div>
-                {ADDONS.map(a => (
+                {ADDONS.map(a => {
+                  const allSizesSmall = (nbPkg?.sizes || []).every(s => ['studio', '1bed'].includes(s.id));
+                  const isSmall = ['studio', '1bed'].includes(nb.sizeId) || allSizesSmall;
+                  const price   = a.id === 'windows' ? (isSmall ? 35 : 55) : a.price;
+                  return (
                   <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#2c2420' }}>
-                    <input type="checkbox" checked={nb.addons.some(x => x.id === a.id)} onChange={e => setNb(p => ({ ...p, addons: e.target.checked ? [...p.addons, a] : p.addons.filter(x => x.id !== a.id) }))} style={{ accentColor: '#c8b89a' }} />
-                    {a.name} — £{a.price}
+                    <input type="checkbox" checked={nb.addons.some(x => x.id === a.id)} onChange={e => setNb(p => ({ ...p, addons: e.target.checked ? [...p.addons, { ...a, price }] : p.addons.filter(x => x.id !== a.id) }))} style={{ accentColor: '#c8b89a' }} />
+                    {a.name} — £{price}
                   </label>
-                ))}
+                  );
+                })}
               </>
             )}
 
@@ -1218,32 +1382,32 @@ export default function AdminPage() {
                 <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(200,184,154,0.5)', marginBottom: 10 }}>Running Total</div>
                 {nbTotal.houseExtra > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Jost',sans-serif", fontSize: 11, color: 'rgba(200,184,154,0.55)', marginBottom: 3 }}>
-                    <span>House surcharge (+10%)</span><span>+£{nbTotal.houseExtra}</span>
+                    <span>House surcharge (+10%)</span><span>+£{nbTotal.houseExtra.toFixed(2)}</span>
                   </div>
                 )}
                 {nbTotal.freqSave > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Jost',sans-serif", fontSize: 11, color: 'rgba(200,184,154,0.55)', marginBottom: 3 }}>
-                    <span>Frequency discount</span><span>−£{nbTotal.freqSave}</span>
+                    <span>Frequency discount</span><span>−£{nbTotal.freqSave.toFixed(2)}</span>
                   </div>
                 )}
                 {nbTotal.addnSum > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Jost',sans-serif", fontSize: 11, color: 'rgba(200,184,154,0.55)', marginBottom: 3 }}>
-                    <span>Add-ons</span><span>+£{nbTotal.addnSum}</span>
+                    <span>Add-ons</span><span>+£{nbTotal.addnSum.toFixed(2)}</span>
                   </div>
                 )}
                 {nbTotal.suppliesFee > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Jost',sans-serif", fontSize: 11, color: 'rgba(200,184,154,0.55)', marginBottom: 3 }}>
-                    <span>Cleaning supplies</span><span>+£{nbTotal.suppliesFee}</span>
+                    <span>Cleaning supplies</span><span>+£{nbTotal.suppliesFee.toFixed(2)}</span>
                   </div>
                 )}
                 <div style={{ borderTop: '1px solid rgba(200,184,154,0.2)', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontFamily: "'Jost',sans-serif", fontSize: 15, fontWeight: 600, color: '#f5f0e8' }}>
-                  <span>Total</span><span>£{nbTotal.subtotal}</span>
+                  <span>Total</span><span>£{nbTotal.subtotal.toFixed(2)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Jost',sans-serif", fontSize: 11, color: 'rgba(200,184,154,0.55)', marginTop: 4 }}>
-                  <span>Deposit due now (30%)</span><span>£{nbTotal.deposit}</span>
+                  <span>Deposit due now (30%)</span><span>£{nbTotal.deposit.toFixed(2)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Jost',sans-serif", fontSize: 11, color: 'rgba(200,184,154,0.55)', marginTop: 2 }}>
-                  <span>Remaining after clean (70%)</span><span>£{nbTotal.remaining}</span>
+                  <span>Remaining after clean (70%)</span><span>£{nbTotal.remaining.toFixed(2)}</span>
                 </div>
               </div>
             ) : (
@@ -1255,7 +1419,7 @@ export default function AdminPage() {
             {/* Pets */}
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', margin: '20px 0 12px' }}>Pets & Notes</div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 8 }}>Any pets at the property? *</div>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: nbSubmitted && nb.hasPets === null ? '#8b2020' : '#8b7355', marginBottom: 8 }}>Any pets at the property? *</div>
               <div style={{ display: 'flex', gap: 10 }}>
                 {['Yes','No'].map(v => (
                   <button key={v} onClick={() => setNb(p => ({ ...p, hasPets: v === 'Yes', petTypes: v === 'No' ? '' : p.petTypes }))}
@@ -1264,6 +1428,7 @@ export default function AdminPage() {
                   </button>
                 ))}
               </div>
+              {nbSubmitted && nb.hasPets === null && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b2020', marginTop: 6 }}>This field is required</div>}
               {nb.hasPets && (
                 <div style={{ marginTop: 10 }}>
                   <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 4 }}>What type of pets?</div>
@@ -1276,11 +1441,12 @@ export default function AdminPage() {
               <textarea value={nb.notes} onChange={e => setNb(p => ({ ...p, notes: e.target.value }))} rows={3} style={{ ...INPUT, marginBottom: 0, resize: 'vertical' }} />
             </div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 4 }}>How did they hear about us? *</div>
-              <select value={nb.hearAbout} onChange={e => setNb(p => ({ ...p, hearAbout: e.target.value }))} style={{ ...INPUT, marginBottom: 0 }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: nbSubmitted && !nb.hearAbout ? '#8b2020' : '#8b7355', marginBottom: 4 }}>How did they hear about us? *</div>
+              <select value={nb.hearAbout} onChange={e => setNb(p => ({ ...p, hearAbout: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderBottomColor: nbSubmitted && !nb.hearAbout ? '#8b2020' : undefined }}>
                 <option value="">— Select —</option>
                 {HOW_HEARD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
+              {nbSubmitted && !nb.hearAbout && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b2020', marginTop: 4 }}>This field is required</div>}
             </div>
             <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f2ede6', fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b7355' }}>
               📞 This booking will be marked as a <strong>Phone booking</strong> in all emails and records.
@@ -1312,23 +1478,6 @@ export default function AdminPage() {
                 London Cleaning Wizard · Registered in England & Wales
               </div>
             </div>
-            <div
-              onClick={() => setNbTcAgreed(c => !c)}
-              style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: '#f2ede6', cursor: 'pointer', marginBottom: 20 }}
-            >
-              <div style={{
-                width: 16, height: 16, flexShrink: 0, marginTop: 2,
-                border: nbTcAgreed ? 'none' : '1px solid rgba(200,184,154,0.5)',
-                background: nbTcAgreed ? '#c8b89a' : 'transparent',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#1a1410', fontSize: 10,
-              }}>
-                {nbTcAgreed && '✓'}
-              </div>
-              <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
-                I have read the Terms & Conditions to the customer and they have verbally agreed, including the cancellation policy and authorisation to charge their payment method upon job completion.
-              </p>
-            </div>
 
             <div style={{ background: '#fff8eb', border: '1px solid #f0c040', borderLeft: '4px solid #f0c040', padding: '12px 16px', marginBottom: 16, borderRadius: 4 }}>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, fontWeight: 600, color: '#7a5c00', marginBottom: 4 }}>
@@ -1342,7 +1491,7 @@ export default function AdminPage() {
             {nbErr && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{nbErr}</p>}
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => { setShowNewBooking(false); setNb(BLANK_BOOKING); setNbErr(''); setNbTcAgreed(false); }} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>
+              <button onClick={() => { setShowNewBooking(false); setNb(BLANK_BOOKING); setNbErr(''); setNbSubmitted(false); setNbTouched({}); }} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>
                 Cancel
               </button>
               <button onClick={handleNewBooking} disabled={nbSaving} style={{ ...BTN, flex: 1, background: '#c8b89a', color: '#1a1410', border: 'none' }}>

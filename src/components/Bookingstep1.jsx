@@ -109,9 +109,12 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
     setExpanded(prev => prev === pkgId ? null : pkgId);
   };
 
-  const sizes = booking.isAirbnb
+  const allSizes = booking.isAirbnb
     ? PACKAGES.find(p => p.id === 'airbnb')?.sizes || []
     : booking.pkg?.sizes || [];
+  const sizes = booking.propertyType === 'house'
+    ? allSizes.filter(s => s.id !== 'studio')
+    : allSizes;
 
   return (
     <div>
@@ -224,7 +227,11 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
             {PROPERTY_TYPES.map(type => (
               <div
                 key={type.id}
-                onClick={() => onUpdate({ propertyType: type.id })}
+                onClick={() => {
+                  const update = { propertyType: type.id };
+                  if (type.id === 'house' && booking.size?.id === 'studio') update.size = null;
+                  onUpdate(update);
+                }}
                 style={CARD(booking.propertyType === type.id)}
               >
                 <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#1a1410' }}>
@@ -302,6 +309,9 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
             {ADDONS.map(addon => {
               const selected = (booking.addons || []).some(a => a.id === addon.id);
+              const allSizesSmall = (booking.pkg?.sizes || []).every(s => ['studio', '1bed'].includes(s.id));
+              const isSmall  = ['studio', '1bed'].includes(booking.size?.id) || allSizesSmall;
+              const price    = addon.id === 'windows' ? (isSmall ? 35 : 55) : addon.price;
               return (
                 <div
                   key={addon.id}
@@ -309,7 +319,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                     const current = booking.addons || [];
                     const next = selected
                       ? current.filter(a => a.id !== addon.id)
-                      : [...current, addon];
+                      : [...current, { ...addon, price }];
                     onUpdate({ addons: next });
                   }}
                   style={{ ...CARD(selected), display: 'flex', alignItems: 'center', gap: 12 }}
@@ -332,7 +342,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                     </div>
                   </div>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#2c2420', flexShrink: 0 }}>
-                    +£{addon.price}
+                    +£{price}
                   </div>
                 </div>
               );

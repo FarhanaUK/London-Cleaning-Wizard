@@ -1,6 +1,8 @@
 import { Sparkle } from './Icons';
 import { calculateTotal } from '../data/siteData';
 
+const fmt = (n) => Number(n).toFixed(2);
+
 const PROMISES = [];
 
 // ── Mobile sticky bar — shows at top of form on small screens
@@ -42,10 +44,10 @@ function MobilePriceBar({ booking, T, TOneOff }) {
               </div>
             )}
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: 'rgba(200,184,154,0.4)', fontWeight: 300 }}>
-              Deposit today: <span style={{ color: '#e8d9c0', fontWeight: 500 }}>£{T.deposit}</span>
+              Deposit today: <span style={{ color: '#e8d9c0', fontWeight: 500 }}>£{fmt(T.deposit)}</span>
             </div>
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: 'rgba(200,184,154,0.4)', fontWeight: 300 }}>
-              Balance: <span style={{ color: 'rgba(200,184,154,0.5)', fontWeight: 300 }}>£{T.remaining}</span>
+              Balance: <span style={{ color: 'rgba(200,184,154,0.5)', fontWeight: 300 }}>£{fmt(T.remaining)}</span>
             </div>
           </div>
         )}
@@ -68,7 +70,7 @@ function MobilePriceBar({ booking, T, TOneOff }) {
           color: T ? '#c8b89a' : 'rgba(200,184,154,0.25)',
           fontStyle: T ? 'normal' : 'italic',
         }}>
-          {T ? `£${T.subtotal}` : '—'}
+          {T ? `£${fmt(T.subtotal)}` : '—'}
         </div>
       </div>
     </div>
@@ -114,11 +116,11 @@ function DesktopInvoice({ booking, T, lines }) {
               <span style={{
                 fontFamily: "'Cormorant Garamond',serif", fontSize: 34,
                 fontWeight: 300, color: '#ffffff',
-              }}>£{T.subtotal}</span>
+              }}>£{fmt(T.subtotal)}</span>
             </div>
             {[
-              { l: 'Deposit due today (30%)',    v: `£${T.deposit}`,   c: '#ffffff' },
-              { l: 'Balance on clean day (70%)', v: `£${T.remaining}`, c: '#ffffff' },
+              { l: 'Deposit due today (30%)',    v: `£${fmt(T.deposit)}`,   c: '#ffffff' },
+              { l: 'Balance on clean day (70%)', v: `£${fmt(T.remaining)}`, c: '#ffffff' },
             ].map((r, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
                 <span style={{ color: 'rgba(255,255,255,0.8)', fontFamily: "'Jost',sans-serif", fontWeight: 300 }}>{r.l}</span>

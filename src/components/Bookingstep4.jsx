@@ -165,15 +165,15 @@ function PaymentForm({ booking, onSuccess, onBack }) {
         ))}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 10 }}>
           <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#8b7355' }}>Total</span>
-          <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, color: '#c8b89a', fontWeight: 300 }}>£{T.subtotal}</span>
+          <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, color: '#c8b89a', fontWeight: 300 }}>£{T.subtotal.toFixed(2)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12, fontFamily: "'Jost',sans-serif" }}>
           <span style={{ color: '#8b7355', fontWeight: 300 }}>Deposit due today (30%)</span>
-          <span style={{ color: '#c8b89a', fontWeight: 500 }}>£{T.deposit}</span>
+          <span style={{ color: '#c8b89a', fontWeight: 500 }}>£{T.deposit.toFixed(2)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 12, fontFamily: "'Jost',sans-serif" }}>
           <span style={{ color: '#8b7355', fontWeight: 300 }}>Balance due on completion</span>
-          <span style={{ color: '#8b7355', fontWeight: 300 }}>£{T.remaining}</span>
+          <span style={{ color: '#8b7355', fontWeight: 300 }}>£{T.remaining.toFixed(2)}</span>
         </div>
       </div>
 
@@ -259,12 +259,12 @@ function PaymentForm({ booking, onSuccess, onBack }) {
           style={{ flex: 1, fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '14px 24px', background: '#c8b89a', color: '#1a1410', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
         >
           {loading ? <ButtonSpinner /> : <WandIcon size={14} color="#1a1410" />}
-          {loading ? 'Processing…' : `Pay Deposit — £${T.deposit}`}
+          {loading ? 'Processing…' : `Pay Deposit — £${T.deposit.toFixed(2)}`}
         </button>
       </div>
 
       <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', textAlign: 'center', marginTop: 14, fontWeight: 300 }}>
-        Remaining balance of £{T.remaining} will be charged once your clean is complete.<br />
+        Remaining balance of £{T.remaining.toFixed(2)} will be charged once your clean is complete.<br />
         Questions? Call us on 020 8137 0026 · 7 days a week.
       </p>
     </>

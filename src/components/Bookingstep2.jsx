@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { validateStep2 } from '../utils/validation';
 import { toUTCISO, showDate, todayUK } from '../utils/time';
-import { SkeletonSlots } from './LoadingStates';
 import { Sparkle, WandIcon } from './Icons';
 
 const LABEL = {
@@ -25,14 +24,12 @@ const BTN_GHOST = {
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const TIMES  = ['7:00 AM','8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM','7:00 PM','8:00 PM','9:00 PM'];
 
 export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   const today        = new Date();
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [slots,        setSlots]        = useState([]);
-  const [loadSlots,    setLoadSlots]    = useState(false);
-  const [slotsFetched, setSlotsFetched] = useState(false);
   const [blockedDates, setBlockedDates] = useState([]);
   const [error,        setError]        = useState('');
 
@@ -45,10 +42,8 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
       .then(data => {
         const dates = data.blocked || [];
         setBlockedDates(dates);
-        // If the customer already selected a date that just got blocked, clear it
         if (bookingRef.current.cleanDate && dates.includes(bookingRef.current.cleanDate)) {
           onUpdate({ cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null });
-          setSlots([]);
           setError('The date you selected is no longer available. Please choose another day.');
         }
       })
@@ -67,40 +62,26 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
     setMonth(m); setYear(y);
   };
 
-  const handleDateClick = async (dateStr) => {
+  const handleDateClick = (dateStr) => {
     setError('');
     onUpdate({
-      cleanDate: dateStr,
+      cleanDate:        dateStr,
       cleanDateDisplay: showDate(dateStr),
-      cleanTime: null,
-      cleanDateUTC: null,
+      cleanTime:        null,
+      cleanDateUTC:     null,
     });
-    setSlots([]);
-    setLoadSlots(true);
-    try {
-      const res  = await fetch(`${import.meta.env.VITE_CF_GET_SLOTS}?date=${dateStr}`);
-      const data = await res.json();
-      setSlots(data.slots || []);
-    } catch {
-      setSlots([]);
-    } finally {
-      setLoadSlots(false);
-      setSlotsFetched(true);
-    }
   };
 
-  const handleTimeSelect = (slot) => {
-    if (slot.booked) return;
+  const handleTimeSelect = (time) => {
     onUpdate({
-      cleanTime:    slot.time,
-      cleanDateUTC: toUTCISO(booking.cleanDate, slot.time),
+      cleanTime:    time,
+      cleanDateUTC: toUTCISO(booking.cleanDate, time),
     });
   };
 
   const handleNext = async () => {
     const err = validateStep2(booking);
     if (err) { setError(err); return; }
-    // Fresh server check before proceeding — catches blocks added since last poll
     try {
       const res  = await fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${year}&month=${month + 1}`);
       const data = await res.json();
@@ -108,12 +89,11 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
       setBlockedDates(latest);
       if (booking.cleanDate && latest.includes(booking.cleanDate)) {
         onUpdate({ cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null });
-        setSlots([]);
         setError('The date you selected is no longer available. Please choose another day.');
         return;
       }
     } catch {
-      // If the check fails, allow through — don't block the customer on a network error
+      // allow through on network error
     }
     setError('');
     onNext();
@@ -174,11 +154,11 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
           {calDays.map((dateStr, i) => {
             if (!dateStr) return <div key={`empty-${i}`} />;
-            const isPast          = dateStr < todayStr;
-            const isTooSoon       = dateStr === todayStr || dateStr === tomorrowStr;
-            const isFullyBlocked  = blockedDates.includes(dateStr);
-            const isBlocked       = isPast || isTooSoon || isFullyBlocked;
-            const isSelected      = booking.cleanDate === dateStr;
+            const isPast         = dateStr < todayStr;
+            const isTooSoon      = dateStr === todayStr || dateStr === tomorrowStr;
+            const isFullyBlocked = blockedDates.includes(dateStr);
+            const isBlocked      = isPast || isTooSoon || isFullyBlocked;
+            const isSelected     = booking.cleanDate === dateStr;
             return (
               <div
                 key={dateStr}
@@ -207,40 +187,30 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
         </div>
       </div>
 
-      {/* Time slots */}
-      {(loadSlots || slotsFetched) && (
+      {/* Time selection */}
+      {booking.cleanDate && (
         <>
-          <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Available Times</div>
-          {loadSlots ? (
-            <SkeletonSlots />
-          ) : slots.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 24 }}>
-              {slots.map(slot => (
-                <div
-                  key={slot.time}
-                  onClick={() => handleTimeSelect(slot)}
-                  style={{
-                    padding: '13px 8px', textAlign: 'center',
-                    fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 300,
-                    border: booking.cleanTime === slot.time
-                      ? '1.5px solid #c8b89a'
-                      : slot.booked
-                        ? '1px solid rgba(200,184,154,0.15)'
-                        : '1px solid rgba(200,184,154,0.35)',
-                    background: booking.cleanTime === slot.time ? '#c8b89a' : slot.booked ? '#f5f5f0' : '#fdf8f3',
-                    color: booking.cleanTime === slot.time ? '#1a1410' : slot.booked ? '#bbb' : '#2c2420',
-                    cursor: slot.booked ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {slot.booked ? 'Unavailable' : slot.time}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#8b7355', fontWeight: 300, marginBottom: 24 }}>
-              No slots available for this date. Please select another day.
-            </p>
-          )}
+          <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Select Time</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 24 }}>
+            {TIMES.map(time => (
+              <div
+                key={time}
+                onClick={() => handleTimeSelect(time)}
+                style={{
+                  padding: '13px 8px', textAlign: 'center',
+                  fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 300,
+                  border: booking.cleanTime === time ? '1.5px solid #c8b89a' : '1px solid rgba(200,184,154,0.35)',
+                  background: booking.cleanTime === time ? '#c8b89a' : '#fdf8f3',
+                  color: booking.cleanTime === time ? '#1a1410' : '#2c2420',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => { if (booking.cleanTime !== time) e.currentTarget.style.border = '1px solid #c8b89a'; }}
+                onMouseLeave={e => { if (booking.cleanTime !== time) e.currentTarget.style.border = '1px solid rgba(200,184,154,0.35)'; }}
+              >
+                {time}
+              </div>
+            ))}
+          </div>
         </>
       )}
 

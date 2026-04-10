@@ -33,16 +33,24 @@ const STRIPE_ERRORS = {
 function PaymentForm({ details, bookingId }) {
   const stripe   = useStripe();
   const elements = useElements();
-  const [loading,   setLoading]   = useState(false);
-  const [overlay,   setOverlay]   = useState('');
-  const [overlaySub, setOverlaySub] = useState('');
-  const [payError,  setPayError]  = useState('');
-  const [done,      setDone]      = useState(false);
-  const [tcAgreed,  setTcAgreed]  = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [overlay,      setOverlay]      = useState('');
+  const [overlaySub,   setOverlaySub]   = useState('');
+  const [payError,     setPayError]     = useState('');
+  const [done,         setDone]         = useState(false);
+  const [tcAgreed,     setTcAgreed]     = useState(false);
+  const [policyError,  setPolicyError]  = useState('');
+  const [hasScrolled,  setHasScrolled]  = useState(false);
+
+  const handleTCScroll = (e) => {
+    const el = e.target;
+    if (el.scrollHeight - el.scrollTop <= el.clientHeight + 10) setHasScrolled(true);
+  };
 
   const handlePay = async () => {
     if (!stripe || !elements) return;
-    if (!tcAgreed) { setPayError('Please agree to the Terms & Conditions before paying.'); return; }
+    if (!tcAgreed) { setPolicyError('Please read and accept the Terms & Conditions to continue.'); return; }
+    setPolicyError('');
     setLoading(true);
     setOverlay('Authorising payment…');
     setOverlaySub('Please don\'t close this window');
@@ -138,34 +146,60 @@ function PaymentForm({ details, bookingId }) {
         <CardElement options={CARD_STYLE} />
       </div>
 
-      {/* T&C agreement */}
-      <div
-        onClick={() => { setTcAgreed(c => !c); setPayError(''); }}
-        style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: '#f2ede6', cursor: 'pointer', marginBottom: 16 }}
-      >
-        <div style={{
-          width: 18, height: 18, flexShrink: 0, marginTop: 1,
-          border: tcAgreed ? 'none' : '1.5px solid rgba(200,184,154,0.6)',
-          background: tcAgreed ? '#c8b89a' : 'transparent',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#1a1410', fontSize: 11, fontWeight: 600,
-        }}>
-          {tcAgreed && '✓'}
+      {/* Terms & Conditions */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 8 }}>
+          Terms & Conditions — Please read in full before proceeding
         </div>
-        <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
-          I have read and agree to the{' '}
-          <a
-            href="https://londoncleaningwizard.com/terms-and-conditions"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            style={{ color: '#c8b89a', textDecoration: 'underline' }}
-          >
-            Terms & Conditions
-          </a>
-          , including the cancellation policy and authorisation to charge the remaining balance upon job completion.
-        </p>
+        <div
+          onScroll={handleTCScroll}
+          style={{ height: 180, overflowY: 'scroll', border: '1px solid rgba(200,184,154,0.4)', background: '#fdf8f3', padding: '14px 16px', marginBottom: 10 }}
+        >
+          {[
+            { heading: '1. Deposit & Payment', body: 'A 30% deposit is required to secure your booking and is charged immediately upon confirmation. The remaining balance will be charged automatically once your clean has been completed and marked as done by our team. By proceeding, you authorise London Cleaning Wizard to charge the remaining balance to your saved payment method upon job completion.' },
+            { heading: '2. Cancellation & Rescheduling Policy', body: 'One-off bookings: Full refund if cancelled more than 48 hours before the scheduled clean. No refund if cancelled less than 48 hours before the clean.\n\nRegular services (weekly, fortnightly or monthly): You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean. No refund will be issued for cancellations or skipped cleans with less than 48 hours notice, as your cleaner\'s time will have been reserved.\n\nCancelling two consecutive cleans will end your recurring arrangement and your recurring discount. A new booking will be required, subject to standard first-clean pricing.\n\nAll cancellations must be made by contacting us directly. We reserve the right to review pricing with a minimum of 4 weeks written notice.' },
+            { heading: '3. Pet Policy', body: 'All pets must be secured and kept away from our cleaning team for the entire duration of the clean. This is for the safety of both your pet and our staff. Failure to secure pets may result in the clean being abandoned without refund of the deposit.' },
+            { heading: '4. Access to Property', body: 'You agree to ensure our team has full access to the property at the agreed time. If access is not provided within 15 minutes of the scheduled start time, the clean may be abandoned and no refund will be issued.' },
+            { heading: '5. Property Condition & Liability', body: 'You confirm that the property details provided are accurate. London Cleaning Wizard carries full public liability insurance. Any damage must be reported within 24 hours of the clean. We are not liable for pre-existing damage or items of exceptional value not declared prior to the clean.' },
+            { heading: '6. Service Standards', body: 'If you are not satisfied with any aspect of your clean, you must notify us within 24 hours and we will arrange a complimentary re-clean of the affected areas. We do not offer refunds after a clean has been completed.' },
+            { heading: '7. Cleaner Allocation', body: 'While we always strive to send the same dedicated cleaner for recurring bookings, this cannot be guaranteed. In the event that your usual cleaner is unavailable, we will contact you in advance and arrange an equally skilled replacement.' },
+            { heading: '8. Privacy', body: 'Your personal data is processed in accordance with our Privacy Policy. We use your contact details to manage your booking and send confirmations only. We do not sell or share your data with third parties.' },
+          ].map(({ heading, body }) => (
+            <div key={heading} style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, fontWeight: 600, color: '#2c2420', marginBottom: 4 }}>{heading}</div>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.7, whiteSpace: 'pre-line' }}>{body}</div>
+            </div>
+          ))}
+          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontStyle: 'italic', marginTop: 8 }}>
+            London Cleaning Wizard · Registered in England & Wales
+          </div>
+        </div>
+
+        {!hasScrolled && (
+          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 8, fontStyle: 'italic' }}>
+            ↑ Please scroll to the bottom to read the full terms before accepting.
+          </div>
+        )}
+
+        <div
+          onClick={() => { if (!hasScrolled) { setPolicyError('Please scroll through and read the full terms before accepting.'); return; } setTcAgreed(c => !c); setPolicyError(''); }}
+          style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: '#f2ede6', cursor: hasScrolled ? 'pointer' : 'not-allowed', opacity: hasScrolled ? 1 : 0.5 }}
+        >
+          <div style={{
+            width: 16, height: 16,
+            border: tcAgreed ? 'none' : '1px solid rgba(200,184,154,0.5)',
+            background: tcAgreed ? '#c8b89a' : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, marginTop: 2, color: '#1a1410', fontSize: 10,
+          }}>
+            {tcAgreed && '✓'}
+          </div>
+          <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
+            I have read and agree to the Terms & Conditions, including the cancellation policy and authorisation to charge my payment method upon job completion.
+          </p>
+        </div>
       </div>
+      {policyError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{policyError}</p>}
 
       {payError && (
         <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>
@@ -175,13 +209,12 @@ function PaymentForm({ details, bookingId }) {
 
       <button
         onClick={handlePay}
-        disabled={loading || !tcAgreed}
+        disabled={loading}
         style={{
           width: '100%', fontFamily: "'Jost',sans-serif", fontSize: 11,
           letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500,
           padding: '15px 24px', background: '#c8b89a', color: '#1a1410',
-          border: 'none', cursor: loading || !tcAgreed ? 'not-allowed' : 'pointer',
-          opacity: tcAgreed ? 1 : 0.5,
+          border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
         }}
       >

@@ -156,7 +156,7 @@ export const FREQUENCIES = [
 export const ADDONS = [
   { id: 'oven',      name: 'Oven deep clean',              note: 'Interior, racks, door & casing', price: 75 },
   { id: 'fridge',    name: 'Inside fridge & freezer',      note: 'Full interior clean',             price: 40 },
-  { id: 'windows',   name: 'Interior windows',             note: 'All panes, streak-free',          price: 55 },
+  { id: 'windows',   name: 'Interior windows',             note: 'Standard windows — contact us if you have large or unusual windows', price: 55 },
   { id: 'cupboards', name: 'Inside kitchen cupboards',     note: 'All interiors wiped',             price: 60 },
   { id: 'microwave', name: 'Inside and outside microwave', note: 'Full clean',                      price: 10 },
 ];
@@ -177,17 +177,12 @@ export function calculateTotal({ sizePrice, propertyType, frequency, addons, sur
   const suppliesFee  = supplies === 'cleaner' ? SUPPLIES_FEE : 0;
   const subtotal     = base - freqSave + addnSum + sur + suppliesFee;
   const depositRaw   = Math.round(subtotal * 30) / 100;
-  const fmt = (n) => Number(n).toFixed(2);
   return {
-    base:       fmt(base),
-    houseExtra: fmt(propertyType === 'house' ? Math.round(sizePrice * 0.10) : 0),
-    freqSave:   fmt(freqSave),
-    addnSum:    fmt(addnSum),
-    surcharge:  fmt(sur),
-    suppliesFee: fmt(suppliesFee),
-    subtotal:   fmt(subtotal),
-    deposit:    fmt(depositRaw),
-    remaining:  fmt(subtotal - depositRaw),
+    base,
+    houseExtra: propertyType === 'house' ? Math.round(sizePrice * 0.10) : 0,
+    freqSave, addnSum, surcharge: sur, suppliesFee, subtotal,
+    deposit:   depositRaw,
+    remaining: subtotal - depositRaw,
   };
 }
 //There is no export default — 

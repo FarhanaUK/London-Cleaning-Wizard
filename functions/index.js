@@ -12,8 +12,10 @@ const { toUTCISO, todayUK } = require('./timeUtils');
 
 if (!admin.apps.length) { admin.initializeApp(); }
 
-const STRIPE_KEY          = defineSecret('STRIPE_SECRET_KEY');
-const EMAILJS_KEY         = defineSecret('EMAILJS_PRIVATE_KEY');
+const FREQ_SAVINGS = { weekly: 30, fortnightly: 15, monthly: 7 };
+
+const STRIPE_KEY            = defineSecret('STRIPE_SECRET_KEY');
+const EMAILJS_KEY           = defineSecret('EMAILJS_PRIVATE_KEY');
 const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
 
 async function sendEmail(templateId, params, privateKey) {
@@ -25,12 +27,15 @@ async function sendEmail(templateId, params, privateKey) {
   );
 }
 
+// Cache calendar clients per scope so auth is only initialised once per container instance
+const _calCache = {};
 async function getCalendarClient(scope) {
-  const auth = new google.auth.GoogleAuth({
-    keyFile: 'service-account.json',
-    scopes: [scope || 'https://www.googleapis.com/auth/calendar'],
-  });
-  return google.calendar({ version: 'v3', auth: await auth.getClient() });
+  const s = scope || 'https://www.googleapis.com/auth/calendar';
+  if (!_calCache[s]) {
+    const auth = new google.auth.GoogleAuth({ keyFile: 'service-account.json', scopes: [s] });
+    _calCache[s] = google.calendar({ version: 'v3', auth: await auth.getClient() });
+  }
+  return _calCache[s];
 }
 
 function buildBookingEmailData(b) {
@@ -58,6 +63,10 @@ function buildBookingEmailData(b) {
     stripe_deposit_pi:  b.stripeDepositIntentId || '—',
     stripe_customer_id: b.stripeCustomerId || '—',
     booking_channel: b.isPhoneBooking ? '📞 Phone booking' : '🌐 Online booking',
+    booking_type:    b.bookingType || 'New Booking',
+    recurring_note:  b.bookingType === 'Recurring Booking'
+      ? `This is your next scheduled recurring clean. You are saving £${FREQ_SAVINGS[b.frequency] || 0} with your ${b.frequency} discount. No deposit is required — the full amount will be charged automatically once your clean is marked as complete.`
+      : '',
     terms_summary: `By completing this booking you agreed to the following key terms:
 
 1. Payment: A 30% deposit was charged at the time of booking. The remaining 70% balance will be charged automatically once your clean is marked as complete by our team.
@@ -297,13 +306,12 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
   if (d.frequency && d.frequency !== 'one-off') {
     try {
       // Discount applies from 2nd clean onwards
-      const FREQ_SAVINGS = { weekly: 30, fortnightly: 15, monthly: 7 };
       const freqSave     = FREQ_SAVINGS[d.frequency] || 0;
       const discountedTotal = Math.max(0, d.total - freqSave);
 
       const LEAD   = 28;
-      const today  = new Date(); today.setHours(0, 0, 0, 0);
-      const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() + LEAD);
+      const firstClean = new Date(d.cleanDate + 'T12:00:00');
+      const cutoff = new Date(firstClean); cutoff.setDate(cutoff.getDate() + LEAD);
 
       let lastDate    = new Date(d.cleanDate + 'T12:00:00');
       let lastDateStr = d.cleanDate;
@@ -475,6 +483,8 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       total:               `£${b.total}`, deposit_paid:   `£${b.deposit}`,
       amount_charged:      `£${b.remaining}`,
       stripe_deposit_pi:   'Manual payment', stripe_remaining_pi: 'Manual payment', stripe_customer_id: '—',
+      booking_type:        'One-off Clean',
+      payment_note:        '',
     };
     await sendEmail(process.env.EMAILJS_RECEIPT_TEMPLATE,
       { ...receiptData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
@@ -527,6 +537,8 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
         amount_charged:      `£${b.total}`,
         stripe_deposit_pi:   '—',          stripe_remaining_pi: intent.id,
         stripe_customer_id:  b.stripeCustomerId,
+        booking_type:        'Recurring Clean',
+        payment_note:        'Your next clean will be scheduled automatically. No action is needed — payment will be taken in the same way after each visit.',
       };
       await sendEmail(process.env.EMAILJS_RECEIPT_TEMPLATE,
         { ...receiptData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
@@ -617,6 +629,8 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       stripe_deposit_pi:    b.stripeDepositIntentId || '—',
       stripe_remaining_pi:  intent.id,
       stripe_customer_id:   customerId || '—',
+      booking_type:         'One-off Clean',
+      payment_note:         '',
     };
     await sendEmail(process.env.EMAILJS_RECEIPT_TEMPLATE, {
       ...receiptData, to_name: b.firstName, to_email: b.email,
@@ -641,6 +655,88 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
     res.status(500).json({ error: e.message });
   }
 });
+
+// ── Consecutive cancellation check (shared) ───────────────────
+// Fetches all auto-recurring bookings for the customer and checks in memory
+// whether the booking immediately before OR after the cancelled one is also cancelled.
+// Avoids composite Firestore index requirements.
+async function checkConsecutiveCancellations(db, b, emailjsKey) {
+  try {
+    const email = b.email.toLowerCase();
+
+    // Fetch all auto-recurring bookings for this customer (simple single-field query)
+    const allSnap = await db.collection('bookings')
+      .where('email', '==', email)
+      .where('isAutoRecurring', '==', true)
+      .get();
+
+    if (allSnap.empty) return { consecutiveAlert: false };
+
+    // Sort by cleanDate ascending
+    const all = allSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, z) => a.cleanDate.localeCompare(z.cleanDate));
+
+    const idx = all.findIndex(bk => bk.id === b.bookingId || bk.bookingRef === b.bookingRef);
+    if (idx === -1) return { consecutiveAlert: false };
+
+    const prev = idx > 0 ? all[idx - 1] : null;
+    const next = idx < all.length - 1 ? all[idx + 1] : null;
+
+    const prevCancelled = prev?.status?.startsWith('cancelled');
+    const nextCancelled = next?.status?.startsWith('cancelled');
+
+    if (!prevCancelled && !nextCancelled) {
+      await db.collection('customers').doc(email).update({ consecutiveCancellations: 1, updatedAt: new Date() }).catch(() => {});
+      return { consecutiveAlert: false };
+    }
+
+    // Two in a row — stop the series
+    await db.collection('customers').doc(email).update({
+      recurringActive: false, consecutiveCancellations: 2, updatedAt: new Date(),
+    });
+
+    // Fetch all scheduled bookings, filter to today+ in memory to avoid composite index
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    const allSchedSnap = await db.collection('bookings')
+      .where('email', '==', email)
+      .where('status', '==', 'scheduled')
+      .get();
+    const futureDocs = allSchedSnap.docs.filter(d => d.data().cleanDate >= todayStr);
+    const remainingSnap = { docs: futureDocs, size: futureDocs.length };
+
+    const batch = db.batch();
+    for (const fdoc of remainingSnap.docs) {
+      batch.update(fdoc.ref, { status: 'cancelled_no_refund', cancelledAt: new Date(), cancellationReason: 'Recurring cancelled — 2 consecutive cancellations' });
+      const fd = fdoc.data();
+      if (fd.calendarEventId) {
+        try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: fd.calendarEventId }); } catch {}
+      }
+    }
+    await batch.commit();
+
+    // One summary email to customer — they already got an email for the booking they just cancelled,
+    // this just lets them know the series is now ended and remaining bookings are gone
+    if (emailjsKey && remainingSnap.size > 0) {
+      await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE, {
+        to_name:        b.firstName,
+        to_email:       email,
+        booking_ref:    'Recurring Cancelled',
+        package_name:   b.packageName,
+        date:           '—',
+        time:           '—',
+        address:        `${b.addr1}, ${b.postcode}`,
+        refund_amount:  'No charge',
+        refund_message: 'As two consecutive cleans have been cancelled, your recurring series has now ended and any remaining upcoming bookings have been removed. Please get in touch if you would like to rebook.',
+      }, emailjsKey).catch(() => {});
+    }
+
+    return { consecutiveAlert: true };
+  } catch (e) {
+    console.error('Consecutive cancellation check failed:', e.message);
+    return { consecutiveAlert: false };
+  }
+}
 
 // ── 7. Cancel booking and refund ──────────────────────────────
 exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (req, res) => {
@@ -677,6 +773,9 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
         console.error('Late cancellation fee charge failed:', e.message);
       }
       await snap.ref.update({ status: 'cancelled_late_fee', cancelledAt: new Date(), cancellationReason: clean(reason||''), lateFeeCharged: feeAmt });
+      if (b.calendarEventId) {
+        try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
+      }
       const cancelData = { booking_ref: b.bookingRef, package_name: b.packageName, date: b.cleanDate.split('-').reverse().join('/'), time: b.cleanTime, address: `${b.addr1}, ${b.postcode}`, refund_amount: `£${feeAmt.toFixed(2)} late cancellation fee charged`, refund_message: `A late cancellation fee of £${feeAmt.toFixed(2)} has been charged as the cancellation was made less than 48 hours before the scheduled clean.` };
       await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE, { ...cancelData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
       await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE, { ...cancelData, to_email: 'bookings@londoncleaningwizard.com', customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email, customer_phone: b.phone, notice_given: `${hoursUntil.toFixed(1)} hours notice — 50% late fee charged` }, EMAILJS_KEY.value()).catch(() => {});
@@ -684,40 +783,14 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     }
     // >= 48hrs notice — cancel free
     await snap.ref.update({ status: 'cancelled_no_refund', cancelledAt: new Date(), cancellationReason: clean(reason||''), refundAmount: 0 });
+    if (b.calendarEventId) {
+      try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
+    }
     const cancelData = { booking_ref: b.bookingRef, package_name: b.packageName, date: b.cleanDate.split('-').reverse().join('/'), time: b.cleanTime, address: `${b.addr1}, ${b.postcode}`, refund_amount: 'No charge', refund_message: 'Your recurring clean has been cancelled. No charge has been applied.' };
     await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE, { ...cancelData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
     await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE, { ...cancelData, to_email: 'bookings@londoncleaningwizard.com', customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email, customer_phone: b.phone, notice_given: `${hoursUntil.toFixed(1)} hours notice — no charge` }, EMAILJS_KEY.value()).catch(() => {});
 
-    // Check for 2 consecutive cancellations — only counts if the immediately previous booking in the series was also cancelled
-    let consecutiveAlert = false;
-    try {
-      const prevSnap = await db.collection('bookings')
-        .where('email', '==', b.email.toLowerCase())
-        .where('isAutoRecurring', '==', true)
-        .where('cleanDate', '<', b.cleanDate)
-        .orderBy('cleanDate', 'desc')
-        .limit(1)
-        .get();
-      if (!prevSnap.empty) {
-        const prev = prevSnap.docs[0].data();
-        const prevCancelled = prev.status && prev.status.startsWith('cancelled');
-        if (prevCancelled) {
-          consecutiveAlert = true;
-          await db.collection('customers').doc(b.email.toLowerCase()).update({
-            consecutiveCancellations: 2, updatedAt: new Date(),
-          }).catch(() => {});
-        } else {
-          // Reset counter — previous was not cancelled
-          await db.collection('customers').doc(b.email.toLowerCase()).update({
-            consecutiveCancellations: 1, updatedAt: new Date(),
-          }).catch(() => {});
-        }
-      }
-    } catch (e) {
-      console.error('Consecutive cancellation check failed:', e.message);
-    }
-
-    res.json({ success: true, status: 'cancelled_no_refund', refundAmount: 0, consecutiveAlert }); return;
+    res.json({ success: true, status: 'cancelled_no_refund', refundAmount: 0, ...(await checkConsecutiveCancellations(db, b, EMAILJS_KEY.value())) }); return;
   }
 
   // ── Standard booking cancellation ───────────────────────────
@@ -731,6 +804,9 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     await stripe.refunds.create({ payment_intent:b.stripeDepositIntentId, amount:refundPence, reason:'requested_by_customer' });
   }
   await snap.ref.update({ status, cancelledAt:new Date(), cancellationReason:clean(reason||''), refundAmount:refundAmt });
+  if (b.calendarEventId) {
+    try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
+  }
 
   const cancelData = {
     booking_ref:  b.bookingRef,
@@ -1044,6 +1120,84 @@ exports.deleteBooking = onRequest(async (req, res) => {
   res.json({ success: true });
 });
 
+// ── 14b. Stop recurring series ────────────────────────────────
+exports.stopRecurringSeries = onRequest({ secrets: [EMAILJS_KEY] }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const { email, fromDate } = req.body;
+  if (!email) { res.status(400).json({ error: 'Missing email' }); return; }
+  const db = admin.firestore();
+
+  // Stop the series on the customer record
+  await db.collection('customers').doc(email.toLowerCase()).update({
+    recurringActive: false, updatedAt: new Date(),
+  });
+
+  // Cancel all scheduled auto-recurring bookings from the clicked booking's date onwards
+  const cutoffDate = fromDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+  const allSnap = await db.collection('bookings')
+    .where('email', '==', email.toLowerCase())
+    .get();
+  const futureDocs = allSnap.docs.filter(d => {
+    const bd = d.data();
+    return bd.isAutoRecurring === true && bd.status === 'scheduled' && bd.cleanDate >= cutoffDate;
+  });
+  const futureSnap = { docs: futureDocs, size: futureDocs.length, empty: futureDocs.length === 0 };
+
+  if (futureSnap.empty) { res.json({ success: true, cancelled: 0 }); return; }
+
+  // Sort cancelled bookings by date for the summary email
+  const cancelled = futureSnap.docs
+    .map(d => d.data())
+    .sort((a, z) => a.cleanDate.localeCompare(z.cleanDate));
+
+  const batch = db.batch();
+  for (const fdoc of futureSnap.docs) {
+    batch.update(fdoc.ref, {
+      status: 'cancelled_no_refund',
+      cancelledAt: new Date(),
+      cancellationReason: 'Recurring cancelled — stopped by admin',
+    });
+    const fd = fdoc.data();
+    if (fd.calendarEventId) {
+      try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: fd.calendarEventId }); } catch {}
+    }
+  }
+  await batch.commit();
+
+  // One summary email to customer
+  const first = cancelled[0];
+  const dateList = cancelled.map(bk => bk.cleanDate.split('-').reverse().join('/')).join(', ');
+  await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE, {
+    to_name:        first.firstName,
+    to_email:       email.toLowerCase(),
+    booking_ref:    'Recurring',
+    package_name:   first.packageName,
+    date:           '—',
+    time:           '—',
+    address:        `${first.addr1}, ${first.postcode}`,
+    refund_amount:  'No charge',
+    refund_message: 'Your recurring cleans have been cancelled and any upcoming bookings have been removed. Please get in touch if you would like to rebook.',
+  }, EMAILJS_KEY.value()).catch(() => {});
+
+  // One summary email to admin (with dates — for your records)
+  await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE, {
+    to_email:       'bookings@londoncleaningwizard.com',
+    customer_name:  `${first.firstName} ${first.lastName}`,
+    customer_email: email.toLowerCase(),
+    customer_phone: first.phone || '—',
+    booking_ref:    'Recurring',
+    package_name:   first.packageName,
+    date:           dateList,
+    time:           first.cleanTime,
+    address:        `${first.addr1}, ${first.postcode}`,
+    refund_amount:  'No charge',
+    refund_message: `Recurring cancelled by admin. ${cancelled.length} upcoming booking(s) removed: ${dateList}`,
+    notice_given:   'Admin action',
+  }, EMAILJS_KEY.value()).catch(() => {});
+
+  res.json({ success: true, cancelled: futureSnap.size });
+});
+
 // ── 14. Auto-create recurring bookings (Daily scheduler) ──────
 exports.createRecurringBookings = onSchedule(
   { schedule: '0 8 * * *', timeZone: 'Europe/London', secrets: [EMAILJS_KEY] },
@@ -1098,7 +1252,6 @@ exports.createRecurringBookings = onSchedule(
         const id  = db.collection('bookings').doc().id;
 
         // Recurring cleans — discount applies from 2nd clean onwards
-        const FREQ_SAVINGS = { weekly: 30, fortnightly: 15, monthly: 7 };
         const freqSave = FREQ_SAVINGS[freq] || 0;
         const total = Math.max(0, (c.recurringTotal || 0) - freqSave);
 
@@ -1180,15 +1333,25 @@ exports.createRecurringBookings = onSchedule(
           console.error('Calendar event failed for', email, calErr.message);
         }
 
+        const recurringEmailData = buildBookingEmailData({ ...bookingData, bookingRef: ref, bookingType: 'Recurring Booking' });
+
+        // Customer confirmation email
+        await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE, {
+          ...recurringEmailData,
+          to_name:  c.firstName,
+          to_email: email,
+        }, EMAILJS_KEY.value()).catch(() => {});
+
         // Admin notification email
         await sendEmail(process.env.EMAILJS_ADMIN_TEMPLATE, {
-          ...buildBookingEmailData({ ...bookingData, bookingRef: ref }),
+          ...recurringEmailData,
           to_email:       'bookings@londoncleaningwizard.com',
           customer_name:  `${c.firstName} ${c.lastName}`,
           customer_phone: c.phone || '—',
           customer_email: email,
           booking_channel: `🔄 Auto-created recurring booking (${freq}) — deposit pending`,
         }, EMAILJS_KEY.value()).catch(() => {});
+
 
         results.created++;
       } catch (err) {
@@ -1227,7 +1390,127 @@ exports.createRecurringBookings = onSchedule(
   }
 );
 
-// ── 15. Get fully-blocked dates for a month ───────────────────
+// ── 15. Manual trigger — fills all missing recurring bookings up to 56 days ahead ──
+exports.triggerSchedulerNow = onRequest({ secrets: [EMAILJS_KEY] }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const db     = admin.firestore();
+  const LEAD   = 56; // fill 8 weeks ahead so testing shows a good range
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() + LEAD);
+
+  const results = { created: 0, skipped: 0, failed: 0, errors: [] };
+
+  const customersSnap = await db.collection('customers')
+    .where('recurringActive', '==', true).get();
+
+  for (const cDoc of customersSnap.docs) {
+    const c     = cDoc.data();
+    const email = cDoc.id;
+    const freq  = c.recurringFrequency;
+
+    if (!freq || freq === 'one-off') continue;
+    if (!c.lastDate || !c.recurringTime || !c.recurringPackage) continue;
+
+    const freqSave = FREQ_SAVINGS[freq] || 0;
+    const total    = Math.max(0, (c.recurringTotal || 0) - freqSave);
+
+    let lastDate    = new Date(c.lastDate + 'T12:00:00');
+    let lastDateStr = c.lastDate;
+
+    while (true) {
+      const nextDate = new Date(lastDate);
+      if (freq === 'weekly')           nextDate.setDate(nextDate.getDate() + 7);
+      else if (freq === 'fortnightly') nextDate.setDate(nextDate.getDate() + 14);
+      else if (freq === 'monthly') {
+        const originalDay = lastDate.getDate();
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        const daysInMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+        nextDate.setDate(Math.min(originalDay, daysInMonth));
+      }
+      if (nextDate > cutoff) break;
+
+      const nextStr   = nextDate.toISOString().slice(0, 10);
+      const existSnap = await db.collection('bookings')
+        .where('email', '==', email).where('cleanDate', '==', nextStr).get();
+
+      if (!existSnap.empty) { results.skipped++; lastDate = nextDate; lastDateStr = nextStr; continue; }
+
+      try {
+        const ref = `LCW-${Date.now().toString().slice(-6)}`;
+        const id  = db.collection('bookings').doc().id;
+        const bookingData = {
+          bookingRef: ref, bookingId: id, email,
+          firstName: c.firstName || '', lastName: c.lastName || '',
+          phone: c.phone || '', addr1: c.addr1 || '', postcode: c.postcode || '',
+          propertyType: c.recurringPropertyType || 'flat',
+          floor: c.floor || '', parking: c.parking || '',
+          keys: c.keys || '', notes: c.notes || '',
+          hasPets: c.hasPets || false, petTypes: c.petTypes || '',
+          signatureTouch: c.signatureTouch !== false,
+          signatureTouchNotes: c.signatureTouchNotes || '',
+          package: c.recurringPackage, packageName: c.recurringPackageName,
+          size: c.recurringSize, frequency: freq,
+          addons: c.recurringAddons || [], isAirbnb: false,
+          cleanDate: nextStr, cleanTime: c.recurringTime,
+          cleanDateUTC: toUTCISO(nextStr, c.recurringTime),
+          total, deposit: 0, remaining: total,
+          stripeDepositIntentId: 'auto-recurring',
+          stripeCustomerId: c.stripeCustomerId || '',
+          status: 'scheduled', isPhoneBooking: false,
+          isAutoRecurring: true, source: c.recurringSource || c.source || '',
+          createdAt: new Date(),
+        };
+
+        await db.runTransaction(async tx => {
+          tx.set(db.collection('bookings').doc(id), bookingData);
+          tx.set(db.collection('customers').doc(email), {
+            lastBookingId: id, lastBookingRef: ref,
+            lastDate: nextStr, lastPrice: total, updatedAt: new Date(),
+          }, { merge: true });
+        });
+
+        try {
+          const cal       = await getCalendarClient();
+          const slotStart = toUTCISO(nextStr, c.recurringTime);
+          const slotEnd   = new Date(new Date(slotStart).getTime() + 3 * 60 * 60 * 1000).toISOString();
+          const calEvent  = await cal.events.insert({
+            calendarId: process.env.GOOGLE_CALENDAR_ID,
+            resource: {
+              summary: `${c.recurringPackageName} — ${c.firstName} ${c.lastName} (recurring)`,
+              description: [`Ref: ${ref}`, `Customer: ${c.firstName} ${c.lastName}`, `Email: ${email}`, `Total: £${total} | No deposit — charged on completion`, `⚙️ Manual trigger`].join('\n'),
+              start: { dateTime: slotStart, timeZone: 'Europe/London' },
+              end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
+              colorId: '6',
+            },
+          });
+          await db.collection('bookings').doc(id).update({ calendarEventId: calEvent.data.id });
+        } catch {}
+
+        results.created++;
+        lastDate    = nextDate;
+        lastDateStr = nextStr;
+      } catch (err) {
+        results.failed++;
+        results.errors.push({ email, date: nextStr, error: err.message });
+        break; // stop this customer on error, move to next
+      }
+    }
+  }
+
+  await db.collection('schedulerLogs').add({
+    runAt: admin.firestore.Timestamp.now(),
+    targetDate: cutoff.toISOString().slice(0, 10),
+    customersChecked: customersSnap.size,
+    attempted: results.created + results.failed,
+    created: results.created, skipped: results.skipped,
+    failed: results.failed, errors: results.errors,
+    triggeredManually: true,
+  });
+
+  res.json({ success: true, ...results });
+});
+
+// ── 16. Get fully-blocked dates for a month ───────────────────
 // Returns dates that have ANY event on the availability calendar (all-day or timed).
 // The booking form uses this to gray out entire days before the customer picks one.
 exports.getBlockedDates = onRequest(async (req, res) => {
