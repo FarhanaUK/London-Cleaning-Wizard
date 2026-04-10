@@ -74,25 +74,29 @@ export default function Hero({ onScrollTo }) {
           {/* Callout badge — above image */}
           <div style={{ padding: "16px 20px 0" }}>
             <div style={{ background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 16px", borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable Luxury Clean</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Luxury Clean<br />from £115</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 6, marginBottom: 5 }} />
               <a
   href="tel:02081370026"
   style={{
     fontFamily: "'Jost', sans-serif",
-    fontSize: 13,
-    letterSpacing: "0.08em",
-    color: "#1a1410",
+    fontSize: 11,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    color: "#f5f0e8",
     textDecoration: "none",
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
     gap: 6,
     fontWeight: 500,
-    zIndex: 20,           // <-- add this
-    position: "relative", // <-- and this
+    background: "#2c2420",
+    padding: "7px 12px",
+    borderRadius: 6,
+    zIndex: 20,
+    position: "relative",
   }}
 >
-  020 8137 0026
+  📞 Tap to Call
 </a>
              
             </div>
@@ -169,23 +173,26 @@ End of Tenancy | Airbnb Services
 
             {/* Callout badge */}
             <div style={{ position: "absolute", bottom: 24, right: 32, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 18px", zIndex: 10, borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable<br />Luxury Clean</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Luxury Clean<br />from £115</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
                <a
                 href="tel:02081370026"
                 style={{
                   fontFamily: "'Jost', sans-serif",
-                  fontSize: 14,
-                  letterSpacing: "0.08em",
-                  color: "#1a1410",
+                  fontSize: 11,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "#f5f0e8",
                   textDecoration: "none",
-                  display: "flex",
+                  display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
                   fontWeight: 500,
+                  background: "#2c2420",
+                  padding: "7px 12px",
+                  borderRadius: 6,
                 }}
-                
-              >020 8137 0026</a>
+              >📞 Tap to Call</a>
             </div>
           </div>
 
@@ -304,23 +311,28 @@ End of Tenancy | Airbnb Services
 
             {/* Callout badge */}
             <div style={{ position: "absolute", top: 120, right: 40, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "14px 22px", zIndex: 10, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)", backdropFilter: "blur(4px)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 46, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Most Affordable<br />Luxury Clean</div>
-              <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />   <a
-    href="tel:02081370026"
-    style={{
-      fontFamily: "'Jost', sans-serif",
-      fontSize: 26,
-      letterSpacing: "0.08em",
-      color: "#1a1410",
-      textDecoration: "none",
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      fontWeight: 500,
-    }}
-  >
-    020 8137 0026
-  </a>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 46, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Luxury Clean<br />from £115</div>
+              <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />
+              <a
+                href="tel:02081370026"
+                style={{
+                  fontFamily: "'Jost', sans-serif",
+                  fontSize: 14,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "#f5f0e8",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontWeight: 500,
+                  background: "#2c2420",
+                  padding: "10px 18px",
+                  borderRadius: 8,
+                }}
+              >
+                📞 Tap to Call
+              </a>
 
   
             </div>

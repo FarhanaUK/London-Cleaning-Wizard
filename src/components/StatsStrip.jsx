@@ -35,14 +35,20 @@ export default function StatsStrip() {
         position: "relative",
         zIndex: 1,
       }}>
-        {STATS.map(({ number, label }) => (
-          <div key={label} style={{ textAlign: "center" }}>
+        {STATS.map(({ number, label, small }) => (
+          <div key={number} style={{ textAlign: "center" }}>
             <div style={{
               fontFamily: "'Cormorant Garamond', serif",
-              fontSize: isMobile ? "clamp(36px, 8vw, 52px)" : "clamp(44px, 5.5vw, 72px)",
-              fontWeight: 300,
-              lineHeight: 1,
+              fontSize: small
+                ? (isMobile ? "clamp(22px, 5vw, 28px)" : "clamp(24px, 2.8vw, 34px)")
+                : (isMobile ? "clamp(36px, 8vw, 52px)" : "clamp(44px, 5.5vw, 72px)"),
+              fontWeight: small ? 400 : 300,
+              lineHeight: small ? 1.15 : 1,
               color: "#c8b89a",
+              minHeight: isMobile ? 52 : 72,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}>
               {number}
             </div>

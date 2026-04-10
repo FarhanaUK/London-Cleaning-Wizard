@@ -44,10 +44,10 @@ export const AREAS = [
 ];
 
 export const STATS = [
-  { number: "500+",   label: "Homes Cleaned" },
-  { number: "4.9 ✦", label: "Average Rating" },
-  { number: "100%",  label: "Deposit Guarantee" },
-  { number: "7 days", label: "Always Available" },
+  { number: "No Hidden Fees",  label: "Transparent Pricing", small: true },
+  { number: "4.9 ✦",          label: "Average Rating" },
+  { number: "Free Re-clean",   label: "If Unsatisfied",      small: true },
+  { number: "7 days",          label: "Always Available" },
 ];
 
 export const CONTACT_INFO = [
