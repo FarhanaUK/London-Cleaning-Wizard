@@ -155,7 +155,7 @@ exports.verifyCode = onRequest(async (req, res) => {
 // ── 3. Create Stripe PaymentIntent ────────────────────────────
 exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
-  const { amount, bookingRef } = req.body;
+  const { amount } = req.body;
   if (!Number.isInteger(amount) || amount <= 0 || amount > 1000000) {
     res.status(400).json({ error:'Invalid amount' }); return;
   }
@@ -165,7 +165,7 @@ exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, re
     amount, currency: 'gbp',
     customer: customer.id,
     setup_future_usage: 'off_session',
-    metadata: { bookingRef },
+    metadata: { bookingRef: 'pending' },
   });
   res.json({ clientSecret: intent.client_secret, customerId: customer.id });
 });
@@ -263,6 +263,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       } : {}),
     }, { merge: true });
   });
+
 
   // Write to your bookings calendar — for your reference only
   // Does NOT affect availability checks
@@ -479,6 +480,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
     const receiptData = {
       booking_ref:         b.bookingRef,  package_name:   b.packageName,
       date:                b.cleanDate.split('-').reverse().join('/'),
+      date_subject:        b.cleanDate.split('-').reverse().join('.'),
       address:             `${b.addr1}, ${b.postcode}`,
       total:               `£${b.total}`, deposit_paid:   `£${b.deposit}`,
       amount_charged:      `£${b.remaining}`,
@@ -525,6 +527,12 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
           customer_phone: b.phone, amount: `£${b.total}`,
           date: b.cleanDate.split('-').reverse().join('/'), error_message: errMsg,
         }, EMAILJS_KEY.value()).catch(() => {});
+        await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
+          to_email: b.email, to_name: b.firstName, booking_ref: b.bookingRef,
+          customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email,
+          customer_phone: b.phone, amount: `£${b.total}`,
+          date: b.cleanDate.split('-').reverse().join('/'), error_message: errMsg,
+        }, EMAILJS_KEY.value()).catch(() => {});
         res.status(400).json({ error: 'Payment was not completed successfully. Please retry.' }); return;
       }
       await snap.ref.update({ status: 'fully_paid', paidAt: new Date(), stripeRemainingIntentId: intent.id });
@@ -532,6 +540,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       const receiptData = {
         booking_ref:         b.bookingRef,  package_name:        b.packageName,
         date:                b.cleanDate.split('-').reverse().join('/'),
+        date_subject:        b.cleanDate.split('-').reverse().join('.'),
         address:             `${b.addr1}, ${b.postcode}`,
         total:               `£${b.total}`, deposit_paid:        '£0 (recurring — no deposit)',
         amount_charged:      `£${b.total}`,
@@ -549,6 +558,12 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       await snap.ref.update({ status: 'payment_failed', paymentError: e.message });
       await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
         to_email: 'bookings@londoncleaningwizard.com', booking_ref: b.bookingRef,
+        customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email,
+        customer_phone: b.phone, amount: `£${b.total}`,
+        date: b.cleanDate.split('-').reverse().join('/'), error_message: e.message,
+      }, EMAILJS_KEY.value()).catch(() => {});
+      await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
+        to_email: b.email, to_name: b.firstName, booking_ref: b.bookingRef,
         customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email,
         customer_phone: b.phone, amount: `£${b.total}`,
         date: b.cleanDate.split('-').reverse().join('/'), error_message: e.message,
@@ -608,6 +623,16 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
         date:           b.cleanDate.split('-').reverse().join('/'),
         error_message:  errMsg,
       }, EMAILJS_KEY.value());
+      await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
+        to_email:       b.email, to_name: b.firstName,
+        booking_ref:    b.bookingRef,
+        customer_name:  `${b.firstName} ${b.lastName}`,
+        customer_email: b.email,
+        customer_phone: b.phone,
+        amount:         `£${b.remaining}`,
+        date:           b.cleanDate.split('-').reverse().join('/'),
+        error_message:  errMsg,
+      }, EMAILJS_KEY.value()).catch(() => {});
       res.status(400).json({ error: 'Payment was not completed successfully. Please retry.' }); return;
     }
 
@@ -622,6 +647,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       booking_ref:          b.bookingRef,
       package_name:         b.packageName,
       date:                 b.cleanDate.split('-').reverse().join('/'),
+      date_subject:         b.cleanDate.split('-').reverse().join('.'),
       address:              `${b.addr1}, ${b.postcode}`,
       total:                `£${b.total}`,
       deposit_paid:         `£${b.deposit}`,
@@ -644,6 +670,16 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
     await snap.ref.update({ status: 'payment_failed', paymentError: e.message });
     await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
       to_email:       'bookings@londoncleaningwizard.com',
+      booking_ref:    b.bookingRef,
+      customer_name:  `${b.firstName} ${b.lastName}`,
+      customer_email: b.email,
+      customer_phone: b.phone,
+      amount:         `£${b.remaining}`,
+      date:           b.cleanDate.split('-').reverse().join('/'),
+      error_message:  e.message,
+    }, EMAILJS_KEY.value()).catch(() => {});
+    await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
+      to_email:       b.email, to_name: b.firstName,
       booking_ref:    b.bookingRef,
       customer_name:  `${b.firstName} ${b.lastName}`,
       customer_email: b.email,
@@ -794,14 +830,22 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
   }
 
   // ── Standard booking cancellation ───────────────────────────
-  const refundPence = hoursUntil >= 48 ? b.deposit * 100 : hoursUntil >= 24 ? Math.round(b.deposit * 50) : 0;
+  const refundPence = hoursUntil >= 48 ? b.deposit * 100 : 0;
   const refundAmt   = refundPence / 100;
-  const status      = hoursUntil >= 48 ? 'cancelled_full_refund' : hoursUntil >= 24 ? 'cancelled_partial_refund' : 'cancelled_no_refund';
-  const refundMsg   = refundPence > 0 ? `£${refundAmt.toFixed(2)} will be returned to your original payment method within 5–10 business days.` : 'No refund is applicable as the cancellation was made less than 24 hours before the scheduled clean.';
-  const noticeMsg   = hoursUntil >= 48 ? `${hoursUntil.toFixed(1)} hours notice — full refund applied` : hoursUntil >= 24 ? `${hoursUntil.toFixed(1)} hours notice — 50% refund applied` : `${hoursUntil > 0 ? hoursUntil.toFixed(1) : '0'} hours notice — no refund applied`;
+  const status      = hoursUntil >= 48 ? 'cancelled_full_refund' : 'cancelled_no_refund';
+  const refundMsg   = refundPence > 0 ? `£${refundAmt.toFixed(2)} will be returned to your original payment method within 5–10 business days.` : 'No refund is applicable as the cancellation was made less than 48 hours before the scheduled clean.';
+  const noticeMsg   = hoursUntil >= 48 ? `${hoursUntil.toFixed(1)} hours notice — full refund applied` : `${hoursUntil > 0 ? hoursUntil.toFixed(1) : '0'} hours notice — no refund applied`;
 
   if (refundPence > 0 && b.stripeDepositIntentId && b.stripeDepositIntentId !== 'manual') {
-    await stripe.refunds.create({ payment_intent:b.stripeDepositIntentId, amount:refundPence, reason:'requested_by_customer' });
+    try {
+      await stripe.refunds.create({ payment_intent:b.stripeDepositIntentId, amount:refundPence, reason:'requested_by_customer' });
+    } catch (e) {
+      console.error('Stripe refund failed:', e.message);
+      // If already refunded in Stripe, allow Firestore status to update anyway
+      if (!e.message?.includes('already been refunded')) {
+        res.status(500).json({ error: `Refund failed: ${e.message}` }); return;
+      }
+    }
   }
   await snap.ref.update({ status, cancelledAt:new Date(), cancellationReason:clean(reason||''), refundAmount:refundAmt });
   if (b.calendarEventId) {
@@ -1117,6 +1161,20 @@ exports.deleteBooking = onRequest(async (req, res) => {
     }
   }
   await snap.ref.delete();
+
+  // If this was a recurring booking, disable the scheduler for this customer
+  if (b.email && (b.isAutoRecurring || b.freq)) {
+    try {
+      const customerRef = db.collection('customers').doc(b.email.toLowerCase());
+      const customerSnap = await customerRef.get();
+      if (customerSnap.exists && customerSnap.data().recurringActive) {
+        await customerRef.update({ recurringActive: false, updatedAt: new Date() });
+      }
+    } catch (e) {
+      console.error('Failed to disable recurringActive on customer:', e.message);
+    }
+  }
+
   res.json({ success: true });
 });
 
@@ -1559,18 +1617,45 @@ exports.stripeWebhook = onRequest(
       res.status(400).send(`Webhook signature failed: ${e.message}`); return;
     }
 
+    // ── Handle manual refunds done directly in Stripe dashboard ──
+    if (event.type === 'charge.refunded') {
+      const charge = event.data.object;
+      const pi     = charge.payment_intent;
+      if (pi) {
+        const db   = admin.firestore();
+        const snap = await db.collection('bookings').where('stripeDepositIntentId', '==', pi).limit(1).get();
+        if (!snap.empty) {
+          const doc = snap.docs[0];
+          const b   = doc.data();
+          if (!b.status?.startsWith('cancelled')) {
+            await doc.ref.update({
+              status:       'cancelled_full_refund',
+              refundAmount: charge.amount_refunded / 100,
+              cancelledAt:  new Date(),
+              cancellationReason: 'Refunded via Stripe dashboard',
+            });
+            if (b.calendarEventId) {
+              try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
+            }
+          }
+        }
+      }
+      res.json({ received: true }); return;
+    }
+
     if (event.type !== 'payment_intent.succeeded') { res.json({ received: true }); return; }
 
-    const pi       = event.data.object;
+    const pi        = event.data.object;
     const bookingId = pi.metadata?.bookingId;
+    const db        = admin.firestore();
+
+    // ── Admin deposit payment flow only — ignore all other payments ──
     if (!bookingId) { res.json({ received: true }); return; }
 
-    const db   = admin.firestore();
     const snap = await db.collection('bookings').doc(bookingId).get();
     if (!snap.exists) { res.json({ received: true }); return; }
     const b = snap.data();
 
-    // Only act if browser confirmation hasn't already run
     if (b.status !== 'pending_deposit') { res.json({ received: true }); return; }
 
     const customerId = b.pendingDepositCustomerId || pi.customer;
@@ -1591,10 +1676,32 @@ exports.stripeWebhook = onRequest(
         customer_name: `${b.firstName} ${b.lastName}`,
         customer_phone: b.phone, customer_email: b.email },
       EMAILJS_KEY.value()).catch(() => {});
-
     res.json({ received: true });
   }
 );
+
+// ── 17. Send review request emails at 10am for yesterday's completed jobs ──
+exports.sendReviewEmails = onSchedule({ schedule: 'every day 10:00', secrets: [EMAILJS_KEY] }, async () => {
+  const db        = admin.firestore();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+  const snap = await db.collection('bookings')
+    .where('status', '==', 'fully_paid')
+    .where('cleanDate', '==', yesterdayStr)
+    .get();
+
+  for (const doc of snap.docs) {
+    const b = doc.data();
+    await sendEmail(process.env.EMAILJS_REVIEW_TEMPLATE, {
+      to_name:      b.firstName,
+      to_email:     b.email,
+      package_name: b.packageName,
+      booking_ref:  b.bookingRef,
+    }, EMAILJS_KEY.value()).catch(e => console.error('Review email failed:', b.bookingRef, e.message));
+  }
+});
 
 // ── 16. Clean up expired verification codes (Scheduled) ──────
 exports.cleanupExpiredCodes = onSchedule('every 60 minutes', async () => {
@@ -1604,3 +1711,4 @@ exports.cleanupExpiredCodes = onSchedule('every 60 minutes', async () => {
   snap.forEach(d => b.delete(d.ref));
   await b.commit();
 });
+

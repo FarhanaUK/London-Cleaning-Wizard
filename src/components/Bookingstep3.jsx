@@ -124,6 +124,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
     setForm(f => ({ ...f, [field]: value }));
     const err = validateField(field, value);
     setFieldErrors(e => ({ ...e, [field]: err }));
+    setSubmitError('');
   }, []);
 
   const handleSendCode = async () => {
@@ -264,7 +265,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
               <button
                 key={String(opt.val)}
                 type="button"
-                onClick={() => { setForm(f => ({ ...f, hasPets: opt.val, petTypes: opt.val ? f.petTypes : '' })); setFieldErrors(e => ({ ...e, hasPets: null, petTypes: null })); }}
+                onClick={() => { setForm(f => ({ ...f, hasPets: opt.val, petTypes: opt.val ? f.petTypes : '' })); setFieldErrors(e => ({ ...e, hasPets: null, petTypes: null })); setSubmitError(''); }}
                 style={{
                   fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500,
                   padding: '10px 28px', cursor: 'pointer', border: 'none',
@@ -290,12 +291,12 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
               />
               {fieldErrors.petTypes && <p style={ERR}>{fieldErrors.petTypes}</p>}
             </div>
-            <div style={{ background: '#2c2420', padding: '14px 18px', marginBottom: 20, borderLeft: '3px solid #c8b89a' }}>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 600, color: '#f5f0e8', marginBottom: 6, letterSpacing: '0.03em' }}>
+            <div style={{ background: '#7a1a1a', padding: '14px 18px', marginBottom: 20, borderLeft: '3px solid #ff6b6b' }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 6, letterSpacing: '0.03em' }}>
                 ⚠ Important — Pet Policy
               </div>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: 'rgba(245,240,232,0.85)', fontWeight: 300, lineHeight: 1.7 }}>
-                All pets must be secured and kept away from our cleaners for the entire duration of the clean. This is required for the safety of both your pet and our team. <strong style={{ color: '#f5f0e8', fontWeight: 600 }}>Failure to do so may result in the clean being abandoned and the loss of your deposit.</strong>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: 300, lineHeight: 1.7 }}>
+                All pets must be secured and kept away from our cleaners for the entire duration of the clean. This is required for the safety of both your pet and our team. <strong style={{ color: '#fff', fontWeight: 600 }}>Failure to do so may result in the clean being abandoned and the loss of your deposit.</strong>
               </div>
             </div>
           </>
