@@ -53,8 +53,9 @@ function PaymentForm({ booking, onSuccess, onBack }) {
     propertyType: booking.propertyType,
     frequency:    null,
     addons:       booking.addons || [],
-    surcharge:    0,
-    supplies:     booking.supplies,
+    surcharge:          0,
+    supplies:           booking.supplies,
+    suppliesFeeOverride: booking.suppliesFee,
   });
 
   const handlePay = async () => {

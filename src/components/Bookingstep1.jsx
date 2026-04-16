@@ -1,30 +1,51 @@
 import { useState } from 'react';
-import { PACKAGES, PROPERTY_TYPES, FREQUENCIES, ADDONS } from '../data/siteData';
+import { PACKAGES, PROPERTY_TYPES, FREQUENCIES, ADDONS, DEEP_SUPPLIES_FEE } from '../data/siteData';
 import { validateStep1 } from '../utils/validation';
 import { Sparkle, WandIcon } from './Icons';
 
 // What each package includes — shown in expandable checklist
 const PACKAGE_DETAIL = {
   refresh: [
-    'All rooms vacuumed and mopped',
-    'Kitchen surfaces, hob and sink cleaned',
-    'Bathroom scrubbed — toilet, basin, shower/bath',
-    'Mirrors and glass polished streak-free',
+    'Full home clean across all rooms',
+    'All surfaces wiped and reset',
+    'Floors vacuumed and mopped throughout',
+    'Kitchen cleaned (worktops, backsplash, cupboard doors and handles, sink, all appliance exteriors, inside microwave)',
+    'Bathroom cleaned (toilet, sink, shower, mirrors)',
+    'High-touch areas sanitised',
     'Bins emptied and relined',
-    'Completion photos sent after every clean',
+    'Subtle application of our signature scent (you can opt out in the details section)',
   ],
-  standard: [
-    'Everything in The Refresh',
-    'Door frames & surfaces wiped',
-    'Linen changed and beds made',
-    'Inside microwave cleaned',
-    'Skirting boards and light switches wiped',
-    'Same dedicated cleaner every visit',
-    'Arrival text 30 minutes before',
-    'Completion photos sent after every clean',
-  ],
+  standard: {
+    intro: [
+      'The Signature Hotel Reset goes beyond cleaning. It transforms your home into a calm, beautifully presented space that feels like a luxury hotel. You walk in, and everything just feels lighter, calmer, and easier.',
+    ],
+    sections: [
+      {
+        heading: 'Everything in Essential Reset, plus:',
+        items: [
+          'Hotel-style bed presentation (tight, smooth, and styled)',
+          'Cushions and soft furnishings neatly arranged',
+          'Decluttering and visual organisation',
+          'Surfaces left minimal, aligned, and intentional',
+          'A complete "reset" of how your home feels',
+        ],
+      },
+      {
+        heading: 'Finish:',
+        items: [
+          'Subtle application of our signature scent (you can opt out in the details section)',
+          'Rooms left calm, balanced, and visually refined',
+          'Completion photos provided',
+        ],
+      },
+    ],
+    footer: [
+      'Feels like stepping into a calm, hotel-like space without leaving home.',
+      'This is our most popular service and recommended for most homes.',
+    ],
+  },
   grand: [
-    'Everything in The Standard',
+    'Everything in Signature Hotel Reset',
     'Two-person team for faster, thorough coverage',
     'Full turndown service',
     'Priority time slot — protected for you',
@@ -32,16 +53,47 @@ const PACKAGE_DETAIL = {
     'Deep vacuum including under furniture',
     'Completion photos sent after every clean',
   ],
-  deep: [
-    'Full interior oven clean — racks, door, casing',
-    'Inside fridge and freezer',
-    'Inside all kitchen cupboards',
-    'Behind and underneath all appliances',
-    'Limescale removal — taps, showerheads, tiles',
-    'Internal windows cleaned streak-free',
-    'All rooms vacuumed, mopped, and wiped down',
-    'Detailed photo report sent on completion',
-  ],
+  deep: {
+    intro: [
+      'The Deep Reset is our most intensive service. It is designed for homes that need a complete top-to-bottom clean and restoration.',
+    ],
+    sections: [
+      {
+        heading: 'Everything in Essential Reset, plus:',
+        items: [
+          'Deep cleaning across all rooms',
+          'Wiping of walls (spot marks and scuffs removed)',
+          'Skirting boards, blinds, and light fittings cleaned',
+          'Vacuuming under and behind furniture (where accessible)',
+          'Storage rooms and utility cupboards cleaned throughout',
+          'Inside microwave',
+          'Internal windows cleaned streak-free',
+        ],
+      },
+      {
+        heading: 'Full kitchen deep clean:',
+        items: [
+          'Oven interior',
+          'Fridge interior',
+          'Inside cupboards and drawers',
+          'Behind and under appliances',
+        ],
+      },
+      {
+        heading: 'Full bathroom descaling and deep cleaning:',
+        items: [
+          'Heavy limescale removal',
+          'Grout scrubbing',
+          'Deep sanitisation',
+        ],
+      },
+    ],
+    footer: [
+      'Subtle application of our signature scent (you can opt out in the details section)',
+      'Your home is fully restored, deeply cleaned, and refreshed from top to bottom.',
+      'Ideal for deep cleans, neglected homes, or move-in preparation.',
+    ],
+  },
   eot: [
     'Letting agent and landlord standard clean',
     'Full oven, fridge, and cupboard clean included',
@@ -64,6 +116,7 @@ const PACKAGE_DETAIL = {
     'Bathrooms and kitchen fully cleaned',
     'Restock of toiletries if supplied',
     'Bins emptied and fresh liners fitted',
+    'Subtle application of our signature scent (you can opt out in the details section)',
     'Completion photo sent directly to you',
     'Same-day availability where possible',
   ],
@@ -103,7 +156,8 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
   };
 
   const handlePackageSelect = (pkg) => {
-    update({ pkg, size: null, sizePrice: 0, freq: null, addons: [], supplies: null, mopAck: false });
+    const isDeep = pkg.id === 'deep';
+    update({ pkg, size: null, sizePrice: 0, freq: null, addons: [], supplies: isDeep ? 'cleaner' : null, suppliesFee: isDeep ? DEEP_SUPPLIES_FEE : undefined, mopAck: false });
   };
 
   const toggleExpand = (e, pkgId) => {
@@ -120,6 +174,11 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
 
   return (
     <div>
+      <style>{`
+        @keyframes twinkle1 { 0%,100% { opacity:0.5; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }
+        @keyframes twinkle2 { 0%,100% { opacity:1; transform:scale(1.2); } 50% { opacity:0.4; transform:scale(0.9); } }
+        @keyframes twinkle3 { 0%,100% { opacity:0.6; transform:scale(1); } 60% { opacity:1; transform:scale(1.4); } }
+      `}</style>
       {/* Airbnb toggle */}
       <div
         onClick={() => update({
@@ -165,8 +224,23 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               <div key={pkg.id}>
                 <div style={CARD(booking.pkg?.id === pkg.id)} onClick={() => handlePackageSelect(pkg)}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 21, fontWeight: 400, color: '#1a1410' }}>
-                      {pkg.name}
+                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 21, fontWeight: 400, color: '#1a1410', display: 'flex', alignItems: 'center' }}>
+                      {pkg.id === 'standard' ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          {pkg.name}
+                          <span style={{ position: 'relative', display: 'inline-block', width: 30, height: 26, marginLeft: 8, flexShrink: 0 }}>
+                            <span style={{ position: 'absolute', top: 0, right: 0, animation: 'twinkle2 1.8s ease-in-out infinite' }}>
+                              <Sparkle size={9} color="#f5c842" />
+                            </span>
+                            <span style={{ position: 'absolute', bottom: 0, left: 0, animation: 'twinkle1 2.3s ease-in-out infinite' }}>
+                              <Sparkle size={16} color="#f5c842" />
+                            </span>
+                            <span style={{ position: 'absolute', top: 8, right: 4, animation: 'twinkle3 2s ease-in-out infinite', animationDelay: '0.5s' }}>
+                              <Sparkle size={12} color="#f5c842" />
+                            </span>
+                          </span>
+                        </span>
+                      ) : pkg.name}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0, marginLeft: 12 }}>
                       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#5a4e44' }}>
@@ -174,7 +248,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                       </div>
                       {pkg.popular && (
                         <div style={{
-                          background: '#c8b89a', color: '#1a1410',
+                          background: '#b8860b', color: '#fff',
                           fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
                           padding: '3px 10px',
                         }}>Most Popular</div>
@@ -201,17 +275,35 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                   {/* Expandable checklist */}
                   {expanded === pkg.id && (
                     <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(200,184,154,0.2)' }}>
-                      {(PACKAGE_DETAIL[pkg.id] || []).map((item, i) => (
-                        <div key={i} style={{
-                          display: 'flex', gap: 8, alignItems: 'flex-start',
-                          marginBottom: 6,
-                        }}>
-                          <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
-                          <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>
-                            {item}
-                          </span>
-                        </div>
-                      ))}
+                      {Array.isArray(PACKAGE_DETAIL[pkg.id]) ? (
+                        (PACKAGE_DETAIL[pkg.id] || []).map((item, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
+                            <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
+                            <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                          </div>
+                        ))
+                      ) : (() => {
+                        const d = PACKAGE_DETAIL[pkg.id];
+                        return <>
+                          {d.intro.map((p, i) => (
+                            <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#2c2420', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.6, margin: '0 0 8px' }}>{p}</p>
+                          ))}
+                          {d.sections.map((sec, si) => (
+                            <div key={si} style={{ marginBottom: 10 }}>
+                              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#2c2420', fontWeight: 600, marginBottom: 6, letterSpacing: '0.04em' }}>{sec.heading}</div>
+                              {sec.items.map((item, i) => (
+                                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
+                                  <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
+                                  <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                          {d.footer.map((f, i) => (
+                            <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: i === 0 ? '#2c2420' : '#8b7355', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.5, margin: '8px 0 4px' }}>{f}</p>
+                          ))}
+                        </>;
+                      })()}
                     </div>
                   )}
                 </div>
@@ -357,26 +449,36 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
       {(booking.pkg || booking.isAirbnb) && (
         <>
           <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Cleaning Supplies</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-            {[
-              { id: 'customer', title: 'I will provide supplies', sub: 'You supply all cleaning products for the cleaner to use', price: null },
-              { id: 'cleaner',  title: 'Please bring supplies',   sub: 'Our cleaner will arrive with all cleaning products',      price: '+£8' },
-            ].map(opt => (
-              <div
-                key={opt.id}
-                onClick={() => update({ supplies: opt.id })}
-                style={{ ...CARD(booking.supplies === opt.id), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-              >
-                <div>
-                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410' }}>{opt.title}</div>
-                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontWeight: 300, marginTop: 2 }}>{opt.sub}</div>
-                </div>
-                {opt.price && (
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#2c2420', flexShrink: 0, marginLeft: 12 }}>{opt.price}</div>
-                )}
+          {booking.pkg?.id === 'deep' ? (
+            <div style={{ ...CARD(true), display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410' }}>Specialist supplies included</div>
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontWeight: 300, marginTop: 2 }}>Our cleaner will bring all specialist cleaning products required for a deep clean</div>
               </div>
-            ))}
-          </div>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#2c2420', flexShrink: 0, marginLeft: 12 }}>+£{DEEP_SUPPLIES_FEE}</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+              {[
+                { id: 'customer', title: 'I will provide supplies', sub: 'You supply all cleaning products for the cleaner to use', price: null },
+                { id: 'cleaner',  title: 'Please bring supplies',   sub: 'Our cleaner will arrive with all cleaning products',      price: '+£8' },
+              ].map(opt => (
+                <div
+                  key={opt.id}
+                  onClick={() => update({ supplies: opt.id })}
+                  style={{ ...CARD(booking.supplies === opt.id), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <div>
+                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410' }}>{opt.title}</div>
+                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontWeight: 300, marginTop: 2 }}>{opt.sub}</div>
+                  </div>
+                  {opt.price && (
+                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#2c2420', flexShrink: 0, marginLeft: 12 }}>{opt.price}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Mop & vacuum acknowledgment — always required */}
           <div

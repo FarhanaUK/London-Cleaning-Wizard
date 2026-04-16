@@ -13,7 +13,7 @@ export const PHOTOS = {
 export const HERO_IMAGE = "/wizard.png";
 
 export const SERVICES = [
-  { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly · Monthly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "The Refresh Spell",       alt: "Regularly cleaned living room in East London home" },
+  { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly · Monthly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "The Essential Reset",       alt: "Regularly cleaned living room in East London home" },
   { img: PHOTOS.kitchen,  title: "Deep Kitchen Clean",  tag: "One-off · Seasonal",     desc: "Degreasing, descaling and scrubbing every surface until your kitchen gleams like new.", spell: "The Gleam Enchantment", alt: "Professionally deep cleaned kitchen in East London" },
   { img: PHOTOS.bathroom, title: "Bathroom & Ensuite",  tag: "Luxury standard",  desc: "Sanitised to perfection. Limescale banished, surfaces polished, mirrors streak-free.", spell: "The Purity Ritual",     alt: "Spotless cleaned bathroom and ensuite in East London" },
   { img: PHOTOS.bedroom,  title: "Bedroom Refresh",     tag: "Linen change available", desc: "Fresh, airy bedrooms. Dusting, vacuuming, linen changes and meticulous attention.", spell: "The Serenity Cast",       alt: "Fresh and clean bedroom refresh service in East London" },
@@ -72,63 +72,44 @@ export const PROPERTY_TYPES = [
 
 export const PACKAGES = [
   {
-    id: 'refresh', name: 'The Refresh', popular: false,
-    desc: 'Studio & 1-bed entire home. ~2.5hrs. Hotel-standard finish.',
+    id: 'refresh', name: 'The Essential Reset', popular: false,
+    desc: 'Your home is left clean, tidy, and refreshed. Estimated 2–5hrs depending on property size.',
     tags: ['Whole home', 'Photos sent', 'Fragrance finish'],
     showFreq: true, showAddons: true,
     sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 2 },
+      { id: 'studio', label: 'Studio',    basePrice: 115 },
       { id: '1bed',   label: '1 Bedroom', basePrice: 125 },
+      { id: '2bed',   label: '2 Bedroom', basePrice: 145 },
+      { id: '3bed',   label: '3 Bedroom', basePrice: 170 },
+      { id: '4bed',   label: '4 Bedroom', basePrice: 200 },
     ],
   },
   {
-    id: 'standard', name: 'The Standard', popular: true,
-    desc: '2–3 bed entire home. ~3.5hrs. Same dedicated cleaner, linen change included.',
+    id: 'standard', name: 'Signature Hotel Reset', popular: true,
+    desc: 'Designed to make your home feel calm, clear, and taken care of. Estimated 3–6 hrs depending on property size.',
     tags: ['Whole home', 'Same cleaner', 'Linen change', 'Hotel finish'],
     showFreq: true, showAddons: true,
     sizes: [
-      { id: '2bed', label: '2 Bedroom', basePrice: 165 },
-      { id: '3bed', label: '3 Bedroom', basePrice: 180 },
-      { id: '4bed', label: '4 Bedroom', basePrice: 220 },
+      { id: 'studio', label: 'Studio',    basePrice: 135 },
+      { id: '1bed',   label: '1 Bedroom', basePrice: 150 },
+      { id: '2bed',   label: '2 Bedroom', basePrice: 165 },
+      { id: '3bed',   label: '3 Bedroom', basePrice: 180 },
+      { id: '4bed',   label: '4 Bedroom', basePrice: 220 },
     ],
   },
   
 
   {
-    id: 'deep', name: 'Deep Clean', popular: false,
-    desc: 'One-off intensive. Oven, fridge, inside cupboards, behind appliances.',
+    id: 'deep', name: 'Deep Reset', popular: false,
+    desc: 'A full transformation clean for heavily used or move-in ready homes. 2 cleaners · estimated 4–10 hrs depending on property size.',
     tags: ['Oven included', 'Inside fridge', 'Behind appliances', 'Photo report'],
-    showFreq: false, showAddons: true,
+    showFreq: false, showAddons: false,
     sizes: [
       { id: 'studio', label: 'Studio',    basePrice: 225 },
       { id: '1bed',   label: '1 Bedroom', basePrice: 265 },
       { id: '2bed',   label: '2 Bedroom', basePrice: 330 },
       { id: '3bed',   label: '3 Bedroom', basePrice: 395 },
-    ],
-  },
-  {
-    id: 'eot', name: 'End of Tenancy', popular: false,
-    desc: 'Deposit-back guaranteed. Letting agent standard. Free re-clean if needed.',
-    tags: ['Deposit-focused clean', 'Photo report', 'Re-clean included'],
-    showFreq: false, showAddons: false,
-    sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 285 },
-      { id: '1bed',   label: '1 Bedroom', basePrice: 285 },
-      { id: '2bed',   label: '2 Bedroom', basePrice: 375 },
-      { id: '3bed',   label: '3 Bedroom', basePrice: 495 },
-      { id: '4bed',   label: '4 Bedroom', basePrice: 595 },
-    ],
-  },
-  {
-    id: 'movein', name: 'Move-In Prep', popular: false,
-    desc: 'Arrive to a home that feels like yours from the first step.',
-    tags: ['Pre-arrival clean', 'Linen made up', 'Welcome kit'],
-    showFreq: false, showAddons: false,
-    sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 250 },
-      { id: '1bed',   label: '1 Bedroom', basePrice: 250 },
-      { id: '2bed',   label: '2 Bedroom', basePrice: 310 },
-      { id: '3bed',   label: '3 Bedroom', basePrice: 380 },
+      { id: '4bed',   label: '4 Bedroom', basePrice: 460 },
     ],
   },
   {
@@ -167,14 +148,15 @@ export const SURCHARGES = {
 };
 
 export const SUPPLIES_FEE = 8;
+export const DEEP_SUPPLIES_FEE = 15;
 
-export function calculateTotal({ sizePrice, propertyType, frequency, addons, surcharge, supplies }) {
+export function calculateTotal({ sizePrice, propertyType, frequency, addons, surcharge, supplies, suppliesFeeOverride }) {
   const mult         = propertyType === 'house' ? 1.10 : 1.0;
   const base         = Math.round(sizePrice * mult);
   const freqSave     = frequency?.saving || 0;
   const addnSum      = (addons || []).reduce((s, a) => s + a.price, 0);
   const sur          = surcharge || 0;
-  const suppliesFee  = supplies === 'cleaner' ? SUPPLIES_FEE : 0;
+  const suppliesFee  = supplies === 'cleaner' ? (suppliesFeeOverride ?? SUPPLIES_FEE) : 0;
   const subtotal     = base - freqSave + addnSum + sur + suppliesFee;
   const depositRaw   = Math.round(subtotal * 30) / 100;
   return {

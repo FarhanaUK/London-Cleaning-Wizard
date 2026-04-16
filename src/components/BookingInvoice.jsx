@@ -155,8 +155,9 @@ export default function BookingInvoice({ booking, isMobile }) {
     propertyType: booking.propertyType,
     frequency:    null,
     addons:       booking.addons,
-    surcharge:    booking.surcharge,
-    supplies:     booking.supplies,
+    surcharge:         booking.surcharge,
+    supplies:          booking.supplies,
+    suppliesFeeOverride: booking.suppliesFee,
   }) : null;
   const TOneOff = null;
 

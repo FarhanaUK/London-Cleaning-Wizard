@@ -4,7 +4,7 @@ import { collection, query, orderBy, onSnapshot, limit } from 'firebase/firestor
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { todayUK } from '../utils/time';
 import { Sparkle, LogoMark } from './Icons';
-import { PACKAGES, FREQUENCIES, ADDONS, calculateTotal } from '../data/siteData';
+import { PACKAGES, FREQUENCIES, ADDONS, calculateTotal, DEEP_SUPPLIES_FEE } from '../data/siteData';
 
 const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 const fmtCreatedAt = ts => {
@@ -141,7 +141,7 @@ export default function AdminPage() {
   const nbPkg   = PACKAGES.find(p => p.id === nb.packageId);
   const nbSize  = nbPkg?.sizes.find(s => s.id === nb.sizeId);
   // First booking always full price — discount applies from 2nd clean
-  const nbTotal = nbSize ? calculateTotal({ sizePrice: nbSize.basePrice, propertyType: nb.propertyType, frequency: null, addons: nb.addons, supplies: nb.supplies }) : null;
+  const nbTotal = nbSize ? calculateTotal({ sizePrice: nbSize.basePrice, propertyType: nb.propertyType, frequency: null, addons: nb.addons, supplies: nb.supplies, suppliesFeeOverride: nb.suppliesFee }) : null;
 
   const isValidUKPhone    = p => /^(\+44\s?7\d{3}|\(?07\d{3}\)?)\s?\d{3}\s?\d{3}$/.test(p.trim()) || /^(\+44\s?[12]\d{2,4}|\(?0[12]\d{2,4}\)?)\s?\d{3,4}\s?\d{3,4}$/.test(p.trim());
   const isValidEmail      = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -1238,7 +1238,8 @@ export default function AdminPage() {
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Package *</div>
               <select value={nb.packageId} onChange={e => {
                 const pkg = PACKAGES.find(p => p.id === e.target.value);
-                setNb(p => ({ ...p, packageId: e.target.value, sizeId: '', addons: [], frequency: pkg?.showFreq ? p.frequency : 'one-off' }));
+                const isDeep = e.target.value === 'deep';
+                setNb(p => ({ ...p, packageId: e.target.value, sizeId: '', addons: [], frequency: pkg?.showFreq ? p.frequency : 'one-off', supplies: isDeep ? 'cleaner' : p.supplies, suppliesFee: isDeep ? DEEP_SUPPLIES_FEE : undefined }));
               }} style={{ ...INPUT, marginBottom: 0 }}>
                 {PACKAGES.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
@@ -1385,17 +1386,23 @@ export default function AdminPage() {
 
             {/* Supplies */}
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', margin: '20px 0 12px' }}>Cleaning Supplies</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
-              {[
-                { id: 'customer', label: 'Customer provides supplies', note: 'No extra charge' },
-                { id: 'cleaner',  label: 'Cleaner brings supplies',    note: '+£8' },
-              ].map(opt => (
-                <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#2c2420' }}>
-                  <input type="radio" name="supplies" value={opt.id} checked={nb.supplies === opt.id} onChange={() => setNb(p => ({ ...p, supplies: opt.id }))} style={{ accentColor: '#c8b89a' }} />
-                  {opt.label} <span style={{ color: '#8b7355', fontSize: 11, fontWeight: 300 }}>— {opt.note}</span>
-                </label>
-              ))}
-            </div>
+            {nb.packageId === 'deep' ? (
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#2c2420', marginBottom: 8 }}>
+                Specialist supplies included <span style={{ color: '#8b7355', fontSize: 11, fontWeight: 300 }}>— +£{DEEP_SUPPLIES_FEE} (automatically applied)</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+                {[
+                  { id: 'customer', label: 'Customer provides supplies', note: 'No extra charge' },
+                  { id: 'cleaner',  label: 'Cleaner brings supplies',    note: '+£8' },
+                ].map(opt => (
+                  <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#2c2420' }}>
+                    <input type="radio" name="supplies" value={opt.id} checked={nb.supplies === opt.id} onChange={() => setNb(p => ({ ...p, supplies: opt.id }))} style={{ accentColor: '#c8b89a' }} />
+                    {opt.label} <span style={{ color: '#8b7355', fontSize: 11, fontWeight: 300 }}>— {opt.note}</span>
+                  </label>
+                ))}
+              </div>
+            )}
             <div style={{ background: '#fff8eb', border: '1px solid rgba(200,184,154,0.4)', padding: '10px 12px', marginBottom: 14, fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#7a5c00', lineHeight: 1.6 }}>
               Remind the customer: our cleaners do not bring mops or vacuums. The customer must have a working mop and vacuum available at the property.
             </div>
