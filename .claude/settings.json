@@ -5,7 +5,9 @@
       "Bash(firebase functions:secrets:access STRIPE_WEBHOOK_SECRET)",
       "Bash(firebase functions:secrets:access STRIPE_KEY)",
       "Bash(firebase functions:log --only stopRecurringSeries)",
-      "Bash(firebase functions:log --only stopRecurringSeries --limit 50)"
+      "Bash(firebase functions:log --only stopRecurringSeries --limit 50)",
+      "Bash(node --check index.js)",
+      "Bash(firebase functions:delete cleanupPendingPayments --region us-central1 --force)"
     ]
   }
 }

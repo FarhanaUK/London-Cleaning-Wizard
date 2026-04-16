@@ -24,7 +24,18 @@ const BTN_GHOST = {
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const TIMES  = ['7:00 AM','8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM','7:00 PM','8:00 PM','9:00 PM'];
+const TIMES = (() => {
+  const times = [];
+  for (let h = 7; h <= 21; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      if (h === 21 && m > 0) break;
+      const period = h < 12 ? 'AM' : 'PM';
+      const hour   = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      times.push(`${hour}:${m.toString().padStart(2, '0')} ${period}`);
+    }
+  }
+  return times;
+})();
 
 export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   const today        = new Date();
@@ -73,6 +84,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   };
 
   const handleTimeSelect = (time) => {
+    setError('');
     onUpdate({
       cleanTime:    time,
       cleanDateUTC: toUTCISO(booking.cleanDate, time),
@@ -191,7 +203,8 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
       {booking.cleanDate && (
         <>
           <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Select Time</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 24 }}>
+          <div style={{ maxHeight: 240, overflowY: 'auto', marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
             {TIMES.map(time => (
               <div
                 key={time}
@@ -210,6 +223,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
                 {time}
               </div>
             ))}
+          </div>
           </div>
         </>
       )}

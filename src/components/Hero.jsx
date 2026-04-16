@@ -76,27 +76,29 @@ export default function Hero({ onScrollTo }) {
             <div style={{ background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 16px", borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Luxury Clean<br />from £115</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 6, marginBottom: 5 }} />
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 13, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
               <a
   href="tel:02081370026"
   style={{
     fontFamily: "'Jost', sans-serif",
-    fontSize: 11,
+    fontSize: 14,
     letterSpacing: "0.1em",
     textTransform: "uppercase",
     color: "#f5f0e8",
     textDecoration: "none",
     display: "inline-flex",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     fontWeight: 500,
     background: "#2c2420",
-    padding: "7px 12px",
-    borderRadius: 6,
+    padding: "10px 18px",
+    borderRadius: 8,
     zIndex: 20,
     position: "relative",
   }}
 >
-  📞 Tap to Call
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="#e05c6a" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+  Tap to Call
 </a>
              
             </div>
@@ -175,24 +177,28 @@ End of Tenancy | Airbnb Services
             <div style={{ position: "absolute", bottom: 24, right: 32, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 18px", zIndex: 10, borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Luxury Clean<br />from £115</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
                <a
                 href="tel:02081370026"
                 style={{
                   fontFamily: "'Jost', sans-serif",
-                  fontSize: 11,
+                  fontSize: 14,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
                   color: "#f5f0e8",
                   textDecoration: "none",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 6,
+                  gap: 8,
                   fontWeight: 500,
                   background: "#2c2420",
-                  padding: "7px 12px",
-                  borderRadius: 6,
+                  padding: "10px 18px",
+                  borderRadius: 8,
                 }}
-              >📞 Tap to Call</a>
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#e05c6a" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+                Tap to Call
+              </a>
             </div>
           </div>
 
@@ -313,6 +319,7 @@ End of Tenancy | Airbnb Services
             <div style={{ position: "absolute", top: 120, right: 40, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "14px 22px", zIndex: 10, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)", backdropFilter: "blur(4px)" }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 46, fontWeight: 300, lineHeight: 1.05, fontStyle: "italic", color: "#1a1410" }}>Luxury Clean<br />from £115</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
               <a
                 href="tel:02081370026"
                 style={{
@@ -331,7 +338,8 @@ End of Tenancy | Airbnb Services
                   borderRadius: 8,
                 }}
               >
-                📞 Tap to Call
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#e05c6a" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+                Tap to Call
               </a>
 
   

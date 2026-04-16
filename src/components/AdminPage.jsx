@@ -103,13 +103,30 @@ export default function AdminPage() {
   const [stoppingRecurring,  setStoppingRecurring]  = useState(null);
   const [stopRecurringErr,   setStopRecurringErr]   = useState('');
   const [stoppedRecurring,   setStoppedRecurring]   = useState(new Set());
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 900);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   const WELCOME_COLORS = ['#2563eb','#be185d','#16a34a','#4f46e5','#0e7490','#7c3aed','#b45309'];
   const [statusFilter,  setStatusFilter]  = useState('all');
   const [freqFilter,    setFreqFilter]    = useState('all');
   const [searchQuery,   setSearchQuery]   = useState('');
   const [showNewBooking, setShowNewBooking] = useState(false);
-  const TIMES = ['7:00 AM','8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM','7:00 PM','8:00 PM','9:00 PM'];
+  const TIMES = (() => {
+    const times = [];
+    for (let h = 7; h <= 21; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        if (h === 21 && m > 0) break;
+        const period = h < 12 ? 'AM' : 'PM';
+        const hour   = h === 0 ? 12 : h > 12 ? h - 12 : h;
+        times.push(`${hour}:${m.toString().padStart(2, '0')} ${period}`);
+      }
+    }
+    return times;
+  })();
   const HOW_HEARD_OPTIONS = ['Google Search','Instagram','Facebook','TikTok','Word of Mouth','Leaflet','Nextdoor','Other'];
   const BLANK_BOOKING = { firstName:'', lastName:'', email:'', phone:'', addr1:'', postcode:'', propertyType:'flat', floor:'', parking:'', keys:'', notes:'', packageId:'refresh', sizeId:'', frequency:'one-off', cleanDate:'', cleanTime:'9:00 AM', addons:[], hasPets:null, petTypes:'', signatureTouch:true, signatureTouchNotes:'', hearAbout:'', supplies:'customer' };
   const [nb, setNb] = useState(BLANK_BOOKING);
@@ -163,7 +180,6 @@ export default function AdminPage() {
       if (!res.ok) { setNbErr(data.error || 'Failed to create booking.'); setNbSaving(false); return; }
       setShowNewBooking(false);
       setNb(BLANK_BOOKING);
-      setNbTcAgreed(false);
       setNbSubmitted(false);
       setNbTouched({});
     } catch (err) { setNbErr(`Something went wrong: ${err?.message || err}`); }
@@ -440,8 +456,8 @@ export default function AdminPage() {
       } else if (data.consecutiveAlert) {
         window.alert(`⚠️ 2 consecutive cancellations for ${booking.firstName} ${booking.lastName}.\n\nTheir recurring series has been automatically stopped and all future scheduled bookings have been removed. They will need to rebook from scratch at full price.`);
       }
-    } catch {
-      setCancelErr('Something went wrong. Please try again.');
+    } catch (err) {
+      setCancelErr(`Something went wrong: ${err?.message || 'Unknown error'}`);
     } finally {
       setCancelling(null);
     }
@@ -552,7 +568,7 @@ export default function AdminPage() {
     .reduce((s, b) => s + (parseFloat(b.remaining) || 0), 0);
 
   const LABEL = { fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 6 };
-  const VALUE = { fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 300, color: '#1a1410' };
+  const VALUE = { fontFamily: "'Cormorant Garamond',serif", fontSize: isMobile ? 22 : 28, fontWeight: 300, color: '#1a1410' };
   const DATE_INPUT = {
     fontFamily: "'Jost',sans-serif", fontSize: 12, padding: '7px 10px',
     border: '1px solid rgba(200,184,154,0.4)', background: 'white',
@@ -563,7 +579,7 @@ export default function AdminPage() {
     <div style={{ minHeight: '100vh', background: '#FAF8F4' }}>
 
       {/* Header */}
-      <div style={{ background: '#1a1410', padding: '16px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: '#1a1410', padding: isMobile ? '12px 16px' : '16px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <LogoMark size={28} color="#c8b89a" />
           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#f5f0e8' }}>
@@ -578,17 +594,17 @@ export default function AdminPage() {
         </button>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 28px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '16px 12px' : '32px 28px' }}>
 
         {/* Welcome banner */}
         <div style={{
-          marginBottom: 28, padding: '24px 28px',
+          marginBottom: 20, padding: isMobile ? '16px 16px' : '24px 28px',
           background: 'white', border: '1px solid rgba(200,184,154,0.25)',
           opacity: bannerVisible ? 1 : 0,
           transform: bannerVisible ? 'translateY(0)' : 'translateY(-20px)',
           transition: 'opacity 1.2s ease, transform 1.4s cubic-bezier(0.22,1,0.36,1)',
         }}>
-          <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 32, fontWeight: 400, color: '#1a1410', lineHeight: 1.2 }}>
+          <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: isMobile ? 24 : 32, fontWeight: 400, color: '#1a1410', lineHeight: 1.2 }}>
             Welcome, {user.displayName?.split(' ')[0] || user.email.split('@')[0]}.
           </div>
           <div style={{
@@ -627,108 +643,114 @@ export default function AdminPage() {
 
         {/* Date filter */}
         <div style={{ background: 'white', border: '1px solid rgba(200,184,154,0.25)', padding: '16px 20px', marginBottom: 20 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {[
-                { id: 'today', label: 'Today' },
-                { id: 'week',  label: 'This Week' },
-                { id: 'month', label: 'This Month' },
-                { id: 'all',   label: 'All Time' },
-              ].map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => applyPreset(p.id)}
-                  style={{
-                    ...BTN, padding: '7px 14px',
-                    background: preset === p.id ? '#2c2420' : 'transparent',
-                    color: preset === p.id ? '#f5f0e8' : '#2c2420',
-                    border: '1px solid rgba(200,184,154,0.4)',
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
+          {isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <select value={preset} onChange={e => applyPreset(e.target.value)} style={{ ...DATE_INPUT, width: '100%' }}>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="all">All Time</option>
+              </select>
+              {preset !== 'all' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="date" value={dateFrom} min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateFrom(e.target.value); setPreset('custom'); }} style={{ ...DATE_INPUT, flex: 1 }} />
+                  <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355' }}>to</span>
+                  <input type="date" value={dateTo} min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateTo(e.target.value); setPreset('custom'); }} style={{ ...DATE_INPUT, flex: 1 }} />
+                </div>
+              )}
             </div>
-            {preset !== 'all' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-                <input
-                  type="date" value={dateFrom}
-                  min={`${year}-01-01`} max={`${year}-12-31`}
-                  onChange={e => { setDateFrom(e.target.value); setPreset('custom'); }}
-                  style={DATE_INPUT}
-                />
-                <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355' }}>to</span>
-                <input
-                  type="date" value={dateTo}
-                  min={`${year}-01-01`} max={`${year}-12-31`}
-                  onChange={e => { setDateTo(e.target.value); setPreset('custom'); }}
-                  style={DATE_INPUT}
-                />
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { id: 'today', label: 'Today' },
+                  { id: 'week',  label: 'This Week' },
+                  { id: 'month', label: 'This Month' },
+                  { id: 'all',   label: 'All Time' },
+                ].map(p => (
+                  <button key={p.id} onClick={() => applyPreset(p.id)} style={{ ...BTN, padding: '7px 14px', background: preset === p.id ? '#2c2420' : 'transparent', color: preset === p.id ? '#f5f0e8' : '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>
+                    {p.label}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
+              {preset !== 'all' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+                  <input type="date" value={dateFrom} min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateFrom(e.target.value); setPreset('custom'); }} style={DATE_INPUT} />
+                  <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355' }}>to</span>
+                  <input type="date" value={dateTo} min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateTo(e.target.value); setPreset('custom'); }} style={DATE_INPUT} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Status filter */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-          {[
-            { id: 'all',             label: 'All' },
-            { id: 'deposit_paid',    label: 'Deposit Paid' },
-            { id: 'fully_paid',      label: 'All Paid' },
-            { id: 'regular',         label: '🔄 Recurring Clients' },
-            { id: 'refunded',        label: 'Refunded' },
-            { id: 'phone',           label: '📞 Phone' },
-            { id: 'website',         label: '🌐 Website' },
-          ].map(s => (
-            <button
-              key={s.id}
-              onClick={() => setStatusFilter(s.id)}
-              style={{
-                ...BTN, padding: '7px 14px',
-                background: statusFilter === s.id ? '#2c2420' : 'transparent',
-                color: statusFilter === s.id ? '#f5f0e8' : '#2c2420',
-                border: '1px solid rgba(200,184,154,0.4)',
-              }}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        {isMobile ? (
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...DATE_INPUT, width: '100%', marginBottom: 10 }}>
+            <option value="all">All Statuses</option>
+            <option value="pending_deposit">Awaiting Deposit</option>
+            <option value="deposit_paid">Deposit Paid</option>
+            <option value="fully_paid">All Paid</option>
+            <option value="regular">Recurring Clients</option>
+            <option value="refunded">Refunded</option>
+            <option value="phone">Phone Bookings</option>
+            <option value="website">Website Bookings</option>
+          </select>
+        ) : (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+            {[
+              { id: 'all',             label: 'All' },
+              { id: 'pending_deposit', label: '⏳ Awaiting Deposit' },
+              { id: 'deposit_paid',    label: 'Deposit Paid' },
+              { id: 'fully_paid',      label: 'All Paid' },
+              { id: 'regular',         label: '🔄 Recurring Clients' },
+              { id: 'refunded',        label: 'Refunded' },
+              { id: 'phone',           label: '📞 Phone' },
+              { id: 'website',         label: '🌐 Website' },
+            ].map(s => (
+              <button key={s.id} onClick={() => setStatusFilter(s.id)} style={{ ...BTN, padding: '7px 14px', background: statusFilter === s.id ? '#2c2420' : 'transparent', color: statusFilter === s.id ? '#f5f0e8' : '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Frequency filter */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-          {[
-            { id: 'all',                label: 'All Types' },
-            { id: 'one-off',            label: 'One-off' },
-            { id: 'weekly',             label: 'Weekly' },
-            { id: 'fortnightly',        label: 'Fortnightly' },
-            { id: 'monthly',            label: 'Monthly' },
-            { id: 'cancelled-recurring',label: 'Cancelled Recurring' },
-          ].map(f => (
-            <button
-              key={f.id}
-              onClick={() => setFreqFilter(f.id)}
-              style={{
-                ...BTN, padding: '7px 14px',
-                background: freqFilter === f.id ? '#2c2420' : 'transparent',
-                color: freqFilter === f.id ? '#f5f0e8' : '#2c2420',
-                border: freqFilter === f.id ? '1px solid #2c2420' : '1px solid rgba(200,184,154,0.4)',
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        {isMobile ? (
+          <select value={freqFilter} onChange={e => setFreqFilter(e.target.value)} style={{ ...DATE_INPUT, width: '100%', marginBottom: 16 }}>
+            <option value="all">All Types</option>
+            <option value="one-off">One-off</option>
+            <option value="weekly">Weekly</option>
+            <option value="fortnightly">Fortnightly</option>
+            <option value="monthly">Monthly</option>
+            <option value="cancelled-recurring">Cancelled Recurring</option>
+          </select>
+        ) : (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+            {[
+              { id: 'all',                label: 'All Types' },
+              { id: 'one-off',            label: 'One-off' },
+              { id: 'weekly',             label: 'Weekly' },
+              { id: 'fortnightly',        label: 'Fortnightly' },
+              { id: 'monthly',            label: 'Monthly' },
+              { id: 'cancelled-recurring',label: 'Cancelled Recurring' },
+            ].map(f => (
+              <button key={f.id} onClick={() => setFreqFilter(f.id)} style={{ ...BTN, padding: '7px 14px', background: freqFilter === f.id ? '#2c2420' : 'transparent', color: freqFilter === f.id ? '#f5f0e8' : '#2c2420', border: freqFilter === f.id ? '1px solid #2c2420' : '1px solid rgba(200,184,154,0.4)' }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(auto-fill,minmax(180px,1fr))', gap: isMobile ? 8 : 12, marginBottom: isMobile ? 16 : 28 }}>
           {[
             { label: 'Bookings',    value: displayedBookings.length },
             { label: 'Total Value', value: `£${totalValue.toFixed(2)}` },
             { label: 'Collected',   value: `£${collected.toFixed(2)}` },
             { label: 'Outstanding', value: `£${outstanding.toFixed(2)}` },
           ].map((s, i) => (
-            <div key={i} style={{ background: 'white', border: '1px solid rgba(200,184,154,0.25)', padding: '16px 20px' }}>
+            <div key={i} style={{ background: 'white', border: '1px solid rgba(200,184,154,0.25)', padding: isMobile ? '12px 14px' : '16px 20px' }}>
               <div style={LABEL}>{s.label}</div>
               <div style={VALUE}>{s.value}</div>
             </div>
@@ -753,7 +775,7 @@ export default function AdminPage() {
                   {runAt.toLocaleDateString('en-GB')} at {runAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(120px,1fr))', gap: '8px 20px', marginTop: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(auto-fill,minmax(120px,1fr))', gap: '8px 12px', marginTop: 12 }}>
                 {[
                   { l: 'Customers checked', v: latest.customersChecked ?? '—' },
                   { l: 'Attempted',         v: latest.attempted ?? '—' },
@@ -811,7 +833,7 @@ export default function AdminPage() {
         </div>
 
         {/* Toolbar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', marginBottom: 16, gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {displayedBookings.length > 0 && (
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', cursor: 'pointer', userSelect: 'none' }}>
@@ -844,13 +866,13 @@ export default function AdminPage() {
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexDirection: isMobile ? 'column' : 'row' }}>
             {displayedBookings.length > 0 && (
-              <button onClick={handleExportCSV} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>
+              <button onClick={handleExportCSV} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)', textAlign: 'center' }}>
                 Export CSV
               </button>
             )}
-            <button onClick={() => setShowNewBooking(true)} style={{ ...BTN, background: '#c8b89a', color: '#1a1410', border: 'none' }}>
+            <button onClick={() => setShowNewBooking(true)} style={{ ...BTN, background: '#c8b89a', color: '#1a1410', border: 'none', textAlign: 'center' }}>
               + New Booking
             </button>
           </div>
@@ -888,7 +910,7 @@ export default function AdminPage() {
 
                 {/* Booking row */}
                 <div
-                  style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}
+                  style={{ padding: isMobile ? '12px 14px' : '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}
                 >
                   <input
                     type="checkbox"
@@ -898,11 +920,13 @@ export default function AdminPage() {
                     style={{ cursor: 'pointer', accentColor: '#c8b89a', width: 15, height: 15, flexShrink: 0 }}
                   />
                   <div onClick={() => { setExpanded(isOpen ? null : b.id); setStopRecurringErr(''); }} style={{ flex: 1, cursor: 'pointer' }}>
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 19, fontWeight: 400, color: '#1a1410', marginBottom: 2 }}>
+                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: isMobile ? 17 : 19, fontWeight: 400, color: '#1a1410', marginBottom: 2 }}>
                       {b.firstName} {b.lastName}
                     </div>
-                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#6b5e56', fontWeight: 300 }}>
-                      {b.packageName} · {b.size} · {fmtDate(b.cleanDate)} at {b.cleanTime} · {b.addr1}, {b.postcode}
+                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#6b5e56', fontWeight: 300, lineHeight: 1.6 }}>
+                      {b.packageName} · {b.size}<br />
+                      {fmtDate(b.cleanDate)} at {b.cleanTime}<br />
+                      {b.addr1}, {b.postcode}
                     </div>
                     {b.cancelledAt && (
                       <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b2020', fontWeight: 300, marginTop: 3 }}>
@@ -932,8 +956,8 @@ export default function AdminPage() {
 
                 {/* Expanded details */}
                 {isOpen && (
-                  <div style={{ padding: '0 20px 20px', borderTop: '1px solid rgba(200,184,154,0.15)' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '8px 24px', marginTop: 16, marginBottom: 16 }}>
+                  <div style={{ padding: isMobile ? '0 14px 16px' : '0 20px 20px', borderTop: '1px solid rgba(200,184,154,0.15)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(auto-fill,minmax(200px,1fr))', gap: '8px 16px', marginTop: 16, marginBottom: 16 }}>
                       {[
                         { l: 'Booked On',    v: fmtCreatedAt(b.createdAt) },
                         { l: 'Booking Ref',  v: b.bookingRef },
@@ -950,7 +974,7 @@ export default function AdminPage() {
                         { l: 'Pets',             v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
                         { l: 'Signature Touch',  v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
                         { l: 'Total',            v: `£${parseFloat(b.total).toFixed(2)}` },
-                        { l: 'Deposit paid',     v: `£${parseFloat(b.deposit).toFixed(2)}` },
+                        { l: 'Deposit paid',     v: b.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(b.deposit).toFixed(2)}`, highlight: b.status === 'pending_deposit' },
                         { l: 'Remaining',        v: `£${parseFloat(b.remaining).toFixed(2)}` },
                         { l: 'Source',           v: b.source || '—' },
                         b.stripeDepositIntentId   && { l: 'Stripe Deposit PI',   v: b.stripeDepositIntentId },
@@ -959,7 +983,7 @@ export default function AdminPage() {
                       ].filter(Boolean).map((r, i) => (
                         <div key={i}>
                           <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 2 }}>{r.l}</div>
-                          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#2c2420', fontWeight: 300 }}>{r.v}</div>
+                          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: r.highlight ? '#fff' : '#2c2420', fontWeight: 300, ...(r.highlight ? { background: '#c0392b', display: 'inline-block', padding: '2px 8px', borderRadius: 3 } : {}) }}>{r.v}</div>
                         </div>
                       ))}
                     </div>
@@ -973,7 +997,7 @@ export default function AdminPage() {
                     {b.status && b.status.startsWith('cancelled') && (
                       <div style={{ background: '#fdf5f5', border: '1px solid rgba(139,32,32,0.15)', padding: '12px 16px', marginBottom: 14 }}>
                         <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8b2020', marginBottom: 10 }}>Cancellation Details</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '8px 24px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(auto-fill,minmax(200px,1fr))', gap: '8px 16px' }}>
                           {[
                             { l: 'Cancelled At', v: fmtCreatedAt(b.cancelledAt) },
                             b.cancellationReason && { l: 'Reason', v: b.cancellationReason },
@@ -1149,7 +1173,7 @@ export default function AdminPage() {
       {/* New Booking Modal */}
       {showNewBooking && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,20,16,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: '100%', maxWidth: 540, background: '#FAF8F4', overflowY: 'auto', padding: '32px 28px', position: 'relative' }}>
+          <div style={{ width: '100%', maxWidth: isMobile ? '100%' : 540, background: '#FAF8F4', overflowY: 'auto', padding: isMobile ? '20px 16px' : '32px 28px', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, color: '#1a1410' }}>New Booking</div>
               <button onClick={() => { setShowNewBooking(false); setNb(BLANK_BOOKING); setNbErr(''); setNbSubmitted(false); setNbTouched({}); }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#8b7355' }}>✕</button>
@@ -1479,11 +1503,11 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div style={{ background: '#fff8eb', border: '1px solid #f0c040', borderLeft: '4px solid #f0c040', padding: '12px 16px', marginBottom: 16, borderRadius: 4 }}>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, fontWeight: 600, color: '#7a5c00', marginBottom: 4 }}>
+            <div style={{ background: '#fff0f0', border: '1px solid #cc0000', borderLeft: '4px solid #cc0000', padding: '12px 16px', marginBottom: 16 }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, fontWeight: 700, color: '#cc0000', marginBottom: 4 }}>
                 ⚠ Before clicking "Create Booking"
               </div>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#7a5c00', fontWeight: 300, lineHeight: 1.6 }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#cc0000', fontWeight: 600, lineHeight: 1.6 }}>
                 Do <strong>not</strong> confirm the booking with the customer yet. Once created, go to the booking and use <strong>Generate Payment Link</strong> to send them the deposit link. Only confirm once payment is received.
               </div>
             </div>
@@ -1505,7 +1529,7 @@ export default function AdminPage() {
       {/* Edit Booking Modal */}
       {editBooking && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,20,16,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: '100%', maxWidth: 480, background: '#FAF8F4', overflowY: 'auto', padding: '32px 28px', position: 'relative' }}>
+          <div style={{ width: '100%', maxWidth: isMobile ? '100%' : 480, background: '#FAF8F4', overflowY: 'auto', padding: isMobile ? '20px 16px' : '32px 28px', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, color: '#1a1410' }}>Edit Booking</div>
               <button onClick={() => { setEditBooking(null); setEditData({}); setEditScope('this'); setEditErr(''); }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#8b7355' }}>✕</button>

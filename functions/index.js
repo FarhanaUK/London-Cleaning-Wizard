@@ -155,7 +155,7 @@ exports.verifyCode = onRequest(async (req, res) => {
 // ── 3. Create Stripe PaymentIntent ────────────────────────────
 exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
-  const { amount } = req.body;
+  const { amount, bookingData } = req.body;
   if (!Number.isInteger(amount) || amount <= 0 || amount > 1000000) {
     res.status(400).json({ error:'Invalid amount' }); return;
   }
@@ -167,7 +167,26 @@ exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, re
     setup_future_usage: 'off_session',
     metadata: { bookingRef: 'pending' },
   });
-  res.json({ clientSecret: intent.client_secret, customerId: customer.id });
+
+  // Save booking data so the webhook can create the booking if the browser closes after payment
+  if (bookingData) {
+    try {
+      const db = admin.firestore();
+      await db.collection('pendingBookings').doc(intent.id).set({
+        ...bookingData,
+        stripeCustomerId: customer.id,
+        createdAt: new Date(),
+      });
+    } catch (e) {
+      console.error('Failed to save pendingBooking:', e.message);
+      // Cancel the PI so the customer is never charged without a booking fallback
+      await stripe.paymentIntents.cancel(intent.id).catch(() => {});
+      res.status(500).json({ error: 'Could not initialise booking. Please try again.' });
+      return;
+    }
+  }
+
+  res.json({ clientSecret: intent.client_secret, customerId: customer.id, piId: intent.id });
 });
 
 // ── 4. Save booking after payment succeeds ────────────────────
@@ -209,11 +228,29 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
   const ref = `LCW-${Date.now().toString().slice(-6)}`;
   const id  = db.collection('bookings').doc().id;
 
+  // If this is a real Stripe payment, claim the pendingBookings doc atomically.
+  // This ensures only one path (saveBooking or webhook) creates the booking.
+  let claimed = true;
+  const isRealStripePI = d.stripeDepositIntentId?.startsWith('pi_');
+
   await db.runTransaction(async tx => {
+    // ── ALL reads first (Firestore requires reads before writes) ──
+    const pendingRef  = isRealStripePI ? db.collection('pendingBookings').doc(d.stripeDepositIntentId) : null;
+    const pendingSnap = pendingRef ? await tx.get(pendingRef) : null;
+
+    if (isRealStripePI && !pendingSnap.exists) {
+      // Webhook already claimed and processed this — return early
+      claimed = false;
+      return;
+    }
+
     const bRef  = db.collection('bookings').doc(id);
     const cRef  = db.collection('customers').doc(d.email.toLowerCase());
     const cSnap = await tx.get(cRef);
     const count = cSnap.exists ? (cSnap.data().bookingCount || 0) : 0;
+
+    // ── ALL writes after reads ──
+    if (isRealStripePI) tx.delete(pendingRef);
     tx.set(bRef, {
       bookingRef: ref, bookingId: id,
       email: d.email.toLowerCase(), firstName: clean(d.firstName), lastName: clean(d.lastName),
@@ -264,6 +301,17 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
     }, { merge: true });
   });
 
+  // If webhook already handled this payment, look up and return that booking ref
+  if (!claimed) {
+    const existingSnap = await db.collection('bookings')
+      .where('stripeDepositIntentId', '==', d.stripeDepositIntentId)
+      .limit(1).get();
+    if (!existingSnap.empty) {
+      const existing = existingSnap.docs[0].data();
+      return res.json({ success: true, bookingRef: existing.bookingRef, bookingId: existing.bookingId });
+    }
+    return res.status(409).json({ error: 'Booking already processed. Please check your email or call us.' });
+  }
 
   // Write to your bookings calendar — for your reference only
   // Does NOT affect availability checks
@@ -732,13 +780,16 @@ async function checkConsecutiveCancellations(db, b, emailjsKey) {
       recurringActive: false, consecutiveCancellations: 2, updatedAt: new Date(),
     });
 
-    // Fetch all scheduled bookings, filter to today+ in memory to avoid composite index
-    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    // Cancel only bookings AFTER the later of the two consecutive cancelled dates
+    // e.g. if 04/05 and 11/05 are cancelled, cutoff = 11/05 → only cancel 18/05 onwards
+    let cutoffDate = b.cleanDate;
+    if (nextCancelled && next.cleanDate > cutoffDate) cutoffDate = next.cleanDate;
+
     const allSchedSnap = await db.collection('bookings')
       .where('email', '==', email)
       .where('status', '==', 'scheduled')
       .get();
-    const futureDocs = allSchedSnap.docs.filter(d => d.data().cleanDate >= todayStr);
+    const futureDocs = allSchedSnap.docs.filter(d => d.data().cleanDate > cutoffDate);
     const remainingSnap = { docs: futureDocs, size: futureDocs.length };
 
     const batch = db.batch();
@@ -829,6 +880,35 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     res.json({ success: true, status: 'cancelled_no_refund', refundAmount: 0, ...(await checkConsecutiveCancellations(db, b, EMAILJS_KEY.value())) }); return;
   }
 
+  // ── Pending deposit — no payment taken yet ──────────────────
+  if (b.status === 'pending_deposit') {
+    await snap.ref.update({ status: 'cancelled_no_refund', cancelledAt: new Date(), cancellationReason: clean(reason||''), refundAmount: 0 });
+    if (b.calendarEventId) {
+      try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
+    }
+    if (b.frequency && b.frequency !== 'one-off') {
+      try {
+        const email    = b.email.toLowerCase();
+        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+        const schedSnap = await db.collection('bookings').where('email', '==', email).where('status', '==', 'scheduled').get();
+        const futureDocs = schedSnap.docs.filter(d => d.data().cleanDate >= todayStr);
+        if (futureDocs.length > 0) {
+          const batch = db.batch();
+          for (const fdoc of futureDocs) {
+            batch.update(fdoc.ref, { status: 'cancelled_no_refund', cancelledAt: new Date(), cancellationReason: 'Recurring series cancelled — first booking cancelled before payment' });
+            const fd = fdoc.data();
+            if (fd.calendarEventId) {
+              try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: fd.calendarEventId }); } catch(e) {}
+            }
+          }
+          await batch.commit();
+          await db.collection('customers').doc(email).update({ recurringActive: false, updatedAt: new Date() }).catch(() => {});
+        }
+      } catch (e) { console.error('Failed to cancel recurring series on pending_deposit cancellation:', e.message); }
+    }
+    res.json({ success: true, status: 'cancelled_no_refund', refundAmount: 0 }); return;
+  }
+
   // ── Standard booking cancellation ───────────────────────────
   const refundPence = hoursUntil >= 48 ? b.deposit * 100 : 0;
   const refundAmt   = refundPence / 100;
@@ -870,6 +950,33 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
       customer_email: b.email, customer_phone: b.phone,
       notice_given: noticeMsg,
     }, EMAILJS_KEY.value()).catch(() => {});
+
+  // If this was the first booking of a recurring series, cancel all future scheduled bookings too
+  if (b.frequency && b.frequency !== 'one-off') {
+    try {
+      const email    = b.email.toLowerCase();
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+      const schedSnap = await db.collection('bookings')
+        .where('email', '==', email)
+        .where('status', '==', 'scheduled')
+        .get();
+      const futureDocs = schedSnap.docs.filter(d => d.data().cleanDate >= todayStr);
+      if (futureDocs.length > 0) {
+        const batch = db.batch();
+        for (const fdoc of futureDocs) {
+          batch.update(fdoc.ref, { status: 'cancelled_no_refund', cancelledAt: new Date(), cancellationReason: 'Recurring series cancelled — first booking cancelled' });
+          const fd = fdoc.data();
+          if (fd.calendarEventId) {
+            try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: fd.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
+          }
+        }
+        await batch.commit();
+        await db.collection('customers').doc(email).update({ recurringActive: false, updatedAt: new Date() }).catch(() => {});
+      }
+    } catch (e) {
+      console.error('Failed to cancel recurring series on first booking cancellation:', e.message);
+    }
+  }
 
   res.json({ success:true, status, refundAmount:refundAmt });
 });
@@ -1649,33 +1756,149 @@ exports.stripeWebhook = onRequest(
     const bookingId = pi.metadata?.bookingId;
     const db        = admin.firestore();
 
-    // ── Admin deposit payment flow only — ignore all other payments ──
-    if (!bookingId) { res.json({ received: true }); return; }
+    // ── Admin deposit payment flow ──
+    if (bookingId) {
+      const snap = await db.collection('bookings').doc(bookingId).get();
+      if (!snap.exists) { res.json({ received: true }); return; }
+      const b = snap.data();
+      if (b.status !== 'pending_deposit') { res.json({ received: true }); return; }
+      const customerId = b.pendingDepositCustomerId || pi.customer;
+      await snap.ref.update({
+        status:                     'deposit_paid',
+        stripeDepositIntentId:      pi.id,
+        stripeCustomerId:           customerId,
+        depositPaidAt:              new Date(),
+        pendingDepositClientSecret: admin.firestore.FieldValue.delete(),
+        pendingDepositCustomerId:   admin.firestore.FieldValue.delete(),
+        pendingDepositPIId:         admin.firestore.FieldValue.delete(),
+      });
+      const eData = buildBookingEmailData({ ...b, stripeDepositIntentId: pi.id, stripeCustomerId: customerId });
+      await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE,
+        { ...eData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
+      await sendEmail(process.env.EMAILJS_ADMIN_TEMPLATE,
+        { ...eData, to_email: 'bookings@londoncleaningwizard.com',
+          customer_name: `${b.firstName} ${b.lastName}`,
+          customer_phone: b.phone, customer_email: b.email },
+        EMAILJS_KEY.value()).catch(() => {});
+      res.json({ received: true }); return;
+    }
 
-    const snap = await db.collection('bookings').doc(bookingId).get();
-    if (!snap.exists) { res.json({ received: true }); return; }
-    const b = snap.data();
+    // ── Customer booking fallback — fires if browser closed after payment ──
+    const piId       = pi.id;
+    const pendingRef = db.collection('pendingBookings').doc(piId);
+    const ref        = `LCW-${Date.now().toString().slice(-6)}`;
+    const id         = db.collection('bookings').doc().id;
+    let claimed = false;
+    let pd      = null;
 
-    if (b.status !== 'pending_deposit') { res.json({ received: true }); return; }
+    await db.runTransaction(async tx => {
+      const pendingSnap = await tx.get(pendingRef);
+      if (!pendingSnap.exists) { claimed = false; return; }
 
-    const customerId = b.pendingDepositCustomerId || pi.customer;
-    await snap.ref.update({
-      status:                     'deposit_paid',
-      stripeDepositIntentId:      pi.id,
-      stripeCustomerId:           customerId,
-      depositPaidAt:              new Date(),
-      pendingDepositClientSecret: admin.firestore.FieldValue.delete(),
-      pendingDepositCustomerId:   admin.firestore.FieldValue.delete(),
-      pendingDepositPIId:         admin.firestore.FieldValue.delete(),
+      pd = pendingSnap.data();
+
+      const bRef  = db.collection('bookings').doc(id);
+      const cRef  = db.collection('customers').doc(pd.email.toLowerCase());
+      const cSnap = await tx.get(cRef);
+      const count = cSnap.exists ? (cSnap.data().bookingCount || 0) : 0;
+
+      tx.delete(pendingRef);
+      tx.set(bRef, {
+        bookingRef: ref, bookingId: id,
+        email: pd.email.toLowerCase(), firstName: clean(pd.firstName), lastName: clean(pd.lastName),
+        phone: clean(pd.phone), addr1: clean(pd.addr1), postcode: clean(pd.postcode).toUpperCase(),
+        propertyType: pd.propertyType, floor: clean(pd.floor||''), parking: clean(pd.parking||''),
+        keys: clean(pd.keys||''), notes: clean(pd.notes||''),
+        hasPets: pd.hasPets || false, petTypes: clean(pd.petTypes||''),
+        signatureTouch: pd.signatureTouch !== false, signatureTouchNotes: clean(pd.signatureTouchNotes||''),
+        package: pd.package, packageName: pd.packageName, size: pd.size,
+        frequency: pd.frequency || 'one-off', addons: pd.addons || [], isAirbnb: pd.isAirbnb || false,
+        cleanDate: pd.cleanDate, cleanTime: pd.cleanTime,
+        cleanDateUTC: toUTCISO(pd.cleanDate, pd.cleanTime),
+        total: pd.total, deposit: pd.deposit, remaining: pd.remaining,
+        stripeDepositIntentId: piId,
+        stripeCustomerId: pd.stripeCustomerId || pi.customer || '',
+        status: 'deposit_paid', isPhoneBooking: false,
+        source: clean(pd.source||''), createdAt: new Date(),
+      });
+      tx.set(cRef, {
+        firstName: clean(pd.firstName), lastName: clean(pd.lastName), phone: clean(pd.phone),
+        addr1: clean(pd.addr1), postcode: clean(pd.postcode).toUpperCase(),
+        floor: clean(pd.floor||''), parking: clean(pd.parking||''),
+        keys: clean(pd.keys||''), notes: clean(pd.notes||''),
+        hasPets: pd.hasPets || false, petTypes: clean(pd.petTypes||''),
+        signatureTouch: pd.signatureTouch !== false, signatureTouchNotes: clean(pd.signatureTouchNotes||''),
+        bookingCount: count + 1, lastBookingId: id, lastBookingRef: ref,
+        lastPackage: pd.package, lastPackageName: pd.packageName, lastSize: pd.size,
+        lastPrice: pd.total, lastDate: pd.cleanDate, lastCleaner: '',
+        updatedAt: new Date(),
+        ...(cSnap.exists ? {} : { firstBookingDate: new Date(), source: clean(pd.source||'') }),
+        stripeCustomerId: pd.stripeCustomerId || pi.customer || '',
+        ...(pd.frequency && pd.frequency !== 'one-off' ? {
+          recurringActive:       true,
+          recurringFrequency:    pd.frequency,
+          recurringDay:          new Date(pd.cleanDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long' }),
+          recurringTime:         pd.cleanTime,
+          recurringPackage:      pd.package,
+          recurringPackageName:  pd.packageName,
+          recurringSize:         pd.size,
+          recurringAddons:       pd.addons || [],
+          recurringPropertyType: pd.propertyType,
+          recurringTotal:        pd.total,
+          recurringDeposit:      pd.deposit,
+          recurringRemaining:    pd.remaining,
+          recurringSource:       clean(pd.source||''),
+        } : {}),
+      }, { merge: true });
+
+      claimed = true;
     });
-    const eData = buildBookingEmailData({ ...b, stripeDepositIntentId: pi.id, stripeCustomerId: customerId });
+
+    if (!claimed) { res.json({ received: true }); return; }
+
+    try {
+      const calendar  = await getCalendarClient();
+      const slotStart = toUTCISO(pd.cleanDate, pd.cleanTime);
+      const slotEnd   = new Date(new Date(slotStart).getTime() + 3 * 60 * 60 * 1000).toISOString();
+      const calEvent  = await calendar.events.insert({
+        calendarId: process.env.GOOGLE_CALENDAR_ID,
+        resource: {
+          summary:     `${pd.packageName} — ${pd.firstName} ${pd.lastName}`,
+          description: [
+            `Ref: ${ref}`,
+            `Customer: ${pd.firstName} ${pd.lastName}`,
+            `Email: ${pd.email}`,
+            `Phone: ${pd.phone}`,
+            `Address: ${pd.addr1}, ${pd.postcode}`,
+            `Property: ${pd.propertyType} · ${pd.size}`,
+            `Frequency: ${pd.frequency || 'One-off'}`,
+            `Floor / Lift: ${pd.floor || '—'}`,
+            `Parking: ${pd.parking || '—'}`,
+            `Keys: ${pd.keys || 'N/A'}`,
+            `Add-ons: ${(pd.addons||[]).map(a => a.name).join(', ') || 'None'}`,
+            `Pets: ${pd.hasPets ? `Yes — ${pd.petTypes || 'not specified'}` : 'No'}`,
+            `Notes: ${pd.notes || 'None'}`,
+            `Total: £${pd.total} | Deposit: £${pd.deposit} | Remaining: £${pd.remaining}`,
+          ].join('\n'),
+          start: { dateTime: slotStart, timeZone: 'Europe/London' },
+          end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
+          colorId: '2',
+        },
+      });
+      await db.collection('bookings').doc(id).update({ calendarEventId: calEvent.data.id });
+    } catch (e) {
+      console.error('Webhook: Failed to create calendar event:', e.message);
+    }
+
+    const eData = buildBookingEmailData({ ...pd, bookingRef: ref, stripeDepositIntentId: piId, stripeCustomerId: pd.stripeCustomerId || pi.customer });
     await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE,
-      { ...eData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
+      { ...eData, to_name: pd.firstName, to_email: pd.email }, EMAILJS_KEY.value()).catch(() => {});
     await sendEmail(process.env.EMAILJS_ADMIN_TEMPLATE,
       { ...eData, to_email: 'bookings@londoncleaningwizard.com',
-        customer_name: `${b.firstName} ${b.lastName}`,
-        customer_phone: b.phone, customer_email: b.email },
+        customer_name: `${pd.firstName} ${pd.lastName}`,
+        customer_phone: pd.phone, customer_email: pd.email },
       EMAILJS_KEY.value()).catch(() => {});
+
     res.json({ received: true });
   }
 );
@@ -1703,7 +1926,18 @@ exports.sendReviewEmails = onSchedule({ schedule: 'every day 10:00', secrets: [E
   }
 });
 
-// ── 16. Clean up expired verification codes (Scheduled) ──────
+// ── 16. Clean up abandoned pendingBookings (Scheduled) ───────
+// Deletes pending docs older than 3 hours where the customer never paid
+exports.cleanupPendingBookings = onSchedule('every 60 minutes', async () => {
+  const db     = admin.firestore();
+  const cutoff = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const snap   = await db.collection('pendingBookings').where('createdAt', '<', cutoff).get();
+  const batch  = db.batch();
+  snap.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+});
+
+// ── Clean up expired verification codes (Scheduled) ──────────
 exports.cleanupExpiredCodes = onSchedule('every 60 minutes', async () => {
   const db   = admin.firestore();
   const snap = await db.collection('verificationCodes').where('expiresAt','<',new Date()).get();

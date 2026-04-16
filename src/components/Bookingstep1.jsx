@@ -93,6 +93,8 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
   const [error,      setError]      = useState('');
   const [expanded,   setExpanded]   = useState(null); // which package is expanded
 
+  const update = (partial) => { onUpdate(partial); setError(''); };
+
   const handleNext = () => {
     const err = validateStep1(booking);
     if (err) { setError(err); return; }
@@ -101,7 +103,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
   };
 
   const handlePackageSelect = (pkg) => {
-    onUpdate({ pkg, size: null, sizePrice: 0, freq: null, addons: [], supplies: null, mopAck: false });
+    update({ pkg, size: null, sizePrice: 0, freq: null, addons: [], supplies: null, mopAck: false });
   };
 
   const toggleExpand = (e, pkgId) => {
@@ -120,7 +122,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
     <div>
       {/* Airbnb toggle */}
       <div
-        onClick={() => onUpdate({
+        onClick={() => update({
           isAirbnb: !booking.isAirbnb,
           pkg: !booking.isAirbnb ? PACKAGES.find(p => p.id === 'airbnb') : null,
           size: null, sizePrice: 0, addons: [],
@@ -228,9 +230,9 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               <div
                 key={type.id}
                 onClick={() => {
-                  const update = { propertyType: type.id };
-                  if (type.id === 'house' && booking.size?.id === 'studio') update.size = null;
-                  onUpdate(update);
+                  const partial = { propertyType: type.id };
+                  if (type.id === 'house' && booking.size?.id === 'studio') partial.size = null;
+                  update(partial);
                 }}
                 style={CARD(booking.propertyType === type.id)}
               >
@@ -255,7 +257,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               return (
                 <div
                   key={size.id}
-                  onClick={() => onUpdate({ size, sizePrice: size.basePrice })}
+                  onClick={() => update({ size, sizePrice: size.basePrice })}
                   style={CARD(booking.size?.id === size.id)}
                 >
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, color: '#1a1410', marginBottom: 4 }}>
@@ -279,7 +281,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
             {FREQUENCIES.map(freq => (
               <div
                 key={freq.id}
-                onClick={() => onUpdate({ freq })}
+                onClick={() => update({ freq })}
                 style={CARD(booking.freq?.id === freq.id)}
               >
                 <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410', marginBottom: 3 }}>
@@ -320,7 +322,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                     const next = selected
                       ? current.filter(a => a.id !== addon.id)
                       : [...current, { ...addon, price }];
-                    onUpdate({ addons: next });
+                    update({ addons: next });
                   }}
                   style={{ ...CARD(selected), display: 'flex', alignItems: 'center', gap: 12 }}
                 >
@@ -362,7 +364,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
             ].map(opt => (
               <div
                 key={opt.id}
-                onClick={() => onUpdate({ supplies: opt.id })}
+                onClick={() => update({ supplies: opt.id })}
                 style={{ ...CARD(booking.supplies === opt.id), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
                 <div>
@@ -378,7 +380,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
 
           {/* Mop & vacuum acknowledgment — always required */}
           <div
-            onClick={() => onUpdate({ mopAck: !booking.mopAck })}
+            onClick={() => update({ mopAck: !booking.mopAck })}
             style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: '#fdf8f3', border: '1px solid rgba(200,184,154,0.3)', cursor: 'pointer', marginBottom: 24 }}
           >
             <div style={{

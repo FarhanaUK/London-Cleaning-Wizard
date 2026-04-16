@@ -85,13 +85,31 @@ function PaymentForm({ booking, onSuccess, onBack }) {
     setOverlaySub('Please don\'t close this window');
 
     try {
-      // Step 1: Create PaymentIntent
+      // Step 1: Create PaymentIntent + pre-save pending booking
       const piRes = await fetch(import.meta.env.VITE_CF_CREATE_PAYMENT_INTENT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: Math.round(parseFloat(T.deposit) * 100), bookingRef: 'pending' }),
+        body: JSON.stringify({
+          amount: Math.round(parseFloat(T.deposit) * 100),
+          bookingData: {
+            ...booking,
+            package:     booking.pkg?.id,
+            packageName: booking.pkg?.name,
+            size:        booking.size?.id,
+            frequency:   booking.freq?.id,
+            total:       parseFloat(T.subtotal),
+            deposit:     parseFloat(T.deposit),
+            remaining:   parseFloat(T.remaining),
+          },
+        }),
       });
-      const { clientSecret, customerId } = await piRes.json();
+      if (!piRes.ok) {
+        const piErr = await piRes.json().catch(() => ({}));
+        setPayError(piErr.error || 'Could not initiate payment. Please try again.');
+        setLoading(false);
+        return;
+      }
+      const { clientSecret, customerId, piId } = await piRes.json();
 
       setOverlayTitle('Authorising payment…');
       setOverlaySub('Verifying your card details securely');
@@ -111,7 +129,7 @@ function PaymentForm({ booking, onSuccess, onBack }) {
         setOverlayTitle('Confirming your booking…');
         setOverlaySub('Sending confirmation to your email');
 
-        // Step 3: Save booking to Firestore
+        // Step 3: Confirm booking in Firestore
         const saveRes = await fetch(import.meta.env.VITE_CF_SAVE_BOOKING, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -126,6 +144,7 @@ function PaymentForm({ booking, onSuccess, onBack }) {
             remaining:             parseFloat(T.remaining),
             stripeDepositIntentId: paymentIntent.id,
             stripeCustomerId:      customerId,
+            piId,
           }),
         });
 
@@ -135,8 +154,27 @@ function PaymentForm({ booking, onSuccess, onBack }) {
           setLoading(false);
           return;
         }
+        // Google Ads conversion tracking
+        if (window.gtag) {
+          window.gtag('event', 'conversion', {
+            send_to:        'AW-18070855826/E-wKCMPTmZocEJLB7ahD',
+            value:          parseFloat(T.deposit),
+            currency:       'GBP',
+            transaction_id: saveData.bookingRef,
+          });
+        }
+        sessionStorage.setItem('bookingSuccess', JSON.stringify({
+          packageName: booking.pkg?.name,
+          size:        booking.size?.label,
+          cleanDate:   booking.cleanDateDisplay,
+          cleanTime:   booking.cleanTime,
+          address:     `${booking.addr1}, ${booking.postcode}`,
+          deposit:     T.deposit.toFixed(2),
+          remaining:   T.remaining.toFixed(2),
+          bookingRef:  saveData.bookingRef,
+        }));
         setLoading(false);
-        onSuccess({ bookingRef: saveData.bookingRef, deposit: T.deposit, remaining: T.remaining });
+        window.location.href = '/booking-success';
       }
     } catch {
       setPayError('Something went wrong. Please try again or call us on 020 8137 0026.');
@@ -185,7 +223,7 @@ function PaymentForm({ booking, onSuccess, onBack }) {
         🔒 Payments handled securely — we never see your card details
       </div>
       <div style={{ border: '1px solid rgba(200,184,154,0.4)', padding: '14px 16px', marginBottom: 16 }}>
-        <CardElement options={CARD_STYLE} />
+        <CardElement options={CARD_STYLE} onChange={() => setPayError('')} />
       </div>
 
       {payError && (
