@@ -117,9 +117,21 @@ function PaymentForm({ booking, onSuccess, onBack }) {
       setOverlaySub('Verifying your card details securely');
 
       // Step 2: Confirm card payment
-      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      let { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: { card: elements.getElement(CardNumberElement) },
       });
+
+      // On mobile the tab can be backgrounded mid-payment; the SDK then returns an error
+      // even though Stripe already charged the card. Re-check the real status before giving up.
+      if (error) {
+        try {
+          const { paymentIntent: recovered } = await stripe.retrievePaymentIntent(clientSecret);
+          if (recovered?.status === 'succeeded') {
+            paymentIntent = recovered;
+            error = null;
+          }
+        } catch { /* ignore — fall through to error display below */ }
+      }
 
       if (error) {
         setPayError(STRIPE_ERRORS[error.code] || error.message || 'Payment failed. Please try again or call us on 020 8137 0026.');

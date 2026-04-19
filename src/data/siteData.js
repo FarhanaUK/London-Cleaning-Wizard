@@ -77,7 +77,7 @@ export const PACKAGES = [
     tags: ['Whole home', 'Photos sent', 'Fragrance finish'],
     showFreq: true, showAddons: true,
     sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 3 },
+      { id: 'studio', label: 'Studio',    basePrice: 2 },
       { id: '1bed',   label: '1 Bedroom', basePrice: 125 },
       { id: '2bed',   label: '2 Bedroom', basePrice: 145 },
       { id: '3bed',   label: '3 Bedroom', basePrice: 170 },
