@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { FullOverlay, ButtonSpinner } from './LoadingStates';
 import { calculateTotal } from '../data/siteData';
 import { Sparkle, WandIcon } from './Icons';
@@ -8,7 +8,6 @@ import { Sparkle, WandIcon } from './Icons';
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const CARD_STYLE = {
-  hidePostalCode: true,
   style: {
     base: {
       fontFamily: "'Jost', sans-serif",
@@ -19,6 +18,8 @@ const CARD_STYLE = {
     invalid: { color: '#8b2020' },
   },
 };
+
+const FIELD = { border: '1px solid rgba(200,184,154,0.4)', padding: '14px 16px', marginBottom: 16, background: '#fdf8f3' };
 
 const STRIPE_ERRORS = {
   card_declined:           'Your card was declined. Please try a different card.',
@@ -117,7 +118,7 @@ function PaymentForm({ booking, onSuccess, onBack }) {
 
       // Step 2: Confirm card payment
       const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: { card: elements.getElement(CardElement) },
+        payment_method: { card: elements.getElement(CardNumberElement) },
       });
 
       if (error) {
@@ -223,8 +224,19 @@ function PaymentForm({ booking, onSuccess, onBack }) {
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10, fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', background: '#f2ede6', padding: '4px 10px' }}>
         🔒 Payments handled securely — we never see your card details
       </div>
-      <div style={{ border: '1px solid rgba(200,184,154,0.4)', padding: '14px 16px', marginBottom: 16 }}>
-        <CardElement options={CARD_STYLE} onChange={() => setPayError('')} />
+      <div style={FIELD}>
+        <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#8b7355', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Card Number</div>
+        <CardNumberElement options={CARD_STYLE} onChange={() => setPayError('')} />
+      </div>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ ...FIELD, flex: 1 }}>
+          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#8b7355', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Expiry Date</div>
+          <CardExpiryElement options={CARD_STYLE} onChange={() => setPayError('')} />
+        </div>
+        <div style={{ ...FIELD, flex: 1 }}>
+          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#8b7355', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>CVC</div>
+          <CardCvcElement options={CARD_STYLE} onChange={() => setPayError('')} />
+        </div>
       </div>
 
       {payError && (
@@ -270,18 +282,18 @@ function PaymentForm({ booking, onSuccess, onBack }) {
 
         <div
           onClick={() => { if (!hasScrolled) { setPolicyError('Please scroll through and read the full terms before accepting.'); return; } setPolicyChecked(c => !c); setPolicyError(''); }}
-          style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: '#f2ede6', cursor: hasScrolled ? 'pointer' : 'not-allowed', opacity: hasScrolled ? 1 : 0.5 }}
+          style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', background: '#2c2420', border: `2px solid ${policyChecked ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: hasScrolled ? 'pointer' : 'not-allowed', opacity: hasScrolled ? 1 : 0.6 }}
         >
           <div style={{
-            width: 16, height: 16,
-            border: policyChecked ? 'none' : '1px solid rgba(200,184,154,0.5)',
-            background: policyChecked ? '#c8b89a' : 'transparent',
+            width: 24, height: 24, flexShrink: 0, marginTop: 1,
+            border: `2px solid ${policyChecked ? '#2d6a4f' : '#8b7355'}`,
+            background: policyChecked ? '#2d6a4f' : '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, marginTop: 2, color: '#1a1410', fontSize: 10,
+            color: '#fff', fontSize: 14, fontWeight: 700,
           }}>
             {policyChecked && '✓'}
           </div>
-          <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
             I have read and agree to the Terms & Conditions, including the cancellation policy and authorisation to charge my payment method upon job completion.
           </p>
         </div>

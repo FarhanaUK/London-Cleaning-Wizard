@@ -167,7 +167,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
           email: retEmail, phone: p.phone || '',
           addr1: p.addr1 || '', postcode: p.postcode || '',
           floor: p.floor || '', parking: p.parking || '',
-          keys: p.keys || '', notes: p.notes || '', source: '',
+          keys: p.keys || '', notes: p.notes || '', source: p.source || '',
           hasPets: p.hasPets ?? null, petTypes: p.petTypes || '',
           signatureTouch: p.signatureTouch ?? true, signatureTouchNotes: p.signatureTouchNotes || '',
         });
@@ -475,6 +475,9 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
               {formBody}
               {submitError && <p style={{ ...ERR, marginBottom: 12 }}>{submitError}</p>}
+              <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', fontWeight: 300, marginBottom: 12 }}>
+                Please review your details above before continuing — make sure everything is correct.
+              </p>
               <div style={{ display: 'flex', gap: 12 }}>
                 <button onClick={() => { setCustType(null); setProfileLoaded(false); setCodeSent(false); }} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>← Back</button>
                 <button onClick={handleNext} style={BTN}><WandIcon size={14} color="#c8b89a" /> Continue to Payment</button>

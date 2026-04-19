@@ -318,7 +318,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
   try {
     const calendar  = await getCalendarClient();
     const slotStart = toUTCISO(d.cleanDate, d.cleanTime);
-    const slotEnd   = new Date(new Date(slotStart).getTime() + 3 * 60 * 60 * 1000).toISOString();
+    const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
     const calEvent = await calendar.events.insert({
       calendarId: process.env.GOOGLE_CALENDAR_ID,
       resource: {
@@ -412,7 +412,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
           try {
             const cal      = await getCalendarClient();
             const slotStart = toUTCISO(nextStr, d.cleanTime);
-            const slotEnd   = new Date(new Date(slotStart).getTime() + 3 * 60 * 60 * 1000).toISOString();
+            const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
             const calEvent  = await cal.events.insert({
               calendarId: process.env.GOOGLE_CALENDAR_ID,
               resource: {
@@ -1092,7 +1092,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
     try {
       const calendar  = await getCalendarClient();
       const slotStart = toUTCISO(newDate, newTime);
-      const slotEnd   = new Date(new Date(slotStart).getTime() + 3 * 60 * 60 * 1000).toISOString();
+      const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
       await calendar.events.patch({
         calendarId: process.env.GOOGLE_CALENDAR_ID,
         eventId:    current.calendarEventId,
@@ -1178,6 +1178,30 @@ exports.generateDepositLink = onRequest({ secrets:[STRIPE_KEY] }, async (req, re
   res.json({ success: true });
 });
 
+// ── 10a. Email deposit link to customer ──────────────────────
+exports.emailDepositLink = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId } = req.body;
+  if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
+  const db   = admin.firestore();
+  const snap = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
+  const b = snap.data();
+  const paymentLink = `https://londoncleaningwizard.com/pay-deposit?bookingId=${bookingId}`;
+  await sendEmail(process.env.EMAILJS_DEPOSIT_LINK_TEMPLATE, {
+    to_name:        b.firstName,
+    to_email:       b.email,
+    booking_ref:    b.bookingRef,
+    package_name:   b.packageName,
+    clean_date:     b.cleanDate.split('-').reverse().join('/'),
+    clean_time:     b.cleanTime,
+    address:        `${b.addr1}, ${b.postcode}`,
+    deposit_amount: parseFloat(b.deposit).toFixed(2),
+    payment_link:   paymentLink,
+  }, EMAILJS_KEY.value());
+  res.json({ success: true });
+});
+
 // ── 11. Get deposit page data (used by payment page) ─────────
 exports.getDepositDetails = onRequest(async (req, res) => {
   if (!guard(req, res, 'GET')) return;
@@ -1239,14 +1263,6 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
     await Promise.all(backfills).catch(() => {});
   }
 
-  const eData = buildBookingEmailData({ ...b, stripeDepositIntentId: paymentIntentId, stripeCustomerId: customerId });
-  await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE,
-    { ...eData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
-  await sendEmail(process.env.EMAILJS_ADMIN_TEMPLATE,
-    { ...eData, to_email: 'bookings@londoncleaningwizard.com',
-      customer_name: `${b.firstName} ${b.lastName}`,
-      customer_phone: b.phone, customer_email: b.email },
-    EMAILJS_KEY.value()).catch(() => {});
   res.json({ success: true });
 });
 
@@ -1466,7 +1482,7 @@ exports.createRecurringBookings = onSchedule(
         try {
           const calendar  = await getCalendarClient();
           const slotStart = toUTCISO(nextStr, c.recurringTime);
-          const slotEnd   = new Date(new Date(slotStart).getTime() + 3 * 60 * 60 * 1000).toISOString();
+          const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
           const calEvent  = await calendar.events.insert({
             calendarId: process.env.GOOGLE_CALENDAR_ID,
             resource: {
@@ -1637,7 +1653,7 @@ exports.triggerSchedulerNow = onRequest({ secrets: [EMAILJS_KEY] }, async (req, 
         try {
           const cal       = await getCalendarClient();
           const slotStart = toUTCISO(nextStr, c.recurringTime);
-          const slotEnd   = new Date(new Date(slotStart).getTime() + 3 * 60 * 60 * 1000).toISOString();
+          const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
           const calEvent  = await cal.events.insert({
             calendarId: process.env.GOOGLE_CALENDAR_ID,
             resource: {
@@ -1859,7 +1875,7 @@ exports.stripeWebhook = onRequest(
     try {
       const calendar  = await getCalendarClient();
       const slotStart = toUTCISO(pd.cleanDate, pd.cleanTime);
-      const slotEnd   = new Date(new Date(slotStart).getTime() + 3 * 60 * 60 * 1000).toISOString();
+      const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
       const calEvent  = await calendar.events.insert({
         calendarId: process.env.GOOGLE_CALENDAR_ID,
         resource: {

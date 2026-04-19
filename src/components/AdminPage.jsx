@@ -55,7 +55,7 @@ const WELCOME_MESSAGES = [
 ];
 
 const STATUS_COLOURS = {
-  pending_deposit:         { bg: '#f0f4ff', color: '#1e3a8a', label: 'Pending Deposit' },
+  pending_deposit:         { bg: '#8b2020', color: '#fff', label: 'Pending Deposit' },
   scheduled:               { bg: '#f0fdf4', color: '#166534', label: 'Scheduled' },
   deposit_paid:            { bg: '#fff8eb', color: '#7a5c00', label: 'Deposit Paid' },
   fully_paid:              { bg: '#f3faf6', color: '#1a5234', label: 'Fully Paid' },
@@ -88,6 +88,8 @@ export default function AdminPage() {
   const [generatingLink,   setGeneratingLink]   = useState(null);
   const [depositLinks,     setDepositLinks]     = useState({});
   const [linkErr,          setLinkErr]          = useState('');
+  const [emailingLink,     setEmailingLink]     = useState(null);
+  const [emailedLinks,     setEmailedLinks]     = useState({});
   const [editBooking,      setEditBooking]      = useState(null);
   const [editData,         setEditData]         = useState({});
   const [editScope,        setEditScope]        = useState('this');
@@ -360,6 +362,24 @@ export default function AdminPage() {
       setLinkErr('Something went wrong. Please try again.');
     } finally {
       setGeneratingLink(null);
+    }
+  };
+
+  const handleEmailDepositLink = async (booking) => {
+    setEmailingLink(booking.id);
+    try {
+      const res = await fetch(import.meta.env.VITE_CF_EMAIL_DEPOSIT_LINK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) setLinkErr(data.error || 'Failed to send email.');
+      else setEmailedLinks(prev => ({ ...prev, [booking.id]: true }));
+    } catch {
+      setLinkErr('Something went wrong. Please try again.');
+    } finally {
+      setEmailingLink(null);
     }
   };
 
@@ -1063,6 +1083,13 @@ export default function AdminPage() {
                                   Copy
                                 </button>
                               </div>
+                              <button
+                                onClick={e => { e.stopPropagation(); handleEmailDepositLink(b); }}
+                                disabled={emailingLink === b.id || emailedLinks[b.id]}
+                                style={{ ...BTN, marginTop: 8, padding: '8px 16px', background: emailedLinks[b.id] ? '#2d6a4f' : '#2c2420', color: '#f5f0e8', fontSize: 10, width: '100%' }}
+                              >
+                                {emailingLink === b.id ? 'Sending...' : emailedLinks[b.id] ? '✓ Email Sent to Customer' : '✉ Email Link to Customer'}
+                              </button>
                               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#5a6e9a', marginTop: 6, fontWeight: 300 }}>
                                 When the customer pays, the booking will automatically update to Deposit Paid and their card will be saved for automatic final payment.
                               </div>

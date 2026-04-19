@@ -139,8 +139,7 @@ End of Tenancy | Airbnb Services
             </p>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 13, lineHeight: 1.8, color: "rgba(245,240,232,0.65)", marginBottom: 28, fontWeight: 300 }}>
-              Discreet, meticulous cleaning for East London homes. We work a little
-              magic on every room, and the results speak for themselves.
+              Your home is reset to feel calm, fresh, and quietly pampered. A hotel experience, at home.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32 }}>
@@ -148,7 +147,7 @@ End of Tenancy | Airbnb Services
                 onClick={() => navigate("/book")}
                 style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "14px 24px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%" }}
               >
-                <WandIcon size={14} color="#c8b89a" /> Reclaim Your Space — Book Now
+                <WandIcon size={14} color="#c8b89a" /> Book a Reset
               </button>
               <button
                 onClick={() => onScrollTo("our-work")}
@@ -227,8 +226,7 @@ End of Tenancy | Airbnb Services
             </p>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 500, marginBottom: 36, fontWeight: 300 }}>
-              Discreet, meticulous cleaning for East London homes. We work a little
-              magic on every room and the results speak for themselves.
+              Your home is reset to feel calm, fresh, and quietly pampered. A hotel experience, at home.
             </p>
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 40 }}>
@@ -236,7 +234,7 @@ End of Tenancy | Airbnb Services
                 onClick={() => navigate("/book")}
                 style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "15px 40px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
               >
-                <WandIcon size={15} color="#c8b89a" /> Reclaim Your Space — Book Now
+                <WandIcon size={15} color="#c8b89a" /> Book a Reset
               </button>
               <button
                 onClick={() => onScrollTo("our-work")}
@@ -286,8 +284,7 @@ End of Tenancy | Airbnb Services
               </p>
 
               <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 400, marginBottom: 44, fontWeight: 300 }}>
-                Discreet, meticulous cleaning for East London homes. We work a little
-                magic on every room, and the results speak for themselves.
+                Your home is reset to feel calm, fresh, and quietly pampered. A hotel experience, at home.
               </p>
 
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 52 }}>
@@ -295,7 +292,7 @@ End of Tenancy | Airbnb Services
                   onClick={() => navigate("/book")}
                   style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "15px 44px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
                 >
-                  <WandIcon size={15} color="#c8b89a" /> Reclaim Your Space — Book Now
+                  <WandIcon size={15} color="#c8b89a" /> Book a Reset
                 </button>
                 <button
                   onClick={() => onScrollTo("our-work")}
