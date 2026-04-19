@@ -932,6 +932,7 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
   }
 
+  const isRecurring = b.frequency && b.frequency !== 'one-off';
   const cancelData = {
     booking_ref:  b.bookingRef,
     package_name: b.packageName,
@@ -939,7 +940,7 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     time:         b.cleanTime,
     address:      `${b.addr1}, ${b.postcode}`,
     refund_amount: refundAmt > 0 ? `£${refundAmt.toFixed(2)}` : 'No refund',
-    refund_message: refundMsg,
+    refund_message: refundMsg + (isRecurring ? '\n\nPlease note: as this was part of a recurring series, all future scheduled cleans have also been cancelled.' : ''),
   };
   await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE,
     { ...cancelData, to_name: b.firstName, to_email: b.email },
@@ -1015,6 +1016,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
     packageId, packageName, sizeId, frequency, addons,
     hasPets, petTypes, signatureTouch, signatureTouchNotes,
     addr1, postcode, floor, parking, keys, notes,
+    total, remaining,
   } = req.body;
   if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
   const db   = admin.firestore();
@@ -1050,6 +1052,8 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
   if (sizeId      !== undefined && sizeId      !== current.size)       { updates.size    = newSizeId;    changes.push(`Size: ${current.size} → ${newSizeId}`); }
   if (frequency   !== undefined && frequency   !== current.frequency)  { updates.frequency = newFrequency; }
   if (addons      !== undefined) updates.addons = newAddons;
+  if (total       !== undefined) { updates.total = total; if (changes.length > 0 || addons !== undefined) changes.push(`Total: £${current.total} → £${total}`); }
+  if (remaining   !== undefined) updates.remaining = remaining;
 
   if (hasPets             !== undefined) updates.hasPets             = hasPets;
   if (petTypes            !== undefined) updates.petTypes            = clean(petTypes);
@@ -1140,6 +1144,79 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
     if (keys     !== undefined) profileUpdates.keys     = newKeys;
     if (notes    !== undefined) profileUpdates.notes    = newNotes;
     await db.collection('customers').doc(current.email.toLowerCase()).update(profileUpdates).catch(() => {});
+
+    // Also update all existing future scheduled recurring bookings
+    const futureSnap = await db.collection('bookings')
+      .where('email', '==', current.email.toLowerCase())
+      .where('isAutoRecurring', '==', true)
+      .where('status', '==', 'scheduled')
+      .get();
+    const futureDocs = futureSnap.docs.filter(d => d.data().cleanDate > current.cleanDate);
+    if (futureDocs.length > 0) {
+      const futureBatch = db.batch();
+      const calendar = await getCalendarClient().catch(() => null);
+
+      await Promise.allSettled(futureDocs.map(async fdoc => {
+        const fd = fdoc.data();
+        const fu = { updatedAt: new Date() };
+        if (firstName           !== undefined) fu.firstName           = newFirstName;
+        if (lastName            !== undefined) fu.lastName            = newLastName;
+        if (phone               !== undefined) fu.phone               = newPhone;
+        if (email               !== undefined) fu.email               = newEmail;
+        if (cleanTime)                         { fu.cleanTime = newTime; fu.cleanDateUTC = toUTCISO(fd.cleanDate, newTime); }
+        if (packageId)                         { fu.package = newPackageId; fu.packageName = newPackageName; }
+        if (sizeId)                            fu.size                = newSizeId;
+        if (frequency           !== undefined) fu.frequency           = newFrequency;
+        if (addons              !== undefined) fu.addons              = newAddons;
+        if (hasPets             !== undefined) fu.hasPets             = hasPets;
+        if (petTypes            !== undefined) fu.petTypes            = clean(petTypes);
+        if (signatureTouch      !== undefined) fu.signatureTouch      = signatureTouch;
+        if (signatureTouchNotes !== undefined) fu.signatureTouchNotes = clean(signatureTouchNotes || '');
+        if (addr1               !== undefined) fu.addr1               = newAddr1;
+        if (postcode            !== undefined) fu.postcode            = newPostcode;
+        if (floor               !== undefined) fu.floor               = newFloor;
+        if (parking             !== undefined) fu.parking             = newParking;
+        if (keys                !== undefined) fu.keys                = newKeys;
+        if (notes               !== undefined) fu.notes               = newNotes;
+        if (total               !== undefined) { fu.total = total; fu.remaining = total; }
+        futureBatch.update(fdoc.ref, fu);
+
+        // Update the calendar event for this future booking
+        if (calendar && fd.calendarEventId) {
+          const fdTime   = cleanTime ? newTime : fd.cleanTime;
+          const fdAddr   = addr1 !== undefined ? newAddr1 : fd.addr1;
+          const fdPost   = postcode !== undefined ? newPostcode : fd.postcode;
+          const fdSlotStart = toUTCISO(fd.cleanDate, fdTime);
+          const fdSlotEnd   = new Date(new Date(fdSlotStart).getTime() + 60 * 1000).toISOString();
+          await calendar.events.patch({
+            calendarId: process.env.GOOGLE_CALENDAR_ID,
+            eventId:    fd.calendarEventId,
+            resource: {
+              summary: `${packageId ? newPackageName : fd.packageName} — ${newFirstName} ${newLastName}`,
+              start:   { dateTime: fdSlotStart, timeZone: 'Europe/London' },
+              end:     { dateTime: fdSlotEnd,   timeZone: 'Europe/London' },
+              description: [
+                `Ref: ${fd.bookingRef}`,
+                `Customer: ${newFirstName} ${newLastName}`,
+                `Email: ${current.email}`,
+                `Phone: ${newPhone}`,
+                `Address: ${fdAddr}, ${fdPost}`,
+                `Frequency: ${newFrequency}`,
+                `Floor / Lift: ${floor !== undefined ? newFloor : fd.floor || '—'}`,
+                `Parking: ${parking !== undefined ? newParking : fd.parking || '—'}`,
+                `Keys: ${keys !== undefined ? newKeys : fd.keys || 'N/A'}`,
+                `Add-ons: ${((addons !== undefined ? newAddons : fd.addons) || []).map(a => a.name).join(', ') || 'None'}`,
+                `Notes: ${notes !== undefined ? newNotes : fd.notes || 'None'}`,
+                `Total: £${total !== undefined ? total : fd.total} | Deposit: £0 | Remaining: £${total !== undefined ? total : fd.remaining}`,
+                `⚠️ Edited on ${new Date().toLocaleDateString('en-GB')}`,
+              ].join('\n'),
+            },
+          }).catch(e => console.error(`Calendar update failed for ${fd.bookingRef}:`, e.message));
+        }
+      }));
+
+      await futureBatch.commit();
+    }
   }
 
   res.json({ success: true });
@@ -1746,20 +1823,39 @@ exports.stripeWebhook = onRequest(
       const pi     = charge.payment_intent;
       if (pi) {
         const db   = admin.firestore();
-        const snap = await db.collection('bookings').where('stripeDepositIntentId', '==', pi).limit(1).get();
+        let snap = await db.collection('bookings').where('stripeDepositIntentId', '==', pi).limit(1).get();
+        if (snap.empty) snap = await db.collection('bookings').where('stripeRemainingIntentId', '==', pi).limit(1).get();
+        if (snap.empty && charge.metadata?.bookingRef) snap = await db.collection('bookings').where('bookingRef', '==', charge.metadata.bookingRef).limit(1).get();
         if (!snap.empty) {
           const doc = snap.docs[0];
           const b   = doc.data();
           if (!b.status?.startsWith('cancelled')) {
+            const refundAmt = charge.amount_refunded / 100;
             await doc.ref.update({
               status:       'cancelled_full_refund',
-              refundAmount: charge.amount_refunded / 100,
+              refundAmount: refundAmt,
               cancelledAt:  new Date(),
               cancellationReason: 'Refunded via Stripe dashboard',
             });
             if (b.calendarEventId) {
               try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
             }
+            const cancelData = {
+              booking_ref:    b.bookingRef, package_name: b.packageName,
+              date:           b.cleanDate.split('-').reverse().join('/'),
+              time:           b.cleanTime,
+              address:        `${b.addr1}, ${b.postcode}`,
+              refund_amount:  `£${refundAmt.toFixed(2)}`,
+              refund_message: `£${refundAmt.toFixed(2)} will be returned to your original payment method within 5–10 business days.`,
+            };
+            await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE,
+              { ...cancelData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
+            await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE,
+              { ...cancelData, to_email: 'bookings@londoncleaningwizard.com',
+                customer_name: `${b.firstName} ${b.lastName}`,
+                customer_email: b.email, customer_phone: b.phone,
+                notice_given: 'Refunded via Stripe dashboard',
+              }, EMAILJS_KEY.value()).catch(() => {});
           }
         }
       }
@@ -1942,6 +2038,39 @@ exports.sendReviewEmails = onSchedule({ schedule: 'every day 10:00', secrets: [E
   }
 });
 
+// ── 16a. Send abandoned booking emails (Scheduled) ───────────
+// Emails opted-in customers who started a booking but never paid, 2 hours after they abandoned
+exports.sendAbandonedBookingEmails = onSchedule({ schedule: 'every 30 minutes', secrets: [EMAILJS_KEY] }, async () => {
+  const db     = admin.firestore();
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  const snap   = await db.collection('pendingBookings')
+    .where('createdAt', '<', twoHoursAgo)
+    .where('marketingOptOut', '==', false)
+    .get();
+
+  const template = process.env.EMAILJS_ABANDONED_TEMPLATE;
+  if (!template) return;
+
+  const unsubSnap = await db.collection('unsubscribed').get();
+  const unsubbed  = new Set(unsubSnap.docs.map(d => d.id));
+
+  const batch = db.batch();
+  await Promise.allSettled(snap.docs.map(async doc => {
+    const d = doc.data();
+    if (!d.email || !d.firstName || d.abandonedEmailSent || unsubbed.has(d.email.toLowerCase())) return;
+    await sendEmail(template, {
+      to_name:         d.firstName,
+      to_email:        d.email,
+      package_name:    d.packageName || 'your clean',
+      clean_date:      d.cleanDate ? d.cleanDate.split('-').reverse().join('/') : '',
+      booking_url:     'https://londoncleaningwizard.com/book',
+      unsubscribe_url: `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(d.email)}`,
+    }, EMAILJS_KEY.value());
+    batch.update(doc.ref, { abandonedEmailSent: true });
+  }));
+  await batch.commit();
+});
+
 // ── 16. Clean up abandoned pendingBookings (Scheduled) ───────
 // Deletes pending docs older than 3 hours where the customer never paid
 exports.cleanupPendingBookings = onSchedule('every 60 minutes', async () => {
@@ -1960,5 +2089,50 @@ exports.cleanupExpiredCodes = onSchedule('every 60 minutes', async () => {
   const b    = db.batch();
   snap.forEach(d => b.delete(d.ref));
   await b.commit();
+});
+
+// ── Marketing unsubscribe ─────────────────────────────────────
+exports.unsubscribeMarketing = onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
+  if (req.method === 'OPTIONS') { res.set('Access-Control-Allow-Methods', 'POST'); res.status(204).send(''); return; }
+  const { email } = req.body;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ error: 'Invalid email' }); return;
+  }
+  const db  = admin.firestore();
+  const key = email.toLowerCase();
+  await db.collection('unsubscribed').doc(key).set({ email: key, unsubscribedAt: new Date() });
+  await db.collection('customers').doc(key).update({ marketingOptOut: true }).catch(() => {});
+  res.json({ ok: true });
+});
+
+// ── Re-engagement emails (Scheduled) ─────────────────────────
+// Once a week, emails customers who haven't booked in 90+ days
+exports.sendReengagementEmails = onSchedule({ schedule: 'every monday 10:00', secrets: [EMAILJS_KEY] }, async () => {
+  const template = process.env.EMAILJS_REENGAGEMENT_TEMPLATE;
+  if (!template) return;
+
+  const db      = admin.firestore();
+  const cutoff  = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const cutoffStr = cutoff.toISOString().split('T')[0]; // 'YYYY-MM-DD' — lastDate is stored as a string
+
+  const [snap, unsubSnap] = await Promise.all([
+    db.collection('customers').where('lastDate', '<', cutoffStr).get(),
+    db.collection('unsubscribed').get(),
+  ]);
+
+  const unsubbed = new Set(unsubSnap.docs.map(d => d.id));
+
+  await Promise.allSettled(snap.docs.map(async doc => {
+    const d = doc.data();
+    if (!d.firstName || d.marketingOptOut || unsubbed.has(doc.id)) return;
+    await sendEmail(template, {
+      to_name:         d.firstName,
+      to_email:        doc.id,
+      last_service:    d.lastPackageName || 'your last clean',
+      booking_url:     'https://londoncleaningwizard.com/book',
+      unsubscribe_url: `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(doc.id)}`,
+    }, EMAILJS_KEY.value());
+  }));
 });
 

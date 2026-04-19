@@ -406,10 +406,29 @@ export default function AdminPage() {
     setEditSaving(true);
     setEditErr('');
     try {
+      const payload = { bookingId: editBooking.id, ...editData, updateCustomerProfile: editScope === 'all' };
+
+      // Recalculate total if package, size or addons changed
+      const pkg  = PACKAGES.find(p => p.id === editData.packageId);
+      const size = pkg?.sizes?.find(s => s.id === editData.sizeId);
+      if (size) {
+        const freqObj = FREQUENCIES.find(f => f.id === editData.frequency) || { saving: 0 };
+        const { subtotal } = calculateTotal({
+          sizePrice:           size.basePrice,
+          propertyType:        editBooking.propertyType,
+          frequency:           freqObj,
+          addons:              editData.addons || [],
+          supplies:            editBooking.supplies,
+          suppliesFeeOverride: editBooking.suppliesFee,
+        });
+        payload.total     = subtotal;
+        payload.remaining = Math.max(0, subtotal - (editBooking.deposit || 0));
+      }
+
       const res  = await fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: editBooking.id, ...editData, updateCustomerProfile: editScope === 'all' }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) { setEditErr(data.error || 'Failed to update booking.'); setEditSaving(false); return; }
@@ -454,6 +473,8 @@ export default function AdminPage() {
         const fee = (booking.total * 0.5).toFixed(2);
         msg = `⚠️ Less than 48 hours notice — a late cancellation fee of £${fee} (50% of £${booking.total}) will be charged to the customer's saved card.`;
       }
+    } else if (booking.status === 'pending_deposit' || !booking.deposit) {
+      msg = `No payment has been taken — booking will be cancelled with no refund required.`;
     } else {
       const refundPct = hoursUntil >= 48 ? 100 : 0;
       const refundAmt = (booking.deposit * refundPct / 100).toFixed(2);
@@ -1086,12 +1107,15 @@ export default function AdminPage() {
                               <button
                                 onClick={e => { e.stopPropagation(); handleEmailDepositLink(b); }}
                                 disabled={emailingLink === b.id || emailedLinks[b.id]}
-                                style={{ ...BTN, marginTop: 8, padding: '8px 16px', background: emailedLinks[b.id] ? '#2d6a4f' : '#2c2420', color: '#f5f0e8', fontSize: 10, width: '100%' }}
+                                style={{ ...BTN, marginTop: 8, padding: '8px 16px', background: emailedLinks[b.id] ? '#2d6a4f' : '#1a56a0', color: '#f5f0e8', fontSize: 10, width: '100%' }}
                               >
                                 {emailingLink === b.id ? 'Sending...' : emailedLinks[b.id] ? '✓ Email Sent to Customer' : '✉ Email Link to Customer'}
                               </button>
-                              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#5a6e9a', marginTop: 6, fontWeight: 300 }}>
-                                When the customer pays, the booking will automatically update to Deposit Paid and their card will be saved for automatic final payment.
+                              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b2020', marginTop: 6, fontWeight: 700 }}>
+                                Read to customer before sending link:
+                              </div>
+                              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#5a6e9a', marginTop: 4, fontWeight: 300 }}>
+                                I'm sending you a secure payment link. Once you pay the deposit, your booking is confirmed and your card will be saved for the final payment after the clean.
                               </div>
                             </div>
                           )}
@@ -1628,12 +1652,16 @@ export default function AdminPage() {
             {PACKAGES.find(p => p.id === editData.packageId)?.showAddons && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 8 }}>Add-ons</div>
-                {ADDONS.map(a => (
-                  <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#2c2420' }}>
-                    <input type="checkbox" checked={(editData.addons||[]).some(x => x.id === a.id)} onChange={e => setEditData(p => ({ ...p, addons: e.target.checked ? [...(p.addons||[]), { id: a.id, name: a.name }] : (p.addons||[]).filter(x => x.id !== a.id) }))} />
-                    {a.name}
-                  </label>
-                ))}
+                {ADDONS.map(a => {
+                  const isSmall = ['studio', '1bed'].includes(editData.sizeId);
+                  const price   = a.id === 'windows' ? (isSmall ? 35 : 55) : a.price;
+                  return (
+                    <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#2c2420' }}>
+                      <input type="checkbox" checked={(editData.addons||[]).some(x => x.id === a.id)} onChange={e => setEditData(p => ({ ...p, addons: e.target.checked ? [...(p.addons||[]), { id: a.id, name: a.name, price }] : (p.addons||[]).filter(x => x.id !== a.id) }))} />
+                      {a.name} — £{price}
+                    </label>
+                  );
+                })}
               </div>
             )}
 

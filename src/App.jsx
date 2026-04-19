@@ -15,6 +15,7 @@ import CookieBanner from "./components/CookieBanner";
 import AdminPage from "./components/AdminPage"
 import DepositPaymentPage from "./components/DepositPaymentPage"
 import BookingSuccess from "./components/BookingSuccess"
+import UnsubscribePage from "./components/UnsubscribePage"
 import { Routes, Route, useLocation } from "react-router-dom";
 
 const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -36,10 +37,11 @@ function MainPage() {
 
 export default function App() {
   const { pathname } = useLocation();
-  const isAdmin       = pathname === '/admin';
+  const isAdmin         = pathname === '/admin';
   const isDepositPage   = pathname === '/pay-deposit';
   const isSuccessPage   = pathname === '/booking-success';
-  const hideChrome      = isAdmin || isDepositPage || isSuccessPage;
+  const isUnsubscribe   = pathname === '/unsubscribe';
+  const hideChrome      = isAdmin || isDepositPage || isSuccessPage || isUnsubscribe;
 
   return (
     <div style={{ overflowX: "hidden" }}>
@@ -53,6 +55,7 @@ export default function App() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/pay-deposit" element={<DepositPaymentPage />} />
         <Route path="/booking-success" element={<BookingSuccess />} />
+        <Route path="/unsubscribe" element={<UnsubscribePage />} />
       </Routes>
       {!hideChrome && <Footer />}
       {!hideChrome && <CookieBanner />}

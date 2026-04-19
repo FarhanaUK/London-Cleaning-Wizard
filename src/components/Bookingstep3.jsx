@@ -108,6 +108,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
     addr1: '', postcode: '', floor: '', parking: '', keys: '', notes: '', source: '',
     hasPets: null, petTypes: '',
     signatureTouch: true, signatureTouchNotes: '',
+    marketingOptOut: false,
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
@@ -219,6 +220,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
       hasPets: form.hasPets, petTypes: form.petTypes,
       signatureTouch: form.signatureTouch, signatureTouchNotes: form.signatureTouchNotes,
       isReturning: custType === 'returning',
+      marketingOptOut: form.marketingOptOut,
     });
     onNext();
   };
@@ -349,6 +351,25 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
           onChange={v => { setForm(f => ({ ...f, source: v })); setFieldErrors(e => ({ ...e, source: null })); }}
         />
       </div>
+
+      {/* Marketing opt-out */}
+      <div
+        onClick={() => setForm(f => ({ ...f, marketingOptOut: !f.marketingOptOut }))}
+        style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 16px', background: '#faf9f7', border: '1px solid rgba(200,184,154,0.2)', cursor: 'pointer', marginBottom: 4 }}
+      >
+        <div style={{
+          flexShrink: 0, marginTop: 2, width: 16, height: 16,
+          border: `1.5px solid ${!form.marketingOptOut ? '#c8b89a' : 'rgba(200,184,154,0.4)'}`,
+          background: !form.marketingOptOut ? '#c8b89a' : 'transparent',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 10, fontWeight: 700,
+        }}>
+          {!form.marketingOptOut && '✓'}
+        </div>
+        <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontWeight: 300, lineHeight: 1.7, margin: 0 }}>
+          Keep me updated with reminders and occasional offers from London Cleaning Wizard. You can unsubscribe at any time.
+        </p>
+      </div>
     </div>
   );
 
@@ -475,7 +496,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
               {formBody}
               {submitError && <p style={{ ...ERR, marginBottom: 12 }}>{submitError}</p>}
-              <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', fontWeight: 300, marginBottom: 12 }}>
+              <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', fontWeight: 700, marginBottom: 12 }}>
                 Please review your details above before continuing — make sure everything is correct.
               </p>
               <div style={{ display: 'flex', gap: 12 }}>
