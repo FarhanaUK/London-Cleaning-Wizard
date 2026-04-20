@@ -6,6 +6,19 @@ import { todayUK } from '../utils/time';
 import { Sparkle, LogoMark } from './Icons';
 import { PACKAGES, FREQUENCIES, ADDONS, calculateTotal, DEEP_SUPPLIES_FEE } from '../data/siteData';
 
+function DoNotContactToggle({ value, onChange }) {
+  const [on, setOn] = useState(value);
+  const handle = () => { const next = !on; setOn(next); onChange(next); };
+  return (
+    <div onClick={handle} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 14, padding: '8px 14px', background: on ? '#fdf5f5' : '#f5f9f5', border: `1px solid ${on ? 'rgba(139,32,32,0.2)' : 'rgba(26,82,52,0.2)'}` }}>
+      <div style={{ width: 16, height: 16, borderRadius: 3, background: on ? '#8b2020' : '#1a5234', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{on ? '✕' : '✓'}</div>
+      <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: on ? '#8b2020' : '#1a5234', fontWeight: 500 }}>
+        {on ? 'Do Not Contact — click to allow contact' : 'Contact allowed — click to mark do not contact'}
+      </span>
+    </div>
+  );
+}
+
 const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 const fmtCreatedAt = ts => {
   if (!ts) return '—';
@@ -1014,6 +1027,7 @@ export default function AdminPage() {
                         { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : 'None' },
                         { l: 'Pets',             v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
                         { l: 'Signature Touch',  v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
+                        { l: 'Marketing Opt-in', v: b.marketingOptOut ? '✕ Opted out at booking' : '✓ Opted in at booking' },
                         { l: 'Total',            v: `£${parseFloat(b.total).toFixed(2)}` },
                         { l: 'Deposit paid',     v: b.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(b.deposit).toFixed(2)}`, highlight: b.status === 'pending_deposit' },
                         { l: 'Remaining',        v: `£${parseFloat(b.remaining).toFixed(2)}` },
@@ -1028,6 +1042,19 @@ export default function AdminPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Do Not Contact toggle */}
+                    <DoNotContactToggle
+                      value={b.doNotContact != null ? b.doNotContact : (b.marketingOptOut || false)}
+                      onChange={next => {
+                        setBookings(prev => prev.map(x => x.id === b.id ? { ...x, doNotContact: next } : x));
+                        fetch(import.meta.env.VITE_CF_SET_DO_NOT_CONTACT, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ bookingId: b.id, doNotContact: next }),
+                        }).then(r => r.json()).then(d => console.log('doNotContact result', d)).catch(e => console.error('doNotContact error', e));
+                      }}
+                    />
 
                     {b.notes && (
                       <div style={{ background: '#faf9f7', padding: '10px 14px', marginBottom: 14, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, fontStyle: 'italic' }}>
@@ -1421,7 +1448,7 @@ export default function AdminPage() {
             {nbPkg?.showAddons && (
               <>
                 <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', margin: '20px 0 12px' }}>Add-ons</div>
-                {ADDONS.map(a => {
+                {ADDONS.filter(a => !(a.id === 'microwave' && nb.packageId === 'standard')).map(a => {
                   const allSizesSmall = (nbPkg?.sizes || []).every(s => ['studio', '1bed'].includes(s.id));
                   const isSmall = ['studio', '1bed'].includes(nb.sizeId) || allSizesSmall;
                   const price   = a.id === 'windows' ? (isSmall ? 35 : 55) : a.price;
@@ -1652,7 +1679,7 @@ export default function AdminPage() {
             {PACKAGES.find(p => p.id === editData.packageId)?.showAddons && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 8 }}>Add-ons</div>
-                {ADDONS.map(a => {
+                {ADDONS.filter(a => !(a.id === 'microwave' && editData.packageId === 'standard')).map(a => {
                   const isSmall = ['studio', '1bed'].includes(editData.sizeId);
                   const price   = a.id === 'windows' ? (isSmall ? 35 : 55) : a.price;
                   return (

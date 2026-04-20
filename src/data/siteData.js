@@ -77,7 +77,7 @@ export const PACKAGES = [
     tags: ['Whole home', 'Photos sent', 'Fragrance finish'],
     showFreq: true, showAddons: true,
     sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 115 },
+      { id: 'studio', label: 'Studio',    basePrice: 2 },
       { id: '1bed',   label: '1 Bedroom', basePrice: 125 },
       { id: '2bed',   label: '2 Bedroom', basePrice: 145 },
       { id: '3bed',   label: '3 Bedroom', basePrice: 170 },
@@ -139,7 +139,7 @@ export const ADDONS = [
   { id: 'fridge',    name: 'Inside fridge & freezer',      note: 'Full interior clean',             price: 40 },
   { id: 'windows',   name: 'Interior windows',             note: 'Standard windows — contact us if you have large or unusual windows', price: 55 },
   { id: 'cupboards', name: 'Inside kitchen cupboards',     note: 'All interiors wiped',             price: 60 },
-  { id: 'microwave', name: 'Inside and outside microwave', note: 'Full clean',                      price: 10 },
+  { id: 'microwave', name: 'Microwave deep clean', note: 'Full interior and exterior',              price: 10 },
 ];
 
 export const SURCHARGES = {

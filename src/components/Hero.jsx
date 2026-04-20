@@ -72,34 +72,35 @@ export default function Hero({ onScrollTo }) {
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingTop: 76 }}>
 
           {/* Callout badge — above image */}
-          <div style={{ padding: "16px 20px 0" }}>
+          <div style={{ padding: "16px 20px 0", position: "relative", zIndex: 2 }}>
             <div style={{ background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 16px", borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for you.</div>
-              <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 6, marginBottom: 5 }} />
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 13, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for you.</div>
+              <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 10, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
               <button
-  onClick={() => navigate("/book")}
-  style={{
-    fontFamily: "'Jost', sans-serif",
-    fontSize: 14,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    color: "#f5f0e8",
-    border: "none",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    fontWeight: 500,
-    background: "#2c2420",
-    padding: "10px 18px",
-    borderRadius: 8,
-    zIndex: 20,
-    position: "relative",
-    cursor: "pointer",
-  }}
->
-  <WandIcon size={13} color="#c8b89a" /> Book a Reset
-</button>
+                onClick={() => navigate("/book")}
+                style={{
+                  fontFamily: "'Jost', sans-serif",
+                  fontSize: 12,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "#f5f0e8",
+                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  fontWeight: 500,
+                  background: "#2c2420",
+                  padding: "11px 16px",
+                  borderRadius: 8,
+                  width: "100%",
+                  boxSizing: "border-box",
+                  cursor: "pointer",
+                }}
+              >
+                <WandIcon size={13} color="#c8b89a" /> Book a Reset
+              </button>
              
             </div>
           </div>
@@ -175,7 +176,7 @@ End of Tenancy | Airbnb Services
 
             {/* Callout badge */}
             <div style={{ position: "absolute", bottom: 24, right: 32, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 18px", zIndex: 10, borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for you.</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for you.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
               <button

@@ -39,9 +39,10 @@ function PaymentForm({ details, bookingId }) {
   const [overlaySub,   setOverlaySub]   = useState('');
   const [payError,     setPayError]     = useState('');
   const [done,         setDone]         = useState(false);
-  const [tcAgreed,     setTcAgreed]     = useState(false);
-  const [policyError,  setPolicyError]  = useState('');
-  const [hasScrolled,  setHasScrolled]  = useState(false);
+  const [tcAgreed,       setTcAgreed]       = useState(false);
+  const [policyError,    setPolicyError]    = useState('');
+  const [hasScrolled,    setHasScrolled]    = useState(false);
+  const [marketingOptOut, setMarketingOptOut] = useState(false);
 
   const handleTCScroll = (e) => {
     const el = e.target;
@@ -73,7 +74,7 @@ function PaymentForm({ details, bookingId }) {
         await fetch(import.meta.env.VITE_CF_CONFIRM_DEPOSIT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId, paymentIntentId: paymentIntent.id }),
+          body: JSON.stringify({ bookingId, paymentIntentId: paymentIntent.id, marketingOptOut }),
         });
         // Google Ads conversion tracking
         if (window.gtag) {
@@ -212,6 +213,25 @@ function PaymentForm({ details, bookingId }) {
         </div>
       </div>
       {policyError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{policyError}</p>}
+
+      {/* Marketing opt-in */}
+      <div
+        onClick={() => setMarketingOptOut(c => !c)}
+        style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 16px', marginBottom: 16, background: '#faf9f7', border: '1px solid rgba(200,184,154,0.2)', cursor: 'pointer' }}
+      >
+        <div style={{
+          flexShrink: 0, marginTop: 2, width: 16, height: 16,
+          border: `1.5px solid ${!marketingOptOut ? '#c8b89a' : 'rgba(200,184,154,0.4)'}`,
+          background: !marketingOptOut ? '#c8b89a' : 'transparent',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 10, fontWeight: 700,
+        }}>
+          {!marketingOptOut && '✓'}
+        </div>
+        <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontWeight: 300, lineHeight: 1.7, margin: 0 }}>
+          Keep me updated with reminders and occasional offers from London Cleaning Wizard. You can unsubscribe at any time.
+        </p>
+      </div>
 
       {payError && (
         <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>

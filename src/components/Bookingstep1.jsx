@@ -9,9 +9,10 @@ const PACKAGE_DETAIL = {
     'Full home clean across all rooms',
     'All surfaces wiped and reset',
     'Floors vacuumed and mopped throughout',
-    'Kitchen cleaned (worktops, backsplash, cupboard doors and handles, sink, all appliance exteriors, inside microwave)',
+    'Kitchen cleaned (worktops, backsplash, cupboard doors and handles, sink, all appliance exteriors)',
     'Bathroom cleaned (toilet, sink, shower, mirrors)',
-    'High-touch areas sanitised',
+    'Doors and door frames wiped down',
+    'High-touch areas sanitised (e.g. light switches, door handles)',
     'Bins emptied and relined',
     'Subtle application of our signature scent (you can opt out in the details section)',
   ],
@@ -28,6 +29,7 @@ const PACKAGE_DETAIL = {
           'Decluttering and visual organisation',
           'Surfaces left minimal, aligned, and intentional',
           'A complete "reset" of how your home feels',
+          'Microwave deep clean',
         ],
       },
       {
@@ -44,54 +46,47 @@ const PACKAGE_DETAIL = {
       'This is our most popular service and recommended for most homes.',
     ],
   },
-  grand: [
-    'Everything in Signature Hotel Reset',
-    'Two-person team for faster, thorough coverage',
-    'Full turndown service',
-    'Priority time slot — protected for you',
-    'Inside all kitchen appliances',
-    'Deep vacuum including under furniture',
-    'Completion photos sent after every clean',
-  ],
   deep: {
     intro: [
-      'The Deep Reset is our most intensive service. It is designed for homes that need a complete top-to-bottom clean and restoration.',
+      'The Deep Reset is our most intensive service. A full top-to-bottom restoration for homes that need more than a standard clean.',
     ],
     sections: [
       {
-        heading: 'Everything in Essential Reset, plus:',
+        heading: 'Everything in Essential Reset & Signature Hotel Reset, plus:',
         items: [
-          'Deep cleaning across all rooms',
-          'Wiping of walls (spot marks and scuffs removed)',
+          'Walls wiped down (spot marks and scuffs removed)',
           'Skirting boards, blinds, and light fittings cleaned',
-          'Vacuuming under and behind furniture (where accessible)',
+          'Vacuuming under and behind all furniture',
+          'Inside wardrobes and drawers cleaned',
+          'Behind the toilet fully cleaned',
           'Storage rooms and utility cupboards cleaned throughout',
-          'Inside microwave',
-          'Internal windows cleaned streak-free',
+          'All interior windows cleaned throughout',
         ],
       },
       {
-        heading: 'Full kitchen deep clean:',
+        heading: 'All add-ons included as standard:',
         items: [
-          'Oven interior',
-          'Fridge interior',
-          'Inside cupboards and drawers',
-          'Behind and under appliances',
+          'Oven fully cleaned (racks, door, casing & cavity)',
+          'Fridge & freezer fully cleaned',
+          'All kitchen cupboards fully cleaned',
+          'Behind and under all appliances',
+          'Extractor fan filters and housing degreased',
+          'Microwave fully cleaned',
         ],
       },
       {
-        heading: 'Full bathroom descaling and deep cleaning:',
+        heading: 'Full bathroom restoration:',
         items: [
-          'Heavy limescale removal',
+          'Heavy limescale removal throughout',
           'Grout scrubbing',
-          'Deep sanitisation',
+          'Deep sanitisation of all surfaces',
         ],
       },
     ],
     footer: [
       'Subtle application of our signature scent (you can opt out in the details section)',
-      'Your home is fully restored, deeply cleaned, and refreshed from top to bottom.',
-      'Ideal for deep cleans, neglected homes, or move-in preparation.',
+      'Your home is fully restored, deeply cleaned, and reset from top to bottom.',
+      'Ideal for neglected homes, move-in preparation, or a full seasonal reset.',
     ],
   },
   eot: [
@@ -401,7 +396,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
             <span style={{ textTransform: 'none', letterSpacing: 0, fontSize: 11, color: '#8b7355', fontWeight: 300 }}>(optional)</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-            {ADDONS.map(addon => {
+            {ADDONS.filter(addon => !(addon.id === 'microwave' && booking.pkg?.id === 'standard')).map(addon => {
               const selected = (booking.addons || []).some(a => a.id === addon.id);
               const allSizesSmall = (booking.pkg?.sizes || []).every(s => ['studio', '1bed'].includes(s.id));
               const isSmall  = ['studio', '1bed'].includes(booking.size?.id) || allSizesSmall;

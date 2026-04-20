@@ -269,6 +269,8 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       status: d.stripeDepositIntentId === 'manual' ? 'pending_deposit' : 'deposit_paid',
       isPhoneBooking: d.isPhoneBooking || false,
       source: clean(d.source||''), createdAt: new Date(),
+      marketingOptOut: d.marketingOptOut === true,
+      doNotContact:    d.marketingOptOut === true,
     });
     tx.set(cRef, {
       firstName: clean(d.firstName), lastName: clean(d.lastName), phone: clean(d.phone),
@@ -1308,7 +1310,7 @@ exports.getDepositDetails = onRequest(async (req, res) => {
 // ── 12. Confirm deposit payment (called after Stripe success) ─
 exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
-  const { bookingId, paymentIntentId } = req.body;
+  const { bookingId, paymentIntentId, marketingOptOut } = req.body;
   if (!bookingId || !paymentIntentId) { res.status(400).json({ error: 'Missing required fields' }); return; }
   const db     = admin.firestore();
   const stripe = new Stripe(STRIPE_KEY.value());
@@ -1320,7 +1322,7 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
     res.status(400).json({ error: 'Payment not confirmed by Stripe.' }); return;
   }
   const customerId = b.pendingDepositCustomerId || pi.customer;
-  await snap.ref.update({
+  const updateData = {
     status:               'deposit_paid',
     stripeDepositIntentId: paymentIntentId,
     stripeCustomerId:      customerId,
@@ -1328,7 +1330,12 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
     pendingDepositClientSecret: admin.firestore.FieldValue.delete(),
     pendingDepositCustomerId:   admin.firestore.FieldValue.delete(),
     pendingDepositPIId:         admin.firestore.FieldValue.delete(),
-  });
+  };
+  if (typeof marketingOptOut === 'boolean') {
+    updateData.marketingOptOut = marketingOptOut;
+    updateData.doNotContact    = marketingOptOut;
+  }
+  await snap.ref.update(updateData);
   // Backfill stripeCustomerId onto any pre-created recurring bookings missing it
   if (customerId && b.email) {
     const recurringSnap = await db.collection('bookings')
@@ -1932,6 +1939,8 @@ exports.stripeWebhook = onRequest(
         stripeCustomerId: pd.stripeCustomerId || pi.customer || '',
         status: 'deposit_paid', isPhoneBooking: false,
         source: clean(pd.source||''), createdAt: new Date(),
+        marketingOptOut: pd.marketingOptOut === true,
+        doNotContact:    pd.marketingOptOut === true,
       });
       tx.set(cRef, {
         firstName: clean(pd.firstName), lastName: clean(pd.lastName), phone: clean(pd.phone),
@@ -2089,6 +2098,17 @@ exports.cleanupExpiredCodes = onSchedule('every 60 minutes', async () => {
   const b    = db.batch();
   snap.forEach(d => b.delete(d.ref));
   await b.commit();
+});
+
+// ── Set do-not-contact flag on a booking (admin only) ────────
+exports.setDoNotContact = onRequest({ cors: ['https://londoncleaningwizard.com', 'http://localhost:5173', 'http://localhost:5174'] }, async (req, res) => {
+  const { bookingId, doNotContact } = req.body;
+  if (!bookingId || typeof doNotContact !== 'boolean') {
+    res.status(400).json({ error: 'Missing bookingId or doNotContact' }); return;
+  }
+  const db = admin.firestore();
+  await db.collection('bookings').doc(bookingId).update({ doNotContact });
+  res.json({ ok: true });
 });
 
 // ── Marketing unsubscribe ─────────────────────────────────────
