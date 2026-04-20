@@ -483,8 +483,8 @@ export default function AdminPage() {
       if (hoursUntil >= 48) {
         msg = `No charge — more than 48 hours notice given.`;
       } else {
-        const fee = (booking.total * 0.5).toFixed(2);
-        msg = `⚠️ Less than 48 hours notice — a late cancellation fee of £${fee} (50% of £${booking.total}) will be charged to the customer's saved card.`;
+        const fee = (booking.total * 0.3).toFixed(2);
+        msg = `⚠️ Less than 48 hours notice — a late cancellation fee of £${fee} (30% of £${booking.total}) will be charged to the customer's saved card.`;
       }
     } else if (booking.status === 'pending_deposit' || !booking.deposit) {
       msg = `No payment has been taken — booking will be cancelled with no refund required.`;

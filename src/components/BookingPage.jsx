@@ -66,13 +66,11 @@ export default function BookingPage() {
     <>
       <Navbar />
 
-      {isMobile && <BookingInvoice booking={booking} isMobile />}
-
       {/* Progress bar */}
       <div style={{
         position: 'sticky',
-        top: isMobile ? 105 : 60,
-        zIndex: 20,
+        top: 60,
+        zIndex: 30,
         background: '#1a1410',
         paddingTop: 16,
         paddingBottom: 16,
@@ -117,11 +115,13 @@ export default function BookingPage() {
         </div>
       </div>
 
+      {isMobile && <BookingInvoice booking={booking} isMobile />}
+
       {/* Grid wrapper */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr' : '1fr 300px',
-        alignItems: 'start',          // ← stops grid stretching both columns to same height
+        alignItems: 'start',
         maxWidth: 1100,
         margin: '0 auto',
         padding: isMobile ? '28px 16px' : '40px 28px 40px',
@@ -142,8 +142,8 @@ export default function BookingPage() {
             position: 'sticky',
             top: SIDEBAR_TOP,
             alignSelf: 'start',
-            maxHeight: `calc(100vh - ${SIDEBAR_TOP + 20}px)`,  // ← never taller than remaining viewport
-            overflowY: 'auto',                                  // ← scrolls internally if content overflows
+            maxHeight: `calc(100vh - ${SIDEBAR_TOP + 20}px)`,
+            overflowY: 'auto',
             marginTop: 20,
           }}>
             <BookingInvoice booking={booking} />

@@ -10,7 +10,7 @@ function MobilePriceBar({ booking, T, TOneOff }) {
   return (
     <div style={{
       position: 'sticky',
-      top: 60, // sits just below the fixed Navbar
+      top: 132, // sits below Navbar (60) + progress bar (~72)
       zIndex: 40,
       background: '#1a1410',
       borderBottom: '1px solid rgba(200,184,154,0.15)',
@@ -40,7 +40,12 @@ function MobilePriceBar({ booking, T, TOneOff }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 14px', marginTop: 2 }}>
             {booking.freq && booking.freq.id !== 'one-off' && (
               <div style={{ width: '100%', fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#6fcf97', fontWeight: 400 }}>
-                £{booking.freq.saving} {booking.freq.label} discount from 2nd clean
+                From 2nd clean ({booking.freq.label}): £{(T.subtotal - booking.freq.saving).toFixed(2)} / visit · saves £{booking.freq.saving}
+              </div>
+            )}
+            {T.addnSum > 0 && (
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: 'rgba(200,184,154,0.4)', fontWeight: 300 }}>
+                Add-ons: <span style={{ color: '#e8d9c0', fontWeight: 500 }}>+£{fmt(T.addnSum)}</span>
               </div>
             )}
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: 'rgba(200,184,154,0.4)', fontWeight: 300 }}>

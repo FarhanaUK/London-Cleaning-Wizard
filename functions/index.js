@@ -844,8 +844,8 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
   // ── Recurring booking cancellation ──────────────────────────
   if (b.isAutoRecurring) {
     if (hoursUntil < 48 && b.stripeCustomerId) {
-      // Late cancellation — charge 50% via saved card
-      const feePence = Math.round(b.total * 50);
+      // Late cancellation — charge 30% via saved card
+      const feePence = Math.round(b.total * 30);
       const feeAmt   = feePence / 100;
       try {
         const pms = await stripe.paymentMethods.list({ customer: b.stripeCustomerId, type: 'card' });
@@ -867,7 +867,7 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
       }
       const cancelData = { booking_ref: b.bookingRef, package_name: b.packageName, date: b.cleanDate.split('-').reverse().join('/'), time: b.cleanTime, address: `${b.addr1}, ${b.postcode}`, refund_amount: `£${feeAmt.toFixed(2)} late cancellation fee charged`, refund_message: `A late cancellation fee of £${feeAmt.toFixed(2)} has been charged as the cancellation was made less than 48 hours before the scheduled clean.` };
       await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE, { ...cancelData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
-      await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE, { ...cancelData, to_email: 'bookings@londoncleaningwizard.com', customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email, customer_phone: b.phone, notice_given: `${hoursUntil.toFixed(1)} hours notice — 50% late fee charged` }, EMAILJS_KEY.value()).catch(() => {});
+      await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE, { ...cancelData, to_email: 'bookings@londoncleaningwizard.com', customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email, customer_phone: b.phone, notice_given: `${hoursUntil.toFixed(1)} hours notice — 30% late fee charged` }, EMAILJS_KEY.value()).catch(() => {});
       res.json({ success: true, status: 'cancelled_late_fee', lateFeeCharged: feeAmt }); return;
     }
     // >= 48hrs notice — cancel free

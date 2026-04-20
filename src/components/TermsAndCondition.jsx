@@ -51,7 +51,7 @@ export default function TermsAndConditions() {
 
         {/* Intro */}
         <p style={{ fontFamily: "'Jost', sans-serif", fontSize: isMobile ? 14 : 16, lineHeight: 1.9, color: "#5a4e44", marginBottom: isMobile ? 32 : 48 }}>
-          Welcome to London Cleaning Wizard. By requesting a quote, booking a service, or using our website or social media platforms, you agree to these Terms and Conditions.
+          Welcome to London Cleaning Wizard. By booking a service or using our website or social media platforms, you agree to these Terms and Conditions.
         </p>
 
         {[
@@ -72,7 +72,7 @@ export default function TermsAndConditions() {
               <>
                 <p>We provide cleaning services including:</p>
                 <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-                  {["Regular home cleaning", "Deep cleaning", "End of tenancy cleaning", "Airbnb cleaning", "Bedroom refresh services"].map(s => (
+                  {["Regular home cleaning (Essential Reset & Signature Hotel Reset)", "Deep cleaning — including end of tenancy & move-in preparation (Deep Reset)", "Airbnb turnaround cleaning"].map(s => (
                     <li key={s}>{s}</li>
                   ))}
                 </ul>
@@ -81,9 +81,13 @@ export default function TermsAndConditions() {
             ),
           },
           {
-            title: "3. Quotes & Bookings",
+            title: "3. Pricing & Bookings",
             content: (
-              <p>Quotes can be requested via our website, email, phone, or social media platforms. Customers may be required to send photos or videos for accurate quoting. Quotes are based on the information provided. A booking is confirmed once both parties agree and a deposit has been paid.</p>
+              <>
+                <p>Our prices are fixed and displayed on our booking page. There are no hidden fees. You can book directly through our website or by calling us on 020 8137 0026.</p>
+                <p style={{ marginTop: 16 }}>We may request photos or videos of the property before or after booking to assess the condition accurately. A booking is confirmed once a deposit has been paid.</p>
+                <p style={{ marginTop: 16 }}><strong>Property Condition:</strong> Our pricing is based on the information provided at the time of booking, including any photos or videos where requested. If the actual condition of the property differs significantly from what was described or shown, additional charges may apply or the service may be refused. Even where photos or videos were not requested, if our cleaner arrives and finds the property to be in a condition that falls significantly outside the scope of the booked service, we reserve the right to either charge an additional fee or cancel the clean. In all such cases, the deposit will be retained to cover our costs.</p>
+              </>
             ),
           },
           {
@@ -91,12 +95,8 @@ export default function TermsAndConditions() {
             content: (
               <>
                 <p>A 30% deposit is required to secure your booking and is charged immediately upon confirmation. The deposit goes toward the total cost of your clean. The remaining 70% balance will be charged automatically once your clean has been completed and marked as done by our team. By booking, you authorise London Cleaning Wizard to charge the remaining balance to your saved payment method upon job completion.</p>
-                <p style={{ marginTop: 16 }}><strong>Payment Methods:</strong></p>
-                <ul style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <li>Card (Stripe invoice)</li>
-                  <li>Cash (by prior agreement)</li>
-                </ul>
-                <p style={{ marginTop: 16 }}><strong>Non-Payment:</strong> If payment is not made, a formal invoice will be issued with a payment deadline. An administration fee of £15 may be added after the deadline. Additional admin fees may be applied for continued non-payment. Future services may be refused and unpaid balances may result in debt recovery or legal action.</p>
+                <p style={{ marginTop: 16 }}><strong>Payment Method:</strong> All payments are taken by card via Stripe. No other payment methods are accepted.</p>
+                <p style={{ marginTop: 16 }}><strong>Missed Payment:</strong> If a card payment is declined or the remaining balance is not collected upon job completion, a formal invoice will be issued with a payment deadline. An administration fee of £15 may be added after the deadline. Additional admin fees may be applied for continued non-payment. Future services may be refused and unpaid balances may result in debt recovery or legal action.</p>
               </>
             ),
           },
@@ -105,11 +105,10 @@ export default function TermsAndConditions() {
             content: (
               <>
                 <p><strong>How to cancel:</strong> All cancellations must be made by phone call only on 020 8137 0026. Cancellation requests made by email, text, WhatsApp or any other method will not be accepted as valid notice and will not waive any applicable charges.</p>
-                <p style={{ marginTop: 16 }}><strong>One-off bookings:</strong></p>
+                <p style={{ marginTop: 16 }}><strong>First booking / one-off:</strong></p>
                 <ul style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                  <li>One-off bookings / First Booking — More than 48 hours' notice: Full refund of deposit</li>
-                  <li>Less than 48 hours' notice: Deposit is non-refundable</li>
-                  <li>Same-day cancellation or no access provided: The full deposit will be retained</li>
+                  <li>More than 48 hours' notice: Full refund of deposit</li>
+                  <li>Less than 48 hours' notice, same-day cancellation, or no access provided: Deposit is non-refundable</li>
                 </ul>
                 <p style={{ marginTop: 16 }}><strong>Regular services (weekly, fortnightly or monthly):</strong> You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean at no charge. For cancellations with less than 48 hours notice, a charge of 30% of that clean's price will be applied to your saved payment method, as your cleaner's time will have been reserved.</p>
                 <p style={{ marginTop: 16 }}>Cancelling two consecutive cleans will end your recurring arrangement and your recurring discount. A new booking will be required, subject to standard first-clean pricing.</p>
