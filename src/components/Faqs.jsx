@@ -16,7 +16,7 @@ const FAQS = [
   },
   {
     question: "Do you bring your own equipment and products?",
-    answer: "Yes, our cleaners arrive fully equipped with everything needed to complete the job, including our own eco-friendly products that are safe for children, pets, and your home. If you prefer to provide your own products, we are happy to use them and this may reduce the cost of your clean slightly. You don't need to provide anything other than access to electricity and water.",
+    answer: "By default, we ask that you provide your own cleaning products and supplies. During the booking process you can add our cleaning supplies for a small fee, and we'll bring everything needed including our eco-friendly products that are safe for children, pets, and your home.\n\nPlease note that we do not bring mops or vacuums regardless of the supplies option, so a working mop and vacuum must be available at the property. You will also need to provide access to electricity and water.",
   },
   {
     question: "Do I need to be home during the clean?",
@@ -24,7 +24,7 @@ const FAQS = [
   },
   {
     question: "How do I book?",
-    answer: "Simply fill in the quote request form on our website, email us at bookings@londoncleaningwizard.com, or call us on 020 8137 0026. We'll get back to you within a few hours with a personalised quote.",
+    answer: "You can book directly through our website using the online booking form, or call us on 020 8137 0026 and we'll take care of everything over the phone. Alternatively, you can email us at bookings@londoncleaningwizard.com with your contact number and we'll call you back to arrange your booking.",
   },
   {
     question: "How much does a clean cost?",
@@ -32,11 +32,11 @@ const FAQS = [
   },
   {
     question: "Do you require a deposit?",
-    answer: "Yes, a 30% deposit is required to secure your booking. This goes toward the total cost of your clean. The deposit is fully refundable if you cancel more than 48 hours before your scheduled clean.",
+    answer: "Yes, a 30% deposit is required to secure your booking and goes toward the total cost of your clean. The deposit is fully refundable if you cancel more than 48 hours before your scheduled clean by phone call only.\n\nFor recurring bookings, no deposit is taken from the second clean onwards — the full amount is charged automatically on completion. If you cancel a recurring clean with less than 48 hours notice, a 30% charge will be applied to your saved payment method.",
   },
   {
     question: "What is your cancellation policy?",
-    answer: "If you cancel more than 48 hours before your scheduled clean, you will receive a full refund of your deposit. Cancellations with less than 48 hours notice will result in the deposit being retained in full.",
+    answer: "All cancellations must be made by phone call only on 020 8137 0026 — email, text or WhatsApp will not be accepted as valid notice.\n\nOne-off bookings / First Booking: Full refund if cancelled more than 48 hours before your clean. No refund if cancelled with less than 48 hours notice.\n\nRecurring services: Cancel any time with 48 hours notice at no charge. Cancellations with less than 48 hours notice will incur a 30% charge applied to your saved payment method. Missing two consecutive cleans ends your recurring arrangement and discount.",
   },
   {
     question: "Do you offer a satisfaction guarantee?",

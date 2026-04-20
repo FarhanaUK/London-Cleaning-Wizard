@@ -24,8 +24,9 @@ const BTN = {
 };
 
 const CARD = (selected) => ({
-  border: selected ? '1.5px solid #c8b89a' : '1px solid rgba(200,184,154,0.4)',
-  background: selected ? 'rgba(200,184,154,0.12)' : '#fdf8f3',
+  border: selected ? '2px solid #c8b89a' : '1px solid rgba(200,184,154,0.35)',
+  background: selected ? 'rgba(200,184,154,0.22)' : '#fdf8f3',
+  boxShadow: selected ? '0 2px 10px rgba(200,184,154,0.25)' : 'none',
   padding: '20px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
 });
 
@@ -313,7 +314,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
         {/* Signature Touch */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '16px', background: form.signatureTouch ? 'rgba(200,184,154,0.1)' : '#faf9f7', border: `1px solid ${form.signatureTouch ? 'rgba(200,184,154,0.5)' : 'rgba(200,184,154,0.25)'}`, marginBottom: 10, transition: 'all 0.2s' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '16px', background: form.signatureTouch ? 'rgba(200,184,154,0.22)' : '#faf9f7', border: `${form.signatureTouch ? '2px' : '1px'} solid ${form.signatureTouch ? '#c8b89a' : 'rgba(200,184,154,0.25)'}`, boxShadow: form.signatureTouch ? '0 2px 10px rgba(200,184,154,0.25)' : 'none', marginBottom: 10, transition: 'all 0.2s' }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, fontWeight: 600, color: '#2c2420', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ color: '#c8b89a' }}>✦</span> Signature Touch

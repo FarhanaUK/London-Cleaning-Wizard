@@ -104,14 +104,16 @@ export default function TermsAndConditions() {
             title: "5. Cancellations & Refunds",
             content: (
               <>
-                <p><strong>One-off bookings:</strong></p>
+                <p><strong>How to cancel:</strong> All cancellations must be made by phone call only on 020 8137 0026. Cancellation requests made by email, text, WhatsApp or any other method will not be accepted as valid notice and will not waive any applicable charges.</p>
+                <p style={{ marginTop: 16 }}><strong>One-off bookings:</strong></p>
                 <ul style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                  <li>More than 48 hours' notice: Full refund of deposit</li>
+                  <li>One-off bookings / First Booking — More than 48 hours' notice: Full refund of deposit</li>
                   <li>Less than 48 hours' notice: Deposit is non-refundable</li>
                   <li>Same-day cancellation or no access provided: The full deposit will be retained</li>
                 </ul>
-                <p style={{ marginTop: 16 }}><strong>Regular services (weekly, fortnightly or monthly):</strong> You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean. No refund will be issued for cancellations or skipped cleans with less than 48 hours notice, as your cleaner's time will have been reserved.</p>
+                <p style={{ marginTop: 16 }}><strong>Regular services (weekly, fortnightly or monthly):</strong> You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean at no charge. For cancellations with less than 48 hours notice, a charge of 30% of that clean's price will be applied to your saved payment method, as your cleaner's time will have been reserved.</p>
                 <p style={{ marginTop: 16 }}>Cancelling two consecutive cleans will end your recurring arrangement and your recurring discount. A new booking will be required, subject to standard first-clean pricing.</p>
+                <p style={{ marginTop: 16 }}>If our cleaner arrives at the scheduled time and is refused access or the clean is declined for any reason, this will be treated as a late cancellation and the applicable charge will apply.</p>
                 <p style={{ marginTop: 16 }}>If we cannot complete the service due to our fault, a full refund will be issued.</p>
               </>
             ),

@@ -71,7 +71,7 @@ function buildBookingEmailData(b) {
 
 1. Payment: A 30% deposit was charged at the time of booking. The remaining 70% balance will be charged automatically once your clean is marked as complete by our team.
 
-2. Cancellation: Full refund if cancelled more than 48 hours before your scheduled clean. No refund if cancelled less than 48 hours before the clean.
+2. Cancellation: All cancellations must be made by phone call only on 020 8137 0026. Email, text or WhatsApp will not be accepted as valid notice. One-off bookings: full refund if cancelled more than 48 hours before your clean; no refund if cancelled with less than 48 hours notice. Recurring services: free to cancel with 48 hours notice; a 30% charge applies for cancellations with less than 48 hours notice. If our cleaner is refused access at the door, the applicable charge will apply.
 
 3. Satisfaction: Any issues must be reported within 24 hours of your clean. We will arrange a free re-clean where appropriate. Refunds are not provided if a re-clean is offered and declined.
 
@@ -1304,6 +1304,8 @@ exports.getDepositDetails = onRequest(async (req, res) => {
     remaining:    b.remaining,
     bookingRef:   b.bookingRef,
     clientSecret: b.pendingDepositClientSecret,
+    frequency:    b.frequency || 'one-off',
+    freqSaving:   FREQ_SAVINGS[b.frequency] || 0,
   });
 });
 

@@ -131,8 +131,9 @@ const BTN = {
 };
 
 const CARD = (selected) => ({
-  border: selected ? '1.5px solid #c8b89a' : '1px solid rgba(200,184,154,0.4)',
-  background: selected ? 'rgba(200,184,154,0.12)' : '#fdf8f3',
+  border: selected ? '2px solid #c8b89a' : '1px solid rgba(200,184,154,0.35)',
+  background: selected ? 'rgba(200,184,154,0.22)' : '#fdf8f3',
+  boxShadow: selected ? '0 2px 10px rgba(200,184,154,0.25)' : 'none',
   padding: '18px 20px', cursor: 'pointer', transition: 'all 0.2s',
   position: 'relative',
 });
@@ -383,6 +384,9 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
           {booking.freq && booking.freq.id !== 'one-off' && (
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '3px solid #16a34a', padding: '10px 14px', marginBottom: 24, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
               Your first clean is at the full price — the <strong>£{booking.freq.saving} discount</strong> applies from your second clean onwards.
+              <div style={{ marginTop: 6, color: '#4b5563', fontWeight: 300 }}>
+                Missing two consecutive cleans cancels the recurring arrangement and the discount. Rebooking starts at the standard first-clean rate.
+              </div>
             </div>
           )}
         </>

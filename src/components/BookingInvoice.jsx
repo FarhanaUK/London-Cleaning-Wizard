@@ -103,7 +103,7 @@ function DesktopInvoice({ booking, T, lines }) {
               fontSize: 12, padding: '5px 0',
               borderBottom: '0.5px solid rgba(200,184,154,0.07)',
             }}>
-              <span style={{ color: 'rgba(255,255,255,0.8)', fontFamily: "'Jost',sans-serif", fontWeight: 300 }}>{line.label}</span>
+              <span style={{ color: line.grn ? '#6fcf97' : 'rgba(255,255,255,0.8)', fontFamily: "'Jost',sans-serif", fontWeight: line.grn ? 400 : 300 }}>{line.label}</span>
               <span style={{ color: line.grn ? '#6fcf97' : '#ffffff', fontWeight: 500 }}>{line.val}</span>
             </div>
           ))}
@@ -127,6 +127,17 @@ function DesktopInvoice({ booking, T, lines }) {
                 <span style={{ color: r.c, fontWeight: 500 }}>{r.v}</span>
               </div>
             ))}
+            {booking.freq && booking.freq.id !== 'one-off' && (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: '0.5px solid rgba(200,184,154,0.15)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ color: '#6fcf97', fontFamily: "'Jost',sans-serif", fontWeight: 300 }}>From your 2nd clean ({booking.freq.label})</span>
+                  <span style={{ color: '#6fcf97', fontWeight: 500 }}>£{(T.subtotal - booking.freq.saving).toFixed(2)} / visit</span>
+                </div>
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: 'rgba(111,207,151,0.7)', fontWeight: 300, marginTop: 3 }}>
+                  £{booking.freq.saving} {booking.freq.label.toLowerCase()} discount applied
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -166,7 +177,6 @@ export default function BookingInvoice({ booking, isMobile }) {
     ...(booking.addons || []).map(a => ({ label: a.name, val: `+£${a.price}` })),
     T.suppliesFee > 0 && { label: 'Cleaning supplies', val: `+£${T.suppliesFee}` },
     T.surcharge > 0   && { label: 'Surcharge', val: `+£${T.surcharge}` },
-    booking.freq && booking.freq.id !== 'one-off' && { label: `£${booking.freq.saving} ${booking.freq.label} discount`, val: 'from 2nd clean', grn: true },
     booking.cleanDateDisplay && { label: 'Date', val: booking.cleanDateDisplay },
     booking.cleanTime        && { label: 'Time', val: booking.cleanTime },
   ].filter(Boolean) : [];
