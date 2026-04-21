@@ -40,7 +40,10 @@ async function getCalendarClient(scope) {
 
 // Returns a Google Calendar colorId based on booking status and frequency
 function calColorId(status, frequency) {
-  if (frequency && frequency !== 'one-off') return '3'; // Grape = purple (recurring)
+  if (frequency && frequency !== 'one-off') {
+    const depositCollected = status === 'deposit_paid' || status === 'fully_paid';
+    return depositCollected ? '3' : '5'; // Grape = purple (recurring paid), Banana = yellow (scheduled recurring)
+  }
   switch (status) {
     case 'deposit_paid':   return '7';  // Peacock = blue
     case 'fully_paid':     return '2';  // Sage = green
@@ -451,7 +454,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
                 ].join('\n'),
                 start: { dateTime: slotStart, timeZone: 'Europe/London' },
                 end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
-                colorId: '3',
+                colorId: '5',
               },
             });
             await db.collection('bookings').doc(rId).update({ calendarEventId: calEvent.data.id });
@@ -1618,7 +1621,7 @@ exports.createRecurringBookings = onSchedule(
               ].join('\n'),
               start: { dateTime: slotStart, timeZone: 'Europe/London' },
               end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
-              colorId: '3',
+              colorId: '5',
             },
           });
           await db.collection('bookings').doc(id).update({ calendarEventId: calEvent.data.id });
@@ -1773,7 +1776,7 @@ exports.triggerSchedulerNow = onRequest({ secrets: [EMAILJS_KEY] }, async (req, 
               description: [`Ref: ${ref}`, `Customer: ${c.firstName} ${c.lastName}`, `Email: ${email}`, `Total: £${total} | No deposit — charged on completion`, `⚙️ Manual trigger`].join('\n'),
               start: { dateTime: slotStart, timeZone: 'Europe/London' },
               end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
-              colorId: '3',
+              colorId: '5',
             },
           });
           await db.collection('bookings').doc(id).update({ calendarEventId: calEvent.data.id });

@@ -163,10 +163,13 @@ export default function AdminPage() {
   const [statTip,       setStatTip]       = useState(null);
   const [statsOpen,     setStatsOpen]     = useState(false);
   const [drawerOpen,    setDrawerOpen]    = useState(false);
-  const [activeView,       setActiveView]       = useState('bookings');
+  const [activeView,       setActiveView]       = useState(() => localStorage.getItem('crmActiveView') || 'bookings');
   const [calViewYear,      setCalViewYear]      = useState(new Date().getFullYear());
   const [calViewMonth,     setCalViewMonth]     = useState(new Date().getMonth());
   const [calBlockedDates,  setCalBlockedDates]  = useState([]);
+  const [calSelectedId,    setCalSelectedId]    = useState(null);
+  const [calActionBusy,    setCalActionBusy]    = useState(false);
+  const [calActionErr,     setCalActionErr]     = useState('');
   const [blockModal,       setBlockModal]       = useState(null); // { date, isBlocked }
   const [blockReason,      setBlockReason]      = useState('');
   const [blockSaving,      setBlockSaving]      = useState(false);
@@ -752,7 +755,7 @@ export default function AdminPage() {
               <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', color: C.sidebarMuted, fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>✕</button>
             </div>
             {NAV_ITEMS.map(v => (
-              <button key={v.id} onClick={() => { setActiveView(v.id); setDrawerOpen(false); }} style={{
+              <button key={v.id} onClick={() => { setActiveView(v.id); localStorage.setItem('crmActiveView', v.id); setDrawerOpen(false); }} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                 padding: '11px 20px', border: 'none', cursor: 'pointer',
                 background: activeView === v.id ? C.sidebarActive : 'transparent',
@@ -795,7 +798,7 @@ export default function AdminPage() {
             <div style={{ marginBottom: 8, paddingBottom: 16, borderBottom: `1px solid ${C.sidebarBorder}` }}>
               <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: C.accent, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0 20px', marginBottom: 8 }}>Navigation</div>
               {NAV_ITEMS.map(v => (
-                <button key={v.id} onClick={() => setActiveView(v.id)} style={{
+                <button key={v.id} onClick={() => { setActiveView(v.id); localStorage.setItem('crmActiveView', v.id); }} style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 20px', border: 'none', cursor: 'pointer',
                   background: activeView === v.id ? C.sidebarActive : 'transparent',
@@ -1092,7 +1095,11 @@ export default function AdminPage() {
             completed:        '#16a34a',
           };
           const getDot = (b) => {
-            if (b.frequency && b.frequency !== 'one-off') return '#7c3aed'; // purple for recurring
+            const isRecurring = b.frequency && b.frequency !== 'one-off';
+            if (isRecurring) {
+              const depositCollected = b.status === 'deposit_paid' || b.status === 'fully_paid';
+              return depositCollected ? '#7c3aed' : '#eab308'; // purple = recurring paid, indigo = scheduled recurring (future, deposit pending)
+            }
             return DOT_COLOURS[b.status] || '#94a3b8';
           };
 
@@ -1107,6 +1114,30 @@ export default function AdminPage() {
                 </div>
                 <button onClick={nextMonth} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, padding: '6px 14px' }}>→</button>
               </div>
+
+              {/* Month stats */}
+              {(() => {
+                const prefix = `${String(calYear)}-${String(calMonth + 1).padStart(2, '0')}`;
+                const monthBookings = bookings.filter(b => b.cleanDate?.startsWith(prefix));
+                const active = monthBookings.filter(b => !b.status?.startsWith('cancelled'));
+                const revenue = active.reduce((s, b) => s + parseFloat(b.total || 0), 0);
+                const pendingCount = monthBookings.filter(b => b.status === 'pending_deposit').length;
+                const stats = [
+                  { label: 'Bookings', value: active.length },
+                  { label: 'Expected revenue', value: `£${revenue.toFixed(2)}` },
+                  { label: 'Pending deposit', value: pendingCount, alert: pendingCount > 0 },
+                ];
+                return (
+                  <div style={{ display: 'flex', gap: isMobile ? 8 : 16, marginBottom: 16, flexWrap: 'wrap' }}>
+                    {stats.map(s => (
+                      <div key={s.label} style={{ flex: 1, minWidth: 100, background: s.alert ? '#fef3c7' : C.bg, border: `1px solid ${s.alert ? '#d97706' : C.border}`, borderRadius: 8, padding: '10px 14px' }}>
+                        <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: s.alert ? '#92400e' : C.muted, marginBottom: 4 }}>{s.label}</div>
+                        <div style={{ fontFamily: FONT, fontSize: isMobile ? 18 : 22, fontWeight: 700, color: s.alert ? '#92400e' : C.text }}>{s.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Day headers */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 1, marginBottom: 1 }}>
@@ -1128,7 +1159,7 @@ export default function AdminPage() {
                       onClick={() => setBlockModal({ date: dateStr, isBlocked })}
                       title={isBlocked ? `${dateStr} — Blocked (click to unblock)` : `${dateStr} — Click to block`}
                       style={{
-                        background: isBlocked ? '#fee2e2' : isToday ? '#fffbeb' : C.card,
+                        background: isBlocked ? '#fee2e2' : C.card,
                         minHeight: isMobile ? 56 : 80,
                         padding: isMobile ? '4px 4px' : '6px 8px',
                         position: 'relative',
@@ -1141,7 +1172,7 @@ export default function AdminPage() {
                       {/* Day number */}
                       <div style={{
                         fontFamily: FONT, fontSize: isMobile ? 11 : 13, fontWeight: isToday ? 700 : 400,
-                        color: isBlocked ? '#dc2626' : isToday ? C.accentDark : isPast ? C.faint : C.text,
+                        color: isBlocked ? '#dc2626' : isToday ? '#1d4ed8' : isPast ? C.faint : C.text,
                         marginBottom: 2,
                       }}>{parseInt(dateStr.split('-')[2])}</div>
 
@@ -1157,7 +1188,7 @@ export default function AdminPage() {
                         return (
                           <div
                             key={b.id}
-                            onClick={e => { e.stopPropagation(); setSelectedBooking(b.id === selectedBooking ? null : b.id); }}
+                            onClick={e => { e.stopPropagation(); setCalSelectedId(b.id === calSelectedId ? null : b.id); }}
                             title={`${b.firstName} ${b.lastName} — ${b.packageName || ''} ${b.cleanTime || ''}`}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 4,
@@ -1171,7 +1202,7 @@ export default function AdminPage() {
                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: dot, flexShrink: 0 }} />
                             {!isMobile && (
                               <span style={{ fontFamily: FONT, fontSize: 11, color: C.text, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90 }}>
-                                {b.firstName} {b.lastName}
+                                {b.packageName || `${b.firstName} ${b.lastName}`}
                               </span>
                             )}
                           </div>
@@ -1193,7 +1224,8 @@ export default function AdminPage() {
                   { label: 'Fully paid',      color: '#16a34a' },
                   { label: 'Failed payment',  color: '#dc2626' },
                   { label: 'Cancelled',       color: '#94a3b8' },
-                  { label: 'Recurring',        color: '#7c3aed' },
+                  { label: 'Recurring',  color: '#7c3aed' },
+                  { label: 'Scheduled recurring', color: '#eab308' },
                 ].map(({ label, color }) => (
                   <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: FONT, fontSize: 11, color: C.muted }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
@@ -1205,6 +1237,109 @@ export default function AdminPage() {
                   Blocked (click any day to block/unblock)
                 </div>
               </div>
+
+              {/* Booking detail panel */}
+              {(() => {
+                const sel = calSelectedId && bookings.find(x => x.id === calSelectedId);
+                if (!sel) return null;
+                const sc = STATUS_COLOURS[sel.status] || { bg: '#f5f5f5', color: '#5a5a5a', label: sel.status };
+                return (
+                  <div style={{ marginTop: 16, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: isMobile ? 14 : 20, position: 'relative' }}>
+                    <button onClick={() => setCalSelectedId(null)} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: C.muted }}>✕</button>
+                    <div style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 4 }}>{sel.firstName} {sel.lastName}</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                      <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 99, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                      {sel.isAutoRecurring && <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 99, background: '#ede9fe', color: '#7c3aed' }}>Recurring</span>}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(auto-fill,minmax(180px,1fr))', gap: '8px 16px', marginBottom: 16 }}>
+                      {[
+                        { l: 'Booking Ref',  v: sel.bookingRef },
+                        { l: 'Clean Date',   v: fmtDate(sel.cleanDate) },
+                        { l: 'Clean Time',   v: sel.cleanTime },
+                        { l: 'Package',      v: sel.packageName },
+                        { l: 'Property',     v: `${sel.propertyType || ''} · ${sel.size || ''}` },
+                        { l: 'Address',      v: `${sel.addr1}, ${sel.postcode}` },
+                        { l: 'Phone',        v: sel.phone },
+                        { l: 'Email',        v: sel.email },
+                        { l: 'Frequency',    v: sel.frequency || 'one-off' },
+                        { l: 'Add-ons',      v: sel.addons?.length ? sel.addons.map(a => a.name).join(', ') : 'None' },
+                        { l: 'Pets',         v: sel.hasPets ? `Yes — ${sel.petTypes || 'not specified'}` : 'No' },
+                        { l: 'Total',        v: `£${parseFloat(sel.total || 0).toFixed(2)}` },
+                        { l: 'Deposit',      v: sel.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(sel.deposit || 0).toFixed(2)}` },
+                        { l: 'Remaining',    v: `£${parseFloat(sel.remaining || 0).toFixed(2)}` },
+                        sel.notes && { l: 'Notes', v: sel.notes },
+                      ].filter(Boolean).map((r, i) => (
+                        <div key={i}>
+                          <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 2 }}>{r.l}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 13, color: C.text }}>{r.v}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Quick actions */}
+                    {!sel.status?.startsWith('cancelled') && (
+                      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          {sel.status === 'pending_deposit' && (
+                            <button
+                              disabled={calActionBusy}
+                              onClick={async () => {
+                                if (!window.confirm(`Mark deposit of £${sel.deposit} as collected for ${sel.firstName} ${sel.lastName}?`)) return;
+                                setCalActionBusy(true); setCalActionErr('');
+                                try {
+                                  const r = await fetch(import.meta.env.VITE_CF_MARK_DEPOSIT_PAID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: sel.id }) });
+                                  const d = await r.json();
+                                  if (!r.ok) setCalActionErr(d.error || 'Failed');
+                                } catch { setCalActionErr('Something went wrong'); }
+                                finally { setCalActionBusy(false); }
+                              }}
+                              style={{ ...BTN, background: '#2563eb', color: '#fff', fontSize: 12, padding: '6px 14px', opacity: calActionBusy ? 0.6 : 1 }}
+                            >
+                              {calActionBusy ? 'Saving…' : 'Mark Deposit Paid'}
+                            </button>
+                          )}
+                          {sel.status === 'deposit_paid' && (
+                            <button
+                              disabled={calActionBusy}
+                              onClick={async () => {
+                                if (!window.confirm(`Complete job and charge remaining £${sel.remaining} for ${sel.firstName} ${sel.lastName}?`)) return;
+                                setCalActionBusy(true); setCalActionErr('');
+                                try {
+                                  const r = await fetch(import.meta.env.VITE_CF_COMPLETE_JOB, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: sel.id }) });
+                                  const d = await r.json();
+                                  if (!r.ok) setCalActionErr(d.error || 'Failed');
+                                } catch { setCalActionErr('Something went wrong'); }
+                                finally { setCalActionBusy(false); }
+                              }}
+                              style={{ ...BTN, background: '#16a34a', color: '#fff', fontSize: 12, padding: '6px 14px', opacity: calActionBusy ? 0.6 : 1 }}
+                            >
+                              {calActionBusy ? 'Saving…' : 'Complete Job'}
+                            </button>
+                          )}
+                          <button
+                            disabled={calActionBusy}
+                            onClick={async () => {
+                              if (!window.confirm(`Cancel this booking for ${sel.firstName} ${sel.lastName}? This cannot be undone.`)) return;
+                              setCalActionBusy(true); setCalActionErr('');
+                              try {
+                                const r = await fetch(import.meta.env.VITE_CF_CANCEL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: sel.id, reason: 'Cancelled by admin' }) });
+                                const d = await r.json();
+                                if (!r.ok) setCalActionErr(d.error || 'Failed');
+                                else setCalSelectedId(null);
+                              } catch { setCalActionErr('Something went wrong'); }
+                              finally { setCalActionBusy(false); }
+                            }}
+                            style={{ ...BTN, background: C.bg, color: C.danger, border: `1px solid ${C.danger}`, fontSize: 12, padding: '6px 14px', opacity: calActionBusy ? 0.6 : 1 }}
+                          >
+                            Cancel Booking
+                          </button>
+                        </div>
+                        {calActionErr && <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginTop: 8 }}>{calActionErr}</div>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}

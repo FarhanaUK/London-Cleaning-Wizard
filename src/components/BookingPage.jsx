@@ -19,9 +19,20 @@ const INIT = {
 
 const STEPS = ['Service', 'Schedule', 'Details', 'Payment'];
 
+const SESSION_KEY = 'bookingSession';
+
+function loadSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
 export default function BookingPage() {
-  const [booking,   setBooking]   = useState(INIT);
-  const [step,      setStep]      = useState(1);
+  const saved = loadSession();
+  const [booking,   setBooking]   = useState(saved?.booking || INIT);
+  const [step,      setStep]      = useState(saved?.step || 1);
   const [confirmed, setConfirmed] = useState(false);
   const [result,    setResult]    = useState(null);
   const [isMobile,  setIsMobile]  = useState(window.innerWidth < 768);
@@ -49,6 +60,12 @@ export default function BookingPage() {
   }, []);
 
   const update = (partial) => setBooking(b => ({ ...b, ...partial }));
+
+  useEffect(() => {
+    if (!confirmed) {
+      try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ step, booking })); } catch {}
+    }
+  }, [step, booking, confirmed]);
 
   useEffect(() => {
     // Patch any overflow:hidden ancestor so sticky works
@@ -133,7 +150,7 @@ export default function BookingPage() {
           {step === 1 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => goToStep(2)} />}
           {step === 2 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(3)} onBack={() => goToStep(1)} />}
           {step === 3 && <BookingStep3 booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} isMobile={isMobile} />}
-          {step === 4 && <BookingStep4 booking={booking} onUpdate={update} onSuccess={(res) => { setResult(res); setStep(5); setConfirmed(true); }} onBack={() => goToStep(3)} />}
+          {step === 4 && <BookingStep4 booking={booking} onUpdate={update} onSuccess={(res) => { setResult(res); setStep(5); setConfirmed(true); sessionStorage.removeItem(SESSION_KEY); }} onBack={() => goToStep(3)} />}
         </div>
 
         {/* Desktop invoice sidebar */}
@@ -153,7 +170,7 @@ export default function BookingPage() {
       </div>
 
       {confirmed && (
-        <BookingConfirm booking={booking} result={result} onClose={() => { setConfirmed(false); setBooking(INIT); setStep(1); }} />
+        <BookingConfirm booking={booking} result={result} onClose={() => { setConfirmed(false); setBooking(INIT); setStep(1); sessionStorage.removeItem(SESSION_KEY); }} />
       )}
     </>
   );
