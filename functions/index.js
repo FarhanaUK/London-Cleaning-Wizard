@@ -1046,7 +1046,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
     packageId, packageName, sizeId, frequency, addons,
     hasPets, petTypes, signatureTouch, signatureTouchNotes,
     addr1, postcode, floor, parking, keys, notes,
-    total, remaining,
+    total, remaining, assignedStaff,
   } = req.body;
   if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
   const db   = admin.firestore();
@@ -1054,6 +1054,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
   if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
   const current = snap.data();
   const updates = { updatedAt: new Date() };
+  if (assignedStaff !== undefined) updates.assignedStaff = assignedStaff;
 
   // Track significant changes for email notification
   const changes = [];
@@ -1581,6 +1582,7 @@ exports.createRecurringBookings = onSchedule(
           isPhoneBooking:  false,
           isAutoRecurring: true,
           source:          c.recurringSource || c.source || '',
+          assignedStaff:   c.assignedStaff || '',
           createdAt:       new Date(),
         };
 
