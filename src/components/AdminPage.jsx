@@ -165,6 +165,11 @@ export default function AdminPage() {
   const [activeView,       setActiveView]       = useState('bookings');
   const [calViewYear,      setCalViewYear]      = useState(new Date().getFullYear());
   const [calViewMonth,     setCalViewMonth]     = useState(new Date().getMonth());
+  const [calBlockedDates,  setCalBlockedDates]  = useState([]);
+  const [blockModal,       setBlockModal]       = useState(null); // { date, isBlocked }
+  const [blockReason,      setBlockReason]      = useState('');
+  const [blockSaving,      setBlockSaving]      = useState(false);
+  const [blockErr,         setBlockErr]         = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerSearch,   setCustomerSearch]   = useState('');
   const [editClient,       setEditClient]       = useState(null);
@@ -278,12 +283,19 @@ export default function AdminPage() {
     );
   }, [user]);
 
-  // Fetch blocked dates when calendar month changes
+  // Fetch blocked dates when new-booking calendar month changes
   useEffect(() => {
     if (!user) return;
     fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${nbCalYear}&month=${nbCalMonth + 1}`)
       .then(r => r.json()).then(data => setNbBlockedDates(data.blocked || [])).catch(() => {});
   }, [user, nbCalYear, nbCalMonth]);
+
+  // Fetch blocked dates for the calendar tab view
+  useEffect(() => {
+    if (!user) return;
+    fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${calViewYear}&month=${calViewMonth + 1}`)
+      .then(r => r.json()).then(data => setCalBlockedDates(data.blocked || [])).catch(() => {});
+  }, [user, calViewYear, calViewMonth]);
 
   const handleLogin = async () => {
     setLoginErr('');
@@ -1078,7 +1090,10 @@ export default function AdminPage() {
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <button onClick={prevMonth} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, padding: '6px 14px' }}>←</button>
-                <div style={{ fontFamily: FONT, fontSize: isMobile ? 18 : 22, fontWeight: 600, color: C.text }}>{MONTHS[calMonth]} {calYear}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <div style={{ fontFamily: FONT, fontSize: isMobile ? 18 : 22, fontWeight: 600, color: C.text }}>{MONTHS[calMonth]} {calYear}</div>
+                  <button onClick={() => { setCalViewYear(new Date().getFullYear()); setCalViewMonth(new Date().getMonth()); }} style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Today</button>
+                </div>
                 <button onClick={nextMonth} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, padding: '6px 14px' }}>→</button>
               </div>
 
@@ -1094,30 +1109,44 @@ export default function AdminPage() {
                 {cells.map((dateStr, i) => {
                   if (!dateStr) return <div key={`e-${i}`} style={{ background: C.bg, minHeight: isMobile ? 56 : 80 }} />;
                   const dayBookings = bookingsByDate[dateStr] || [];
-                  const isToday = dateStr === today;
-                  const isPast  = dateStr < today;
+                  const isToday   = dateStr === today;
+                  const isPast    = dateStr < today;
+                  const isBlocked = calBlockedDates.includes(dateStr);
                   return (
-                    <div key={dateStr} style={{
-                      background: isToday ? '#fffbeb' : C.card,
-                      minHeight: isMobile ? 56 : 80,
-                      padding: isMobile ? '4px 4px' : '6px 8px',
-                      position: 'relative',
-                    }}>
+                    <div key={dateStr}
+                      onClick={() => setBlockModal({ date: dateStr, isBlocked })}
+                      title={isBlocked ? `${dateStr} — Blocked (click to unblock)` : `${dateStr} — Click to block`}
+                      style={{
+                        background: isBlocked ? '#fee2e2' : isToday ? '#fffbeb' : C.card,
+                        minHeight: isMobile ? 56 : 80,
+                        padding: isMobile ? '4px 4px' : '6px 8px',
+                        position: 'relative',
+                        cursor: 'pointer',
+                        transition: 'opacity 0.1s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                      onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                    >
                       {/* Day number */}
                       <div style={{
                         fontFamily: FONT, fontSize: isMobile ? 11 : 13, fontWeight: isToday ? 700 : 400,
-                        color: isToday ? C.accentDark : isPast ? C.faint : C.text,
-                        marginBottom: 4,
+                        color: isBlocked ? '#dc2626' : isToday ? C.accentDark : isPast ? C.faint : C.text,
+                        marginBottom: 2,
                       }}>{parseInt(dateStr.split('-')[2])}</div>
 
+                      {/* Blocked indicator */}
+                      {isBlocked && (
+                        <div style={{ fontFamily: FONT, fontSize: 9, color: '#dc2626', fontWeight: 600, letterSpacing: '0.04em', marginBottom: 2 }}>BLOCKED</div>
+                      )}
+
                       {/* Booking chips */}
-                      {dayBookings.slice(0, isMobile ? 2 : 3).map(b => {
+                      {dayBookings.slice(0, isMobile ? 1 : 3).map(b => {
                         const dot = DOT_COLOURS[b.status] || C.muted;
                         const cancelled = b.status?.startsWith('cancelled');
                         return (
                           <div
                             key={b.id}
-                            onClick={() => setSelectedBooking(b.id === selectedBooking ? null : b.id)}
+                            onClick={e => { e.stopPropagation(); setSelectedBooking(b.id === selectedBooking ? null : b.id); }}
                             title={`${b.firstName} ${b.lastName} — ${b.packageName || ''} ${b.cleanTime || ''}`}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 4,
@@ -1137,8 +1166,8 @@ export default function AdminPage() {
                           </div>
                         );
                       })}
-                      {dayBookings.length > (isMobile ? 2 : 3) && (
-                        <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted }}>+{dayBookings.length - (isMobile ? 2 : 3)} more</div>
+                      {dayBookings.length > (isMobile ? 1 : 3) && (
+                        <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted }}>+{dayBookings.length - (isMobile ? 1 : 3)} more</div>
                       )}
                     </div>
                   );
@@ -1159,6 +1188,10 @@ export default function AdminPage() {
                     {label}
                   </div>
                 ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: FONT, fontSize: 11, color: C.muted }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: '#fee2e2', border: '1px solid #dc2626' }} />
+                  Blocked (click any day to block/unblock)
+                </div>
               </div>
             </div>
           );
@@ -2125,6 +2158,78 @@ export default function AdminPage() {
               </button>
               <button onClick={handleNewBooking} disabled={nbSaving} style={{ ...BTN, flex: 1, background: '#c8b89a', color: '#1a1410', border: 'none', fontWeight: 600, borderRadius: 6 }}>
                 {nbSaving ? 'Creating...' : 'Create Booking'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Block / Unblock Date Modal */}
+      {blockModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,20,16,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#FAF8F4', borderRadius: 10, padding: '28px 28px 24px', maxWidth: 420, width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 300, color: '#1a1410', marginBottom: 6 }}>
+              {blockModal.isBlocked ? 'Unblock Date' : 'Block Date'}
+            </div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: '#8b7355', marginBottom: 20 }}>
+              {blockModal.date.split('-').reverse().join('/')}
+            </div>
+            {blockModal.isBlocked ? (
+              <p style={{ fontFamily: FONT, fontSize: 13, color: '#5a4e44', lineHeight: 1.7, marginBottom: 20 }}>
+                This date is currently blocked — no bookings can be made. Unblocking it will remove the block from Google Calendar and make it available again on the booking form immediately.
+              </p>
+            ) : (
+              <>
+                <p style={{ fontFamily: FONT, fontSize: 13, color: '#5a4e44', lineHeight: 1.7, marginBottom: 16 }}>
+                  Blocking this date will prevent customers from booking it. The block will appear in Google Calendar and take effect on the booking form immediately.
+                </p>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 6 }}>Reason (optional — shown in Google Calendar)</div>
+                  <input
+                    value={blockReason}
+                    onChange={e => setBlockReason(e.target.value)}
+                    placeholder="e.g. Holiday, Staff training..."
+                    style={{ ...INPUT, marginBottom: 0 }}
+                    autoFocus
+                  />
+                </div>
+              </>
+            )}
+            {blockErr && <p style={{ fontFamily: FONT, fontSize: 12, color: '#dc2626', marginBottom: 12 }}>{blockErr}</p>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setBlockModal(null); setBlockReason(''); setBlockErr(''); }} style={{ ...BTN, background: 'transparent', color: '#8b7355', border: '1px solid #d4c4ae' }}>
+                Cancel
+              </button>
+              <button
+                disabled={blockSaving}
+                onClick={async () => {
+                  setBlockSaving(true); setBlockErr('');
+                  try {
+                    const res = await fetch(import.meta.env.VITE_CF_SET_BLOCKED_DATE, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ date: blockModal.date, blocked: !blockModal.isBlocked, reason: blockReason || undefined }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed');
+                    // Refresh blocked dates for both calendar tab and new-booking calendar
+                    const [calRes, nbRes] = await Promise.all([
+                      fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${calViewYear}&month=${calViewMonth + 1}`),
+                      fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${nbCalYear}&month=${nbCalMonth + 1}`),
+                    ]);
+                    const [calData, nbData] = await Promise.all([calRes.json(), nbRes.json()]);
+                    setCalBlockedDates(calData.blocked || []);
+                    setNbBlockedDates(nbData.blocked || []);
+                    setBlockModal(null); setBlockReason(''); setBlockErr('');
+                  } catch (e) {
+                    setBlockErr(e.message || 'Something went wrong');
+                  } finally {
+                    setBlockSaving(false);
+                  }
+                }}
+                style={{ ...BTN, flex: 1, background: blockModal.isBlocked ? '#16a34a' : '#dc2626', color: '#fff', border: 'none', fontWeight: 600 }}
+              >
+                {blockSaving ? 'Saving...' : blockModal.isBlocked ? 'Unblock Date' : 'Block Date'}
               </button>
             </div>
           </div>

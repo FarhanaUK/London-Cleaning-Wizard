@@ -1809,6 +1809,51 @@ exports.getBlockedDates = onRequest(async (req, res) => {
   }
 });
 
+// ── Set / unset a blocked date on the availability calendar ───────
+exports.setBlockedDate = onRequest(async (req, res) => {
+  if (!guard(req, res)) return;
+  const { date, blocked, reason } = req.body;
+  if (!date || typeof blocked !== 'boolean') {
+    res.status(400).json({ error: 'date (YYYY-MM-DD) and blocked (boolean) required' }); return;
+  }
+  const [y, m, d] = date.split('-').map(Number);
+  try {
+    const calendar = await getCalendarClient();
+    if (blocked) {
+      // Create all-day event on the availability calendar
+      const nextDay = `${y}-${String(m).padStart(2,'0')}-${String(d + 1).padStart(2,'0')}`;
+      // Handle month overflow for end date
+      const endDate = new Date(y, m - 1, d + 1);
+      const endStr = endDate.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+      const event = await calendar.events.insert({
+        calendarId: process.env.GOOGLE_AVAILABILITY_CALENDAR_ID,
+        resource: {
+          summary: reason || 'Unavailable',
+          start: { date },
+          end:   { date: endStr },
+        },
+      });
+      res.json({ success: true, eventId: event.data.id });
+    } else {
+      // Find and delete all events on this date from the availability calendar
+      const timeMin = new Date(y, m - 1, d).toISOString();
+      const timeMax = new Date(y, m - 1, d, 23, 59, 59).toISOString();
+      const { data } = await calendar.events.list({
+        calendarId:   process.env.GOOGLE_AVAILABILITY_CALENDAR_ID,
+        timeMin,
+        timeMax,
+        singleEvents: true,
+      });
+      await Promise.all((data.items || []).map(e =>
+        calendar.events.delete({ calendarId: process.env.GOOGLE_AVAILABILITY_CALENDAR_ID, eventId: e.id })
+      ));
+      res.json({ success: true, removed: (data.items || []).length });
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── 16. Stripe webhook — fallback if browser closes after payment ─
 exports.stripeWebhook = onRequest(
   { secrets: [STRIPE_KEY, STRIPE_WEBHOOK_SECRET, EMAILJS_KEY], rawBody: true },
