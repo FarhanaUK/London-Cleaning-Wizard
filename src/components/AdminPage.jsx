@@ -254,6 +254,7 @@ export default function AdminPage() {
     setUser(u);
     setAuthLoading(false);
     if (u) {
+      setThemeKey('look3'); // reset before loading user's preference
       setWelcomeMsg(WELCOME_MESSAGES[Math.floor(Math.random() * WELCOME_MESSAGES.length)]);
       setWelcomeColor(WELCOME_COLORS[Math.floor(Math.random() * WELCOME_COLORS.length)]);
       setTimeout(() => setBannerVisible(true), 50);
@@ -263,6 +264,7 @@ export default function AdminPage() {
       } catch {}
     } else {
       setBannerVisible(false);
+      setThemeKey('look3'); // reset to default when logged out
     }
   }), []);
 
