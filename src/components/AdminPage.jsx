@@ -150,10 +150,12 @@ export default function AdminPage() {
   const C = THEMES[themeKey];
   const INPUT = { width: '100%', padding: '8px 12px', fontFamily: FONT, fontSize: 13, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, outline: 'none', marginBottom: 16, boxSizing: 'border-box' };
   const BTN   = { fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '8px 16px', background: C.text, color: '#fff', border: 'none', cursor: 'pointer', borderRadius: 6 };
-  const switchTheme = (key, uid) => {
+  const switchTheme = (key) => {
     setThemeKey(key);
-    const id = uid || user?.uid;
-    if (id) localStorage.setItem(`theme_${id}`, key);
+    if (user?.uid) {
+      localStorage.setItem(`theme_${user.uid}`, key);
+      setDoc(doc(db, 'userPrefs', user.uid), { theme: key }, { merge: true }).catch(() => {});
+    }
   };
 
   const [statusFilter,  setStatusFilter]  = useState('all');
@@ -253,8 +255,15 @@ export default function AdminPage() {
     setUser(u);
     setAuthLoading(false);
     if (u) {
-      const saved = localStorage.getItem(`theme_${u.uid}`);
-      setThemeKey(saved || 'look3');
+      // Load from localStorage instantly, then override with Firestore if available
+      const localSaved = localStorage.getItem(`theme_${u.uid}`);
+      setThemeKey(localSaved || 'look3');
+      getDoc(doc(db, 'userPrefs', u.uid)).then(snap => {
+        if (snap.exists() && snap.data().theme) {
+          setThemeKey(snap.data().theme);
+          localStorage.setItem(`theme_${u.uid}`, snap.data().theme);
+        }
+      }).catch(() => {});
       setWelcomeMsg(WELCOME_MESSAGES[Math.floor(Math.random() * WELCOME_MESSAGES.length)]);
       setWelcomeColor(WELCOME_COLORS[Math.floor(Math.random() * WELCOME_COLORS.length)]);
       setTimeout(() => setBannerVisible(true), 50);

@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Bookings — admin read only (writes go through cloud functions with admin SDK)
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Customers — admin read only
+    match /customers/{email} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // User preferences (theme etc) — each user can only read/write their own
+    match /userPrefs/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Everything else — deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
