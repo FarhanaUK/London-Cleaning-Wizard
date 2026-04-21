@@ -38,6 +38,21 @@ async function getCalendarClient(scope) {
   return _calCache[s];
 }
 
+// Returns a Google Calendar colorId based on booking status and frequency
+function calColorId(status, frequency) {
+  if (frequency && frequency !== 'one-off') return '3'; // Grape = purple (recurring)
+  switch (status) {
+    case 'deposit_paid':   return '7';  // Peacock = blue
+    case 'fully_paid':     return '2';  // Sage = green
+    case 'payment_failed': return '11'; // Tomato = red
+    case 'cancelled_full_refund':
+    case 'cancelled_partial_refund':
+    case 'cancelled_no_refund':
+    case 'cancelled_late_fee': return '8'; // Graphite = grey
+    default:               return '6';  // Tangerine = orange (pending deposit)
+  }
+}
+
 function buildBookingEmailData(b) {
   return {
     booking_ref:     b.bookingRef,
@@ -344,7 +359,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
           ].join('\n'),
         start: { dateTime: slotStart, timeZone: 'Europe/London' },
         end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
-        colorId: '2',
+        colorId: calColorId('pending_deposit', d.frequency),
       },
     });
     // Save event ID so we can update it later if the booking is edited
@@ -436,7 +451,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
                 ].join('\n'),
                 start: { dateTime: slotStart, timeZone: 'Europe/London' },
                 end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
-                colorId: '6',
+                colorId: '3',
               },
             });
             await db.collection('bookings').doc(rId).update({ calendarEventId: calEvent.data.id });
@@ -526,6 +541,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       res.status(400).json({ error: 'This booking cannot be completed in its current status.' }); return;
     }
     await snap.ref.update({ status: 'fully_paid', paidAt: new Date() });
+    if (b.calendarEventId) { try { const cal = await getCalendarClient(); await cal.events.patch({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId, resource: { colorId: calColorId('fully_paid', b.frequency) } }); } catch {} }
     await db.collection('customers').doc(b.email.toLowerCase()).update({ lastDate: b.cleanDate, updatedAt: new Date() }).catch(() => {});
     const receiptData = {
       booking_ref:         b.bookingRef,  package_name:   b.packageName,
@@ -586,6 +602,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
         res.status(400).json({ error: 'Payment was not completed successfully. Please retry.' }); return;
       }
       await snap.ref.update({ status: 'fully_paid', paidAt: new Date(), stripeRemainingIntentId: intent.id });
+      if (b.calendarEventId) { try { const cal = await getCalendarClient(); await cal.events.patch({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId, resource: { colorId: calColorId('fully_paid', b.frequency) } }); } catch {} }
       await db.collection('customers').doc(b.email.toLowerCase()).update({ lastDate: b.cleanDate, updatedAt: new Date() }).catch(() => {});
       const receiptData = {
         booking_ref:         b.bookingRef,  package_name:        b.packageName,
@@ -691,6 +708,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       paidAt: new Date(),
       stripeRemainingIntentId: intent.id,
     });
+    if (b.calendarEventId) { try { const cal = await getCalendarClient(); await cal.events.patch({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId, resource: { colorId: calColorId('fully_paid', b.frequency) } }); } catch {} }
     await db.collection('customers').doc(b.email.toLowerCase()).update({ lastDate: b.cleanDate, updatedAt: new Date() }).catch(() => {});
 
     const receiptData = {
@@ -997,6 +1015,13 @@ exports.markDepositPaid = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) 
     res.status(400).json({ error: 'Booking is not awaiting deposit.' }); return;
   }
   await snap.ref.update({ status: 'deposit_paid', depositPaidAt: new Date() });
+  // Update Google Calendar event colour to blue (deposit paid)
+  if (b.calendarEventId) {
+    try {
+      const cal = await getCalendarClient();
+      await cal.events.patch({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId, resource: { colorId: calColorId('deposit_paid', b.frequency) } });
+    } catch {}
+  }
   const eData = buildBookingEmailData(b);
   await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE,
     { ...eData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
@@ -1123,6 +1148,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
             `Total: £${current.total} | Deposit: £${current.deposit} | Remaining: £${current.remaining}`,
             `⚠️ Edited on ${new Date().toLocaleDateString('en-GB')}`,
           ].join('\n'),
+          colorId: calColorId(current.status, newFrequency || current.frequency),
         },
       });
     } catch (e) {
@@ -1592,7 +1618,7 @@ exports.createRecurringBookings = onSchedule(
               ].join('\n'),
               start: { dateTime: slotStart, timeZone: 'Europe/London' },
               end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
-              colorId: '6',
+              colorId: '3',
             },
           });
           await db.collection('bookings').doc(id).update({ calendarEventId: calEvent.data.id });
@@ -1747,7 +1773,7 @@ exports.triggerSchedulerNow = onRequest({ secrets: [EMAILJS_KEY] }, async (req, 
               description: [`Ref: ${ref}`, `Customer: ${c.firstName} ${c.lastName}`, `Email: ${email}`, `Total: £${total} | No deposit — charged on completion`, `⚙️ Manual trigger`].join('\n'),
               start: { dateTime: slotStart, timeZone: 'Europe/London' },
               end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
-              colorId: '6',
+              colorId: '3',
             },
           });
           await db.collection('bookings').doc(id).update({ calendarEventId: calEvent.data.id });
@@ -2050,7 +2076,7 @@ exports.stripeWebhook = onRequest(
           ].join('\n'),
           start: { dateTime: slotStart, timeZone: 'Europe/London' },
           end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
-          colorId: '2',
+          colorId: calColorId('deposit_paid', pd.frequency),
         },
       });
       await db.collection('bookings').doc(id).update({ calendarEventId: calEvent.data.id });

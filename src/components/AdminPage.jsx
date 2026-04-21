@@ -1084,6 +1084,10 @@ export default function AdminPage() {
             cancelled_noshow: '#94a3b8',
             completed:        '#16a34a',
           };
+          const getDot = (b) => {
+            if (b.frequency && b.frequency !== 'one-off') return '#7c3aed'; // purple for recurring
+            return DOT_COLOURS[b.status] || '#94a3b8';
+          };
 
           return (
             <div style={{ background: C.card, borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: isMobile ? 16 : 24 }}>
@@ -1141,7 +1145,7 @@ export default function AdminPage() {
 
                       {/* Booking chips */}
                       {dayBookings.slice(0, isMobile ? 1 : 3).map(b => {
-                        const dot = DOT_COLOURS[b.status] || C.muted;
+                        const dot = getDot(b);
                         const cancelled = b.status?.startsWith('cancelled');
                         return (
                           <div
@@ -1182,6 +1186,7 @@ export default function AdminPage() {
                   { label: 'Fully paid',      color: '#16a34a' },
                   { label: 'Failed payment',  color: '#dc2626' },
                   { label: 'Cancelled',       color: '#94a3b8' },
+                  { label: 'Recurring',        color: '#7c3aed' },
                 ].map(({ label, color }) => (
                   <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: FONT, fontSize: 11, color: C.muted }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
