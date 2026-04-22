@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db, auth, storage } from '../firebase/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { collection, query, orderBy, onSnapshot, limit, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -49,7 +49,7 @@ const fmtDuration = hrs => {
 const getTaxYears = () => {
   const now = new Date();
   const years = [];
-  for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) {
+  for (let y = now.getFullYear(); y >= 2025; y--) {
     const start = new Date(y, 3, 6); // Apr 6
     const end   = new Date(y + 1, 3, 5); // Apr 5 next year
     years.push({ label: `${y}/${String(y+1).slice(2)} tax year`, start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] });
@@ -162,7 +162,7 @@ export default function AdminPage() {
   const [user,        setUser]        = useState(null);
   const [bookings,       setBookings]       = useState([]);
   const [bookingsLoaded, setBookingsLoaded] = useState(false);
-  const [preset,      setPreset]      = useState('today');
+  const [preset,      setPreset]      = useState(() => localStorage.getItem('bkPreset') || 'today');
   const [dateFrom,    setDateFrom]    = useState(todayUK());
   const [dateTo,      setDateTo]      = useState(todayUK());
   const [email,       setEmail]       = useState('');
@@ -217,14 +217,14 @@ export default function AdminPage() {
     }
   };
 
-  const [statusFilter,  setStatusFilter]  = useState('all');
-  const [freqFilter,    setFreqFilter]    = useState('all');
+  const [statusFilter,  setStatusFilter]  = useState(() => localStorage.getItem('bkStatus') || 'all');
+  const [freqFilter,    setFreqFilter]    = useState(() => localStorage.getItem('bkFreq') || 'all');
   const [statTip,       setStatTip]       = useState(null);
   const [statsOpen,     setStatsOpen]     = useState(false);
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [activeView,       setActiveView]       = useState(() => localStorage.getItem('crmActiveView') || 'dashboard');
-  const [calViewYear,      setCalViewYear]      = useState(new Date().getFullYear());
-  const [calViewMonth,     setCalViewMonth]     = useState(new Date().getMonth());
+  const [calViewYear,      setCalViewYear]      = useState(() => { const s = localStorage.getItem('calYear');  return s ? parseInt(s) : new Date().getFullYear(); });
+  const [calViewMonth,     setCalViewMonth]     = useState(() => { const s = localStorage.getItem('calMonth'); return s ? parseInt(s) : new Date().getMonth(); });
   const [calBlockedDates,  setCalBlockedDates]  = useState([]);
   const [calSelectedId,    setCalSelectedId]    = useState(null);
   const [calActionBusy,    setCalActionBusy]    = useState(false);
@@ -240,8 +240,8 @@ export default function AdminPage() {
   const [staffView,        setStaffView]        = useState(null); // staff member to view full profile
   const [staffAssignPending,    setStaffAssignPending]    = useState(null);
   const [staffHolidayConflicts, setStaffHolidayConflicts] = useState(null);
-  const [myJobsCleaner,         setMyJobsCleaner]         = useState('');
-  const [myJobsWeekOffset,      setMyJobsWeekOffset]      = useState(0);
+  const [myJobsCleaner,         setMyJobsCleaner]         = useState(() => localStorage.getItem('mjCleaner') || '');
+  const [myJobsWeekOffset,      setMyJobsWeekOffset]      = useState(() => { const s = localStorage.getItem('mjWeekOffset'); return s ? parseInt(s) : 0; });
   const [expenses,              setExpenses]              = useState([]);
   const [expenseModal,          setExpenseModal]          = useState(null);
   const [expenseSaving,         setExpenseSaving]         = useState(false);
@@ -255,6 +255,7 @@ export default function AdminPage() {
   const [budgetDraft,           setBudgetDraft]           = useState({});
   const [budgetSaving,          setBudgetSaving]          = useState(false);
   const [pnlView,               setPnlView]               = useState('month'); // 'month' | 'taxYear'
+  const [reportsTaxYear,        setReportsTaxYear]        = useState(() => currentTaxYear().label);
   const [fixedCosts,            setFixedCosts]            = useState([]);
   const [fixedModal,            setFixedModal]            = useState(null);
   const [fixedSaving,           setFixedSaving]           = useState(false);
@@ -276,6 +277,45 @@ export default function AdminPage() {
   const [editClientErr,    setEditClientErr]    = useState('');
   const [searchQuery,   setSearchQuery]   = useState('');
   const [showNewBooking, setShowNewBooking] = useState(false);
+
+  // Reset sub-tab/filter state when navigating between main pages (not on refresh)
+  const _navMounted = useRef(false);
+  useEffect(() => {
+    if (!_navMounted.current) { _navMounted.current = true; return; }
+    const todayStr = todayUK();
+    const curMonth = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; })();
+    setPreset('today');
+    setDateFrom(todayStr);
+    setDateTo(todayStr);
+    setStatusFilter('all');
+    setFreqFilter('all');
+    setExpenseTab('variable');
+    localStorage.setItem('expenseTab', 'variable');
+    setExpenseMonthFilter(curMonth);
+    setExpenseCatFilter('all');
+    setExpenseSearch('');
+    setExpenseModal(null);
+    setPnlView('month');
+    setMyJobsWeekOffset(0);
+    setMyJobsCleaner('');
+    setCalViewYear(new Date().getFullYear());
+    setCalViewMonth(new Date().getMonth());
+    setStaffSearch('');
+    setCustomerSearch('');
+    setSelectedCustomer(null);
+    setExpanded(null);
+    setSearchQuery('');
+  }, [activeView]);
+
+  // Auto-persist sub-tab selections so browser refresh keeps the same state
+  useEffect(() => { localStorage.setItem('bkPreset', preset); }, [preset]);
+  useEffect(() => { localStorage.setItem('bkStatus', statusFilter); }, [statusFilter]);
+  useEffect(() => { localStorage.setItem('bkFreq', freqFilter); }, [freqFilter]);
+  useEffect(() => { localStorage.setItem('mjCleaner', myJobsCleaner); }, [myJobsCleaner]);
+  useEffect(() => { localStorage.setItem('mjWeekOffset', myJobsWeekOffset); }, [myJobsWeekOffset]);
+  useEffect(() => { localStorage.setItem('calYear', calViewYear); }, [calViewYear]);
+  useEffect(() => { localStorage.setItem('calMonth', calViewMonth); }, [calViewMonth]);
+
   const TIMES = (() => {
     const times = [];
     for (let h = 7; h <= 21; h++) {
@@ -843,10 +883,10 @@ export default function AdminPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: FONT }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: FONT, paddingTop: 54 }}>
 
       {/* Header */}
-      <div style={{ background: C.sidebar, padding: isMobile ? '12px 16px' : '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 54, background: C.sidebar, padding: isMobile ? '0 16px' : '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {isMobile && (
             <button onClick={() => setDrawerOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: C.accent, fontSize: 18, lineHeight: 1 }}>☰</button>
@@ -879,7 +919,7 @@ export default function AdminPage() {
               <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', color: C.sidebarMuted, fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>✕</button>
             </div>
             {NAV_ITEMS.map(v => (
-              <button key={v.id} onClick={() => { setActiveView(v.id); localStorage.setItem('crmActiveView', v.id); setDrawerOpen(false); }} style={{
+              <button key={v.id} onClick={() => { setActiveView(v.id); localStorage.setItem('crmActiveView', v.id); setDrawerOpen(false); window.scrollTo(0, 0); }} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                 padding: '11px 20px', border: 'none', cursor: 'pointer',
                 background: activeView === v.id ? C.sidebarActive : 'transparent',
@@ -912,17 +952,15 @@ export default function AdminPage() {
         </>
       )}
 
-      <div style={{ display: isMobile ? 'block' : 'grid', gridTemplateColumns: isMobile ? undefined : '240px 1fr', minHeight: 'calc(100vh - 54px)', alignItems: 'start' }}>
-
-        {/* Nav + Stats sidebar */}
-        {!isMobile && (
-          <div style={{ position: 'sticky', top: 0, background: C.sidebar, minHeight: 'calc(100vh - 54px)', padding: '24px 0', display: 'flex', flexDirection: 'column' }}>
+      {/* Fixed sidebar */}
+      {!isMobile && (
+        <div style={{ position: 'fixed', top: 54, left: 0, width: 240, height: 'calc(100vh - 54px)', overflowY: 'auto', background: C.sidebar, zIndex: 50, padding: '24px 0', display: 'flex', flexDirection: 'column' }}>
 
             {/* Nav links */}
             <div style={{ marginBottom: 8, paddingBottom: 16, borderBottom: `1px solid ${C.sidebarBorder}` }}>
               <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: C.accent, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0 20px', marginBottom: 8 }}>Navigation</div>
               {NAV_ITEMS.map(v => (
-                <button key={v.id} onClick={() => { setActiveView(v.id); localStorage.setItem('crmActiveView', v.id); }} style={{
+                <button key={v.id} onClick={() => { setActiveView(v.id); localStorage.setItem('crmActiveView', v.id); window.scrollTo(0, 0); }} style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 20px', border: 'none', cursor: 'pointer',
                   background: activeView === v.id ? C.sidebarActive : 'transparent',
@@ -1002,10 +1040,11 @@ export default function AdminPage() {
               </>
             )}
 
-          </div>
-        )}
+        </div>
+      )}
 
-        <div style={{ padding: isMobile ? '16px 12px' : '28px 28px', minHeight: 'calc(100vh - 54px)' }}>
+      <div style={{ marginLeft: isMobile ? 0 : 240, minHeight: 'calc(100vh - 54px)' }}>
+        <div style={{ padding: isMobile ? '16px 12px' : '28px 28px' }}>
 
         {/* Customers view */}
         {activeView === 'customers' && (() => {
@@ -3043,14 +3082,425 @@ export default function AdminPage() {
           );
         })()}
 
-        {/* Reports placeholder */}
-        {activeView === 'reports' && (
-          <div style={{ background: C.card, borderRadius: 8, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-            <div style={{ fontFamily: FONT, fontSize: 28, marginBottom: 8 }}>📈</div>
-            <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 600, color: C.text, marginBottom: 8 }}>Reports</div>
-            <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>Coming soon — revenue vs expenses, profit charts, busiest days and performance analytics.</div>
-          </div>
-        )}
+        {/* Reports */}
+        {activeView === 'reports' && (() => {
+          const now        = new Date();
+          const allTaxYears = getTaxYears();
+          const taxYear    = allTaxYears.find(ty => ty.label.replace(' tax year','') === reportsTaxYear) || currentTaxYear();
+          const tyStart    = taxYear.start;
+          const tyEnd      = taxYear.end;
+
+          const fixedMonthly = fixedCosts.reduce((s, f) => {
+            if (!f.active) return s;
+            const amt = parseFloat(f.amount) || 0;
+            return s + (f.frequency === 'yearly' ? amt / 12 : amt);
+          }, 0);
+
+          // Bookings helpers
+          const activeBookings = bookings.filter(b => b.status !== 'cancelled');
+          const tyBookings     = activeBookings.filter(b => b.cleanDate >= tyStart && b.cleanDate <= tyEnd);
+
+          // Labour helper
+          const bookingLabour = b => {
+            const hrs = calcHours(b.actualStart, b.actualFinish);
+            if (!hrs) return 0;
+            const member = staff.find(m => m.name === b.assignedStaff);
+            const rate = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : 0;
+            return hrs * rate;
+          };
+
+          // ── 12 months of selected tax year (Apr–Mar) ──
+          const tyStartYear = parseInt(taxYear.label.replace(' tax year','').split('/')[0]);
+          const last12 = Array.from({ length: 12 }, (_, i) => {
+            const d     = new Date(tyStartYear, 3 + i, 1); // Apr=3
+            const key   = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            const mStart = i === 0  ? tyStart : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-06`;
+            const nextD  = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+            const mEnd   = i === 11 ? tyEnd   : `${nextD.getFullYear()}-${String(nextD.getMonth()+1).padStart(2,'0')}-05`;
+            const label  = d.toLocaleString('en-GB', { month: 'short' });
+            const bkgs   = activeBookings.filter(b => b.cleanDate >= mStart && b.cleanDate <= mEnd);
+            const rev    = bkgs.reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+            const lab    = bkgs.reduce((s, b) => s + bookingLabour(b), 0);
+            const exp    = expenses.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+            const costs  = lab + exp + fixedMonthly;
+            const isFuture = d > now;
+            return { key, label, rev, costs, profit: rev - costs, jobs: bkgs.length, isFuture };
+          });
+          const maxRev = Math.max(...last12.map(m => Math.max(m.rev, m.costs)), 1);
+
+          // ── Tax year KPIs ──
+          const tyRev     = tyBookings.reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+          const tyLabour  = tyBookings.reduce((s, b) => s + bookingLabour(b), 0);
+          const tyExp     = expenses.filter(e => e.date >= tyStart && e.date <= tyEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+          const tyFixed   = fixedMonthly * 12;
+          const tyProfit  = tyRev - tyLabour - tyExp - tyFixed;
+          const tyMargin  = tyRev > 0 ? (tyProfit / tyRev) * 100 : 0;
+          const avgJobVal = tyBookings.length > 0 ? tyRev / tyBookings.length : 0;
+
+          // ── Top customers ──
+          const customerMap = {};
+          tyBookings.forEach(b => {
+            const key = b.email || `${b.firstName} ${b.lastName}`;
+            if (!customerMap[key]) customerMap[key] = { name: `${b.firstName||''} ${b.lastName||''}`.trim(), email: b.email||'', spend: 0, jobs: 0 };
+            customerMap[key].spend += parseFloat(b.total)||0;
+            customerMap[key].jobs  += 1;
+          });
+          const topCustomers = Object.values(customerMap).sort((a, b) => b.spend - a.spend).slice(0, 5);
+
+          // ── Busiest days ──
+          const dayCounts = [0,1,2,3,4,5,6].map(d => ({
+            label: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d],
+            count: tyBookings.filter(b => b.cleanDate && new Date(b.cleanDate).getDay() === d).length,
+          }));
+          const maxDay = Math.max(...dayCounts.map(d => d.count), 1);
+
+          // ── Package breakdown ──
+          const pkgMap = {};
+          tyBookings.forEach(b => {
+            const p = b.packageName || PACKAGES.find(pkg => pkg.id === b.package)?.name || b.package || 'Unknown';
+            if (!pkgMap[p]) pkgMap[p] = { count: 0, rev: 0 };
+            pkgMap[p].count += 1;
+            pkgMap[p].rev   += parseFloat(b.total)||0;
+          });
+          const pkgBreakdown = Object.entries(pkgMap).sort((a, b) => b[1].rev - a[1].rev);
+
+          // ── Cancellation rate ──
+          const totalBkgs     = bookings.filter(b => b.cleanDate >= tyStart && b.cleanDate <= tyEnd).length;
+          const cancelledBkgs = bookings.filter(b => b.cleanDate >= tyStart && b.cleanDate <= tyEnd && b.status === 'cancelled').length;
+          const cancelRate    = totalBkgs > 0 ? (cancelledBkgs / totalBkgs) * 100 : 0;
+
+          // ── Staff performance ──
+          const staffPerf = staff.filter(s => s.status === 'Active').map(s => {
+            const sJobs  = tyBookings.filter(b => b.assignedStaff === s.name);
+            const sHours = sJobs.reduce((t, b) => { const h = calcHours(b.actualStart, b.actualFinish); return t + (h||0); }, 0);
+            const sCost  = sJobs.reduce((t, b) => t + bookingLabour(b), 0);
+            const sRev   = sJobs.reduce((t, b) => t + (parseFloat(b.total)||0), 0);
+            return { name: s.name, jobs: sJobs.length, hours: sHours, cost: sCost, rev: sRev };
+          }).filter(s => s.jobs > 0).sort((a, b) => b.jobs - a.jobs);
+
+          // ── Month-on-month growth — tax year months vs same months prior year ──
+          const momData = last12.filter(m => !m.isFuture).map(m => {
+            const d       = new Date(m.key + '-01');
+            const prevKey = `${d.getFullYear()-1}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            const prevRev = activeBookings.filter(b => b.cleanDate?.startsWith(prevKey)).reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+            const growth  = prevRev > 0 ? ((m.rev - prevRev) / prevRev) * 100 : null;
+            return { label: m.label, rev: m.rev, prevRev, growth };
+          });
+
+          // ── Reimbursable expenses ──
+          const reimbursable = expenses.filter(e => e.date >= tyStart && e.date <= tyEnd && e.paidBy && e.paidBy !== 'Company Card' && !e.repaid);
+          const reimbursableTotal = reimbursable.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+
+          // ── Supplies cost by tax year month ──
+          const suppliesTrend = last12.map(m => {
+            const amt = expenses.filter(e => {
+              const mStart = m.key + '-01';
+              const nextD  = new Date(m.key + '-01'); nextD.setMonth(nextD.getMonth() + 1);
+              const mEnd   = `${nextD.getFullYear()}-${String(nextD.getMonth()+1).padStart(2,'0')}-01`;
+              return e.date >= mStart && e.date < mEnd && e.category === 'Supplies';
+            }).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+            return { label: m.label, amt, isFuture: m.isFuture };
+          });
+          const maxSupply = Math.max(...suppliesTrend.map(m => m.amt), 1);
+
+          // ── Frequency breakdown ──
+          const freqMap = {};
+          tyBookings.forEach(b => {
+            const f = b.frequency || 'One-off';
+            if (!freqMap[f]) freqMap[f] = { count: 0, rev: 0 };
+            freqMap[f].count += 1;
+            freqMap[f].rev   += parseFloat(b.total)||0;
+          });
+          const freqBreakdown = Object.entries(freqMap).sort((a, b) => b[1].count - a[1].count);
+
+          // ── Revenue by postcode (top 8) ──
+          const postcodeMap = {};
+          tyBookings.forEach(b => {
+            const pc = (b.postcode || '').trim().toUpperCase().split(' ')[0] || 'Unknown';
+            if (!postcodeMap[pc]) postcodeMap[pc] = { count: 0, rev: 0 };
+            postcodeMap[pc].count += 1;
+            postcodeMap[pc].rev   += parseFloat(b.total)||0;
+          });
+          const topPostcodes = Object.entries(postcodeMap).sort((a, b) => b[1].rev - a[1].rev).slice(0, 8);
+          const maxPcRev = Math.max(...topPostcodes.map(([, v]) => v.rev), 1);
+
+          // ── Profit per job (top 8 most profitable) ──
+          const jobProfits = tyBookings.map(b => {
+            const rev    = parseFloat(b.total)||0;
+            const labour = bookingLabour(b);
+            const profit = rev - labour;
+            return { ref: b.bookingRef||'—', name: `${b.firstName||''} ${b.lastName||''}`.trim(), date: b.cleanDate, rev, labour, profit };
+          }).sort((a, b) => b.profit - a.profit).slice(0, 8);
+
+          const RCARD  = { background: C.card, borderRadius: 10, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' };
+          const RLABEL = { fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 };
+          const BIZ    = '#1e40af';
+
+          return (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ fontFamily: FONT, fontSize: isMobile ? 20 : 24, fontWeight: 700, color: C.text }}>Reports</div>
+                <select value={reportsTaxYear} onChange={e => setReportsTaxYear(e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 'auto', fontSize: 13, fontWeight: 600 }}>
+                  {allTaxYears.map(ty => {
+                    const label = ty.label.replace(' tax year','');
+                    return <option key={label} value={label}>{label} tax year</option>;
+                  })}
+                </select>
+              </div>
+
+              {/* KPI row */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5,1fr)', gap: 12, marginBottom: 20 }}>
+                {[
+                  { label: 'Revenue',      value: `£${tyRev.toFixed(0)}`,        sub: `${tyBookings.length} jobs`,              color: '#16a34a' },
+                  { label: 'Net Profit',   value: `£${tyProfit.toFixed(0)}`,      sub: `${tyMargin.toFixed(1)}% margin`,         color: tyProfit >= 0 ? '#16a34a' : '#dc2626' },
+                  { label: 'Avg Job Value',value: `£${avgJobVal.toFixed(0)}`,     sub: 'per booking',                            color: BIZ },
+                  { label: 'Cancel Rate',  value: `${cancelRate.toFixed(1)}%`,    sub: `${cancelledBkgs} of ${totalBkgs} jobs`, color: cancelRate > 10 ? '#dc2626' : '#f97316' },
+                  { label: 'Fixed Costs',  value: `£${fixedMonthly.toFixed(0)}/mo`, sub: `£${tyFixed.toFixed(0)}/yr`,           color: '#f97316' },
+                ].map(({ label, value, sub, color }) => (
+                  <div key={label} style={{ ...RCARD, borderTop: `3px solid ${color}` }}>
+                    <div style={RLABEL}>{label}</div>
+                    <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color }}>{value}</div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Revenue vs costs chart */}
+              <div style={{ ...RCARD, marginBottom: 16 }}>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 14 }}>Revenue vs Total Costs — Tax Year {reportsTaxYear} (month by month)</div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? 2 : 6, height: 100, marginBottom: 4 }}>
+                  {last12.map(m => (
+                    <div key={m.key} style={{ flex: 1, display: 'flex', gap: 2, alignItems: 'flex-end', justifyContent: 'center', opacity: m.isFuture ? 0.2 : 1 }}>
+                      <div style={{ flex: 1, background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxRev)*90}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(0)}`} />
+                      <div style={{ flex: 1, background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.costs/maxRev)*90}px`, minHeight: m.costs > 0 ? 2 : 0, opacity: 0.7 }} title={`Costs £${m.costs.toFixed(0)}`} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: isMobile ? 2 : 6, marginBottom: 8 }}>
+                  {last12.map((m, i) => (
+                    <div key={m.key} style={{ flex: 1, textAlign: 'center', fontFamily: FONT, fontSize: 9, color: C.muted, opacity: m.isFuture ? 0.4 : 1 }}>{i === 0 ? '6 Apr' : i === 11 ? '5 Apr' : m.label}</div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, background: '#16a34a', borderRadius: 2 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Revenue</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, background: '#dc2626', borderRadius: 2, opacity: 0.7 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Total costs</span></div>
+                </div>
+              </div>
+
+              {/* Staff performance */}
+              {staffPerf.length > 0 && (
+                <div style={{ ...RCARD, marginBottom: 16 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 14 }}>Staff Performance — {reportsTaxYear}</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT, fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ borderBottom: `2px solid ${C.border}` }}>
+                          {['Cleaner','Jobs','Hours Worked','Subcontractor Cost','Revenue Generated','Cost %'].map(h => (
+                            <th key={h} style={{ textAlign: 'left', padding: '6px 10px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {staffPerf.map((s, i) => (
+                          <tr key={s.name} style={{ borderBottom: i < staffPerf.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                            <td style={{ padding: '10px 10px', fontWeight: 600, color: C.text }}>{s.name}</td>
+                            <td style={{ padding: '10px 10px', color: C.text }}>{s.jobs}</td>
+                            <td style={{ padding: '10px 10px', color: C.text }}>{fmtDuration(s.hours) || '—'}</td>
+                            <td style={{ padding: '10px 10px', color: '#7c3aed', fontWeight: 600 }}>£{s.cost.toFixed(2)}</td>
+                            <td style={{ padding: '10px 10px', color: '#16a34a', fontWeight: 600 }}>£{s.rev.toFixed(2)}</td>
+                            <td title={s.rev > 0 ? (s.cost/s.rev)*100 > 40 ? `⚠ Cost is ${((s.cost/s.rev)*100).toFixed(1)}% of revenue — above the 40% target. Review this cleaner's rate or job mix.` : `Cost is ${((s.cost/s.rev)*100).toFixed(1)}% of revenue — within the 40% target.` : ''} style={{ padding: '10px 10px', color: s.rev > 0 && (s.cost/s.rev)*100 > 40 ? '#dc2626' : C.muted, fontWeight: 600, cursor: s.rev > 0 ? 'default' : 'auto' }}>{s.rev > 0 ? `${((s.cost/s.rev)*100).toFixed(1)}%` : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 10 }}>Cost % = subcontractor pay ÷ revenue. <span style={{ color: '#dc2626', fontWeight: 600 }}>Red = over 40%</span> — target is to keep below 40% per cleaner. Hover for details.</div>
+                </div>
+              )}
+
+              {/* Month-on-month + reimbursables row */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+
+                {/* Month-on-month growth */}
+                <div style={RCARD}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Month-on-Month Revenue Growth</div>
+                  {momData.length === 0
+                    ? <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No data yet for this tax year.</div>
+                    : momData.map((m, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 8, marginBottom: 8, borderBottom: i < momData.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                      <span style={{ fontFamily: FONT, fontSize: 12, color: C.text, minWidth: 36 }}>{m.label}</span>
+                      <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>£{m.rev.toFixed(0)}</span>
+                      {m.growth !== null
+                        ? <span title={m.growth >= 0 ? `Up ${m.growth.toFixed(1)}% vs same month last year` : `Down ${Math.abs(m.growth).toFixed(1)}% vs same month last year`} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: m.growth >= 0 ? '#16a34a' : '#dc2626', minWidth: 60, textAlign: 'right', cursor: 'default' }}>{m.growth >= 0 ? '▲' : '▼'} {Math.abs(m.growth).toFixed(1)}%</span>
+                        : <span title="No revenue in the same month last year to compare against" style={{ fontFamily: FONT, fontSize: 11, color: C.muted, minWidth: 60, textAlign: 'right', cursor: 'default' }}>No prior data</span>
+                      }
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', gap: 12, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                    <span style={{ fontFamily: FONT, fontSize: 10, color: '#16a34a', fontWeight: 600 }}>▲ Green = up vs same month last year</span>
+                    <span style={{ fontFamily: FONT, fontSize: 10, color: '#dc2626', fontWeight: 600 }}>▼ Red = down vs same month last year</span>
+                  </div>
+                </div>
+
+                {/* Reimbursable expenses */}
+                <div style={RCARD}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Outstanding Reimbursements — {reportsTaxYear}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: reimbursableTotal > 0 ? '#dc2626' : '#16a34a', marginBottom: 4 }}>£{reimbursableTotal.toFixed(2)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 12 }}>{reimbursable.length} unpaid expense{reimbursable.length !== 1 ? 's' : ''} — money owed back to staff</div>
+                  {reimbursable.length === 0
+                    ? <div style={{ fontFamily: FONT, fontSize: 13, color: '#16a34a' }}>All expenses reimbursed ✓</div>
+                    : reimbursable.slice(0, 5).map((e, i, arr) => (
+                      <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, marginBottom: 8, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                        <div>
+                          <div style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{e.description||'—'}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{e.paidBy} · {fmtDate(e.date)}</div>
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>£{parseFloat(e.amount).toFixed(2)}</div>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+
+              {/* Supplies trend + frequency row */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+
+                {/* Supplies cost trend */}
+                <div style={RCARD}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Supplies Spend — Tax Year {reportsTaxYear}</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 65, marginBottom: 4 }}>
+                    {suppliesTrend.map(m => (
+                      <div key={m.label} style={{ flex: 1, background: '#7c3aed', borderRadius: '3px 3px 0 0', height: `${(m.amt/maxSupply)*60}px`, minHeight: m.amt > 0 ? 2 : 0, opacity: m.isFuture ? 0.15 : 0.75 }} title={`£${m.amt.toFixed(0)}`} />
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {suppliesTrend.map((m, i) => (
+                      <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, opacity: m.isFuture ? 0.35 : 1 }}>
+                        <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{i === 0 ? '6 Apr' : i === 11 ? '5 Apr' : m.label}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: C.text }}>{m.amt > 0 ? `£${m.amt.toFixed(0)}` : '—'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Frequency breakdown */}
+                <div style={RCARD}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Jobs by Frequency — {reportsTaxYear}</div>
+                  {freqBreakdown.length === 0
+                    ? <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No bookings yet.</div>
+                    : freqBreakdown.map(([freq, { count, rev }], i, arr) => (
+                      <div key={freq} style={{ paddingBottom: 10, marginBottom: 10, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{freq}</span>
+                          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#16a34a' }}>£{rev.toFixed(0)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{count} job{count !== 1 ? 's' : ''} · avg £{(rev/count).toFixed(0)}</span>
+                          <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{tyBookings.length > 0 ? `${((count/tyBookings.length)*100).toFixed(0)}% of jobs` : ''}</span>
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+
+              {/* Postcode revenue + profit per job */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+
+                {/* Revenue by postcode */}
+                <div style={RCARD}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Revenue by Area — {reportsTaxYear}</div>
+                  {topPostcodes.length === 0
+                    ? <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No bookings yet.</div>
+                    : topPostcodes.map(([pc, { count, rev }]) => (
+                      <div key={pc} style={{ marginBottom: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text }}>{pc}</span>
+                          <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>£{rev.toFixed(0)} · {count} job{count!==1?'s':''}</span>
+                        </div>
+                        <div style={{ height: 5, background: C.bg, borderRadius: 99 }}>
+                          <div style={{ height: '100%', width: `${(rev/maxPcRev)*100}%`, background: BIZ, borderRadius: 99 }} />
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+
+                {/* Profit per job */}
+                <div style={RCARD}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Most Profitable Jobs — {reportsTaxYear}</div>
+                  {jobProfits.length === 0
+                    ? <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No bookings yet.</div>
+                    : jobProfits.map((j, i, arr) => (
+                      <div key={j.ref} style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 8, marginBottom: 8, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text }}>{j.name||j.ref}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{fmtDate(j.date)} · Revenue £{j.rev.toFixed(0)} · Labour £{j.labour.toFixed(0)}</div>
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: j.profit >= 0 ? '#16a34a' : '#dc2626' }}>£{j.profit.toFixed(0)}</div>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+
+              {/* Bottom grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 16 }}>
+
+                {/* Top customers */}
+                <div style={RCARD}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Top Customers — {reportsTaxYear}</div>
+                  {topCustomers.length === 0
+                    ? <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No bookings yet.</div>
+                    : topCustomers.map((c, i) => (
+                      <div key={c.email||c.name} style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 10, marginBottom: 10, borderBottom: i < topCustomers.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: BIZ, minWidth: 18 }}>#{i+1}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{c.name||'—'}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{c.jobs} job{c.jobs !== 1 ? 's' : ''}</div>
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: '#16a34a' }}>£{c.spend.toFixed(0)}</div>
+                      </div>
+                    ))
+                  }
+                </div>
+
+                {/* Busiest days */}
+                <div style={RCARD}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Busiest Days — {reportsTaxYear}</div>
+                  {dayCounts.map(d => (
+                    <div key={d.label} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{d.label}</span>
+                        <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: C.text }}>{d.count}</span>
+                      </div>
+                      <div style={{ height: 5, background: C.bg, borderRadius: 99 }}>
+                        <div style={{ height: '100%', width: `${(d.count/maxDay)*100}%`, background: BIZ, borderRadius: 99 }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Package breakdown */}
+                <div style={RCARD}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Package Breakdown — {reportsTaxYear}</div>
+                  {pkgBreakdown.length === 0
+                    ? <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No bookings yet.</div>
+                    : pkgBreakdown.map(([pkg, { count, rev }], i, arr) => (
+                      <div key={pkg} style={{ paddingBottom: 10, marginBottom: 10, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 2 }}>
+                          <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, flex: 1, minWidth: 0 }}>{pkg}</span>
+                          <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#16a34a', flexShrink: 0 }}>£{rev.toFixed(0)}</span>
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{count} job{count !== 1 ? 's' : ''} · avg £{(rev/count).toFixed(0)}</div>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {activeView === 'bookings' && <div>
 
