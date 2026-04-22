@@ -22,6 +22,30 @@ function DoNotContactToggle({ value, onChange }) {
 
 const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 
+// Convert any time format ("9:00 AM" or "09:00") → "HH:MM" for <input type="time">
+const toInputTime = t => {
+  if (!t) return '';
+  const m = t.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  if (!m) return '';
+  let h = parseInt(m[1]), min = parseInt(m[2]);
+  const p = (m[3] || '').toUpperCase();
+  if (p === 'PM' && h !== 12) h += 12;
+  if (p === 'AM' && h === 12) h = 0;
+  return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+};
+// Convert "HH:MM" or "H:MM AM/PM" → display string "9:00 AM"
+const toDisplayTime = t => {
+  if (!t) return '—';
+  const m = t.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  if (!m) return t;
+  let h = parseInt(m[1]), min = parseInt(m[2]);
+  const p = (m[3] || '').toUpperCase();
+  if (p === 'PM' && h !== 12) h += 12;
+  if (p === 'AM' && h === 12) h = 0;
+  const period = h < 12 ? 'AM' : 'PM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${String(min).padStart(2,'0')} ${period}`;
+};
 // Parse "9:00 AM" or "09:00" → total minutes
 const toMins = t => {
   if (!t) return null;
@@ -2058,15 +2082,15 @@ export default function AdminPage() {
                               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                                 <div>
                                   <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Booked</div>
-                                  <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: 500 }}>{b.cleanTime}</div>
+                                  <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: 500 }}>{toDisplayTime(b.cleanTime)}</div>
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Actual Start</div>
-                                  <input type="time" value={b.actualStart || ''} onChange={e => saveTime('actualStart', e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 110, fontSize: 12 }} />
+                                  <input type="time" value={toInputTime(b.actualStart)} onChange={e => saveTime('actualStart', e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 110, fontSize: 12 }} />
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Actual Finish</div>
-                                  <input type="time" value={b.actualFinish || ''} onChange={e => saveTime('actualFinish', e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 110, fontSize: 12 }} />
+                                  <input type="time" value={toInputTime(b.actualFinish)} onChange={e => saveTime('actualFinish', e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 110, fontSize: 12 }} />
                                 </div>
                               </div>
                             </div>
@@ -3028,7 +3052,7 @@ export default function AdminPage() {
                 {[
                   {
                     alert: '"Failed to save time — check your connection and try again."',
-                    where: 'My Jobs tab → Actual Start / Actual Finish time inputs',
+                    where: 'My Jobs tab → Actual Start / Actual Finish time inputs · Bookings tab → Hours Worked section',
                     cause: 'The time was entered but the save to the database failed due to a connection drop or server error. The input will revert to what it was before.',
                     fix: 'Check you are online, then re-enter the time. If it keeps failing, note the time on paper and try again once your connection is stable.',
                   },
@@ -3267,7 +3291,8 @@ export default function AdminPage() {
 
               {/* Revenue vs costs chart */}
               <div style={{ ...RCARD, marginBottom: 16 }}>
-                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 14 }}>Revenue vs Total Costs — Tax Year {reportsTaxYear} (month by month)</div>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 2 }}>Revenue vs Total Costs — Tax Year {reportsTaxYear} (month by month)</div>
+                <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 12 }}>6 Apr {tyStartYear} – 5 Apr {tyStartYear + 1} · Apr = 6 Apr–5 May, Mar = 6 Mar–5 Apr</div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? 2 : 6, height: 100, marginBottom: 4 }}>
                   {last12.map(m => (
                     <div key={m.key} style={{ flex: 1, display: 'flex', gap: 2, alignItems: 'flex-end', justifyContent: 'center', opacity: m.isFuture ? 0.2 : 1 }}>
@@ -3278,7 +3303,7 @@ export default function AdminPage() {
                 </div>
                 <div style={{ display: 'flex', gap: isMobile ? 2 : 6, marginBottom: 8 }}>
                   {last12.map((m, i) => (
-                    <div key={m.key} style={{ flex: 1, textAlign: 'center', fontFamily: FONT, fontSize: 9, color: C.muted, opacity: m.isFuture ? 0.4 : 1 }}>{i === 0 ? '6 Apr' : i === 11 ? '5 Apr' : m.label}</div>
+                    <div key={m.key} style={{ flex: 1, textAlign: 'center', fontFamily: FONT, fontSize: 9, color: C.muted, opacity: m.isFuture ? 0.4 : 1 }}>{m.label}</div>
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
@@ -3376,7 +3401,7 @@ export default function AdminPage() {
                   <div style={{ display: 'flex', gap: 8 }}>
                     {suppliesTrend.map((m, i) => (
                       <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, opacity: m.isFuture ? 0.35 : 1 }}>
-                        <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{i === 0 ? '6 Apr' : i === 11 ? '5 Apr' : m.label}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{m.label}</div>
                         <div style={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: C.text }}>{m.amt > 0 ? `£${m.amt.toFixed(0)}` : '—'}</div>
                       </div>
                     ))}
@@ -3875,12 +3900,16 @@ export default function AdminPage() {
                       const rate = assignedMember && assignedMember.hourlyRate !== 'N/A' ? parseFloat(assignedMember.hourlyRate) : null;
                       const hrs  = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
                       const earned = rate !== null && hrs !== null ? (hrs * rate).toFixed(2) : null;
-                      const saveTime = (field, val) => {
-                        setBookings(prev => prev.map(x => x.id === b.id ? { ...x, [field]: val } : x));
-                        fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ bookingId: b.id, [field]: val }),
-                        }).catch(() => {});
+                      const saveTime = async (field, val) => {
+                        const prev = b[field];
+                        setBookings(all => all.map(x => x.id === b.id ? { ...x, [field]: val } : x));
+                        try {
+                          const res = await fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: b.id, [field]: val }) });
+                          if (!res.ok) throw new Error('Server error');
+                        } catch {
+                          setBookings(all => all.map(x => x.id === b.id ? { ...x, [field]: prev } : x));
+                          alert('Failed to save time — check your connection and try again.');
+                        }
                       };
                       return (
                         <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginBottom: 14, border: `1px solid ${C.border}` }}>
@@ -3888,12 +3917,12 @@ export default function AdminPage() {
                           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                             <div>
                               <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 3 }}>Actual Start</div>
-                              <input type="time" value={b.actualStart || ''} onChange={e => saveTime('actualStart', e.target.value)}
+                              <input type="time" value={toInputTime(b.actualStart)} onChange={e => saveTime('actualStart', e.target.value)}
                                 style={{ ...INPUT, marginBottom: 0, width: 120, fontSize: 13 }} />
                             </div>
                             <div>
                               <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 3 }}>Actual Finish</div>
-                              <input type="time" value={b.actualFinish || ''} onChange={e => saveTime('actualFinish', e.target.value)}
+                              <input type="time" value={toInputTime(b.actualFinish)} onChange={e => saveTime('actualFinish', e.target.value)}
                                 style={{ ...INPUT, marginBottom: 0, width: 120, fontSize: 13 }} />
                             </div>
                             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
