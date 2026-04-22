@@ -21,6 +21,57 @@ function DoNotContactToggle({ value, onChange }) {
 }
 
 const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
+
+// Parse "9:00 AM" or "09:00" → total minutes
+const toMins = t => {
+  if (!t) return null;
+  const ampm = t.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  if (!ampm) return null;
+  let h = parseInt(ampm[1]), m = parseInt(ampm[2]);
+  const period = (ampm[3] || '').toUpperCase();
+  if (period === 'PM' && h !== 12) h += 12;
+  if (period === 'AM' && h === 12) h = 0;
+  return h * 60 + m;
+};
+const calcHours = (start, finish) => {
+  const s = toMins(start), f = toMins(finish);
+  if (s === null || f === null || f <= s) return null;
+  return (f - s) / 60;
+};
+const fmtDuration = hrs => {
+  if (hrs === null) return null;
+  const h = Math.floor(hrs), m = Math.round((hrs - h) * 60);
+  if (h === 0) return `${m}min`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}min`;
+};
+// UK tax year: 6 Apr – 5 Apr
+const getTaxYears = () => {
+  const now = new Date();
+  const years = [];
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) {
+    const start = new Date(y, 3, 6); // Apr 6
+    const end   = new Date(y + 1, 3, 5); // Apr 5 next year
+    years.push({ label: `${y}/${String(y+1).slice(2)} tax year`, start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] });
+  }
+  return years;
+};
+const currentTaxYear = () => {
+  const now = new Date();
+  const y = now >= new Date(now.getFullYear(), 3, 6) ? now.getFullYear() : now.getFullYear() - 1;
+  return { start: `${y}-04-06`, end: `${y+1}-04-05`, label: `${y}/${String(y+1).slice(2)}` };
+};
+
+// Pay period: Sun–Sat, paid following Friday
+const getPayPeriod = (date = new Date()) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const sun = new Date(d); sun.setDate(d.getDate() - day);
+  const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
+  const fri = new Date(sat); fri.setDate(sat.getDate() + 6);
+  const fmt = x => x.toISOString().split('T')[0];
+  return { start: fmt(sun), end: fmt(sat), payDay: fmt(fri) };
+};
 const fmtCreatedAt = ts => {
   if (!ts) return '—';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -66,6 +117,8 @@ const NAV_ITEMS = [
   { id: 'staff',     label: 'Staff',     icon: '👤' },
   { id: 'myJobs',    label: 'My Jobs',   icon: '📝' },
   { id: 'expenses',  label: 'Expenses',  icon: '🧾' },
+  { id: 'supplies',  label: 'Supplies',  icon: '🧴' },
+  { id: 'sop',       label: 'SOP',       icon: '📖' },
   { id: 'reports',   label: 'Reports',   icon: '📈' },
 ];
 
@@ -185,8 +238,32 @@ export default function AdminPage() {
   const [staffDragIdx,     setStaffDragIdx]     = useState(null);
   const [staffOrdered,     setStaffOrdered]     = useState([]);
   const [staffView,        setStaffView]        = useState(null); // staff member to view full profile
-  const [staffAssignPending,   setStaffAssignPending]   = useState(null); // { booking, staffName }
-  const [staffHolidayConflicts, setStaffHolidayConflicts] = useState(null); // { staffName, conflicts: [booking] }
+  const [staffAssignPending,    setStaffAssignPending]    = useState(null);
+  const [staffHolidayConflicts, setStaffHolidayConflicts] = useState(null);
+  const [myJobsCleaner,         setMyJobsCleaner]         = useState('');
+  const [myJobsWeekOffset,      setMyJobsWeekOffset]      = useState(0);
+  const [expenses,              setExpenses]              = useState([]);
+  const [expenseModal,          setExpenseModal]          = useState(null);
+  const [expenseSaving,         setExpenseSaving]         = useState(false);
+  const [expenseErr,            setExpenseErr]            = useState('');
+  const [expenseCatFilter,      setExpenseCatFilter]      = useState('all');
+  const [expenseMonthFilter,    setExpenseMonthFilter]    = useState(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; });
+  const [expenseSearch,         setExpenseSearch]         = useState('');
+  const [expenseTab,            setExpenseTab]            = useState(() => localStorage.getItem('expenseTab') || 'variable');
+  const [budgets,               setBudgets]               = useState({});
+  const [budgetEdit,            setBudgetEdit]            = useState(false);
+  const [budgetDraft,           setBudgetDraft]           = useState({});
+  const [budgetSaving,          setBudgetSaving]          = useState(false);
+  const [pnlView,               setPnlView]               = useState('month'); // 'month' | 'taxYear'
+  const [fixedCosts,            setFixedCosts]            = useState([]);
+  const [fixedModal,            setFixedModal]            = useState(null);
+  const [fixedSaving,           setFixedSaving]           = useState(false);
+  const [fixedErr,              setFixedErr]              = useState('');
+  const [supplies,              setSupplies]              = useState([]);
+  const [suppliesModal,         setSuppliesModal]         = useState(null);
+  const [suppliesSaving,        setSuppliesSaving]        = useState(false);
+  const [suppliesErr,           setSuppliesErr]           = useState('');
+  const [suppliesSearch,        setSuppliesSearch]        = useState('');
   const [blockModal,       setBlockModal]       = useState(null); // { date, isBlocked }
   const [blockReason,      setBlockReason]      = useState('');
   const [blockSaving,      setBlockSaving]      = useState(false);
@@ -306,6 +383,29 @@ export default function AdminPage() {
     if (!user) return;
     return onSnapshot(collection(db, 'staff'), snap => {
       setStaff(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'expenses'), orderBy('date', 'desc'));
+    return onSnapshot(q, snap => setExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(collection(db, 'fixedCosts'), snap => setFixedCosts(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(collection(db, 'supplies'), snap => setSupplies(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(doc(db, 'settings', 'expenseBudgets'), snap => {
+      if (snap.exists()) setBudgets(snap.data());
     });
   }, [user]);
 
@@ -1389,13 +1489,306 @@ export default function AdminPage() {
         })()}
 
         {/* Dashboard placeholder */}
-        {activeView === 'dashboard' && (
-          <div style={{ background: C.card, borderRadius: 8, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-            <div style={{ fontFamily: FONT, fontSize: 28, marginBottom: 8 }}>📊</div>
-            <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 600, color: C.text, marginBottom: 8 }}>Dashboard</div>
-            <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>Coming soon — at-a-glance stats, today's jobs, revenue summary and pending actions.</div>
-          </div>
-        )}
+        {activeView === 'dashboard' && (() => {
+          const today = new Date().toISOString().split('T')[0];
+          const now   = new Date();
+          const yr    = now.getFullYear();
+          const mo    = now.getMonth();
+
+          const monthKey   = (y, m) => `${y}-${String(m + 1).padStart(2, '0')}`;
+          const monthStart = (y, m) => `${monthKey(y, m)}-01`;
+          const monthEnd   = (y, m) => new Date(y, m + 1, 0).toISOString().split('T')[0];
+
+          const bookingRevenue = b => {
+            if (b.status === 'fully_paid') return parseFloat(b.total) || 0;
+            if (['deposit_paid', 'payment_failed'].includes(b.status)) return parseFloat(b.deposit) || 0;
+            return 0;
+          };
+
+          const activeBookings = bookings.filter(b => !b.status?.startsWith('cancelled'));
+
+          // Today
+          const todayJobs = activeBookings.filter(b => b.cleanDate === today);
+
+          // This month / last month
+          const thisMonthBks  = activeBookings.filter(b => b.cleanDate >= monthStart(yr, mo) && b.cleanDate <= monthEnd(yr, mo));
+          const lastMo        = mo === 0 ? 11 : mo - 1;
+          const lastMoYr      = mo === 0 ? yr - 1 : yr;
+          const lastMonthBks  = activeBookings.filter(b => b.cleanDate >= monthStart(lastMoYr, lastMo) && b.cleanDate <= monthEnd(lastMoYr, lastMo));
+          const monthRevenue  = thisMonthBks.reduce((s, b) => s + bookingRevenue(b), 0);
+          const lastMonthRev  = lastMonthBks.reduce((s, b) => s + bookingRevenue(b), 0);
+          const revDiff       = monthRevenue - lastMonthRev;
+
+          // YTD
+          const ytdRevenue = activeBookings.filter(b => b.cleanDate?.startsWith(yr)).reduce((s, b) => s + bookingRevenue(b), 0);
+
+          // Outstanding
+          const outstanding     = activeBookings.filter(b => b.status === 'deposit_paid');
+          const outstandingTotal = outstanding.reduce((s, b) => s + (parseFloat(b.remaining) || 0), 0);
+
+          // Unassigned upcoming
+          const unassigned = activeBookings.filter(b => !b.assignedStaff && b.cleanDate >= today);
+
+          // Recurring vs one-off this month
+          const recurringCount = thisMonthBks.filter(b => b.frequency && b.frequency !== 'one-off').length;
+          const oneOffCount    = thisMonthBks.length - recurringCount;
+
+          // New customers this month vs last
+          const seenEmails = new Set();
+          const sortedAll  = [...activeBookings].sort((a, b) => (a.cleanDate || '').localeCompare(b.cleanDate || ''));
+          sortedAll.forEach(b => { if (b.email) seenEmails.add(b.email); });
+          const newThisMonth = thisMonthBks.filter(b => {
+            const first = sortedAll.find(x => x.email === b.email);
+            return first && first.cleanDate >= monthStart(yr, mo);
+          });
+          const newLastMonth = lastMonthBks.filter(b => {
+            const first = sortedAll.find(x => x.email === b.email);
+            return first && first.cleanDate >= monthStart(lastMoYr, lastMo) && first.cleanDate <= monthEnd(lastMoYr, lastMo);
+          });
+
+          // Busiest day of week this month
+          const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+          thisMonthBks.forEach(b => { if (b.cleanDate) dayCounts[new Date(b.cleanDate + 'T12:00:00').getDay()]++; });
+          const busiestDay = dayCounts.indexOf(Math.max(...dayCounts));
+
+          // 6-month revenue chart
+          const chartMonths = [];
+          for (let i = 5; i >= 0; i--) {
+            const m2 = ((mo - i) % 12 + 12) % 12;
+            const y2 = yr + Math.floor((mo - i) / 12);
+            const bks = activeBookings.filter(b => b.cleanDate >= monthStart(y2, m2) && b.cleanDate <= monthEnd(y2, m2));
+            chartMonths.push({ label: new Date(y2, m2, 1).toLocaleString('en-GB', { month: 'short' }), rev: bks.reduce((s, b) => s + bookingRevenue(b), 0), count: bks.length });
+          }
+          const maxRev = Math.max(...chartMonths.map(m => m.rev), 1);
+
+          // Team workload — current pay period (Sun–Sat)
+          const payPeriod   = getPayPeriod();
+          const activeStaff = [...staff].filter(s => s.status === 'Active').sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+          const staffJobs   = activeStaff.map(s => {
+            const rate    = s.hourlyRate !== 'N/A' ? parseFloat(s.hourlyRate) || null : null;
+            const ppJobs  = activeBookings.filter(b => b.assignedStaff === s.name && b.cleanDate >= payPeriod.start && b.cleanDate <= payPeriod.end);
+            const ppHours = ppJobs.reduce((sum, b) => { const h = calcHours(b.actualStart || b.cleanTime, b.actualFinish); return sum + (h || 0); }, 0);
+            const ppEarned = rate !== null ? ppHours * rate : null;
+            return { ...s, rate, ppJobs, ppHours, ppEarned };
+          });
+          const maxStaffJobs = Math.max(...staffJobs.map(s => s.ppJobs.length), 1);
+
+          // Off today
+          const offToday = staff.filter(s => (s.holidays || []).includes(today));
+
+          // Overdue deposits — booked before today, status still deposit_paid, balance > 0
+          const overdue = outstanding.filter(b => b.cleanDate < today).sort((a, b) => a.cleanDate.localeCompare(b.cleanDate));
+
+          const CARD  = { background: C.card, borderRadius: 10, padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' };
+          const LABEL = { fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 6 };
+          const BIG   = { fontFamily: FONT, fontSize: 30, fontWeight: 700, color: C.text, lineHeight: 1 };
+          const SUB   = { fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 4 };
+          const trend = (diff) => diff === 0 ? null : (
+            <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: diff > 0 ? '#16a34a' : '#dc2626', marginLeft: 8 }}>
+              {diff > 0 ? '▲' : '▼'} £{Math.abs(diff).toFixed(0)} vs last month
+            </span>
+          );
+
+          return (
+            <div>
+              <div style={{ fontFamily: FONT, fontSize: isMobile ? 20 : 24, fontWeight: 700, color: C.text, marginBottom: 2 }}>Dashboard</div>
+              <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, marginBottom: 24 }}>
+                {now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+
+              {/* Row 1 — KPIs */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
+                <div style={{ ...CARD, borderTop: `3px solid ${C.accent}` }}>
+                  <div style={LABEL}>Today's Jobs</div>
+                  <div style={BIG}>{todayJobs.length}</div>
+                  <div style={SUB}>{todayJobs.filter(b => b.assignedStaff).length} of {todayJobs.length} assigned</div>
+                </div>
+                <div style={{ ...CARD, borderTop: '3px solid #16a34a' }}>
+                  <div style={LABEL}>Month Revenue</div>
+                  <div style={{ ...BIG, fontSize: 24 }}>£{monthRevenue.toFixed(0)}</div>
+                  <div style={{ ...SUB, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {thisMonthBks.length} bookings {trend(revDiff)}
+                  </div>
+                </div>
+                <div style={{ ...CARD, borderTop: '3px solid #6366f1' }}>
+                  <div style={LABEL}>Year to Date</div>
+                  <div style={{ ...BIG, fontSize: 24 }}>£{ytdRevenue.toFixed(0)}</div>
+                  <div style={SUB}>{yr}</div>
+                </div>
+                <div style={{ ...CARD, borderTop: unassigned.length > 0 ? '3px solid #dc2626' : '3px solid #16a34a' }}>
+                  <div style={LABEL}>Unassigned</div>
+                  <div style={{ ...BIG, color: unassigned.length > 0 ? '#dc2626' : '#16a34a' }}>{unassigned.length}</div>
+                  <div style={SUB}>upcoming jobs need a cleaner</div>
+                </div>
+              </div>
+
+              {/* Row 2 — chart + today */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr', gap: 16, marginBottom: 16 }}>
+
+                {/* 6-month bar chart */}
+                <div style={CARD}>
+                  <div style={{ ...LABEL, marginBottom: 16 }}>Revenue — Last 6 Months</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 120 }}>
+                    {chartMonths.map((m, i) => {
+                      const h = Math.max((m.rev / maxRev) * 100, m.rev > 0 ? 4 : 0);
+                      const isCurrent = i === 5;
+                      return (
+                        <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
+                          <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, fontWeight: isCurrent ? 700 : 400 }}>£{m.rev >= 1000 ? (m.rev/1000).toFixed(1)+'k' : m.rev.toFixed(0)}</div>
+                          <div style={{ width: '100%', height: `${h}%`, background: isCurrent ? '#16a34a' : C.accent, borderRadius: '4px 4px 0 0', minHeight: m.rev > 0 ? 4 : 0, transition: 'height 0.4s' }} />
+                          <div style={{ fontFamily: FONT, fontSize: 10, color: isCurrent ? C.text : C.muted, fontWeight: isCurrent ? 700 : 400 }}>{m.label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Today's schedule */}
+                <div style={CARD}>
+                  <div style={{ ...LABEL, marginBottom: 12 }}>Today's Schedule</div>
+                  {todayJobs.length === 0 ? (
+                    <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No jobs today.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 160, overflowY: 'auto' }}>
+                      {todayJobs.map(b => (
+                        <div key={b.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', background: C.bg, borderRadius: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.customerName}</div>
+                            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{b.cleanTime}</div>
+                          </div>
+                          {b.assignedStaff
+                            ? <span style={{ fontFamily: FONT, fontSize: 10, background: '#ede9fe', color: '#6d28d9', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>👤 {b.assignedStaff}</span>
+                            : <span style={{ fontFamily: FONT, fontSize: 10, background: '#fee2e2', color: '#dc2626', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>Unassigned</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 3 — team workload + bookings breakdown */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr', gap: 16, marginBottom: 16 }}>
+
+                {/* Team workload */}
+                <div style={CARD}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <div style={LABEL}>Team — This Pay Week</div>
+                    <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted }}>{fmtDate(payPeriod.start)} → {fmtDate(payPeriod.end)} · payday {fmtDate(payPeriod.payDay)}</div>
+                  </div>
+                  <div style={{ marginBottom: 12 }} />
+                  {activeStaff.length === 0 ? (
+                    <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No active staff added yet.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {staffJobs.map(s => (
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: C.bg, border: `1px solid ${C.border}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {s.photoURL ? <img src={s.photoURL} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 14 }}>👤</span>}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, flexWrap: 'wrap', gap: 4 }}>
+                              <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text }}>{s.name}</span>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{s.ppJobs.length} job{s.ppJobs.length !== 1 ? 's' : ''}</span>
+                                {s.ppHours > 0 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>⏱ {fmtDuration(s.ppHours)}</span>}
+                                {s.ppEarned !== null
+                                  ? <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>£{s.ppEarned.toFixed(2)}</span>
+                                  : s.rate === null && <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted }}>N/A</span>}
+                              </div>
+                            </div>
+                            <div style={{ height: 6, background: C.bg, borderRadius: 99, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                              <div style={{ height: '100%', width: `${(s.ppJobs.length / maxStaffJobs) * 100}%`, background: s.ppEarned !== null ? '#16a34a' : C.accent, borderRadius: 99, transition: 'width 0.4s' }} />
+                            </div>
+                          </div>
+                          {(s.holidays || []).includes(today) && <span style={{ fontFamily: FONT, fontSize: 10, background: '#fef9c3', color: '#854d0e', borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap' }}>🏖 Off</span>}
+                        </div>
+                      ))}
+                      {/* Pay week total */}
+                      {staffJobs.some(s => s.ppEarned !== null) && (
+                        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted }}>Total payroll this week</span>
+                          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#16a34a' }}>£{staffJobs.reduce((s, x) => s + (x.ppEarned || 0), 0).toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bookings breakdown */}
+                <div style={CARD}>
+                  <div style={{ ...LABEL, marginBottom: 14 }}>This Month</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: C.bg, borderRadius: 8 }}>
+                      <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>Recurring bookings</span>
+                      <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: '#7c3aed' }}>{recurringCount}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: C.bg, borderRadius: 8 }}>
+                      <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>One-off bookings</span>
+                      <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>{oneOffCount}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: C.bg, borderRadius: 8 }}>
+                      <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>New customers</span>
+                      <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: '#16a34a' }}>{newThisMonth.length} <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 400, color: newThisMonth.length >= newLastMonth.length ? '#16a34a' : '#dc2626' }}>({newThisMonth.length >= newLastMonth.length ? '+' : ''}{newThisMonth.length - newLastMonth.length} vs last mo)</span></span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: C.bg, borderRadius: 8 }}>
+                      <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>Busiest day</span>
+                      <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>{dayCounts[busiestDay] > 0 ? `${DAY_NAMES[busiestDay]} (${dayCounts[busiestDay]})` : '—'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#fff8eb', borderRadius: 8 }}>
+                      <span style={{ fontFamily: FONT, fontSize: 12, color: '#7a5c00' }}>Outstanding balance</span>
+                      <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: '#d97706' }}>£{outstandingTotal.toFixed(0)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4 — overdue + off today (conditional) */}
+              {(overdue.length > 0 || offToday.length > 0) && (
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : overdue.length > 0 && offToday.length > 0 ? '1fr 1fr' : '1fr', gap: 16 }}>
+                  {overdue.length > 0 && (
+                    <div style={{ ...CARD, borderTop: '3px solid #dc2626' }}>
+                      <div style={{ ...LABEL, marginBottom: 12, color: '#dc2626' }}>⚠ Overdue Balances</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {overdue.slice(0, 5).map(b => {
+                          const days = Math.floor((new Date(today) - new Date(b.cleanDate)) / 86400000);
+                          return (
+                            <div key={b.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: '#fff5f5', borderRadius: 8 }}>
+                              <div>
+                                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{b.customerName}</div>
+                                <div style={{ fontFamily: FONT, fontSize: 11, color: '#dc2626' }}>{days} day{days !== 1 ? 's' : ''} overdue</div>
+                              </div>
+                              <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>£{parseFloat(b.remaining || 0).toFixed(0)}</span>
+                            </div>
+                          );
+                        })}
+                        {overdue.length > 5 && <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, textAlign: 'center' }}>+{overdue.length - 5} more</div>}
+                      </div>
+                    </div>
+                  )}
+                  {offToday.length > 0 && (
+                    <div style={{ ...CARD, borderTop: '3px solid #854d0e' }}>
+                      <div style={{ ...LABEL, marginBottom: 12 }}>🏖 Staff Off Today</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {offToday.map(s => (
+                          <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', background: '#fef9c3', borderRadius: 8 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: C.bg, border: `1px solid ${C.border}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {s.photoURL ? <img src={s.photoURL} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>👤</span>}
+                            </div>
+                            <div>
+                              <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#854d0e' }}>{s.name}</div>
+                              <div style={{ fontFamily: FONT, fontSize: 11, color: '#a16207' }}>{s.role}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Staff view */}
         {activeView === 'staff' && (() => {
@@ -1419,7 +1812,7 @@ export default function AdminPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <input value={staffSearch} onChange={e => setStaffSearch(e.target.value)} placeholder="Search staff…" style={{ ...INPUT, marginBottom: 0, width: 180, fontSize: 13 }} />
-                  <button onClick={() => { setStaffModal({ mode: 'add', data: { name: '', phone: '', email: '', role: 'Cleaner', hourlyRate: '', status: 'Active', joinDate: '', holidays: [] } }); setStaffErr(''); }} style={{ ...BTN, background: C.accent, color: '#fff', fontSize: 13 }}>+ Add Staff</button>
+                  <button onClick={() => { setStaffModal({ mode: 'add', data: { name: '', phone: '', email: '', employmentType: 'Subcontractor', role: 'Cleaner', hourlyRate: '', status: 'Active', joinDate: '', holidays: [] } }); setStaffErr(''); }} style={{ ...BTN, background: C.accent, color: '#fff', fontSize: 13 }}>+ Add Staff</button>
                 </div>
               </div>
 
@@ -1444,6 +1837,7 @@ export default function AdminPage() {
                             <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 600, color: s.status === 'Inactive' ? '#dc2626' : C.text }}>{s.name}</div>
                             <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: s.status === 'Active' ? '#dcfce7' : '#fee2e2', color: s.status === 'Active' ? '#166534' : '#dc2626' }}>{s.status}</span>
                             <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: '#eff6ff', color: '#1d4ed8' }}>{s.role}</span>
+                            <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: (s.employmentType || 'Subcontractor') === 'Employee' ? '#fef3c7' : (s.employmentType === 'Self-Employed / Owner') ? '#dcfce7' : '#f3e8ff', color: (s.employmentType || 'Subcontractor') === 'Employee' ? '#92400e' : (s.employmentType === 'Self-Employed / Owner') ? '#166534' : '#6b21a8' }}>{s.employmentType || 'Subcontractor'}</span>
                             {(() => { const yr = new Date().getFullYear(); const days = (s.holidays || []).filter(d => d.startsWith(yr)).length; return days > 0 ? <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: '#fef9c3', color: '#854d0e' }}>🏖 {days}d off {yr}</span> : null; })()}
                           </div>
                           <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 4, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -1464,22 +1858,1190 @@ export default function AdminPage() {
         })()}
 
         {/* My Jobs placeholder */}
-        {activeView === 'myJobs' && (
-          <div style={{ background: C.card, borderRadius: 8, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-            <div style={{ fontFamily: FONT, fontSize: 28, marginBottom: 8 }}>📝</div>
-            <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 600, color: C.text, marginBottom: 8 }}>My Jobs</div>
-            <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>Coming soon — select a cleaner to view their assigned jobs, hours and earnings.</div>
-          </div>
-        )}
+        {activeView === 'myJobs' && (() => {
+          const selectedCleaner    = myJobsCleaner;
+          const setSelectedCleaner = setMyJobsCleaner;
 
-        {/* Expenses placeholder */}
-        {activeView === 'expenses' && (
-          <div style={{ background: C.card, borderRadius: 8, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-            <div style={{ fontFamily: FONT, fontSize: 28, marginBottom: 8 }}>🧾</div>
-            <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 600, color: C.text, marginBottom: 8 }}>Expenses</div>
-            <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>Coming soon — log costs by category, track spending and view totals.</div>
-          </div>
-        )}
+          const refDate   = new Date(); refDate.setDate(refDate.getDate() + myJobsWeekOffset * 7);
+          const period    = getPayPeriod(refDate);
+          const payableStaff = [...staff].filter(s => s.status === 'Active' && s.hourlyRate !== 'N/A').sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+          const allStaff     = [...staff].filter(s => s.status === 'Active').sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+          const member    = selectedCleaner ? staff.find(s => s.name === selectedCleaner) : null;
+          const rate      = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : null;
+          const periodJobs = selectedCleaner
+            ? bookings.filter(b => b.assignedStaff === selectedCleaner && b.cleanDate >= period.start && b.cleanDate <= period.end && !b.status?.startsWith('cancelled')).sort((a, b) => a.cleanDate.localeCompare(b.cleanDate))
+            : [];
+
+          const totalHours  = periodJobs.reduce((s, b) => { const h = calcHours(b.actualStart || b.cleanTime, b.actualFinish); return s + (h || 0); }, 0);
+          const totalEarned = rate !== null ? totalHours * rate : null;
+          const hasNARate   = member && member.hourlyRate === 'N/A';
+
+          return (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ fontFamily: FONT, fontSize: isMobile ? 20 : 24, fontWeight: 700, color: C.text }}>My Jobs</div>
+                <button onClick={() => {
+                  const rows = [['Cleaner','Date','Booking Ref','Customer','Package','Scheduled Time','Actual Start','Actual Finish','Hours','Rate (£/hr)','Earned (£)','Payday']];
+                  allStaff.forEach(s => {
+                    const r = s.hourlyRate !== 'N/A' ? parseFloat(s.hourlyRate) : null;
+                    bookings
+                      .filter(b => b.assignedStaff === s.name && b.cleanDate >= period.start && b.cleanDate <= period.end && !b.status?.startsWith('cancelled'))
+                      .sort((a, b) => a.cleanDate.localeCompare(b.cleanDate))
+                      .forEach(b => {
+                        const hrs = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
+                        const earned = r !== null && hrs !== null ? (hrs * r).toFixed(2) : '';
+                        rows.push([
+                          s.name,
+                          fmtDate(b.cleanDate),
+                          b.bookingRef || '',
+                          `"${(b.firstName||'')+' '+(b.lastName||'')}"`,
+                          b.package || '',
+                          b.cleanTime || '',
+                          b.actualStart || '',
+                          b.actualFinish || '',
+                          hrs !== null ? hrs.toFixed(2) : '',
+                          r !== null ? r.toFixed(2) : 'N/A',
+                          earned,
+                          fmtDate(period.payDay),
+                        ]);
+                      });
+                  });
+                  const a = document.createElement('a');
+                  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.map(r => r.join(',')).join('\n'));
+                  a.download = `jobs-all-cleaners-${period.start}-to-${period.end}.csv`;
+                  a.click();
+                }} style={{ ...BTN, background: '#1e40af', color: '#fff', fontSize: 12 }}>⬇ Export All Cleaners — {fmtDate(period.start)} to {fmtDate(period.end)}</button>
+              </div>
+
+              {/* Cleaner selector */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+                {allStaff.map(s => (
+                  <button key={s.id} onClick={() => setSelectedCleaner(s.name)} style={{ fontFamily: FONT, fontSize: 13, fontWeight: selectedCleaner === s.name ? 700 : 400, padding: '8px 16px', borderRadius: 99, border: `2px solid ${selectedCleaner === s.name ? C.accent : C.border}`, background: selectedCleaner === s.name ? C.accent : C.card, color: selectedCleaner === s.name ? '#fff' : C.text, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {s.photoURL && <img src={s.photoURL} alt={s.name} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} />}
+                    {s.name}
+                    {s.hourlyRate === 'N/A' && <span style={{ fontSize: 10, opacity: 0.6 }}>N/A</span>}
+                  </button>
+                ))}
+              </div>
+
+              {!selectedCleaner ? (
+                <div style={{ background: C.card, borderRadius: 8, padding: 40, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontFamily: FONT, fontSize: 14, color: C.muted }}>Select a cleaner above to see their jobs and earnings.</div>
+                </div>
+              ) : (
+                <div>
+                  {/* Week nav + summary */}
+                  <div style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <button onClick={() => setMyJobsWeekOffset(o => o - 1)} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: C.text }}>‹</button>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{fmtDate(period.start)} → {fmtDate(period.end)}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Payday: {fmtDate(period.payDay)}{myJobsWeekOffset === 0 ? ' (this week)' : ''}</div>
+                      </div>
+                      <button onClick={() => setMyJobsWeekOffset(o => o + 1)} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: C.text }}>›</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text }}>{periodJobs.length}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Jobs</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text }}>{fmtDuration(totalHours) || '—'}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Hours</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: totalEarned !== null ? '#16a34a' : C.muted }}>
+                          {hasNARate ? 'N/A' : totalEarned !== null ? `£${totalEarned.toFixed(2)}` : '—'}
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Earned{rate !== null ? ` @ £${rate}/hr` : ''}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CSV export */}
+                  {periodJobs.length > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+                      <button onClick={() => {
+                        const rows = [['Cleaner','Date','Booking Ref','Customer','Package','Scheduled Time','Actual Start','Actual Finish','Hours','Rate (£/hr)','Earned (£)','Payday']];
+                        periodJobs.forEach(b => {
+                          const hrs = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
+                          const earned = rate !== null && hrs !== null ? (hrs * rate).toFixed(2) : '';
+                          rows.push([
+                            selectedCleaner,
+                            fmtDate(b.cleanDate),
+                            b.bookingRef || '',
+                            `"${(b.firstName||'')+' '+(b.lastName||'')}"`,
+                            b.package || '',
+                            b.cleanTime || '',
+                            b.actualStart || '',
+                            b.actualFinish || '',
+                            hrs !== null ? hrs.toFixed(2) : '',
+                            rate !== null ? rate.toFixed(2) : 'N/A',
+                            earned,
+                            fmtDate(period.payDay),
+                          ]);
+                        });
+                        const a = document.createElement('a');
+                        a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.map(r => r.join(',')).join('\n'));
+                        a.download = `jobs-${selectedCleaner.replace(/ /g,'-')}-${period.start}-to-${period.end}.csv`;
+                        a.click();
+                      }} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}>⬇ Export CSV</button>
+                    </div>
+                  )}
+
+                  {/* Job list */}
+                  {periodJobs.length === 0 ? (
+                    <div style={{ background: C.card, borderRadius: 8, padding: 32, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No jobs assigned to {selectedCleaner} this week.</div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {periodJobs.map(b => {
+                        const hrs     = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
+                        const earned  = rate !== null && hrs !== null ? hrs * rate : null;
+                        const saveTime = async (field, val) => {
+                          const prev = b[field];
+                          setBookings(all => all.map(x => x.id === b.id ? { ...x, [field]: val } : x));
+                          try {
+                            const res = await fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: b.id, [field]: val }) });
+                            if (!res.ok) throw new Error('Server error');
+                          } catch {
+                            setBookings(all => all.map(x => x.id === b.id ? { ...x, [field]: prev } : x));
+                            alert('Failed to save time — check your connection and try again.');
+                          }
+                        };
+                        return (
+                          <div key={b.id} style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', gap: 12, alignItems: 'center' }}>
+                            <div>
+                              <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2 }}>{b.customerName}</div>
+                              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 10 }}>{fmtDate(b.cleanDate)} · {b.packageName || b.package} · {b.addr1}</div>
+                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <div>
+                                  <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Booked</div>
+                                  <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: 500 }}>{b.cleanTime}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Actual Start</div>
+                                  <input type="time" value={b.actualStart || ''} onChange={e => saveTime('actualStart', e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 110, fontSize: 12 }} />
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Actual Finish</div>
+                                  <input type="time" value={b.actualFinish || ''} onChange={e => saveTime('actualFinish', e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 110, fontSize: 12 }} />
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right', minWidth: 80 }}>
+                              {hrs !== null
+                                ? <div style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: C.text }}>{fmtDuration(hrs)}</div>
+                                : <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>No times yet</div>}
+                              {earned !== null && <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: '#16a34a', marginTop: 2 }}>£{earned.toFixed(2)}</div>}
+                              {hasNARate && hrs !== null && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>N/A</div>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Expenses */}
+        {activeView === 'expenses' && (() => {
+          const CATS = ['Supplies', 'Fuel & Mileage', 'Public Transport', 'Equipment', 'Marketing', 'Insurance', 'Staff Costs', 'Rent & Utilities', 'Software & Tools', 'Other'];
+          const CAT_COLOURS = { 'Supplies':'#0ea5e9','Fuel & Mileage':'#f97316','Public Transport':'#fb923c','Equipment':'#8b5cf6','Marketing':'#ec4899','Insurance':'#14b8a6','Staff Costs':'#16a34a','Rent & Utilities':'#6366f1','Software & Tools':'#f59e0b','Other':'#94a3b8' };
+          const PAID_BY_COLOURS = { 'Company Card':'#6366f1','Cash':'#16a34a','Personal — Reimbursable':'#dc2626','Direct Debit':'#0ea5e9' };
+          const now = new Date();
+          const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+          const lastMo = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+          const lastMoYr = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+          const lastMonthKey = `${lastMoYr}-${String(lastMo+1).padStart(2,'0')}`;
+          const taxYears = getTaxYears();
+          const taxYear  = currentTaxYear();
+
+          const fixedMonthly = fixedCosts.reduce((s, f) => {
+            if (!f.active) return s;
+            const amt = parseFloat(f.amount) || 0;
+            return s + (f.frequency === 'yearly' ? amt / 12 : amt);
+          }, 0);
+
+          // Filter helper — resolves the correct tax year dates for the selected filter
+          const inPeriod = (e) => {
+            if (expenseMonthFilter === 'all') return true;
+            if (expenseMonthFilter.startsWith('ty:')) {
+              const selectedLabel = expenseMonthFilter.slice(3); // e.g. '2025/26'
+              const selectedTY = taxYears.find(ty => ty.label.replace(' tax year', '') === selectedLabel) || taxYear;
+              return e.date >= selectedTY.start && e.date <= selectedTY.end;
+            }
+            return e.date?.startsWith(expenseMonthFilter);
+          };
+
+          const thisMonthExp   = expenses.filter(e => e.date?.startsWith(thisMonthKey));
+          const lastMonthExp   = expenses.filter(e => e.date?.startsWith(lastMonthKey));
+          const thisMonthTotal = thisMonthExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+          const lastMonthTotal = lastMonthExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+          const taxYearExp     = expenses.filter(e => e.date >= taxYear.start && e.date <= taxYear.end);
+          const taxYearTotal   = taxYearExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+          const reimbursableExp = expenses.filter(e => e.paidBy === 'Personal — Reimbursable' && !e.repaid);
+          const reimbursable   = reimbursableExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+          const allMonths      = [...new Set(expenses.map(e => e.date?.slice(0,7)).filter(Boolean))].sort().reverse();
+
+          const filtered = expenses.filter(e => {
+            if (expenseCatFilter !== 'all' && e.category !== expenseCatFilter) return false;
+            if (!inPeriod(e)) return false;
+            if (expenseSearch && !`${e.description} ${e.category} ${e.amount} ${e.notes} ${e.paidBy}`.toLowerCase().includes(expenseSearch.toLowerCase())) return false;
+            return true;
+          });
+          const totalFiltered = filtered.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+          const byCategory = CATS.map(cat => {
+            const total  = filtered.filter(e => e.category === cat).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+            const budget = parseFloat(budgets[cat]) || 0;
+            return { cat, total, budget };
+          }).filter(c => c.total > 0 || c.budget > 0).sort((a,b) => b.total - a.total);
+          const maxCat = Math.max(...byCategory.map(c => Math.max(c.total, c.budget)), 1);
+
+          // Month-by-month spending chart (last 12 months)
+          const last12 = Array.from({ length: 12 }, (_, i) => {
+            const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
+            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            const label = d.toLocaleString('en-GB', { month: 'short' });
+            const total = expenses.filter(e => e.date?.startsWith(key)).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+            return { key, label, total };
+          });
+          const maxMonth = Math.max(...last12.map(m => m.total), 1);
+
+          const exportCSV = () => {
+            const rows = [['Date','Category','Description','Amount','Paid By','Notes','Miles']];
+            filtered.forEach(e => rows.push([e.date||'',e.category||'',`"${(e.description||'').replace(/"/g,'""')}"`,parseFloat(e.amount||0).toFixed(2),e.paidBy||'',`"${(e.notes||'').replace(/"/g,'""')}"`,e.miles||'']));
+            const csv = rows.map(r => r.join(',')).join('\n');
+            const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+            a.download = `expenses-${expenseMonthFilter==='all'?'all':expenseMonthFilter}.csv`; a.click();
+          };
+
+          const markRepaid = async (id) => {
+            try {
+              await updateDoc(doc(db, 'expenses', id), { repaid: true });
+            } catch {
+              alert('Failed to mark as repaid — check your connection and try again.');
+            }
+          };
+
+          const KCARD  = { background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' };
+          const KLABEL = { fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 };
+          const BIZ    = '#1e40af';
+          const TAB_S  = active => ({ fontFamily: FONT, fontSize: 13, fontWeight: active ? 700 : 500, padding: '8px 18px', borderRadius: 6, border: active ? 'none' : `1px solid ${C.border}`, cursor: 'pointer', background: active ? BIZ : C.card, color: active ? '#fff' : C.text, whiteSpace: 'nowrap', boxShadow: active ? 'none' : '0 1px 3px rgba(0,0,0,0.07)' });
+
+          return (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ fontFamily: FONT, fontSize: isMobile ? 20 : 24, fontWeight: 700, color: C.text }}>Expenses</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button style={TAB_S(expenseTab==='variable')} onClick={() => { setExpenseTab('variable'); localStorage.setItem('expenseTab','variable'); }}>Variable</button>
+                  <button style={TAB_S(expenseTab==='fixed')} onClick={() => { setExpenseTab('fixed'); localStorage.setItem('expenseTab','fixed'); }}>
+                    Fixed {fixedCosts.length > 0 && <span style={{ fontSize: 11, opacity: 0.8 }}>· £{fixedMonthly.toFixed(0)}/mo</span>}
+                  </button>
+                  <button style={TAB_S(expenseTab==='pnl')} onClick={() => { setExpenseTab('pnl'); localStorage.setItem('expenseTab','pnl'); }}>P&amp;L</button>
+                  <button style={TAB_S(expenseTab==='hmrc')} onClick={() => { setExpenseTab('hmrc'); localStorage.setItem('expenseTab','hmrc'); }}>HMRC</button>
+                </div>
+              </div>
+
+              {/* ── VARIABLE TAB ── */}
+              {expenseTab === 'variable' && (
+                <div>
+                  {/* KPIs */}
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
+                    <div style={{ ...KCARD, borderTop: '3px solid #dc2626' }}>
+                      <div style={KLABEL}>This Month</div>
+                      <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{thisMonthTotal.toFixed(0)}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: thisMonthTotal <= lastMonthTotal ? '#16a34a' : '#dc2626', marginTop: 3 }}>
+                        {lastMonthTotal > 0 ? `${thisMonthTotal<=lastMonthTotal?'▼':'▲'} £${Math.abs(thisMonthTotal-lastMonthTotal).toFixed(0)} vs last month` : 'First month of data'}
+                      </div>
+                    </div>
+                    <div style={{ ...KCARD, borderTop: `3px solid ${C.accent}` }}>
+                      <div style={KLABEL}>Last Month</div>
+                      <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{lastMonthTotal.toFixed(0)}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{lastMonthExp.length} entries</div>
+                    </div>
+                    <div style={{ ...KCARD, borderTop: '3px solid #6366f1' }}>
+                      <div style={KLABEL}>Tax Year {taxYear.label}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{taxYearTotal.toFixed(0)}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>6 Apr–5 Apr</div>
+                    </div>
+                    <div style={{ ...KCARD, borderTop: reimbursable > 0 ? '3px solid #dc2626' : `3px solid ${C.accent}`, cursor: reimbursable > 0 ? 'pointer' : 'default' }}
+                      onClick={() => { if (reimbursable > 0) { setExpenseCatFilter('all'); setExpenseMonthFilter('all'); setExpenseSearch('reimbursable'); } }}>
+                      <div style={KLABEL}>Reimbursable Owed</div>
+                      <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: reimbursable > 0 ? '#dc2626' : C.text }}>£{reimbursable.toFixed(0)}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{reimbursableExp.length} unpaid · click to view</div>
+                    </div>
+                  </div>
+
+                  {/* Spending chart */}
+                  {expenses.length > 0 && (
+                    <div style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: 16 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Spending — Last 12 Months</div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
+                        {last12.map(m => (
+                          <div key={m.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                            <div style={{ width: '100%', height: `${(m.total / maxMonth) * 64}px`, minHeight: m.total > 0 ? 3 : 0, background: m.key === thisMonthKey ? BIZ : C.border, borderRadius: '3px 3px 0 0', transition: 'height 0.3s' }} title={`£${m.total.toFixed(0)}`} />
+                            <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted, textAlign: 'center' }}>{m.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Reimbursable owed section */}
+                  {reimbursableExp.length > 0 && (
+                    <div style={{ background: '#fff5f5', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 10, padding: '14px 20px', marginBottom: 16 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626', marginBottom: 10 }}>💳 Reimbursable — £{reimbursable.toFixed(2)} still owed</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {reimbursableExp.map(e => (
+                          <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1 }}>
+                              <span style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: 600 }}>{e.description}</span>
+                              <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginLeft: 8 }}>{fmtDate(e.date)} · £{parseFloat(e.amount).toFixed(2)}</span>
+                            </div>
+                            <button onClick={() => markRepaid(e.id)} style={{ ...BTN, background: '#16a34a', color: '#fff', fontSize: 12, padding: '5px 12px' }}>✓ Mark repaid</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Filters + add */}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
+                    <input value={expenseSearch} onChange={e => setExpenseSearch(e.target.value)} placeholder="Search…" style={{ ...INPUT, marginBottom: 0, width: 130, fontSize: 13 }} />
+                    <select value={expenseMonthFilter} onChange={e => setExpenseMonthFilter(e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 'auto', fontSize: 13 }}>
+                      <option value="all">All time</option>
+                      <optgroup label="Tax Year">
+                        {taxYears.map(ty => {
+                          const label = ty.label.replace(' tax year', '');
+                          return <option key={label} value={`ty:${label}`}>{label} tax year (6 Apr–5 Apr)</option>;
+                        })}
+                      </optgroup>
+                      <optgroup label="By Month">
+                        {allMonths.map(m => <option key={m} value={m}>{new Date(m+'-01').toLocaleString('en-GB',{month:'long',year:'numeric'})}</option>)}
+                        {!allMonths.includes(expenseMonthFilter) && expenseMonthFilter !== 'all' && !expenseMonthFilter.startsWith('ty:') && <option value={expenseMonthFilter}>{new Date(expenseMonthFilter+'-01').toLocaleString('en-GB',{month:'long',year:'numeric'})}</option>}
+                      </optgroup>
+                    </select>
+                    <select value={expenseCatFilter} onChange={e => setExpenseCatFilter(e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 'auto', fontSize: 13 }}>
+                      <option value="all">All categories</option>
+                      {CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>{filtered.length} · £{totalFiltered.toFixed(2)}</span>
+                      {filtered.length > 0 && <button onClick={exportCSV} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}>⬇ CSV</button>}
+                      <button onClick={() => { setExpenseModal({ mode: 'add', data: { date: new Date().toISOString().split('T')[0], category: 'Supplies', description: '', amount: '', paidBy: 'Company Card', notes: '' } }); setExpenseErr(''); }} style={{ ...BTN, background: BIZ, color: '#fff', fontSize: 13 }}>+ Add</button>
+                    </div>
+                  </div>
+
+                  {expenses.length === 0 ? (
+                    <div style={{ background: C.card, borderRadius: 8, padding: 48, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      <div style={{ fontFamily: FONT, fontSize: 14, color: C.muted }}>No variable expenses logged yet. Click "+ Add" to get started.</div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 260px', gap: 16, alignItems: 'start' }}>
+                      <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                        {filtered.length === 0 ? (
+                          <div style={{ padding: 32, textAlign: 'center', fontFamily: FONT, fontSize: 13, color: C.muted }}>No expenses match filters.</div>
+                        ) : filtered.map((e, i) => (
+                          <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: i < filtered.length-1 ? `1px solid ${C.border}` : 'none', background: e.paidBy === 'Personal — Reimbursable' && !e.repaid ? '#fff5f5' : 'transparent' }}>
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: CAT_COLOURS[e.category]||'#94a3b8', flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{e.description||'—'}</div>
+                              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <span>{e.date ? fmtDate(e.date) : '—'}</span>
+                                <span style={{ color: CAT_COLOURS[e.category]||C.muted }}>{e.category}</span>
+                                {e.miles && <span>🚗 {e.miles} mi</span>}
+                                {e.paidBy && <span style={{ color: PAID_BY_COLOURS[e.paidBy]||C.muted, fontWeight: 500 }}>{e.paidBy}{e.repaid ? ' ✓ repaid' : ''}</span>}
+                                {e.notes && <span style={{ fontStyle: 'italic' }}>{e.notes}</span>}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: e.paidBy === 'Personal — Reimbursable' && !e.repaid ? '#dc2626' : C.text }}>£{parseFloat(e.amount||0).toFixed(2)}</span>
+                              <button onClick={() => { setExpenseModal({ mode: 'edit', data: {...e} }); setExpenseErr(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 12 }}>✏️</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Category breakdown with budgets */}
+                      <div style={{ background: C.card, borderRadius: 10, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>By Category</div>
+                          <button onClick={() => { setBudgetDraft({...budgets}); setBudgetEdit(true); }} style={{ fontFamily: FONT, fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Set budgets</button>
+                        </div>
+                        {byCategory.length === 0 ? <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No data</div> : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {byCategory.map(c => {
+                              const pct = c.budget > 0 ? Math.min((c.total / c.budget) * 100, 100) : (c.total / maxCat) * 100;
+                              const over = c.budget > 0 && c.total > c.budget;
+                              return (
+                                <div key={c.cat}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                                    <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{c.cat}</span>
+                                    <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: over ? '#dc2626' : C.text }}>
+                                      £{c.total.toFixed(0)}{c.budget > 0 ? ` / £${c.budget.toFixed(0)}` : ''}
+                                    </span>
+                                  </div>
+                                  <div style={{ height: 6, background: C.bg, borderRadius: 99, overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${pct}%`, background: over ? '#dc2626' : CAT_COLOURS[c.cat]||C.accent, borderRadius: 99 }} />
+                                  </div>
+                                  {over && <div style={{ fontFamily: FONT, fontSize: 10, color: '#dc2626', marginTop: 2 }}>Over budget by £{(c.total - c.budget).toFixed(0)}</div>}
+                                </div>
+                              );
+                            })}
+                            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted }}>Total</span>
+                              <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>£{totalFiltered.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── FIXED COSTS TAB ── */}
+              {expenseTab === 'fixed' && (
+                <div>
+                  <div style={{ background: C.card, borderRadius: 10, padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: 16, display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Monthly Overhead</div>
+                      <div style={{ fontFamily: FONT, fontSize: 32, fontWeight: 700, color: C.text }}>£{fixedMonthly.toFixed(2)}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 2 }}>£{(fixedMonthly * 12).toFixed(0)}/year · {fixedCosts.filter(f => f.active).length} active costs</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {fixedCosts.length > 0 && <button onClick={() => {
+                        const rows = [['Name','Amount','Frequency','Annual','Account','Active','Notes']];
+                        fixedCosts.forEach(f => rows.push([`"${f.name||''}"`, parseFloat(f.amount||0).toFixed(2), f.frequency||'', (f.frequency==='yearly'?parseFloat(f.amount||0):parseFloat(f.amount||0)*12).toFixed(2), f.account||'', f.active?'Yes':'No', `"${(f.notes||'').replace(/"/g,'""')}"`]));
+                        const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')); a.download = 'fixed-costs.csv'; a.click();
+                      }} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}>⬇ CSV</button>}
+                      <button onClick={() => { setFixedModal({ mode: 'add', data: { name: '', amount: '', frequency: 'monthly', dueDayOfMonth: '', account: 'Monzo', accountHolder: '', active: true, notes: '' } }); setFixedErr(''); }} style={{ ...BTN, background: '#1e40af', color: '#fff' }}>+ Add Fixed Cost</button>
+                    </div>
+                  </div>
+                  {fixedCosts.length === 0 ? (
+                    <div style={{ background: C.card, borderRadius: 8, padding: 48, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      <div style={{ fontFamily: FONT, fontSize: 14, color: C.muted }}>No fixed costs added yet — add your subscriptions, insurance, phone bill etc.</div>
+                    </div>
+                  ) : (
+                    <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 80px 80px 36px', gap: 12, padding: '10px 20px', borderBottom: `2px solid ${C.border}`, background: C.bg }}>
+                        {['Name','Amount','Frequency','Due','Account',''].map(h => <div key={h} style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>{h}</div>)}
+                      </div>
+                      {[...fixedCosts].sort((a,b) => (a.name||'').localeCompare(b.name||'')).map((f, i, arr) => (
+                        <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 80px 80px 36px', gap: 12, padding: '12px 20px', borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none', alignItems: 'center', opacity: f.active ? 1 : 0.45, background: !f.active ? C.bg : 'transparent' }}>
+                          <div>
+                            <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{f.name}</div>
+                            {f.notes && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, fontStyle: 'italic' }}>{f.notes}</div>}
+                            {f.accountHolder && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{f.accountHolder}</div>}
+                          </div>
+                          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>£{parseFloat(f.amount||0).toFixed(2)}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{f.frequency === 'yearly' ? `Yearly (£${(parseFloat(f.amount||0)/12).toFixed(2)}/mo)` : 'Monthly'}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{f.dueDayOfMonth ? `${f.dueDayOfMonth}${['th','st','nd','rd'][Math.min(parseInt(f.dueDayOfMonth)%10,3)]||'th'} of mo` : '—'}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{f.account||'—'}</div>
+                          <button onClick={() => { setFixedModal({ mode: 'edit', data: {...f} }); setFixedErr(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 13 }}>✏️</button>
+                        </div>
+                      ))}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 80px 80px 36px', gap: 12, padding: '12px 20px', background: C.bg, borderTop: `2px solid ${C.border}` }}>
+                        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: C.muted }}>TOTAL (active)</div>
+                        <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{fixedMonthly.toFixed(2)}/mo</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── P&L TAB ── */}
+              {expenseTab === 'pnl' && (() => {
+                // Helper: calculate labour cost for a booking
+                const bookingLabour = b => {
+                  const hrs = calcHours(b.actualStart, b.actualFinish);
+                  if (!hrs) return 0;
+                  const member = staff.find(s => s.name === b.assignedStaff);
+                  const rate = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : 0;
+                  return hrs * rate;
+                };
+
+                // Helper: labour cost for bookings within strict date range
+                const labourInRange = (start, end) => bookings
+                  .filter(b => b.cleanDate >= start && b.cleanDate <= end && b.status !== 'cancelled')
+                  .reduce((s, b) => s + bookingLabour(b), 0);
+
+                // ── This month (strict calendar month) ──
+                const moStart = `${thisMonthKey}-01`, moEnd = `${thisMonthKey}-31`;
+                const moBkgs      = bookings.filter(b => b.cleanDate >= moStart && b.cleanDate <= moEnd && b.status !== 'cancelled');
+                const moRevenue   = moBkgs.reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+                const moLabour    = labourInRange(moStart, moEnd);
+                const moVarExp    = expenses.filter(e => e.date >= moStart && e.date <= moEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+                const moTotal     = moLabour + moVarExp + fixedMonthly;
+                const moProfit    = moRevenue - moTotal;
+                const moMargin    = moRevenue > 0 ? (moProfit / moRevenue) * 100 : 0;
+                const moLabourPct = moRevenue > 0 ? (moLabour / moRevenue) * 100 : 0;
+
+                // ── Tax year (strict 6 Apr – 5 Apr) ──
+                const tyBkgs    = bookings.filter(b => b.cleanDate >= taxYear.start && b.cleanDate <= taxYear.end && b.status !== 'cancelled');
+                const tyRevenue = tyBkgs.reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+                const tyLabour  = labourInRange(taxYear.start, taxYear.end);
+                const tyVarExp  = expenses.filter(e => e.date >= taxYear.start && e.date <= taxYear.end).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+                const tyFixed   = fixedMonthly * 12;
+                const tyTotal   = tyLabour + tyVarExp + tyFixed;
+                const tyProfit  = tyRevenue - tyTotal;
+                const tyMargin  = tyRevenue > 0 ? (tyProfit / tyRevenue) * 100 : 0;
+                const tyLabPct  = tyRevenue > 0 ? (tyLabour / tyRevenue) * 100 : 0;
+
+                // Pick active period
+                const isTY      = pnlView === 'taxYear';
+                const revenue   = isTY ? tyRevenue : moRevenue;
+                const labour    = isTY ? tyLabour  : moLabour;
+                const varExp    = isTY ? tyVarExp  : moVarExp;
+                const fixed     = isTY ? tyFixed   : fixedMonthly;
+                const totalCosts = isTY ? tyTotal  : moTotal;
+                const profit    = isTY ? tyProfit  : moProfit;
+                const netMargin = isTY ? tyMargin  : moMargin;
+                const labourPct = isTY ? tyLabPct  : moLabourPct;
+                const bkgCount  = isTY ? tyBkgs.length : moBkgs.length;
+
+                // Tax year chart — month by month using strict per-month date ranges
+                const tyStartYear = parseInt(taxYear.label.split('/')[0]);
+                const tyMonths = Array.from({ length: 12 }, (_, i) => {
+                  const d = new Date(tyStartYear, 3 + i, 1);
+                  // Strict month start/end — first month starts 6 Apr, last month ends 5 Apr
+                  const mStart = i === 0  ? taxYear.start : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-06`;
+                  const nextD  = new Date(tyStartYear, 4 + i, 1);
+                  const mEnd   = i === 11 ? taxYear.end   : `${nextD.getFullYear()}-${String(nextD.getMonth()+1).padStart(2,'0')}-05`;
+                  const label  = d.toLocaleString('en-GB', { month: 'short' });
+                  const rev    = bookings.filter(b => b.cleanDate >= mStart && b.cleanDate <= mEnd && b.status !== 'cancelled').reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+                  const lab    = labourInRange(mStart, mEnd);
+                  const exp    = expenses.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+                  const total  = lab + exp + fixedMonthly;
+                  const isFuture = d > now;
+                  return { label, rev, total, profit: rev - total, isFuture };
+                });
+                const maxPnl = Math.max(...tyMonths.filter(m => !m.isFuture).map(m => Math.max(m.rev, m.total)), 1);
+
+                const PCARD = { background: C.card, borderRadius: 10, padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' };
+                const PTAB  = active => ({ fontFamily: FONT, fontSize: 12, fontWeight: active ? 700 : 500, padding: '7px 16px', borderRadius: 6, border: active ? 'none' : `1px solid ${C.border}`, cursor: 'pointer', background: active ? BIZ : C.card, color: active ? '#fff' : C.text, boxShadow: active ? 'none' : '0 1px 3px rgba(0,0,0,0.07)' });
+                return (
+                  <div>
+                    {/* Period toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>
+                        {isTY
+                          ? <>Tax Year <strong style={{ color: C.text }}>{taxYear.label}</strong> · strict 6 Apr – 5 Apr</>
+                          : <>Month: <strong style={{ color: C.text }}>{new Date(now.getFullYear(), now.getMonth(), 1).toLocaleString('en-GB',{month:'long',year:'numeric'})}</strong></>
+                        }
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <button onClick={() => {
+                          const period = isTY ? `tax-year-${taxYear.label.replace('/','_')}` : new Date().toISOString().slice(0,7);
+                          const rows = [['Period','Revenue','Subcontractor Costs','Variable Costs','Fixed Costs','Total Costs','Net Profit','Margin %']];
+                          rows.push([period, revenue.toFixed(2), labour.toFixed(2), varExp.toFixed(2), fixed.toFixed(2), totalCosts.toFixed(2), profit.toFixed(2), netMargin.toFixed(1)+'%']);
+                          if (isTY) tyMonths.forEach(m => rows.push([m.label, m.rev.toFixed(2), '', '', '', m.total.toFixed(2), m.profit.toFixed(2), '']));
+                          const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')); a.download = `pnl-${period}.csv`; a.click();
+                        }} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}>⬇ CSV</button>
+                        <button style={PTAB(!isTY)} onClick={() => setPnlView('month')}>This Month</button>
+                        <button style={PTAB(isTY)}  onClick={() => setPnlView('taxYear')}>Tax Year {taxYear.label}</button>
+                      </div>
+                    </div>
+
+                    {/* KPI cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5,1fr)', gap: 12, marginBottom: 20 }}>
+                      <div style={{ ...PCARD, borderTop: '3px solid #16a34a' }}>
+                        <div style={KLABEL}>Revenue</div>
+                        <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#16a34a' }}>£{revenue.toFixed(0)}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{bkgCount} jobs</div>
+                      </div>
+                      <div style={{ ...PCARD, borderTop: '3px solid #7c3aed' }}>
+                        <div style={KLABEL}>Subcontractors</div>
+                        <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#7c3aed' }}>£{labour.toFixed(0)}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{labourPct.toFixed(1)}% of revenue</div>
+                      </div>
+                      <div style={{ ...PCARD, borderTop: '3px solid #dc2626' }}>
+                        <div style={KLABEL}>Op. Costs</div>
+                        <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#dc2626' }}>£{varExp.toFixed(0)}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>variable expenses</div>
+                      </div>
+                      <div style={{ ...PCARD, borderTop: '3px solid #f97316' }}>
+                        <div style={KLABEL}>Fixed</div>
+                        <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#f97316' }}>£{fixed.toFixed(0)}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{isTY ? 'annual overhead' : 'monthly overhead'}</div>
+                      </div>
+                      <div style={{ ...PCARD, borderTop: `3px solid ${profit >= 0 ? '#16a34a' : '#dc2626'}`, gridColumn: isMobile ? '1/-1' : 'auto' }}>
+                        <div style={KLABEL}>Net Profit</div>
+                        <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: profit >= 0 ? '#16a34a' : '#dc2626' }}>£{profit.toFixed(0)}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{netMargin.toFixed(1)}% margin</div>
+                      </div>
+                    </div>
+
+                    {/* Breakdown + chart */}
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                      {/* P&L breakdown */}
+                      <div style={{ background: C.card, borderRadius: 10, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>{isTY ? `Tax Year ${taxYear.label} Breakdown` : 'This Month Breakdown'}</div>
+                        {[
+                          ['Revenue',         revenue,   '#16a34a', false],
+                          ['Subcontractor costs', -labour, '#7c3aed', false],
+                          ['Operating costs', -varExp,   '#dc2626', false],
+                          ['Fixed overhead',  -fixed,    '#f97316', false],
+                          ['Total costs',     -totalCosts, C.muted, false],
+                          ['Net profit',      profit,    profit >= 0 ? '#16a34a' : '#dc2626', true],
+                        ].map(([label, val, col, bold], i, arr) => (
+                          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: label === 'Total costs' ? `2px solid ${C.border}` : i < arr.length-1 ? `1px solid ${C.border}` : 'none', fontFamily: FONT }}>
+                            <span style={{ fontSize: 13, color: C.text, fontWeight: bold ? 700 : 400 }}>{label}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: col }}>{val >= 0 ? '' : '−'}£{Math.abs(val).toFixed(2)}</span>
+                          </div>
+                        ))}
+
+                        {/* Margin analysis */}
+                        <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                          <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 10 }}>Margin Analysis</div>
+
+                          {/* Labour % */}
+                          <div style={{ marginBottom: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>Subcontractor cost as % of revenue</span>
+                              <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: labourPct > 40 ? '#dc2626' : '#7c3aed' }}>{labourPct.toFixed(1)}%</span>
+                            </div>
+                            <div style={{ height: 5, background: C.bg, borderRadius: 99, marginBottom: 6 }}>
+                              <div style={{ height: '100%', width: `${Math.min(labourPct, 100)}%`, background: labourPct > 40 ? '#dc2626' : '#7c3aed', borderRadius: 99 }} />
+                            </div>
+                            <div style={{ fontFamily: FONT, fontSize: 11, color: labourPct > 40 ? '#dc2626' : C.muted, lineHeight: 1.5 }}>
+                              Target: keep below 40%. If labour is eating more than 40p of every £1 you earn, either pricing needs to go up or job efficiency needs to improve.
+                            </div>
+                          </div>
+
+                          {/* Net margin % */}
+                          <div style={{ marginBottom: 4 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>Net margin %</span>
+                              <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: netMargin >= 20 ? '#16a34a' : netMargin >= 0 ? '#f97316' : '#dc2626' }}>{netMargin.toFixed(1)}%</span>
+                            </div>
+                            <div style={{ height: 5, background: C.bg, borderRadius: 99, marginBottom: 6 }}>
+                              <div style={{ height: '100%', width: `${Math.min(Math.abs(netMargin), 100)}%`, background: netMargin >= 20 ? '#16a34a' : netMargin >= 0 ? '#f97316' : '#dc2626', borderRadius: 99 }} />
+                            </div>
+                            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+                              <span style={{ color: '#16a34a', fontWeight: 600 }}>Green</span> = 20% or above (healthy). <span style={{ color: '#f97316', fontWeight: 600 }}>Amber</span> = 0–19% (watch it). <span style={{ color: '#dc2626', fontWeight: 600 }}>Red</span> = negative (you are losing money on this period).
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tax year chart */}
+                      <div style={{ background: C.card, borderRadius: 10, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>P&L — Tax Year {taxYear.label}</div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? 3 : 5, height: 100 }}>
+                          {tyMonths.map(m => (
+                            <div key={m.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: m.isFuture ? 0.2 : 1 }}>
+                              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1, justifyContent: 'flex-end', height: 80 }}>
+                                <div style={{ background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxPnl)*70}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(0)}`} />
+                                <div style={{ background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.total/maxPnl)*70}px`, minHeight: m.total > 0 ? 2 : 0, opacity: 0.7 }} title={`Total costs £${m.total.toFixed(0)}`} />
+                              </div>
+                              <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{m.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, background: '#16a34a', borderRadius: 2 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Revenue</span></div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, background: '#dc2626', borderRadius: 2, opacity: 0.7 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Total costs (incl. subcontractors)</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── HMRC TAB ── */}
+              {expenseTab === 'hmrc' && (() => {
+                const HMRC_CATS = [
+                  { box: 'Box 18', label: 'Cost of goods bought for resale or goods used',  cats: ['Supplies'] },
+                  { box: 'Box 21', label: 'Car, van and travel expenses',                   cats: ['Fuel & Mileage', 'Public Transport'] },
+                  { box: 'Box 22', label: 'Rent, rates, power and insurance costs',         cats: ['Insurance', 'Rent & Utilities'] },
+                  { box: 'Box 23', label: 'Repairs and maintenance of property and equipment', cats: ['Equipment'] },
+                  { box: 'Box 24', label: 'Phone, fax, stationery and other office costs',  cats: ['Software & Tools'] },
+                  { box: 'Box 25', label: 'Advertising and business entertainment costs',   cats: ['Marketing'] },
+                  { box: 'Box 30', label: 'Other allowable business expenses (incl. subcontractor payments & staff costs)', cats: ['Other', 'Staff Costs'] },
+                ];
+                const tyExp = expenses.filter(e => e.date >= taxYear.start && e.date <= taxYear.end);
+                const tyTotal = tyExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+                const fixedAnnual = fixedMonthly * 12;
+                const tyLabourHMRC = bookings
+                  .filter(b => b.cleanDate >= taxYear.start && b.cleanDate <= taxYear.end && b.status !== 'cancelled')
+                  .reduce((s, b) => {
+                    const hrs = calcHours(b.actualStart, b.actualFinish);
+                    if (!hrs) return s;
+                    const member = staff.find(m => m.name === b.assignedStaff);
+                    const rate = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : 0;
+                    return s + hrs * rate;
+                  }, 0);
+                const grandTotal = tyTotal + fixedAnnual + tyLabourHMRC;
+
+                const exportHMRC = () => {
+                  const tyStartYear = parseInt(taxYear.label.split('/')[0]);
+                  const rows = [['SA103F Box','Description','Amount (£)']];
+                  HMRC_CATS.forEach(hc => {
+                    const total = tyExp.filter(e => hc.cats.includes(e.category)).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+                    if (total > 0) rows.push([hc.box, hc.label, total.toFixed(2)]);
+                  });
+                  fixedCosts.filter(f => f.active).forEach(f => {
+                    const annual = f.frequency === 'yearly' ? parseFloat(f.amount)||0 : (parseFloat(f.amount)||0) * 12;
+                    rows.push(['Fixed', f.name, annual.toFixed(2)]);
+                  });
+                  if (tyLabourHMRC > 0) rows.push(['Box 30', 'Subcontractor payments (from job times)', tyLabourHMRC.toFixed(2)]);
+                  rows.push(['Box 31 TOTAL', `Total Allowable Expenses — Tax Year ${taxYear.label}`, grandTotal.toFixed(2)]);
+                  const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')); a.download = `hmrc-sa103-${taxYear.label.replace('/','_')}.csv`; a.click();
+                };
+
+                return (
+                  <div>
+                    {(() => {
+                      const tyStartYear = parseInt(taxYear.label.split('/')[0]);
+                      const deadline = `31 Jan ${tyStartYear + 2}`;
+                      return (
+                        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '14px 20px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#1e40af', marginBottom: 4 }}>Self-Assessment Summary — Tax Year {taxYear.label} (6 Apr {tyStartYear} – 5 Apr {tyStartYear + 1})</div>
+                            <div style={{ fontFamily: FONT, fontSize: 12, color: '#3b82f6', lineHeight: 1.5 }}>
+                              Filing deadline: <strong>{deadline}</strong> · The figures below map to your SA103 self-employment supplementary page.
+                            </div>
+                          </div>
+                          <button onClick={exportHMRC} style={{ ...BTN, background: '#1e40af', color: '#fff', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>⬇ Export CSV</button>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Variable expenses by HMRC box */}
+                    <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 16 }}>
+                      <div style={{ padding: '12px 20px', background: C.bg, borderBottom: `2px solid ${C.border}`, display: 'flex', justifyContent: 'space-between' }}>
+                        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Variable Expenses</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Amount</div>
+                      </div>
+                      {HMRC_CATS.map((hc, i, arr) => {
+                        const total = tyExp.filter(e => hc.cats.includes(e.category)).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+                        if (total === 0) return null;
+                        return (
+                          <div key={hc.box} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '12px 20px', borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#1e40af', background: '#eff6ff', borderRadius: 4, padding: '2px 7px', flexShrink: 0, marginTop: 1 }}>{hc.box}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontFamily: FONT, fontSize: 13, color: C.text }}>{hc.label}</div>
+                              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>{hc.cats.join(', ')}</div>
+                            </div>
+                            <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{total.toFixed(2)}</div>
+                          </div>
+                        );
+                      })}
+                      {tyTotal === 0 && <div style={{ padding: '24px 20px', fontFamily: FONT, fontSize: 13, color: C.muted }}>No variable expenses logged for this tax year yet.</div>}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 20px', background: C.bg, borderTop: `2px solid ${C.border}` }}>
+                        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.muted }}>Variable subtotal</div>
+                        <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{tyTotal.toFixed(2)}</div>
+                      </div>
+                    </div>
+
+                    {/* Fixed costs */}
+                    <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 16 }}>
+                      <div style={{ padding: '12px 20px', background: C.bg, borderBottom: `2px solid ${C.border}`, display: 'flex', justifyContent: 'space-between' }}>
+                        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Fixed Costs (annualised)</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Amount</div>
+                      </div>
+                      {fixedCosts.filter(f => f.active).length === 0
+                        ? <div style={{ padding: '24px 20px', fontFamily: FONT, fontSize: 13, color: C.muted }}>No active fixed costs added yet.</div>
+                        : fixedCosts.filter(f => f.active).map((f, i, arr) => {
+                          const annual = f.frequency === 'yearly' ? parseFloat(f.amount)||0 : (parseFloat(f.amount)||0) * 12;
+                          return (
+                            <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 20px', borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#1e40af', background: '#eff6ff', borderRadius: 4, padding: '2px 7px', flexShrink: 0 }}>Fixed</div>
+                              <div style={{ flex: 1, fontFamily: FONT, fontSize: 13, color: C.text }}>{f.name}</div>
+                              <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{annual.toFixed(2)}</div>
+                            </div>
+                          );
+                        })
+                      }
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 20px', background: C.bg, borderTop: `2px solid ${C.border}` }}>
+                        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.muted }}>Fixed subtotal</div>
+                        <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{fixedAnnual.toFixed(2)}</div>
+                      </div>
+                    </div>
+
+                    {/* Labour costs from actual job times */}
+                    {tyLabourHMRC > 0 && (
+                      <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 16 }}>
+                        <div style={{ padding: '12px 20px', background: C.bg, borderBottom: `2px solid ${C.border}`, display: 'flex', justifyContent: 'space-between' }}>
+                          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Subcontractor Payments (from job times)</div>
+                          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Amount</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 20px' }}>
+                          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#1e40af', background: '#eff6ff', borderRadius: 4, padding: '2px 7px', flexShrink: 0 }}>Box 30</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text }}>Payments to self-employed subcontractors — calculated from actual job times × agreed rate</div>
+                            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>Do not duplicate if also logged under Staff Costs expenses. These are not wages — subcontractors handle their own tax and NI.</div>
+                          </div>
+                          <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{tyLabourHMRC.toFixed(2)}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Grand total */}
+                    <div style={{ background: '#1e40af', borderRadius: 10, padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>Total Allowable Expenses — Box 31</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Copy this number into Box 31 of your SA103F</div>
+                      </div>
+                      <div style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: '#fff' }}>£{grandTotal.toFixed(2)}</div>
+                    </div>
+
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 12, lineHeight: 1.5 }}>
+                      * This uses the SA103F (Self-Employment Full) supplementary page. Boxes 18–30 are individual expense categories; Box 31 is the total you enter on the form. Fixed costs are annualised (×12 for monthly). Subcontractor payments (Box 30) are calculated from actual job times × agreed rate — only shown if actual times are recorded. Your cleaners are self-employed and handle their own tax and NI — you do not run payroll or deduct anything. If your annual turnover is under £90,000 you can use the simpler SA103S (Short) form instead, which only needs a single total expenses figure — the Box 31 total above works for both.
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          );
+        })()}
+
+        {/* Supplies */}
+        {activeView === 'supplies' && (() => {
+          const SUPPLY_CATS = ['Cloths & Scrubbing', 'Cleaning Products', 'Tools', 'Protection', 'Luxury Touch', 'Kit Bag', 'Other'];
+          const needReorder = supplies.filter(s => (parseInt(s.inStock)||0) < (parseInt(s.reorderAt)||1));
+          const filtered = supplies.filter(s => !suppliesSearch || s.name?.toLowerCase().includes(suppliesSearch.toLowerCase()) || s.category?.toLowerCase().includes(suppliesSearch.toLowerCase()) || s.whereToBuy?.toLowerCase().includes(suppliesSearch.toLowerCase()));
+          const totalValue = supplies.reduce((s, x) => s + ((parseFloat(x.unitCost)||0) * (parseInt(x.qtyNeeded)||0)), 0);
+
+          const updateStock = async (id, delta) => {
+            const item = supplies.find(s => s.id === id);
+            if (!item) return;
+            const next = Math.max(0, (parseInt(item.inStock)||0) + delta);
+            try {
+              await updateDoc(doc(db, 'supplies', id), { inStock: next });
+            } catch {
+              alert('Failed to update stock — check your connection and try again.');
+            }
+          };
+
+          const statusInfo = s => {
+            const stock = parseInt(s.inStock)||0, reorder = parseInt(s.reorderAt)||1;
+            if (stock === 0)        return { label: 'Out of Stock', bg: '#fee2e2', color: '#dc2626' };
+            if (stock < reorder)    return { label: 'Reorder',      bg: '#fee2e2', color: '#dc2626' };
+            if (stock === reorder)  return { label: 'Low',          bg: '#fff8eb', color: '#d97706' };
+            return                         { label: 'OK',           bg: '#f0fdf4', color: '#16a34a' };
+          };
+
+          return (
+            <div>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: isMobile ? 20 : 24, fontWeight: 700, color: C.text }}>Supplies</div>
+                  <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, marginTop: 2 }}>{supplies.length} items · est. kit cost £{totalValue.toFixed(2)}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input value={suppliesSearch} onChange={e => setSuppliesSearch(e.target.value)} placeholder="Search…" style={{ ...INPUT, marginBottom: 0, width: 140, fontSize: 13 }} />
+                  <button onClick={() => { setSuppliesModal({ mode: 'add', data: { name: '', category: 'Cleaning Products', unit: 'each', qtyNeeded: '', inStock: '', reorderAt: '1', unitCost: '', whereToBuy: '', notes: '' } }); setSuppliesErr(''); }} style={{ ...BTN, background: C.accent, color: '#fff', fontSize: 13 }}>+ Add Item</button>
+                </div>
+              </div>
+
+              {/* Reorder alert */}
+              {needReorder.length > 0 && (
+                <div style={{ background: '#fee2e2', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 10, padding: '14px 20px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: FONT, fontSize: 15 }}>⚠️</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>{needReorder.length} item{needReorder.length !== 1 ? 's' : ''} need restocking</div>
+                    <div style={{ fontFamily: FONT, fontSize: 12, color: '#b91c1c', marginTop: 2 }}>{needReorder.map(s => s.name).join(', ')}</div>
+                  </div>
+                </div>
+              )}
+
+              {supplies.length === 0 ? (
+                <div style={{ background: C.card, borderRadius: 8, padding: 48, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontFamily: FONT, fontSize: 14, color: C.muted }}>No supplies added yet. Click "+ Add Item" to build your inventory.</div>
+                </div>
+              ) : (
+                <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                  {/* Table header */}
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto auto' : '1fr 100px 120px 80px 80px auto', gap: 12, padding: '10px 20px', background: C.bg, borderBottom: `2px solid ${C.border}` }}>
+                    {(isMobile ? ['Item','Stock','Status'] : ['Item','Where to Buy','In Stock','Unit Cost','Status','']).map(h => <div key={h} style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>{h}</div>)}
+                  </div>
+                  {filtered.map((s, i) => {
+                    const st = statusInfo(s);
+                    return (
+                      <div key={s.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto auto' : '1fr 100px 120px 80px 80px auto', gap: 12, padding: '12px 20px', borderBottom: i < filtered.length-1 ? `1px solid ${C.border}` : 'none', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{s.name}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 1 }}>{s.category} · {s.unit}</div>
+                          {s.notes && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, fontStyle: 'italic' }}>{s.notes}</div>}
+                        </div>
+                        {!isMobile && <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{s.whereToBuy||'—'}</div>}
+                        {/* Stock controls */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <button onClick={() => updateStock(s.id, -1)} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                          <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: st.color, minWidth: 24, textAlign: 'center' }}>{s.inStock??'—'}</span>
+                          <button onClick={() => updateStock(s.id, 1)} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                        </div>
+                        {!isMobile && <div style={{ fontFamily: FONT, fontSize: 13, color: C.text }}>{s.unitCost ? `£${parseFloat(s.unitCost).toFixed(2)}` : '—'}</div>}
+                        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: st.bg, color: st.color, whiteSpace: 'nowrap', textAlign: 'center' }}>{st.label}</div>
+                        <button onClick={() => { setSuppliesModal({ mode: 'edit', data: {...s} }); setSuppliesErr(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 13 }}>✏️</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* SOP */}
+        {activeView === 'sop' && (() => {
+          const Section = ({ title, children }) => (
+            <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: 16, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 24px', borderBottom: `2px solid ${C.border}`, background: C.bg }}>
+                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.muted }}>{title}</div>
+              </div>
+              <div style={{ padding: '20px 24px' }}>{children}</div>
+            </div>
+          );
+          const Row = ({ label, value, note }) => (
+            <div style={{ display: 'flex', gap: 16, paddingBottom: 12, marginBottom: 12, borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
+              <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, minWidth: 200 }}>{label}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: FONT, fontSize: 13, color: C.text }}>{value}</div>
+                {note && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{note}</div>}
+              </div>
+            </div>
+          );
+          return (
+            <div>
+              <div style={{ fontFamily: FONT, fontSize: isMobile ? 20 : 24, fontWeight: 700, color: C.text, marginBottom: 20 }}>Standard Operating Procedures</div>
+
+              <Section title="Pay">
+                <Row
+                  label="Pay cycle"
+                  value="Weekly — Sunday to Saturday"
+                  note="Each pay week runs from Sunday through to Saturday."
+                />
+                <Row
+                  label="Payday"
+                  value="Friday following the end of the pay week"
+                  note="Example: work done 19 Apr – 25 Apr (Sat) is paid on Friday 1 May."
+                />
+                <Row
+                  label="Pay rate"
+                  value="Set per subcontractor (see Staff tab)"
+                  note="Each cleaner is self-employed and has an agreed hourly rate on their profile. Hours are logged via actual start and finish times on each job. They handle their own tax and National Insurance — you do not run payroll or deduct anything from their pay."
+                />
+                <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginTop: 4 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pay week examples</div>
+                  {[
+                    { week: '19 Apr – 25 Apr', payday: 'Fri 1 May' },
+                    { week: '26 Apr – 2 May',  payday: 'Fri 8 May' },
+                    { week: '3 May – 9 May',   payday: 'Fri 15 May' },
+                  ].map(({ week, payday }) => (
+                    <div key={week} style={{ display: 'flex', gap: 16, fontFamily: FONT, fontSize: 13, marginBottom: 6 }}>
+                      <div style={{ color: C.text, minWidth: 180 }}>{week}</div>
+                      <div style={{ color: C.muted }}>→ paid {payday}</div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              <Section title="Expenses">
+                <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, marginBottom: 16, lineHeight: 1.6 }}>
+                  The Expenses page tracks all the money going <strong>out</strong> of the business. It has two tabs:
+                </div>
+
+                <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 8 }}>Variable tab — one-off or irregular spending</div>
+                {['Things like cleaning supplies, fuel, equipment purchases, marketing spend.', 'Log each expense with a date, category, amount, and who paid.', 'If someone paid out of their own pocket, mark it as "Personal — Reimbursable" so you know to pay them back.', 'For mileage, use the built-in calculator (HMRC rate: 45p/mile).', 'Filter by month and category, and export to CSV for your accountant.'].map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                    <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+                    <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+                  </div>
+                ))}
+
+                <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 8px' }}>Fixed Costs tab — recurring monthly/yearly overheads</div>
+                {['Things like insurance, phone bill, software subscriptions.', 'Mark them monthly or yearly — yearly ones are divided by 12 so you see a true monthly overhead figure.', 'Shows your total fixed overhead per month at a glance.'].map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                    <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+                    <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+                  </div>
+                ))}
+
+                <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 8px' }}>Dashboard KPIs</div>
+                {['This month vs last month spending.', 'Year to date total.', 'Reimbursable — money owed back to staff or yourself.'].map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                    <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+                    <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+                  </div>
+                ))}
+
+                <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginTop: 12, fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                  <strong style={{ color: C.text }}>Note:</strong> Don't log individual supplies here — just the total purchase amount (e.g. "£45 at Costco"). Use the <strong style={{ color: C.text }}>Supplies tab</strong> to track stock levels and reorder points.
+                </div>
+
+                <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Why separate fixed and variable?</div>
+                <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 10 }}>
+                  <strong>Fixed costs</strong> are the same every month regardless of how busy you are — insurance, phone bill, software subscriptions. You set them once and forget them. They tell you your minimum monthly outgoing before you've done a single job.
+                </div>
+                <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+                  <strong>Variable costs</strong> change month to month depending on activity — supplies, fuel, equipment. Some months you spend £20, others £200.
+                </div>
+                <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, marginBottom: 8 }}>The reason to separate them is so you can answer questions like:</div>
+                {[
+                  '"Even if I do zero jobs this month, I need to cover £X" → that\'s your fixed costs.',
+                  '"The more jobs I do, the more I spend on X" → that\'s your variable costs.',
+                ].map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                    <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+                    <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5, fontStyle: 'italic' }}>{item}</div>
+                  </div>
+                ))}
+                <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
+                  Together they give you a clearer picture of your actual profit margin — useful when the Reports tab is built out.
+                </div>
+              </Section>
+
+              <Section title="Profit & Loss (P&L)">
+                <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 12 }}>
+                  The <strong>P&L tab</strong> in Expenses shows your revenue minus your costs = your actual profit for the month or tax year. It's the single most important number in the business.
+                </div>
+                {[
+                  { label: 'Revenue', desc: 'Money coming in from bookings in that period.' },
+                  { label: 'Subcontractor costs', desc: 'Payments to self-employed cleaners — calculated from actual job start/finish times × their agreed rate. They are not employees; they handle their own tax and NI.' },
+                  { label: 'Variable costs', desc: 'What you logged in the Variable tab for that period — supplies, fuel, equipment etc.' },
+                  { label: 'Fixed costs', desc: 'Your monthly overhead (insurance, software etc). Same every month regardless of jobs.' },
+                  { label: 'Net profit', desc: 'Revenue minus all costs. This is what you actually made.' },
+                  { label: 'Profit margin', desc: 'Net profit as a percentage of revenue. Higher is better.' },
+                ].map(({ label, desc }) => (
+                  <div key={label} style={{ display: 'flex', gap: 16, paddingBottom: 10, marginBottom: 10, borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
+                    <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, minWidth: 140 }}>{label}</div>
+                    <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, flex: 1 }}>{desc}</div>
+                  </div>
+                ))}
+
+                <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 10px' }}>Margin Analysis</div>
+                <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 10 }}>
+                  The P&L breakdown card shows two health indicators at a glance:
+                </div>
+                {[
+                  {
+                    label: 'Subcontractor cost as % of revenue',
+                    detail: 'Shows how much of every pound earned is going on subcontractor payments. Displayed in purple normally — turns red if it goes above 40%.',
+                    rule: 'Target: keep below 40%. If subcontractor costs are eating more than 40p of every £1 you earn, either pricing needs to go up or job efficiency needs to improve.',
+                  },
+                  {
+                    label: 'Net margin %',
+                    detail: 'Shows what percentage of revenue is actual profit after all costs.',
+                    rule: 'Green = 20% or above (healthy). Amber = 0–19% (watch it). Red = negative (you are losing money on this period).',
+                  },
+                ].map(({ label, detail, rule }) => (
+                  <div key={label} style={{ marginBottom: 14, padding: '12px 16px', background: C.bg, borderRadius: 8, borderLeft: `3px solid #1e40af` }}>
+                    <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>{label}</div>
+                    <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>{detail}</div>
+                    <div style={{ fontFamily: FONT, fontSize: 12, color: '#1e40af' }}>{rule}</div>
+                  </div>
+                ))}
+
+                <div style={{ background: C.bg, borderRadius: 8, padding: '10px 14px', marginTop: 4, fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                  The chart shows revenue (green) vs total costs (red, including labour) for every month of the current tax year (6 Apr – 5 Apr). Future months are faded out. Use it to spot months where spending crept too high relative to revenue.
+                </div>
+              </Section>
+
+              <Section title="Tax & HMRC">
+                <Row
+                  label="UK tax year"
+                  value="6 April to 5 April the following year"
+                  note="Example: the 2025/26 tax year runs from 6 Apr 2025 to 5 Apr 2026. Self-assessment deadline is 31 Jan the year after."
+                />
+                <Row
+                  label="Self-assessment"
+                  value="File annually via HMRC Self Assessment (SA103 form)"
+                  note="As a self-employed business you must declare your income and allowable expenses each tax year. The deadline is 31 January — roughly 21 months after the tax year starts. Example: 2026/27 tax year (ends 5 Apr 2027) → file by 31 Jan 2028. Your accountant can do this for you."
+                />
+                <Row
+                  label="Mileage rate"
+                  value="45p per mile for the first 10,000 miles · 25p per mile after"
+                  note="This is the HMRC approved mileage rate for cars. Use the mileage calculator in the Variable Expenses tab — it applies 45p automatically."
+                />
+                <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Official HMRC mileage rates</div>
+                  <a href="https://www.gov.uk/government/publications/rates-and-allowances-travel-mileage-and-fuel-allowances/travel-mileage-and-fuel-rates-and-allowances"
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ fontFamily: FONT, fontSize: 12, color: '#1e40af', wordBreak: 'break-all' }}>
+                    gov.uk — Travel mileage and fuel rates and allowances
+                  </a>
+                </div>
+                <Row
+                  label="HMRC Summary tab"
+                  value="Found inside the Expenses page"
+                  note="At tax return time, go to Expenses → HMRC tab. It maps all your expenses to the correct SA103F boxes (Boxes 18–30) and gives you a single total for Box 31 (Total allowable expenses) to copy into your tax return."
+                />
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 16px', fontFamily: FONT, fontSize: 12, color: '#1e40af', lineHeight: 1.5 }}>
+                  <strong>Tip:</strong> Log all your expenses throughout the year — don't wait until January. The HMRC tab will do the maths for you automatically.
+                </div>
+              </Section>
+
+              <Section title="System Alerts & What To Do">
+                <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+                  This system saves everything to a cloud database (Firebase/Firestore) in real time. If a save fails, you will see an alert pop-up. Below is what each alert means and exactly what to do.
+                </div>
+
+                {[
+                  {
+                    alert: '"Failed to save time — check your connection and try again."',
+                    where: 'My Jobs tab → Actual Start / Actual Finish time inputs',
+                    cause: 'The time was entered but the save to the database failed due to a connection drop or server error. The input will revert to what it was before.',
+                    fix: 'Check you are online, then re-enter the time. If it keeps failing, note the time on paper and try again once your connection is stable.',
+                  },
+                  {
+                    alert: '"Failed to mark as repaid — check your connection and try again."',
+                    where: 'Expenses → Variable tab → Mark Repaid button',
+                    cause: 'Your internet dropped for a moment, or the session timed out.',
+                    fix: 'Check you are online, refresh the page (you will not lose data — everything is already saved in the database), then try again. If it keeps failing, close the browser and reopen the admin page.',
+                  },
+                  {
+                    alert: '"Failed to update stock — check your connection and try again."',
+                    where: 'Supplies tab → + / − stock buttons',
+                    cause: 'Same as above — a brief connection loss prevented the stock number from saving.',
+                    fix: 'Refresh the page and try again. The stock count shown is what is actually in the database — it will not have changed if the save failed.',
+                  },
+                  {
+                    alert: '"Missing or insufficient permissions."',
+                    where: 'Any save action (expenses, supplies, staff, bookings)',
+                    cause: 'You are either not logged in, or your session has expired.',
+                    fix: 'Scroll to the top and check you are still logged in. If the page shows the login screen, sign back in with your admin email. This happens occasionally after long idle periods.',
+                  },
+                  {
+                    alert: 'Page loads but shows no data (blank lists)',
+                    where: 'Any tab',
+                    cause: 'Rare — usually a temporary Firebase service outage, or your browser is blocking the connection.',
+                    fix: 'Wait 2–3 minutes and refresh. Check status.firebase.google.com if it persists. Your data is safe in the database and will reappear when the connection restores.',
+                  },
+                ].map(({ alert, where, cause, fix }) => (
+                  <div key={alert} style={{ marginBottom: 20, padding: '14px 18px', background: C.bg, borderRadius: 8, borderLeft: `3px solid #dc2626` }}>
+                    <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626', marginBottom: 6 }}>{alert}</div>
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, minWidth: 60 }}>Where</div>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, flex: 1 }}>{where}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, minWidth: 60 }}>Cause</div>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, flex: 1 }}>{cause}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#16a34a', minWidth: 60 }}>Fix</div>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, flex: 1 }}>{fix}</div>
+                    </div>
+                  </div>
+                ))}
+
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '12px 16px', fontFamily: FONT, fontSize: 12, color: '#15803d', lineHeight: 1.6 }}>
+                  <strong>Your data is safe.</strong> Every booking, expense, and stock entry is saved to the cloud the moment you press save — it does not live on your device. Even if your laptop breaks or your browser crashes, nothing is lost. The only risk is a failed save that was interrupted mid-action, which is why the alerts tell you to retry.
+                </div>
+              </Section>
+            </div>
+          );
+        })()}
 
         {/* Reports placeholder */}
         {activeView === 'reports' && (
@@ -1856,6 +3418,49 @@ export default function AdminPage() {
                         ))}
                       </select>
                     </div>
+
+                    {/* Actual times & hours worked */}
+                    {(() => {
+                      const assignedMember = staff.find(s => s.name === b.assignedStaff);
+                      const rate = assignedMember && assignedMember.hourlyRate !== 'N/A' ? parseFloat(assignedMember.hourlyRate) : null;
+                      const hrs  = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
+                      const earned = rate !== null && hrs !== null ? (hrs * rate).toFixed(2) : null;
+                      const saveTime = (field, val) => {
+                        setBookings(prev => prev.map(x => x.id === b.id ? { ...x, [field]: val } : x));
+                        fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ bookingId: b.id, [field]: val }),
+                        }).catch(() => {});
+                      };
+                      return (
+                        <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginBottom: 14, border: `1px solid ${C.border}` }}>
+                          <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 10 }}>Hours Worked</div>
+                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                            <div>
+                              <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 3 }}>Actual Start</div>
+                              <input type="time" value={b.actualStart || ''} onChange={e => saveTime('actualStart', e.target.value)}
+                                style={{ ...INPUT, marginBottom: 0, width: 120, fontSize: 13 }} />
+                            </div>
+                            <div>
+                              <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 3 }}>Actual Finish</div>
+                              <input type="time" value={b.actualFinish || ''} onChange={e => saveTime('actualFinish', e.target.value)}
+                                style={{ ...INPUT, marginBottom: 0, width: 120, fontSize: 13 }} />
+                            </div>
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                              {hrs !== null && (
+                                <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>⏱ {fmtDuration(hrs)}</span>
+                              )}
+                              {earned !== null && (
+                                <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#16a34a' }}>£{earned}</span>
+                              )}
+                              {b.assignedStaff && rate === null && (
+                                <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>N/A rate — no pay calc</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Do Not Contact toggle */}
                     <DoNotContactToggle
@@ -2664,6 +4269,14 @@ export default function AdminPage() {
                 <input value={staffModal.data.email} onChange={e => setStaffModal(m => ({ ...m, data: { ...m.data, email: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} placeholder="email@example.com" />
               </div>
               <div>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Employment Type *</div>
+                <select value={staffModal.data.employmentType || 'Subcontractor'} onChange={e => setStaffModal(m => ({ ...m, data: { ...m.data, employmentType: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                  <option>Subcontractor</option>
+                  <option>Employee</option>
+                  <option>Self-Employed / Owner</option>
+                </select>
+              </div>
+              <div>
                 <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Role</div>
                 <select value={staffModal.data.role} onChange={e => setStaffModal(m => ({ ...m, data: { ...m.data, role: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
                   <option>Cleaner</option>
@@ -2805,7 +4418,7 @@ export default function AdminPage() {
                       photoURL = await getDownloadURL(storageRef);
                     }
                     if (staffModal.mode === 'add') {
-                      await addDoc(collection(db, 'staff'), { name: d.name, phone: d.phone, email: d.email || '', role: d.role, hourlyRate: d.hourlyRate === 'N/A' ? 'N/A' : parseFloat(d.hourlyRate) || 0, status: d.status, photoURL, joinDate: d.joinDate || '', holidays: d.holidays || [], createdAt: new Date().toISOString() });
+                      await addDoc(collection(db, 'staff'), { name: d.name, phone: d.phone, email: d.email || '', employmentType: d.employmentType || 'Subcontractor', role: d.role, hourlyRate: d.hourlyRate === 'N/A' ? 'N/A' : parseFloat(d.hourlyRate) || 0, status: d.status, photoURL, joinDate: d.joinDate || '', holidays: d.holidays || [], createdAt: new Date().toISOString() });
                     } else {
                       const { id, _photoFile, ...rest } = d;
                       await updateDoc(doc(db, 'staff', id), { ...rest, hourlyRate: d.hourlyRate === 'N/A' ? 'N/A' : parseFloat(d.hourlyRate) || 0, photoURL });
@@ -2823,6 +4436,311 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Expense Modal */}
+      {expenseModal && (() => {
+        const CATS = ['Supplies', 'Fuel & Mileage', 'Public Transport', 'Equipment', 'Marketing', 'Insurance', 'Staff Costs', 'Rent & Utilities', 'Software & Tools', 'Other'];
+        const PAID_BY = ['Company Card', 'Cash', 'Personal — Reimbursable', 'Direct Debit'];
+        const HMRC_RATE = 0.45;
+        const d = expenseModal.data;
+        const isMileage = d.category === 'Fuel & Mileage' && d.useMileage;
+        const calcAmountFromMiles = miles => (parseFloat(miles) * HMRC_RATE).toFixed(2);
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 460, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text }}>{expenseModal.mode === 'add' ? 'Add Expense' : 'Edit Expense'}</div>
+                <button onClick={() => setExpenseModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>✕</button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {/* Date */}
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Date *</div>
+                  <input type="date" value={d.date || ''} onChange={e => setExpenseModal(m => ({ ...m, data: { ...m.data, date: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                </div>
+                {/* Paid by */}
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Paid By</div>
+                  <select value={d.paidBy || 'Company Card'} onChange={e => setExpenseModal(m => ({ ...m, data: { ...m.data, paidBy: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                    {PAID_BY.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+                {/* Category */}
+                <div style={{ gridColumn: '1/-1' }}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Category *</div>
+                  <select value={d.category || 'Supplies'} onChange={e => setExpenseModal(m => ({ ...m, data: { ...m.data, category: e.target.value, useMileage: false } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                    {CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                {/* Mileage toggle for Fuel & Mileage only */}
+                {d.category === 'Fuel & Mileage' && (
+                  <div style={{ gridColumn: '1/-1' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: FONT, fontSize: 13, color: C.text }}>
+                      <input type="checkbox" checked={!!d.useMileage} onChange={e => setExpenseModal(m => ({ ...m, data: { ...m.data, useMileage: e.target.checked, miles: '', amount: '' } }))} />
+                      Use mileage calculator (HMRC 45p/mile)
+                    </label>
+                  </div>
+                )}
+                {/* Miles or Amount */}
+                {isMileage ? (
+                  <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Miles *</div>
+                      <input type="number" min="0" value={d.miles || ''} onChange={e => setExpenseModal(m => ({ ...m, data: { ...m.data, miles: e.target.value, amount: calcAmountFromMiles(e.target.value) } }))} style={{ ...INPUT, marginBottom: 0 }} placeholder="e.g. 12" />
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Amount (auto)</div>
+                      <input readOnly value={d.amount ? `£${parseFloat(d.amount).toFixed(2)}` : '—'} style={{ ...INPUT, marginBottom: 0, background: C.bg, color: C.muted }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Amount (£) *</div>
+                    <input type="number" step="0.01" min="0" value={d.amount || ''} onChange={e => setExpenseModal(m => ({ ...m, data: { ...m.data, amount: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} placeholder="0.00" />
+                  </div>
+                )}
+                {/* Description */}
+                <div style={{ gridColumn: '1/-1' }}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Description *</div>
+                  <input value={d.description || ''} onChange={e => setExpenseModal(m => ({ ...m, data: { ...m.data, description: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} placeholder="e.g. Cleaning supplies from Costco" />
+                </div>
+                {/* Notes — genuinely optional */}
+                <div style={{ gridColumn: '1/-1' }}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Notes <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></div>
+                  <textarea value={d.notes || ''} onChange={e => setExpenseModal(m => ({ ...m, data: { ...m.data, notes: e.target.value } }))} style={{ ...INPUT, marginBottom: 0, height: 60, resize: 'vertical' }} placeholder="Any extra details…" />
+                </div>
+              </div>
+              {/* Reimbursable reminder */}
+              {d.paidBy === 'Personal — Reimbursable' && (
+                <div style={{ fontFamily: FONT, fontSize: 12, color: '#d97706', background: '#fff8eb', borderRadius: 6, padding: '8px 12px', marginTop: 10 }}>
+                  Marked as reimbursable — remember to pay this back to the person who paid.
+                </div>
+              )}
+              {expenseErr && <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginTop: 10 }}>{expenseErr}</div>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
+                {expenseModal.mode === 'edit' ? (
+                  <button disabled={expenseSaving} onClick={async () => {
+                    if (!window.confirm('Delete this expense?')) return;
+                    setExpenseSaving(true);
+                    try { await deleteDoc(doc(db, 'expenses', d.id)); setExpenseModal(null); }
+                    catch (e) { setExpenseErr(e.message); }
+                    finally { setExpenseSaving(false); }
+                  }} style={{ fontFamily: FONT, fontSize: 12, color: C.danger, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Delete</button>
+                ) : <div />}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setExpenseModal(null)} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}` }}>Cancel</button>
+                  <button disabled={expenseSaving} onClick={async () => {
+                    if (!d.date || !d.amount || !d.description?.trim()) { setExpenseErr('Date, amount and description are required.'); return; }
+                    setExpenseSaving(true); setExpenseErr('');
+                    try {
+                      const payload = { date: d.date, category: d.category || 'Other', description: d.description.trim(), amount: parseFloat(d.amount), notes: d.notes?.trim() || '', paidBy: d.paidBy || 'Company Card', ...(d.useMileage ? { miles: parseFloat(d.miles) || 0 } : {}) };
+                      if (expenseModal.mode === 'add') await addDoc(collection(db, 'expenses'), { ...payload, createdAt: new Date().toISOString() });
+                      else await updateDoc(doc(db, 'expenses', d.id), payload);
+                      setExpenseModal(null);
+                    } catch (e) { setExpenseErr(e.message); }
+                    finally { setExpenseSaving(false); }
+                  }} style={{ ...BTN, background: C.accent, color: '#fff', opacity: expenseSaving ? 0.6 : 1 }}>{expenseSaving ? 'Saving…' : 'Save'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Budget Edit Modal */}
+      {budgetEdit && (() => {
+        const CATS = ['Supplies', 'Fuel & Mileage', 'Public Transport', 'Equipment', 'Marketing', 'Insurance', 'Staff Costs', 'Rent & Utilities', 'Software & Tools', 'Other'];
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 420, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text }}>Monthly Budgets</div>
+                <button onClick={() => setBudgetEdit(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>✕</button>
+              </div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 20 }}>Set a monthly spend limit per category. Leave blank for no limit.</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {CATS.map(cat => (
+                  <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, flex: 1 }}>{cat}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>£</span>
+                      <input type="number" min="0" step="1" value={budgetDraft[cat] || ''} placeholder="No limit"
+                        onChange={e => setBudgetDraft(d => ({ ...d, [cat]: e.target.value }))}
+                        style={{ ...INPUT, marginBottom: 0, width: 90, fontSize: 13 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+                <button onClick={() => setBudgetEdit(false)} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}` }}>Cancel</button>
+                <button disabled={budgetSaving} onClick={async () => {
+                  setBudgetSaving(true);
+                  const clean = {};
+                  CATS.forEach(c => { if (budgetDraft[c]) clean[c] = parseFloat(budgetDraft[c]); });
+                  try { await setDoc(doc(db, 'settings', 'expenseBudgets'), clean, { merge: true }); setBudgetEdit(false); }
+                  finally { setBudgetSaving(false); }
+                }} style={{ ...BTN, background: C.accent, color: '#fff', opacity: budgetSaving ? 0.6 : 1 }}>{budgetSaving ? 'Saving…' : 'Save'}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Fixed Cost Modal */}
+      {fixedModal && (() => {
+        const d = fixedModal.data;
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text }}>{fixedModal.mode === 'add' ? 'Add Fixed Cost' : 'Edit Fixed Cost'}</div>
+                <button onClick={() => setFixedModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>✕</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[['Name *', 'name', 'text', 'e.g. Employer Liability Insurance'], ['Amount (£) *', 'amount', 'number', '0.00'], ['Due Day of Month', 'dueDayOfMonth', 'number', 'e.g. 1']].map(([label, key, type, ph]) => (
+                  <div key={key}>
+                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>{label}</div>
+                    <input type={type} value={d[key] || ''} placeholder={ph} onChange={e => setFixedModal(m => ({ ...m, data: { ...m.data, [key]: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                  </div>
+                ))}
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Frequency</div>
+                  <select value={d.frequency || 'monthly'} onChange={e => setFixedModal(m => ({ ...m, data: { ...m.data, frequency: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Account</div>
+                  <select value={d.account || 'Monzo'} onChange={e => setFixedModal(m => ({ ...m, data: { ...m.data, account: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                    {['Monzo', 'Revolut', 'Barclays', 'Cash', 'Other'].map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Account Holder</div>
+                  <input value={d.accountHolder || ''} placeholder="e.g. Farhana" onChange={e => setFixedModal(m => ({ ...m, data: { ...m.data, accountHolder: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Notes</div>
+                  <textarea value={d.notes || ''} placeholder="Any extra details…" onChange={e => setFixedModal(m => ({ ...m, data: { ...m.data, notes: e.target.value } }))} style={{ ...INPUT, marginBottom: 0, height: 60, resize: 'vertical' }} />
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: FONT, fontSize: 13, color: C.text }}>
+                  <input type="checkbox" checked={!!d.active} onChange={e => setFixedModal(m => ({ ...m, data: { ...m.data, active: e.target.checked } }))} />
+                  Active (included in monthly overhead total)
+                </label>
+              </div>
+              {fixedErr && <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginTop: 10 }}>{fixedErr}</div>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
+                {fixedModal.mode === 'edit' ? (
+                  <button disabled={fixedSaving} onClick={async () => {
+                    if (!window.confirm('Delete this fixed cost?')) return;
+                    setFixedSaving(true);
+                    try { await deleteDoc(doc(db, 'fixedCosts', d.id)); setFixedModal(null); }
+                    catch (e) { setFixedErr(e.message); }
+                    finally { setFixedSaving(false); }
+                  }} style={{ fontFamily: FONT, fontSize: 12, color: C.danger, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Delete</button>
+                ) : <div />}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setFixedModal(null)} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}` }}>Cancel</button>
+                  <button disabled={fixedSaving} onClick={async () => {
+                    if (!d.name?.trim() || !d.amount) { setFixedErr('Name and amount are required.'); return; }
+                    setFixedSaving(true); setFixedErr('');
+                    try {
+                      const payload = { name: d.name.trim(), amount: parseFloat(d.amount), frequency: d.frequency || 'monthly', dueDayOfMonth: d.dueDayOfMonth || '', account: d.account || 'Monzo', accountHolder: d.accountHolder?.trim() || '', active: !!d.active, notes: d.notes?.trim() || '' };
+                      if (fixedModal.mode === 'add') await addDoc(collection(db, 'fixedCosts'), { ...payload, createdAt: new Date().toISOString() });
+                      else await updateDoc(doc(db, 'fixedCosts', d.id), payload);
+                      setFixedModal(null);
+                    } catch (e) { setFixedErr(e.message); }
+                    finally { setFixedSaving(false); }
+                  }} style={{ ...BTN, background: C.accent, color: '#fff', opacity: fixedSaving ? 0.6 : 1 }}>{fixedSaving ? 'Saving…' : 'Save'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Supplies Modal */}
+      {suppliesModal && (() => {
+        const SUPPLY_CATS = ['Cloths & Scrubbing', 'Cleaning Products', 'Tools', 'Protection', 'Luxury Touch', 'Kit Bag', 'Other'];
+        const d = suppliesModal.data;
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text }}>{suppliesModal.mode === 'add' ? 'Add Supply Item' : 'Edit Supply Item'}</div>
+                <button onClick={() => setSuppliesModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>✕</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Name *</div>
+                  <input value={d.name || ''} placeholder="e.g. Microfibre cloths" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, name: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Category</div>
+                  <select value={d.category || 'Cleaning Products'} onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, category: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                    {SUPPLY_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>In Stock</div>
+                    <input type="number" min="0" value={d.inStock || ''} placeholder="0" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, inStock: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Reorder At</div>
+                    <input type="number" min="0" value={d.reorderAt || ''} placeholder="1" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, reorderAt: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Unit Cost (£)</div>
+                    <input type="number" step="0.01" min="0" value={d.unitCost || ''} placeholder="0.00" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, unitCost: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Unit</div>
+                    <select value={d.unit || 'each'} onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, unit: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                      {['each', 'pack', 'bottle', 'bag', 'roll', 'pair', 'box', 'litre'].map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Where to Buy</div>
+                  <input value={d.whereToBuy || ''} placeholder="e.g. Amazon, Costco" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, whereToBuy: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Notes</div>
+                  <textarea value={d.notes || ''} placeholder="Any extra details…" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, notes: e.target.value } }))} style={{ ...INPUT, marginBottom: 0, height: 60, resize: 'vertical' }} />
+                </div>
+              </div>
+              {suppliesErr && <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginTop: 10 }}>{suppliesErr}</div>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
+                {suppliesModal.mode === 'edit' ? (
+                  <button disabled={suppliesSaving} onClick={async () => {
+                    if (!window.confirm('Delete this item?')) return;
+                    setSuppliesSaving(true);
+                    try { await deleteDoc(doc(db, 'supplies', d.id)); setSuppliesModal(null); }
+                    catch (e) { setSuppliesErr(e.message); }
+                    finally { setSuppliesSaving(false); }
+                  }} style={{ fontFamily: FONT, fontSize: 12, color: C.danger, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Delete</button>
+                ) : <div />}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setSuppliesModal(null)} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}` }}>Cancel</button>
+                  <button disabled={suppliesSaving} onClick={async () => {
+                    if (!d.name?.trim()) { setSuppliesErr('Name is required.'); return; }
+                    setSuppliesSaving(true); setSuppliesErr('');
+                    try {
+                      const payload = { name: d.name.trim(), category: d.category || 'Other', unit: d.unit || 'each', inStock: parseInt(d.inStock) || 0, reorderAt: parseInt(d.reorderAt) || 1, unitCost: parseFloat(d.unitCost) || 0, whereToBuy: d.whereToBuy?.trim() || '', notes: d.notes?.trim() || '' };
+                      if (suppliesModal.mode === 'add') await addDoc(collection(db, 'supplies'), { ...payload, createdAt: new Date().toISOString() });
+                      else await updateDoc(doc(db, 'supplies', d.id), payload);
+                      setSuppliesModal(null);
+                    } catch (e) { setSuppliesErr(e.message); }
+                    finally { setSuppliesSaving(false); }
+                  }} style={{ ...BTN, background: C.accent, color: '#fff', opacity: suppliesSaving ? 0.6 : 1 }}>{suppliesSaving ? 'Saving…' : 'Save'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Holiday Conflict Modal */}
       {staffHolidayConflicts && (

@@ -24,6 +24,22 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Expenses, fixed costs, supplies — admin only
+    match /expenses/{id} {
+      allow read, write: if request.auth != null;
+    }
+    match /fixedCosts/{id} {
+      allow read, write: if request.auth != null;
+    }
+    match /supplies/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Settings (budgets etc) — admin only
+    match /settings/{id} {
+      allow read, write: if request.auth != null;
+    }
+
     // Everything else — deny
     match /{document=**} {
       allow read, write: if false;
