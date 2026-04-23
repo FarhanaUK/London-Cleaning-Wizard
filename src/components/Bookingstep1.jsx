@@ -11,14 +11,16 @@ const PACKAGE_DETAIL = {
     'Floors vacuumed and mopped throughout',
     'Kitchen cleaned (worktops, backsplash, cupboard doors and handles, sink, all appliance exteriors)',
     'Bathroom cleaned (toilet, sink, shower, mirrors)',
-    'Doors and door frames wiped down',
+    'Doors and door frames lightly cleaned and spot-wiped',
     'High-touch areas sanitised (e.g. light switches, door handles)',
     'Bins emptied and relined',
     'Subtle application of our signature scent (you can opt out in the details section)',
+  
   ],
+  
   standard: {
     intro: [
-      'The Signature Hotel Reset goes beyond cleaning. It transforms your home into a calm, beautifully presented space that feels like a luxury hotel. You walk in, and everything just feels lighter, calmer, and easier.',
+      'For homes that are already maintained and need a refined, hotel-style finish. The Signature Hotel Reset goes beyond cleaning. It transforms your home into a calm, beautifully presented space that feels like a luxury hotel. You walk in, and everything just feels lighter, calmer, and easier.',
     ],
     sections: [
       {
@@ -26,7 +28,7 @@ const PACKAGE_DETAIL = {
         items: [
           'Hotel-style bed presentation (tight, smooth, and styled)',
           'Cushions and soft furnishings neatly arranged',
-          'Decluttering and visual organisation',
+          'Light decluttering and surface organisation',
           'Surfaces left minimal, aligned, and intentional',
           'A complete "reset" of how your home feels',
           'Microwave deep clean',

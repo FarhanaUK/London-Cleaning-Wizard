@@ -1,64 +1,79 @@
-import Navbar from "./components/Navbar";
-import Hero from "./components/Hero";
-import StatsStrip from "./components/StatsStrip";
-import Services from "./components/Services";
-import Gallery from "./components/Gallery";
-import About from "./components/About";
-import Testimonials from "./components/Testimonials";
-import Areas from "./components/Areas";
-import BookingPage from "./components/BookingPage";
-import Footer from "./components/Footer";
-import TermsAndCondition from "./components/TermsAndCondition";
-import PrivacyPolicy from "./components/PrivacyPolicy"
-import Faqs from "./components/Faqs";
-import CookieBanner from "./components/CookieBanner";
-import AdminPage from "./components/AdminPage"
-import DepositPaymentPage from "./components/DepositPaymentPage"
-import BookingSuccess from "./components/BookingSuccess"
-import UnsubscribePage from "./components/UnsubscribePage"
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Suspense, lazy } from "react"
+import { Routes, Route, useLocation } from "react-router-dom"
 
-const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+// ✅ Always-loaded core UI (small + needed everywhere)
+import Navbar from "./components/Navbar"
+import Hero from "./components/Hero"
+import StatsStrip from "./components/StatsStrip"
+import Footer from "./components/Footer"
+import CookieBanner from "./components/CookieBanner"
+
+// ✅ Lazy-loaded sections (reduces main bundle size)
+const Services = lazy(() => import("./components/Services"))
+const Gallery = lazy(() => import("./components/Gallery"))
+const About = lazy(() => import("./components/About"))
+const Testimonials = lazy(() => import("./components/Testimonials"))
+const Areas = lazy(() => import("./components/Areas"))
+
+// ✅ Lazy-loaded pages (VERY IMPORTANT for performance)
+const BookingPage = lazy(() => import("./components/BookingPage"))
+const AdminPage = lazy(() => import("./components/AdminPage"))
+const DepositPaymentPage = lazy(() => import("./components/DepositPaymentPage"))
+const BookingSuccess = lazy(() => import("./components/BookingSuccess"))
+const UnsubscribePage = lazy(() => import("./components/UnsubscribePage"))
+const TermsAndCondition = lazy(() => import("./components/TermsAndCondition"))
+const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy"))
+const Faqs = lazy(() => import("./components/Faqs"))
+
+const scrollTo = (id) =>
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })
 
 function MainPage() {
   return (
     <>
       <Hero onScrollTo={scrollTo} />
       <StatsStrip />
-      <Services />
-      <Gallery />
-      <About />
-      <Testimonials />
-      <Areas />
 
+      <Suspense fallback={<div>Loading...</div>}>
+        <Services />
+        <Gallery />
+        <About />
+        <Testimonials />
+        <Areas />
+      </Suspense>
     </>
-  );
+  )
 }
 
 export default function App() {
-  const { pathname } = useLocation();
-  const isAdmin         = pathname === '/admin';
-  const isDepositPage   = pathname === '/pay-deposit';
-  const isSuccessPage   = pathname === '/booking-success';
-  const isUnsubscribe   = pathname === '/unsubscribe';
-  const hideChrome      = isAdmin || isDepositPage || isSuccessPage || isUnsubscribe;
+  const { pathname } = useLocation()
+
+  const hideChrome =
+    pathname === "/admin" ||
+    pathname === "/pay-deposit" ||
+    pathname === "/booking-success" ||
+    pathname === "/unsubscribe"
 
   return (
     <div style={{ overflowX: "hidden" }}>
       {!hideChrome && <Navbar />}
-      <Routes>
-        <Route path="/" element={<MainPage />} />
-        <Route path="/terms-and-conditions" element={<TermsAndCondition />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        <Route path="/faqs" element={<Faqs />} />
-        <Route path="/book" element={<BookingPage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="/pay-deposit" element={<DepositPaymentPage />} />
-        <Route path="/booking-success" element={<BookingSuccess />} />
-        <Route path="/unsubscribe" element={<UnsubscribePage />} />
-      </Routes>
+
+      <Suspense fallback={<div>Loading page...</div>}>
+        <Routes>
+          <Route path="/" element={<MainPage />} />
+          <Route path="/terms-and-conditions" element={<TermsAndCondition />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/faqs" element={<Faqs />} />
+          <Route path="/book" element={<BookingPage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/pay-deposit" element={<DepositPaymentPage />} />
+          <Route path="/booking-success" element={<BookingSuccess />} />
+          <Route path="/unsubscribe" element={<UnsubscribePage />} />
+        </Routes>
+      </Suspense>
+
       {!hideChrome && <Footer />}
       {!hideChrome && <CookieBanner />}
     </div>
-  );
+  )
 }

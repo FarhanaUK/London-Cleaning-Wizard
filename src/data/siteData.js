@@ -90,11 +90,11 @@ export const PACKAGES = [
     tags: ['Whole home', 'Same cleaner', 'Linen change', 'Hotel finish'],
     showFreq: true, showAddons: true,
     sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 135 },
-      { id: '1bed',   label: '1 Bedroom', basePrice: 150 },
-      { id: '2bed',   label: '2 Bedroom', basePrice: 165 },
-      { id: '3bed',   label: '3 Bedroom', basePrice: 180 },
-      { id: '4bed',   label: '4 Bedroom', basePrice: 220 },
+      { id: 'studio', label: 'Studio',    basePrice: 145 },
+      { id: '1bed',   label: '1 Bedroom', basePrice: 165 },
+      { id: '2bed',   label: '2 Bedroom', basePrice: 185 },
+      { id: '3bed',   label: '3 Bedroom', basePrice: 210 },
+      { id: '4bed',   label: '4 Bedroom', basePrice: 250 },
     ],
   },
   
