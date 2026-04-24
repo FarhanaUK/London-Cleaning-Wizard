@@ -110,7 +110,8 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
 
   const exportCSV = () => {
     const rows = [['Name', 'Category', 'Purchase Date', 'In Stock', 'Unit Cost', 'Total Value', 'Reorder At', 'Paid By', 'Where to Buy', 'Notes']];
-    filteredInv.forEach(s => rows.push([`"${s.name || ''}"`, s.category || '', s.purchaseDate || '', s.inStock || 0, parseFloat(s.unitCost || 0).toFixed(2), itemCost(s).toFixed(2), s.reorderAt || 0, s.paidBy || '', s.whereToBuy || '', `"${(s.notes || '').replace(/"/g, '""')}"`]));
+    filteredInv.forEach(s => rows.push([`"${s.name || ''}"`, s.category || '', s.purchaseDate || '', s.inStock || 0, parseFloat(s.unitCost || 0).toFixed(2), itemCost(s).toFixed(2), s.reorderAt || 0, s.paidBy || 'Company Card', s.whereToBuy || '', `"${(s.notes || '').replace(/"/g, '""')}"`]));
+    rows.push(['Total', '', '', '', '', totalFiltered.toFixed(2), '', '', '', '']);
     const a = document.createElement('a');
     a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.map(r => r.join(',')).join('\n'));
     a.download = `supplies-${monthFilter === 'all' ? 'all' : monthFilter}.csv`;
@@ -138,8 +139,8 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
 
       {/* KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5,1fr)', gap: 12, marginBottom: 16 }}>
-        <div style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: '3px solid #dc2626' }}>
-          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>{activeMonthLabel}</div>
+        <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: '3px solid #16a34a' }}>
+          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#16a34a', marginBottom: 4 }}>{activeMonthLabel}</div>
           <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{thisMonthTotal.toFixed(0)}</div>
           <div style={{ fontFamily: FONT, fontSize: 11, color: thisMonthTotal <= lastMonthTotal ? '#16a34a' : '#dc2626', marginTop: 3 }}>
             {lastMonthTotal > 0 ? `${thisMonthTotal <= lastMonthTotal ? '▼' : '▲'} £${Math.abs(thisMonthTotal - lastMonthTotal).toFixed(0)} vs prev` : thisMonthItems.length > 0 ? `${thisMonthItems.length} item${thisMonthItems.length !== 1 ? 's' : ''} purchased` : 'No purchases'}
