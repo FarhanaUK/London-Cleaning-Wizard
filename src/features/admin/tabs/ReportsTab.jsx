@@ -41,7 +41,7 @@ const fmtReportMonth = key => {
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-export default function ReportsTab({ bookings, expenses, staff, fixedCosts, isMobile, C }) {
+export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supplies = [], isMobile, C }) {
   const [reportsTaxYear, setReportsTaxYear] = useState(() => currentTaxYear().label);
   const [reportsMode,    setReportsMode]    = useState('taxYear');
   const [reportsMonth,   setReportsMonth]   = useState(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; });
@@ -142,9 +142,11 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, isMo
     return { name: s.name, jobs: sJobs.length, hours: sHours, cost: sCost, rev: sRev };
   }).filter(s => s.jobs > 0).sort((a, b) => b.jobs - a.jobs);
 
-  // ── Reimbursable expenses ──
-  const reimbursable      = expenses.filter(e => e.date >= periodStart && e.date <= periodEnd && e.paidBy && e.paidBy !== 'Company Card' && !e.repaid);
-  const reimbursableTotal = reimbursable.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+  // ── Reimbursable expenses + supplies ──
+  const reimbursableExp     = expenses.filter(e => e.date >= periodStart && e.date <= periodEnd && e.paidBy && e.paidBy !== 'Company Card' && !e.repaid).map(e => ({ id: e.id, name: e.description || '—', paidBy: e.paidBy, date: e.date, amount: parseFloat(e.amount) || 0, type: 'expense' }));
+  const reimbursableSup     = supplies.filter(s => s.paidBy === 'Personal — Reimbursable' && !s.repaid && s.purchaseDate >= periodStart && s.purchaseDate <= periodEnd).map(s => ({ id: s.id, name: s.name || '—', paidBy: s.paidBy, date: s.purchaseDate, amount: (parseFloat(s.unitCost) || 0) * (Number(s.inStock) || 0), type: 'supply' }));
+  const reimbursable        = [...reimbursableExp, ...reimbursableSup].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const reimbursableTotal   = reimbursable.reduce((s, e) => s + e.amount, 0);
 
   // ── Frequency breakdown ──
   const freqMap = {};
@@ -379,16 +381,16 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, isMo
         <div style={RCARD}>
           <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Outstanding Reimbursements — {periodLabel}</div>
           <div style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: reimbursableTotal > 0 ? '#dc2626' : '#16a34a', marginBottom: 4 }}>£{reimbursableTotal.toFixed(2)}</div>
-          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 12 }}>{reimbursable.length} unpaid expense{reimbursable.length !== 1 ? 's' : ''} — money owed back to staff</div>
+          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 12 }}>{reimbursable.length} unpaid item{reimbursable.length !== 1 ? 's' : ''} — money owed back to staff</div>
           {reimbursable.length === 0
-            ? <div style={{ fontFamily: FONT, fontSize: 13, color: '#16a34a' }}>All expenses reimbursed ✓</div>
+            ? <div style={{ fontFamily: FONT, fontSize: 13, color: '#16a34a' }}>All reimbursements settled ✓</div>
             : reimbursable.slice(0, 5).map((e, i, arr) => (
               <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, marginBottom: 8, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
                 <div>
-                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{e.description||'—'}</div>
-                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{e.paidBy} · {fmtDate(e.date)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{e.name}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{e.paidBy} · {fmtDate(e.date)}{e.type === 'supply' ? ' · supply' : ''}</div>
                 </div>
-                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>£{parseFloat(e.amount).toFixed(2)}</div>
+                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>£{e.amount.toFixed(2)}</div>
               </div>
             ))
           }

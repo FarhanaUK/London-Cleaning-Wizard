@@ -49,6 +49,24 @@ export const fmtDuration = hrs => {
   return `${h}h ${m}min`;
 };
 
+// UK tax year helpers (6 Apr – 5 Apr)
+export const getTaxYears = () => {
+  const now = new Date();
+  const years = [];
+  for (let y = now.getFullYear(); y >= 2025; y--) {
+    const start = new Date(y, 3, 6);
+    const end   = new Date(y + 1, 3, 5);
+    years.push({ label: `${y}/${String(y+1).slice(2)} tax year`, start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] });
+  }
+  return years;
+};
+
+export const currentTaxYear = () => {
+  const now = new Date();
+  const y = now >= new Date(now.getFullYear(), 3, 6) ? now.getFullYear() : now.getFullYear() - 1;
+  return { start: `${y}-04-06`, end: `${y+1}-04-05`, label: `${y}/${String(y+1).slice(2)}` };
+};
+
 // Pay period: Sun–Sat, paid following Friday
 export const getPayPeriod = (date = new Date()) => {
   const d   = new Date(date);

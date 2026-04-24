@@ -10,6 +10,7 @@ import ReportsTab from '../features/admin/tabs/ReportsTab';
 import SOPTab from '../features/admin/tabs/SOPTab';
 import StaffTab from '../features/admin/tabs/StaffTab';
 import MyJobsTab from '../features/admin/tabs/MyJobsTab';
+import SuppliesTab from '../features/admin/tabs/SuppliesTab';
 
 function DoNotContactToggle({ value, onChange }) {
   const [on, setOn] = useState(value);
@@ -300,6 +301,10 @@ export default function AdminPage() {
   const [budgetEdit,            setBudgetEdit]            = useState(false);
   const [budgetDraft,           setBudgetDraft]           = useState({});
   const [budgetSaving,          setBudgetSaving]          = useState(false);
+  const [supplyBudgets,         setSupplyBudgets]         = useState({});
+  const [supplyBudgetEdit,      setSupplyBudgetEdit]      = useState(false);
+  const [supplyBudgetDraft,     setSupplyBudgetDraft]     = useState({});
+  const [supplyBudgetSaving,    setSupplyBudgetSaving]    = useState(false);
   const [pnlView,               setPnlView]               = useState('month'); // 'month' | 'taxYear'
   const [reportsTaxYear,        setReportsTaxYear]        = useState(() => currentTaxYear().label); // kept for nav reset only
   const [fixedCosts,            setFixedCosts]            = useState([]);
@@ -492,6 +497,13 @@ export default function AdminPage() {
     if (!user) return;
     return onSnapshot(doc(db, 'settings', 'expenseBudgets'), snap => {
       if (snap.exists()) setBudgets(snap.data());
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(doc(db, 'settings', 'supplyBudgets'), snap => {
+      if (snap.exists()) setSupplyBudgets(snap.data());
     });
   }, [user]);
 
@@ -1911,11 +1923,38 @@ export default function AdminPage() {
             return e.date?.startsWith(expenseMonthFilter);
           };
 
-          const thisMonthExp   = expenses.filter(e => e.date?.startsWith(thisMonthKey));
-          const lastMonthExp   = expenses.filter(e => e.date?.startsWith(lastMonthKey));
+          // Derive active period for KPI cards from the selected filter
+          let activeMonthKey, activePrevMonthKey, activeTaxYear;
+          if (expenseMonthFilter.startsWith('ty:')) {
+            const label = expenseMonthFilter.slice(3);
+            activeTaxYear      = taxYears.find(ty => ty.label.replace(' tax year', '') === label) || taxYear;
+            activeMonthKey     = thisMonthKey;
+            activePrevMonthKey = lastMonthKey;
+          } else if (expenseMonthFilter !== 'all') {
+            activeMonthKey = expenseMonthFilter;
+            const [yr, mo] = expenseMonthFilter.split('-').map(Number);
+            const prevMo   = mo === 1 ? 12 : mo - 1;
+            const prevYr   = mo === 1 ? yr - 1 : yr;
+            activePrevMonthKey = `${prevYr}-${String(prevMo).padStart(2, '0')}`;
+            const tyY      = new Date(yr, mo - 1, 15) >= new Date(yr, 3, 6) ? yr : yr - 1;
+            activeTaxYear  = { start: `${tyY}-04-06`, end: `${tyY + 1}-04-05`, label: `${tyY}/${String(tyY + 1).slice(2)}` };
+          } else {
+            activeMonthKey     = thisMonthKey;
+            activePrevMonthKey = lastMonthKey;
+            activeTaxYear      = taxYear;
+          }
+          const activeMonthLabel = expenseMonthFilter !== 'all' && !expenseMonthFilter.startsWith('ty:')
+            ? new Date(activeMonthKey + '-01').toLocaleString('en-GB', { month: 'long', year: 'numeric' })
+            : 'This Month';
+          const prevMonthLabel = expenseMonthFilter !== 'all' && !expenseMonthFilter.startsWith('ty:')
+            ? new Date(activePrevMonthKey + '-01').toLocaleString('en-GB', { month: 'long', year: 'numeric' })
+            : 'Last Month';
+
+          const thisMonthExp   = expenses.filter(e => e.date?.startsWith(activeMonthKey));
+          const lastMonthExp   = expenses.filter(e => e.date?.startsWith(activePrevMonthKey));
           const thisMonthTotal = thisMonthExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
           const lastMonthTotal = lastMonthExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
-          const taxYearExp     = expenses.filter(e => e.date >= taxYear.start && e.date <= taxYear.end);
+          const taxYearExp     = expenses.filter(e => e.date >= activeTaxYear.start && e.date <= activeTaxYear.end);
           const taxYearTotal   = taxYearExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
           const reimbursableExp = expenses.filter(e => e.paidBy === 'Personal — Reimbursable' && !e.repaid);
           const reimbursable   = reimbursableExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
@@ -1986,21 +2025,21 @@ export default function AdminPage() {
                   {/* KPIs */}
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
                     <div style={{ ...KCARD, borderTop: '3px solid #dc2626' }}>
-                      <div style={KLABEL}>This Month</div>
+                      <div style={KLABEL}>{activeMonthLabel}</div>
                       <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{thisMonthTotal.toFixed(0)}</div>
                       <div style={{ fontFamily: FONT, fontSize: 11, color: thisMonthTotal <= lastMonthTotal ? '#16a34a' : '#dc2626', marginTop: 3 }}>
-                        {lastMonthTotal > 0 ? `${thisMonthTotal<=lastMonthTotal?'▼':'▲'} £${Math.abs(thisMonthTotal-lastMonthTotal).toFixed(0)} vs last month` : 'First month of data'}
+                        {lastMonthTotal > 0 ? `${thisMonthTotal<=lastMonthTotal?'▼':'▲'} £${Math.abs(thisMonthTotal-lastMonthTotal).toFixed(0)} vs prev` : 'First month of data'}
                       </div>
                     </div>
                     <div style={{ ...KCARD, borderTop: `3px solid ${C.accent}` }}>
-                      <div style={KLABEL}>Last Month</div>
+                      <div style={KLABEL}>{prevMonthLabel}</div>
                       <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{lastMonthTotal.toFixed(0)}</div>
                       <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{lastMonthExp.length} entries</div>
                     </div>
                     <div style={{ ...KCARD, borderTop: '3px solid #6366f1' }}>
-                      <div style={KLABEL}>Tax Year {taxYear.label}</div>
+                      <div style={KLABEL}>Tax Year {activeTaxYear.label}</div>
                       <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{taxYearTotal.toFixed(0)}</div>
-                      <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>6 Apr–5 Apr</div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{fmtDate(activeTaxYear.start)} – {fmtDate(activeTaxYear.end)}</div>
                     </div>
                     <div style={{ ...KCARD, borderTop: reimbursable > 0 ? '3px solid #dc2626' : `3px solid ${C.accent}`, cursor: reimbursable > 0 ? 'pointer' : 'default' }}
                       onClick={() => { if (reimbursable > 0) { setExpenseCatFilter('all'); setExpenseMonthFilter('all'); setExpenseSearch('reimbursable'); } }}>
@@ -2536,99 +2575,13 @@ export default function AdminPage() {
         })()}
 
         {/* Supplies */}
-        {activeView === 'supplies' && (() => {
-          const SUPPLY_CATS = ['Cloths & Scrubbing', 'Cleaning Products', 'Tools', 'Protection', 'Luxury Touch', 'Kit Bag', 'Other'];
-          const needReorder = supplies.filter(s => (parseInt(s.inStock)||0) < (parseInt(s.reorderAt)||1));
-          const filtered = supplies.filter(s => !suppliesSearch || s.name?.toLowerCase().includes(suppliesSearch.toLowerCase()) || s.category?.toLowerCase().includes(suppliesSearch.toLowerCase()) || s.whereToBuy?.toLowerCase().includes(suppliesSearch.toLowerCase()));
-          const totalValue = supplies.reduce((s, x) => s + ((parseFloat(x.unitCost)||0) * (parseInt(x.qtyNeeded)||0)), 0);
-
-          const updateStock = async (id, delta) => {
-            const item = supplies.find(s => s.id === id);
-            if (!item) return;
-            const next = Math.max(0, (parseInt(item.inStock)||0) + delta);
-            try {
-              await updateDoc(doc(db, 'supplies', id), { inStock: next });
-            } catch {
-              alert('Failed to update stock — check your connection and try again.');
-            }
-          };
-
-          const statusInfo = s => {
-            const stock = parseInt(s.inStock)||0, reorder = parseInt(s.reorderAt)||1;
-            if (stock === 0)        return { label: 'Out of Stock', bg: '#fee2e2', color: '#dc2626' };
-            if (stock < reorder)    return { label: 'Reorder',      bg: '#fee2e2', color: '#dc2626' };
-            if (stock === reorder)  return { label: 'Low',          bg: '#fff8eb', color: '#d97706' };
-            return                         { label: 'OK',           bg: '#f0fdf4', color: '#16a34a' };
-          };
-
-          return (
-            <div>
-              {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-                <div>
-                  <div style={{ fontFamily: FONT, fontSize: isMobile ? 20 : 24, fontWeight: 700, color: C.text }}>Supplies</div>
-                  <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, marginTop: 2 }}>{supplies.length} items · est. kit cost £{totalValue.toFixed(2)}</div>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input value={suppliesSearch} onChange={e => setSuppliesSearch(e.target.value)} placeholder="Search…" style={{ ...INPUT, marginBottom: 0, width: 140, fontSize: 13 }} />
-                  <button onClick={() => { setSuppliesModal({ mode: 'add', data: { name: '', category: 'Cleaning Products', unit: 'each', qtyNeeded: '', inStock: '', reorderAt: '1', unitCost: '', whereToBuy: '', notes: '' } }); setSuppliesErr(''); }} style={{ ...BTN, background: C.accent, color: '#fff', fontSize: 13 }}>+ Add Item</button>
-                </div>
-              </div>
-
-              {/* Reorder alert */}
-              {needReorder.length > 0 && (
-                <div style={{ background: '#fee2e2', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 10, padding: '14px 20px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: FONT, fontSize: 15 }}>⚠️</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>{needReorder.length} item{needReorder.length !== 1 ? 's' : ''} need restocking</div>
-                    <div style={{ fontFamily: FONT, fontSize: 12, color: '#b91c1c', marginTop: 2 }}>{needReorder.map(s => s.name).join(', ')}</div>
-                  </div>
-                </div>
-              )}
-
-              {supplies.length === 0 ? (
-                <div style={{ background: C.card, borderRadius: 8, padding: 48, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                  <div style={{ fontFamily: FONT, fontSize: 14, color: C.muted }}>No supplies added yet. Click "+ Add Item" to build your inventory.</div>
-                </div>
-              ) : (
-                <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-                  {/* Table header */}
-                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto auto' : '1fr 100px 120px 80px 80px auto', gap: 12, padding: '10px 20px', background: C.bg, borderBottom: `2px solid ${C.border}` }}>
-                    {(isMobile ? ['Item','Stock','Status'] : ['Item','Where to Buy','In Stock','Unit Cost','Status','']).map(h => <div key={h} style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>{h}</div>)}
-                  </div>
-                  {filtered.map((s, i) => {
-                    const st = statusInfo(s);
-                    return (
-                      <div key={s.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto auto' : '1fr 100px 120px 80px 80px auto', gap: 12, padding: '12px 20px', borderBottom: i < filtered.length-1 ? `1px solid ${C.border}` : 'none', alignItems: 'center' }}>
-                        <div>
-                          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{s.name}</div>
-                          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 1 }}>{s.category} · {s.unit}</div>
-                          {s.notes && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, fontStyle: 'italic' }}>{s.notes}</div>}
-                        </div>
-                        {!isMobile && <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{s.whereToBuy||'—'}</div>}
-                        {/* Stock controls */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <button onClick={() => updateStock(s.id, -1)} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                          <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: st.color, minWidth: 24, textAlign: 'center' }}>{s.inStock??'—'}</span>
-                          <button onClick={() => updateStock(s.id, 1)} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                        </div>
-                        {!isMobile && <div style={{ fontFamily: FONT, fontSize: 13, color: C.text }}>{s.unitCost ? `£${parseFloat(s.unitCost).toFixed(2)}` : '—'}</div>}
-                        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: st.bg, color: st.color, whiteSpace: 'nowrap', textAlign: 'center' }}>{st.label}</div>
-                        <button onClick={() => { setSuppliesModal({ mode: 'edit', data: {...s} }); setSuppliesErr(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 13 }}>✏️</button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        {activeView === 'supplies' && <SuppliesTab supplies={supplies} budgets={supplyBudgets} isMobile={isMobile} C={C} onAddItem={() => { setSuppliesModal({ mode: 'add', data: { name: '', category: 'Cleaning Products', unit: 'each', qtyNeeded: '', inStock: '', reorderAt: '', unitCost: '', purchaseDate: new Date().toISOString().split('T')[0], paidBy: 'Company Card', whereToBuy: '', notes: '' } }); setSuppliesErr(''); }} onEditItem={s => { setSuppliesModal({ mode: 'edit', data: { ...s } }); setSuppliesErr(''); }} onSetBudget={() => { setSupplyBudgetDraft({...supplyBudgets}); setSupplyBudgetEdit(true); }} />}
 
         {/* SOP */}
         {activeView === 'sop' && <SOPTab isMobile={isMobile} C={C} />}
 
         {/* Reports */}
-        {activeView === 'reports' && <ReportsTab bookings={bookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} isMobile={isMobile} C={C} />}
+        {activeView === 'reports' && <ReportsTab bookings={bookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} isMobile={isMobile} C={C} />}
 
 
         {activeView === 'bookings' && <div>
@@ -4170,6 +4123,43 @@ export default function AdminPage() {
         );
       })()}
 
+      {/* Supply Budget Modal */}
+      {supplyBudgetEdit && (() => {
+        const SUPPLY_CATS = ['Cloths & Scrubbing', 'Cleaning Products', 'Tools', 'PPE', 'Kit Bag', 'Spray Bottle', 'Candles', 'Candle Holder', 'Essence Oil Bergamot', 'Essence Oil Lavender', 'Essence Oil Sandalwood', 'Fragrance Alcohol', 'Di Propylene Glycol', 'Thank You Cards', 'Welcome Cards', 'Other'];
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text }}>Set Supply Budgets</div>
+                <button onClick={() => setSupplyBudgetEdit(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>✕</button>
+              </div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 16 }}>Set a monthly spend limit per supply category. Leave blank for no limit.</div>
+              {SUPPLY_CATS.map(cat => (
+                <div key={cat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ fontFamily: FONT, fontSize: 13, color: C.text }}>{cat}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>£</span>
+                    <input type="number" min="0" step="1" value={supplyBudgetDraft[cat] || ''} placeholder="No limit"
+                      onChange={e => setSupplyBudgetDraft(d => ({ ...d, [cat]: e.target.value }))}
+                      style={{ ...INPUT, marginBottom: 0, width: 90, fontSize: 13 }} />
+                  </div>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+                <button onClick={() => setSupplyBudgetEdit(false)} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}` }}>Cancel</button>
+                <button disabled={supplyBudgetSaving} onClick={async () => {
+                  setSupplyBudgetSaving(true);
+                  const clean = {};
+                  SUPPLY_CATS.forEach(c => { if (supplyBudgetDraft[c]) clean[c] = parseFloat(supplyBudgetDraft[c]); });
+                  try { await setDoc(doc(db, 'settings', 'supplyBudgets'), clean, { merge: true }); setSupplyBudgetEdit(false); }
+                  finally { setSupplyBudgetSaving(false); }
+                }} style={{ ...BTN, background: C.accent, color: '#fff', opacity: supplyBudgetSaving ? 0.6 : 1 }}>{supplyBudgetSaving ? 'Saving…' : 'Save'}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Fixed Cost Modal */}
       {fixedModal && (() => {
         const d = fixedModal.data;
@@ -4257,7 +4247,7 @@ export default function AdminPage() {
 
       {/* Supplies Modal */}
       {suppliesModal && (() => {
-        const SUPPLY_CATS = ['Cloths & Scrubbing', 'Cleaning Products', 'Tools', 'Protection', 'Luxury Touch', 'Kit Bag', 'Other'];
+        const SUPPLY_CATS = ['Cloths & Scrubbing', 'Cleaning Products', 'Tools', 'PPE', 'Kit Bag', 'Spray Bottle', 'Candles', 'Candle Holder', 'Essence Oil Bergamot', 'Essence Oil Lavender', 'Essence Oil Sandalwood', 'Fragrance Alcohol', 'Di Propylene Glycol', 'Thank You Cards', 'Welcome Cards', 'Other'];
         const d = suppliesModal.data;
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -4298,6 +4288,19 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Purchase Date *</div>
+                  <input type="date" value={d.purchaseDate || ''} onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, purchaseDate: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Paid By</div>
+                  <select value={d.paidBy || 'Company Card'} onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, paidBy: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                    <option>Company Card</option>
+                    <option>Cash</option>
+                    <option>Personal — Reimbursable</option>
+                    <option>Direct Debit</option>
+                  </select>
+                </div>
+                <div>
                   <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Where to Buy</div>
                   <input value={d.whereToBuy || ''} placeholder="e.g. Amazon, Costco" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, whereToBuy: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
                 </div>
@@ -4323,7 +4326,7 @@ export default function AdminPage() {
                     if (!d.name?.trim()) { setSuppliesErr('Name is required.'); return; }
                     setSuppliesSaving(true); setSuppliesErr('');
                     try {
-                      const payload = { name: d.name.trim(), category: d.category || 'Other', unit: d.unit || 'each', inStock: parseInt(d.inStock) || 0, reorderAt: parseInt(d.reorderAt) || 1, unitCost: parseFloat(d.unitCost) || 0, whereToBuy: d.whereToBuy?.trim() || '', notes: d.notes?.trim() || '' };
+                      const payload = { name: d.name.trim(), category: d.category || 'Other', unit: d.unit || 'each', inStock: parseInt(d.inStock) || 0, reorderAt: parseInt(d.reorderAt) || 0, unitCost: parseFloat(d.unitCost) || 0, purchaseDate: d.purchaseDate || '', paidBy: d.paidBy || 'Company Card', whereToBuy: d.whereToBuy?.trim() || '', notes: d.notes?.trim() || '' };
                       if (suppliesModal.mode === 'add') await addDoc(collection(db, 'supplies'), { ...payload, createdAt: new Date().toISOString() });
                       else await updateDoc(doc(db, 'supplies', d.id), payload);
                       setSuppliesModal(null);
