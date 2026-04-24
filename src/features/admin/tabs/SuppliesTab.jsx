@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '../../../firebase/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { fmtDate, getTaxYears, currentTaxYear } from '../utils';
 
 const FONT  = "'Inter', 'Segoe UI', sans-serif";
@@ -20,10 +20,62 @@ const statusInfo = s => {
   return                                       { label: 'OK',           bg: '#f0fdf4', color: '#16a34a' };
 };
 
-export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem, onEditItem, onSetBudget }) {
+export default function SuppliesTab({ supplies, isMobile, C }) {
   const [monthFilter, setMonthFilter] = useState('all');
   const [catFilter,   setCatFilter]   = useState('all');
   const [search,      setSearch]      = useState('');
+
+  const [suppliesModal,  setSuppliesModal]  = useState(null);
+  const [suppliesSaving, setSuppliesSaving] = useState(false);
+  const [suppliesErr,    setSuppliesErr]    = useState('');
+
+  const [budgets,       setBudgets]       = useState({});
+  const [budgetEdit,    setBudgetEdit]    = useState(false);
+  const [budgetDraft,   setBudgetDraft]   = useState({});
+  const [budgetSaving,  setBudgetSaving]  = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'supplyBudgets'), snap => {
+      if (snap.exists()) setBudgets(snap.data());
+    });
+    return unsub;
+  }, []);
+
+  const saveSupply = async () => {
+    const d = suppliesModal.data;
+    if (!d.name?.trim()) { setSuppliesErr('Name is required.'); return; }
+    setSuppliesSaving(true); setSuppliesErr('');
+    try {
+      const payload = {
+        name: d.name.trim(), category: d.category || 'Other', unit: d.unit || 'each',
+        inStock: parseInt(d.inStock) || 0, reorderAt: parseInt(d.reorderAt) || 0,
+        unitCost: parseFloat(d.unitCost) || 0, purchaseDate: d.purchaseDate || '',
+        paidBy: d.paidBy || 'Company Card', whereToBuy: d.whereToBuy?.trim() || '',
+        notes: d.notes?.trim() || '',
+      };
+      if (suppliesModal.mode === 'add') await addDoc(collection(db, 'supplies'), { ...payload, createdAt: new Date().toISOString() });
+      else await updateDoc(doc(db, 'supplies', d.id), payload);
+      setSuppliesModal(null);
+    } catch (e) { setSuppliesErr(e.message); }
+    finally { setSuppliesSaving(false); }
+  };
+
+  const deleteSupply = async () => {
+    if (!window.confirm('Delete this item?')) return;
+    setSuppliesSaving(true);
+    try { await deleteDoc(doc(db, 'supplies', suppliesModal.data.id)); setSuppliesModal(null); }
+    catch (e) { setSuppliesErr(e.message); }
+    finally { setSuppliesSaving(false); }
+  };
+
+  const saveBudgets = async () => {
+    setBudgetSaving(true);
+    try {
+      await setDoc(doc(db, 'settings', 'supplyBudgets'), budgetDraft);
+      setBudgetEdit(false);
+    } catch (e) { alert('Failed to save budgets.'); }
+    finally { setBudgetSaving(false); }
+  };
 
   const now          = new Date();
   const taxYear      = currentTaxYear();
@@ -44,12 +96,11 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
     return s.purchaseDate.startsWith(monthFilter);
   };
 
-  // Derive active period for KPI cards from the selected filter
   let activeMonthKey, activePrevMonthKey, activeTaxYear;
   if (monthFilter.startsWith('ty:')) {
     const label = monthFilter.slice(3);
-    activeTaxYear     = taxYears.find(ty => ty.label.replace(' tax year', '') === label) || taxYear;
-    activeMonthKey    = thisMonthKey;
+    activeTaxYear      = taxYears.find(ty => ty.label.replace(' tax year', '') === label) || taxYear;
+    activeMonthKey     = thisMonthKey;
     activePrevMonthKey = lastMonthKey;
   } else if (monthFilter !== 'all') {
     activeMonthKey = monthFilter;
@@ -71,18 +122,16 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
     ? new Date(activePrevMonthKey + '-01').toLocaleString('en-GB', { month: 'long', year: 'numeric' })
     : 'Last Month';
 
-  // KPI figures
-  const thisMonthItems  = supplies.filter(s => s.purchaseDate?.startsWith(activeMonthKey));
-  const lastMonthItems  = supplies.filter(s => s.purchaseDate?.startsWith(activePrevMonthKey));
-  const taxYearItems    = supplies.filter(s => s.purchaseDate >= activeTaxYear.start && s.purchaseDate <= activeTaxYear.end);
-  const thisMonthTotal  = thisMonthItems.reduce((s, x) => s + itemCost(x), 0);
-  const lastMonthTotal  = lastMonthItems.reduce((s, x) => s + itemCost(x), 0);
-  const taxYearTotal    = taxYearItems.reduce((s, x) => s + itemCost(x), 0);
-  const needRestock     = supplies.filter(s => { const stock = Number(s.inStock) || 0; const reorder = Number(s.reorderAt) || 0; return reorder > 0 && stock <= reorder; });
+  const thisMonthItems    = supplies.filter(s => s.purchaseDate?.startsWith(activeMonthKey));
+  const lastMonthItems    = supplies.filter(s => s.purchaseDate?.startsWith(activePrevMonthKey));
+  const taxYearItems      = supplies.filter(s => s.purchaseDate >= activeTaxYear.start && s.purchaseDate <= activeTaxYear.end);
+  const thisMonthTotal    = thisMonthItems.reduce((s, x) => s + itemCost(x), 0);
+  const lastMonthTotal    = lastMonthItems.reduce((s, x) => s + itemCost(x), 0);
+  const taxYearTotal      = taxYearItems.reduce((s, x) => s + itemCost(x), 0);
+  const needRestock       = supplies.filter(s => { const stock = Number(s.inStock) || 0; const reorder = Number(s.reorderAt) || 0; return reorder > 0 && stock <= reorder; });
   const reimbursableItems = supplies.filter(s => s.paidBy === 'Personal — Reimbursable' && !s.repaid);
-  const reimbursable    = reimbursableItems.reduce((s, x) => s + itemCost(x), 0);
+  const reimbursable      = reimbursableItems.reduce((s, x) => s + itemCost(x), 0);
 
-  // Category breakdown
   const catBreakdown = SUPPLY_CATS.map(cat => ({
     cat,
     value: supplies.filter(s => s.category === cat).reduce((s, x) => s + itemCost(x), 0),
@@ -90,7 +139,6 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
   })).filter(c => c.budget > 0).sort((a, b) => b.value - a.value);
   const maxCatValue = Math.max(...catBreakdown.map(c => c.value), 1);
 
-  // Month dropdown
   const allMonths = [];
   const cursor = new Date(2026, 0, 1);
   while (cursor <= now) {
@@ -98,7 +146,7 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
     cursor.setMonth(cursor.getMonth() + 1);
   }
 
-  const filteredInv = supplies.filter(s => {
+  const filteredInv    = supplies.filter(s => {
     if (!inPeriod(s)) return false;
     if (catFilter !== 'all' && s.category !== catFilter) return false;
     if (!search) return true;
@@ -129,6 +177,21 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
     const next = Math.max(0, (Number(item.inStock) || 0) + delta);
     try { await updateDoc(doc(db, 'supplies', id), { inStock: next }); }
     catch { alert('Failed to update stock — check your connection and try again.'); }
+  };
+
+  const openAdd = () => {
+    setSuppliesModal({ mode: 'add', data: { name: '', category: 'Cleaning Products', unit: 'each', qtyNeeded: '', inStock: '', reorderAt: '', unitCost: '', purchaseDate: new Date().toISOString().split('T')[0], paidBy: 'Company Card', whereToBuy: '', notes: '' } });
+    setSuppliesErr('');
+  };
+
+  const openEdit = s => {
+    setSuppliesModal({ mode: 'edit', data: { ...s } });
+    setSuppliesErr('');
+  };
+
+  const openBudget = () => {
+    setBudgetDraft({ ...budgets });
+    setBudgetEdit(true);
   };
 
   return (
@@ -231,7 +294,7 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>{filteredInv.length} items · £{totalFiltered.toFixed(2)}</span>
           {filteredInv.length > 0 && <button onClick={exportCSV} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}>⬇ CSV</button>}
-          <button onClick={() => onAddItem()} style={{ ...BTN, background: C.accent, color: '#fff', fontSize: 13 }}>+ Add Item</button>
+          <button onClick={openAdd} style={{ ...BTN, background: C.accent, color: '#fff', fontSize: 13 }}>+ Add Item</button>
         </div>
       </div>
 
@@ -272,7 +335,7 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
                     </div>
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: st.bg, color: st.color, whiteSpace: 'nowrap', width: 76, textAlign: 'center', display: 'inline-block' }}>{st.label}</span>
                     <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text, width: 58, textAlign: 'right' }}>{cost > 0 ? `£${cost.toFixed(2)}` : '—'}</span>
-                    <button onClick={() => onEditItem(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 13, width: 24 }}>✏️</button>
+                    <button onClick={() => openEdit(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 13, width: 24 }}>✏️</button>
                   </div>
                 </div>
               );
@@ -283,7 +346,7 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
           <div style={{ background: C.card, borderRadius: 10, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>By Category</div>
-              <button onClick={onSetBudget} style={{ fontFamily: FONT, fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>Set budgets</button>
+              <button onClick={openBudget} style={{ fontFamily: FONT, fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>Set budgets</button>
             </div>
             {catBreakdown.length === 0 ? <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>Set budgets to track spending by category.</div> : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -312,6 +375,114 @@ export default function SuppliesTab({ supplies, budgets, isMobile, C, onAddItem,
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Supply Item Modal */}
+      {suppliesModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text }}>{suppliesModal.mode === 'add' ? 'Add Supply Item' : 'Edit Supply Item'}</div>
+              <button onClick={() => setSuppliesModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Name *</div>
+                <input value={suppliesModal.data.name || ''} placeholder="e.g. Microfibre cloths" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, name: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+              </div>
+              <div>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Category</div>
+                <select value={suppliesModal.data.category || 'Cleaning Products'} onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, category: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                  {SUPPLY_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>In Stock</div>
+                  <input type="number" min="0" value={suppliesModal.data.inStock || ''} placeholder="0" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, inStock: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Reorder At</div>
+                  <input type="number" min="0" value={suppliesModal.data.reorderAt || ''} placeholder="1" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, reorderAt: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Unit Cost (£)</div>
+                  <input type="number" step="0.01" min="0" value={suppliesModal.data.unitCost || ''} placeholder="0.00" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, unitCost: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Unit</div>
+                  <select value={suppliesModal.data.unit || 'each'} onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, unit: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                    {['each', 'pack', 'bottle', 'bag', 'roll', 'pair', 'box', 'litre'].map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Purchase Date *</div>
+                <input type="date" value={suppliesModal.data.purchaseDate || ''} onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, purchaseDate: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+              </div>
+              <div>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Paid By</div>
+                <select value={suppliesModal.data.paidBy || 'Company Card'} onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, paidBy: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                  <option>Company Card</option>
+                  <option>Cash</option>
+                  <option>Personal — Reimbursable</option>
+                  <option>Direct Debit</option>
+                </select>
+              </div>
+              <div>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Where to Buy</div>
+                <input value={suppliesModal.data.whereToBuy || ''} placeholder="e.g. Amazon, Costco" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, whereToBuy: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+              </div>
+              <div>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Notes</div>
+                <textarea value={suppliesModal.data.notes || ''} placeholder="Any extra details…" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, notes: e.target.value } }))} style={{ ...INPUT, marginBottom: 0, height: 60, resize: 'vertical' }} />
+              </div>
+            </div>
+            {suppliesErr && <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginTop: 10 }}>{suppliesErr}</div>}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
+              {suppliesModal.mode === 'edit' ? (
+                <button disabled={suppliesSaving} onClick={deleteSupply} style={{ fontFamily: FONT, fontSize: 12, color: C.danger, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Delete</button>
+              ) : <div />}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setSuppliesModal(null)} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}` }}>Cancel</button>
+                <button disabled={suppliesSaving} onClick={saveSupply} style={{ ...BTN, background: C.accent, color: '#fff', opacity: suppliesSaving ? 0.6 : 1 }}>{suppliesSaving ? 'Saving…' : 'Save'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Supply Budget Modal */}
+      {budgetEdit && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 480, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text }}>Set Supply Budgets</div>
+              <button onClick={() => setBudgetEdit(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {SUPPLY_CATS.map(cat => (
+                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, flex: 1 }}>{cat}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>£</span>
+                    <input
+                      type="number" min="0" step="1"
+                      value={budgetDraft[cat] || ''}
+                      placeholder="—"
+                      onChange={e => setBudgetDraft(d => ({ ...d, [cat]: e.target.value }))}
+                      style={{ ...INPUT, marginBottom: 0, width: 90, textAlign: 'right' }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+              <button onClick={() => setBudgetEdit(false)} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}` }}>Cancel</button>
+              <button disabled={budgetSaving} onClick={saveBudgets} style={{ ...BTN, background: C.accent, color: '#fff', opacity: budgetSaving ? 0.6 : 1 }}>{budgetSaving ? 'Saving…' : 'Save Budgets'}</button>
+            </div>
           </div>
         </div>
       )}

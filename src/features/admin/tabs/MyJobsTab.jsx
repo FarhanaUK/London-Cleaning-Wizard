@@ -1,15 +1,16 @@
+import { useState, useEffect } from 'react';
 import { getPayPeriod, calcHours, fmtDate, fmtDuration, toDisplayTime, toInputTime } from '../utils';
 
 const FONT = "'Inter', 'Segoe UI', sans-serif";
 const INPUT = { fontFamily: FONT, fontSize: 14, padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#1e293b', outline: 'none', width: '100%', boxSizing: 'border-box', marginBottom: 12 };
 const BTN   = { fontFamily: FONT, fontSize: 14, fontWeight: 600, padding: '9px 18px', borderRadius: 7, border: 'none', cursor: 'pointer', transition: 'opacity 0.15s' };
 
-export default function MyJobsTab({
-  staff, bookings, setBookings,
-  myJobsCleaner, setMyJobsCleaner,
-  myJobsWeekOffset, setMyJobsWeekOffset,
-  isMobile, C,
-}) {
+export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C }) {
+  const [myJobsCleaner,    setMyJobsCleaner]    = useState(() => localStorage.getItem('mjCleaner') || '');
+  const [myJobsWeekOffset, setMyJobsWeekOffset] = useState(() => { const s = localStorage.getItem('mjWeekOffset'); return s ? parseInt(s) : 0; });
+
+  useEffect(() => { localStorage.setItem('mjCleaner', myJobsCleaner); }, [myJobsCleaner]);
+  useEffect(() => { localStorage.setItem('mjWeekOffset', myJobsWeekOffset); }, [myJobsWeekOffset]);
   const refDate = new Date(); refDate.setDate(refDate.getDate() + myJobsWeekOffset * 7);
   const period  = getPayPeriod(refDate);
 
