@@ -1,12 +1,11 @@
 const ALLOWED_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:5174',
   'https://londoncleaningwizard.com',
 ];
 
 function guard(req, res, method = 'POST') {
   const origin = req.headers.origin;
-  if (ALLOWED_ORIGINS.includes(origin)) {
+  const isLocalhost = origin && origin.startsWith('http://localhost:');
+  if (isLocalhost || ALLOWED_ORIGINS.includes(origin)) {
     res.set('Access-Control-Allow-Origin', origin);
   }
   res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');

@@ -18,13 +18,11 @@ const STATUS_COLOURS = {
 };
 
 function DoNotContactToggle({ value, onChange }) {
-  const [on, setOn] = useState(value);
-  const handle = () => { const next = !on; setOn(next); onChange(next); };
   return (
-    <div onClick={handle} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 14, padding: '8px 14px', background: on ? '#fdf5f5' : '#f5f9f5', border: `1px solid ${on ? 'rgba(139,32,32,0.2)' : 'rgba(26,82,52,0.2)'}` }}>
-      <div style={{ width: 16, height: 16, borderRadius: 3, background: on ? '#8b2020' : '#1a5234', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{on ? '✕' : '✓'}</div>
-      <span style={{ fontFamily: FONT, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: on ? '#8b2020' : '#1a5234', fontWeight: 500 }}>
-        {on ? 'Do Not Contact — click to allow contact' : 'Contact allowed — click to mark do not contact'}
+    <div onClick={() => onChange(!value)} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 14, padding: '8px 14px', background: value ? '#fdf5f5' : '#f5f9f5', border: `1px solid ${value ? 'rgba(139,32,32,0.2)' : 'rgba(26,82,52,0.2)'}` }}>
+      <div style={{ width: 16, height: 16, borderRadius: 3, background: value ? '#8b2020' : '#1a5234', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{value ? '✕' : '✓'}</div>
+      <span style={{ fontFamily: FONT, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: value ? '#8b2020' : '#1a5234', fontWeight: 500 }}>
+        {value ? 'Do Not Contact — click to allow contact' : 'Contact allowed — click to mark do not contact'}
       </span>
     </div>
   );

@@ -7,7 +7,11 @@
       "Bash(firebase functions:log --only stopRecurringSeries)",
       "Bash(firebase functions:log --only stopRecurringSeries --limit 50)",
       "Bash(node --check index.js)",
-      "Bash(firebase functions:delete cleanupPendingPayments --region us-central1 --force)"
+      "Bash(firebase functions:delete cleanupPendingPayments --region us-central1 --force)",
+      "Read(//c/Users/farha/.claude/projects/c--Users-farha-Desktop-Business-2025-personal-projects-london-cleaning-wizard-business/memory/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\farha\\.claude\\projects\\c--Users-farha-Desktop-Business-2025-personal-projects-london-cleaning-wizard-business\\memory"
     ]
   }
 }

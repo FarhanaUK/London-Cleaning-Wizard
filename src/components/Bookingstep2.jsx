@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { validateStep2 } from '../utils/validation';
 import { toUTCISO, showDate, todayUK } from '../utils/time';
 import { Sparkle, WandIcon } from './Icons';
+import { TIMES } from '../constants/timeOptions';
 
 const LABEL = {
   fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.08em',
@@ -24,18 +25,6 @@ const BTN_GHOST = {
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const TIMES = (() => {
-  const times = [];
-  for (let h = 7; h <= 21; h++) {
-    for (let m = 0; m < 60; m += 15) {
-      if (h === 21 && m > 0) break;
-      const period = h < 12 ? 'AM' : 'PM';
-      const hour   = h === 0 ? 12 : h > 12 ? h - 12 : h;
-      times.push(`${hour}:${m.toString().padStart(2, '0')} ${period}`);
-    }
-  }
-  return times;
-})();
 
 export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   const today        = new Date();
