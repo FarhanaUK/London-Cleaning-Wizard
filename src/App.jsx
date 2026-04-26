@@ -16,7 +16,7 @@ const Testimonials = lazy(() => import("./components/Testimonials"))
 const Areas = lazy(() => import("./components/Areas"))
 
 // ✅ Lazy-loaded pages (VERY IMPORTANT for performance)
-const BookingPage = lazy(() => import("./components/BookingPage"))
+import BookingPage from "./components/BookingPage"
 const AdminPage = lazy(() => import("./components/AdminPage"))
 const DepositPaymentPage = lazy(() => import("./components/DepositPaymentPage"))
 const BookingSuccess = lazy(() => import("./components/BookingSuccess"))
