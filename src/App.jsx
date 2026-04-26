@@ -17,7 +17,7 @@ const Areas = lazy(() => import("./components/Areas"))
 
 // ✅ Lazy-loaded pages (VERY IMPORTANT for performance)
 import BookingPage from "./components/BookingPage"
-const AdminPage = lazy(() => import("./components/AdminPage"))
+import AdminPage from "./components/AdminPage"
 const DepositPaymentPage = lazy(() => import("./components/DepositPaymentPage"))
 const BookingSuccess = lazy(() => import("./components/BookingSuccess"))
 const UnsubscribePage = lazy(() => import("./components/UnsubscribePage"))
