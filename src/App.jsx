@@ -8,16 +8,15 @@ import StatsStrip from "./components/StatsStrip"
 import Footer from "./components/Footer"
 import CookieBanner from "./components/CookieBanner"
 
-// ✅ Lazy-loaded sections (reduces main bundle size)
-const Services = lazy(() => import("./components/Services"))
-const Gallery = lazy(() => import("./components/Gallery"))
-const About = lazy(() => import("./components/About"))
-const Testimonials = lazy(() => import("./components/Testimonials"))
-const Areas = lazy(() => import("./components/Areas"))
+import Services from "./components/Services"
+import Gallery from "./components/Gallery"
+import About from "./components/About"
+import Testimonials from "./components/Testimonials"
+import Areas from "./components/Areas"
 
 // ✅ Lazy-loaded pages (VERY IMPORTANT for performance)
-import BookingPage from "./components/BookingPage"
-import AdminPage from "./components/AdminPage"
+const BookingPage = lazy(() => import("./components/BookingPage"))
+const AdminPage = lazy(() => import("./components/AdminPage"))
 const DepositPaymentPage = lazy(() => import("./components/DepositPaymentPage"))
 const BookingSuccess = lazy(() => import("./components/BookingSuccess"))
 const UnsubscribePage = lazy(() => import("./components/UnsubscribePage"))
@@ -34,13 +33,11 @@ function MainPage() {
       <Hero onScrollTo={scrollTo} />
       <StatsStrip />
 
-      <Suspense fallback={<div>Loading...</div>}>
-        <Services />
-        <Gallery />
-        <About />
-        <Testimonials />
-        <Areas />
-      </Suspense>
+      <Services />
+      <Gallery />
+      <About />
+      <Testimonials />
+      <Areas />
     </>
   )
 }
