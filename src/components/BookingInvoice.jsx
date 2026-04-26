@@ -1,5 +1,5 @@
 import { Sparkle } from './Icons';
-import { calculateTotal } from '../data/siteData';
+import { calculateTotal } from '../utils/pricing';
 
 const fmt = (n) => Number(n).toFixed(2);
 

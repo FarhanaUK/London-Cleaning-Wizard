@@ -142,33 +142,3 @@ export const ADDONS = [
   { id: 'microwave', name: 'Microwave deep clean', note: 'Full interior and exterior',              price: 10 },
 ];
 
-export const SURCHARGES = {
-  weekend: 25,
-  sameDay: 30,
-};
-
-export const SUPPLIES_FEE = 8;
-export const DEEP_SUPPLIES_FEE = 15;
-
-export function calculateTotal({ sizePrice, propertyType, frequency, addons, surcharge, supplies, suppliesFeeOverride }) {
-  const mult         = propertyType === 'house' ? 1.10 : 1.0;
-  const base         = Math.round(sizePrice * mult);
-  const freqSave     = frequency?.saving || 0;
-  const addnSum      = (addons || []).reduce((s, a) => s + a.price, 0);
-  const sur          = surcharge || 0;
-  const suppliesFee  = supplies === 'cleaner' ? (suppliesFeeOverride ?? SUPPLIES_FEE) : 0;
-  const subtotal     = base - freqSave + addnSum + sur + suppliesFee;
-  const depositRaw   = Math.round(subtotal * 30) / 100;
-  return {
-    base,
-    houseExtra: propertyType === 'house' ? Math.round(sizePrice * 0.10) : 0,
-    freqSave, addnSum, surcharge: sur, suppliesFee, subtotal,
-    deposit:   depositRaw,
-    remaining: subtotal - depositRaw,
-  };
-}
-//There is no export default — 
-// every icon is a named export because there are multiple in one file. So when you import them you use curly braces: import { Sparkle, WandIcon } from "./Icons"
-//aria-hidden="true" is on every icon so screen readers ignore them — they're decorative
-//Constellation is the dot-and-line star pattern used as background decoration in several sections
-//LogoMark is the circular star used in the Navbar and Footer

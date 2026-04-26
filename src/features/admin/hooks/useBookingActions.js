@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { db } from '../../../firebase/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { PACKAGES, FREQUENCIES, calculateTotal } from '../../../data/siteData';
+import { PACKAGES, FREQUENCIES } from '../../../data/siteData';
+import { calculateTotal } from '../../../utils/pricing';
 
 export const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 
@@ -246,7 +247,7 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
 
   return {
     // selection
-    selected, toggleSelect,
+    selected, setSelected, toggleSelect,
     // delete
     deleting, deleteProgress, completeErr, handleDelete, handleDeleteSelected,
     // lifecycle

@@ -121,7 +121,8 @@ export default function TermsAndConditions() {
             title: "6. Access & Responsibilities",
             content: (
               <>
-                <p>Customers must provide clear access instructions, ensure safe working conditions, provide electricity and water, inform us of any pets in advance, ensure dogs or disruptive animals are secured during the service, and provide parking details where needed.</p>
+                <p>Customers must provide clear access instructions, ensure safe working conditions, provide electricity and water, inform us of any pets in advance, and provide parking details where needed.</p>
+                <p style={{ marginTop: 16 }}><strong>Pet Policy:</strong> All pets must be secured and kept away from our cleaners for the entire duration of the clean. This is required for the safety of both your pet and our team. Failure to do so may result in the clean being abandoned and the loss of your deposit.</p>
                 <p style={{ marginTop: 16 }}><strong>Conduct Towards Staff:</strong> Customers must treat our staff with respect and professionalism. Any form of abuse, harassment, or threatening behaviour will result in immediate termination of the service. In such cases, the deposit will be retained and any completed work will be chargeable.</p>
               </>
             ),

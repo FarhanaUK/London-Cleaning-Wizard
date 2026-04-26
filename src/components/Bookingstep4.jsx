@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { FullOverlay, ButtonSpinner } from './LoadingStates';
-import { calculateTotal } from '../data/siteData';
+import { calculateTotal } from '../utils/pricing';
 import { Sparkle, WandIcon } from './Icons';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -168,7 +168,6 @@ function PaymentForm({ booking, onSuccess, onBack }) {
           setLoading(false);
           return;
         }
-        // Google Ads conversion tracking
         if (window.gtag) {
           window.gtag('event', 'conversion', {
             send_to:        'AW-18070855826/E-wKCMPTmZocEJLB7ahD',
@@ -187,6 +186,7 @@ function PaymentForm({ booking, onSuccess, onBack }) {
           remaining:   T.remaining.toFixed(2),
           bookingRef:  saveData.bookingRef,
         }));
+        sessionStorage.removeItem('bookingSession');
         setLoading(false);
         window.location.href = '/booking-success';
       }

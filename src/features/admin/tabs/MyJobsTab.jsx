@@ -19,9 +19,12 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
   const member     = myJobsCleaner ? staff.find(s => s.name === myJobsCleaner) : null;
   const rate       = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : null;
   const hasNARate  = member && member.hourlyRate === 'N/A';
+  const assignedToSelected = bookings.filter(b => b.assignedStaff === myJobsCleaner);
+  console.log('[MyJobs] cleaner:', myJobsCleaner, '| period:', period.start, '→', period.end);
+  console.log('[MyJobs] all assigned to cleaner:', assignedToSelected.map(b => ({ id: b.id, cleanDate: b.cleanDate, status: b.status, assignedStaff: b.assignedStaff })));
   const periodJobs = myJobsCleaner
-    ? bookings
-        .filter(b => b.assignedStaff === myJobsCleaner && b.cleanDate >= period.start && b.cleanDate <= period.end && !b.status?.startsWith('cancelled'))
+    ? assignedToSelected
+        .filter(b => b.cleanDate >= period.start && b.cleanDate <= period.end && !b.status?.startsWith('cancelled'))
         .sort((a, b) => a.cleanDate.localeCompare(b.cleanDate))
     : [];
 
@@ -152,7 +155,7 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
                 return (
                   <div key={b.id} style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', gap: 12, alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2 }}>{b.customerName}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2 }}>{b.customerName || `${b.firstName || ''} ${b.lastName || ''}`.trim()}</div>
                       <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 10 }}>{fmtDate(b.cleanDate)} · {b.packageName || b.package} · {b.addr1}</div>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                         <div>

@@ -726,8 +726,8 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       stripe_deposit_pi:    b.stripeDepositIntentId || '—',
       stripe_remaining_pi:  intent.id,
       stripe_customer_id:   customerId || '—',
-      booking_type:         'One-off Clean',
-      payment_note:         '',
+      booking_type:         b.frequency && b.frequency !== 'one-off' ? 'First Clean (Recurring Series)' : 'One-off Clean',
+      payment_note:         b.frequency && b.frequency !== 'one-off' ? 'Your next clean will be scheduled automatically at your discounted recurring rate. No deposit required — payment will be taken after each visit.' : '',
     };
     await sendEmail(process.env.EMAILJS_RECEIPT_TEMPLATE, {
       ...receiptData, to_name: b.firstName, to_email: b.email,

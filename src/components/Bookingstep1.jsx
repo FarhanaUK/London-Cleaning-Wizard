@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { PACKAGES, PROPERTY_TYPES, FREQUENCIES, ADDONS, DEEP_SUPPLIES_FEE } from '../data/siteData';
+import { PACKAGES, PROPERTY_TYPES, FREQUENCIES, ADDONS } from '../data/siteData';
+import { DEEP_SUPPLIES_FEE } from '../utils/pricing';
 import { validateStep1 } from '../utils/validation';
 import { Sparkle, WandIcon } from './Icons';
 
