@@ -60,11 +60,12 @@ export default function Navbar() {
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: isMobile ? "0 20px" : isTablet ? "0 32px" : "0 clamp(20px, 5vw, 72px)",
-        height: isDark ? "60px" : "76px",
+        height: "68px",
         background: isDark ? "rgba(250,249,247,0.97)" : "transparent",
         backdropFilter: isDark ? "blur(18px)" : "none",
-        borderBottom: isDark ? "1px solid rgba(200,184,154,0.2)" : "none",
-        transition: "all 0.4s cubic-bezier(.4,0,.2,1)",
+        borderBottom: "1px solid",
+        borderBottomColor: isDark ? "rgba(200,184,154,0.2)" : "transparent",
+        transition: "background 0.4s cubic-bezier(.4,0,.2,1), backdrop-filter 0.4s cubic-bezier(.4,0,.2,1), border-bottom-color 0.4s cubic-bezier(.4,0,.2,1)",
       }}>
 
         {/* Logo */}
