@@ -6,8 +6,17 @@ export default function BookingSuccess() {
   useEffect(() => {
     const stored = sessionStorage.getItem('bookingSuccess');
     if (stored) {
-      setDetails(JSON.parse(stored));
+      const data = JSON.parse(stored);
+      setDetails(data);
       sessionStorage.removeItem('bookingSuccess');
+      if (window.gtag) {
+        window.gtag('event', 'conversion', {
+          send_to:        'AW-18070855826/E-wKCMPTmZocEJLB7ahD',
+          value:          parseFloat(data.deposit),
+          currency:       'GBP',
+          transaction_id: data.bookingRef,
+        });
+      }
     }
   }, []);
 

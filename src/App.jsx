@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react"
+import { Suspense, lazy, useEffect } from "react"
 import { Routes, Route, useLocation } from "react-router-dom"
 
 // ✅ Always-loaded core UI (small + needed everywhere)
@@ -44,6 +44,12 @@ function MainPage() {
 
 export default function App() {
   const { pathname } = useLocation()
+
+  useEffect(() => {
+    if (window.gtag) {
+      window.gtag('config', 'AW-18070855826', { page_path: pathname });
+    }
+  }, [pathname])
 
   const hideChrome =
     pathname === "/admin" ||
