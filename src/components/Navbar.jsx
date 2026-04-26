@@ -61,11 +61,11 @@ export default function Navbar() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: isMobile ? "0 20px" : isTablet ? "0 32px" : "0 clamp(20px, 5vw, 72px)",
         height: "68px",
-        background: isDark ? "rgba(250,249,247,0.97)" : "transparent",
-        backdropFilter: isDark ? "blur(18px)" : "none",
+        background: isDark ? "rgba(250,249,247,0.97)" : "rgba(250,249,247,0)",
+        backdropFilter: "blur(18px)",
         borderBottom: "1px solid",
-        borderBottomColor: isDark ? "rgba(200,184,154,0.2)" : "transparent",
-        transition: "background 0.4s cubic-bezier(.4,0,.2,1), backdrop-filter 0.4s cubic-bezier(.4,0,.2,1), border-bottom-color 0.4s cubic-bezier(.4,0,.2,1)",
+        borderBottomColor: isDark ? "rgba(200,184,154,0.2)" : "rgba(200,184,154,0)",
+        transition: "background 0.4s cubic-bezier(.4,0,.2,1), border-bottom-color 0.4s cubic-bezier(.4,0,.2,1)",
       }}>
 
         {/* Logo */}
