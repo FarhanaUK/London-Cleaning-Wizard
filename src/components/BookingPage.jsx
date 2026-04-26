@@ -5,7 +5,6 @@ import BookingStep2    from './Bookingstep2';
 import BookingStep3    from './Bookingstep3';
 import BookingStep4    from './Bookingstep4';
 import BookingConfirm  from './Bookingconfirm';
-import Navbar          from './Navbar';
 
 const INIT = {
   isAirbnb: false, pkg: null, propertyType: null, size: null,
@@ -81,8 +80,6 @@ export default function BookingPage() {
 
   return (
     <>
-      <Navbar />
-
       {/* Progress bar */}
       <div style={{
         position: 'sticky',

@@ -58,7 +58,7 @@ export default function App() {
     <div style={{ overflowX: "hidden" }}>
       {!hideChrome && <Navbar />}
 
-      <Suspense fallback={<div>Loading page...</div>}>
+      <Suspense fallback={<div style={{ minHeight: '100vh', background: '#faf9f7' }} />}>
         <Routes>
           <Route path="/" element={<MainPage />} />
           <Route path="/terms-and-conditions" element={<TermsAndCondition />} />
