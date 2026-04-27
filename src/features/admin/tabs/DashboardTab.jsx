@@ -84,7 +84,7 @@ export default function DashboardTab({ bookings, staff, isMobile, C }) {
   const SUB   = { fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 4 };
   const trend = diff => diff === 0 ? null : (
     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: diff > 0 ? '#16a34a' : '#dc2626', marginLeft: 8 }}>
-      {diff > 0 ? '▲' : '▼'} £{Math.abs(diff).toFixed(0)} vs last month
+      {diff > 0 ? '▲' : '▼'} £{Math.abs(diff).toFixed(2)} vs last month
     </span>
   );
 
@@ -104,14 +104,14 @@ export default function DashboardTab({ bookings, staff, isMobile, C }) {
         </div>
         <div style={{ ...CARD, borderTop: '3px solid #16a34a' }}>
           <div style={LABEL}>Month Revenue</div>
-          <div style={{ ...BIG, fontSize: 24 }}>£{monthRevenue.toFixed(0)}</div>
+          <div style={{ ...BIG, fontSize: 24 }}>£{monthRevenue.toFixed(2)}</div>
           <div style={{ ...SUB, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
             {thisMonthBks.length} bookings {trend(revDiff)}
           </div>
         </div>
         <div style={{ ...CARD, borderTop: '3px solid #6366f1' }}>
           <div style={LABEL}>Year to Date</div>
-          <div style={{ ...BIG, fontSize: 24 }}>£{ytdRevenue.toFixed(0)}</div>
+          <div style={{ ...BIG, fontSize: 24 }}>£{ytdRevenue.toFixed(2)}</div>
           <div style={SUB}>{yr}</div>
         </div>
         <div style={{ ...CARD, borderTop: unassigned.length > 0 ? '3px solid #dc2626' : '3px solid #16a34a' }}>
@@ -131,7 +131,7 @@ export default function DashboardTab({ bookings, staff, isMobile, C }) {
               const isCurrent = i === 5;
               return (
                 <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
-                  <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, fontWeight: isCurrent ? 700 : 400 }}>£{m.rev >= 1000 ? (m.rev / 1000).toFixed(1) + 'k' : m.rev.toFixed(0)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, fontWeight: isCurrent ? 700 : 400 }}>£{m.rev >= 1000 ? (m.rev / 1000).toFixed(1) + 'k' : m.rev.toFixed(2)}</div>
                   <div style={{ width: '100%', height: `${h}%`, background: isCurrent ? '#16a34a' : C.accent, borderRadius: '4px 4px 0 0', minHeight: m.rev > 0 ? 4 : 0, transition: 'height 0.4s' }} />
                   <div style={{ fontFamily: FONT, fontSize: 10, color: isCurrent ? C.text : C.muted, fontWeight: isCurrent ? 700 : 400 }}>{m.label}</div>
                 </div>
@@ -228,7 +228,7 @@ export default function DashboardTab({ bookings, staff, isMobile, C }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#fff8eb', borderRadius: 8 }}>
               <span style={{ fontFamily: FONT, fontSize: 12, color: '#7a5c00' }}>Outstanding balance</span>
-              <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: '#d97706' }}>£{outstandingTotal.toFixed(0)}</span>
+              <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: '#d97706' }}>£{outstandingTotal.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -249,7 +249,7 @@ export default function DashboardTab({ bookings, staff, isMobile, C }) {
                         <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{b.customerName}</div>
                         <div style={{ fontFamily: FONT, fontSize: 11, color: '#dc2626' }}>{days} day{days !== 1 ? 's' : ''} overdue</div>
                       </div>
-                      <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>£{parseFloat(b.remaining || 0).toFixed(0)}</span>
+                      <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>£{parseFloat(b.remaining || 0).toFixed(2)}</span>
                     </div>
                   );
                 })}

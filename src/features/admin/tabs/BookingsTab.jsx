@@ -107,7 +107,9 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
         (`${b.firstName} ${b.lastName}`).toLowerCase().includes(searchTerm) ||
         (b.phone      || '').includes(searchTerm) ||
         (b.postcode   || '').toLowerCase().includes(searchTerm) ||
-        (b.addr1      || '').toLowerCase().includes(searchTerm)
+        (b.addr1      || '').toLowerCase().includes(searchTerm) ||
+        (b.stripeDepositIntentId || '').toLowerCase().includes(searchTerm) ||
+        (b.stripeCustomerId      || '').toLowerCase().includes(searchTerm)
       );
     })
     .filter(b => {

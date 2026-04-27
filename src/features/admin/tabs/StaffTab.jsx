@@ -106,8 +106,8 @@ export default function StaffTab({ staff, bookings, setBookings, isMobile, C }) 
                   <button onClick={() => move(i, -1)} disabled={i === 0} style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', color: i === 0 ? C.faint : C.muted, fontSize: 12, padding: '1px 4px', lineHeight: 1 }}>▲</button>
                   <button onClick={() => move(i, 1)} disabled={i === filtered.length - 1} style={{ background: 'none', border: 'none', cursor: i === filtered.length - 1 ? 'default' : 'pointer', color: i === filtered.length - 1 ? C.faint : C.muted, fontSize: 12, padding: '1px 4px', lineHeight: 1 }}>▼</button>
                 </div>
-                <div style={{ width: 48, height: 48, borderRadius: '50%', background: C.bg, border: `1px solid ${C.border}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {s.photoURL ? <img src={s.photoURL} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 22 }}>👤</span>}
+                <div style={{ width: 60, height: 60, borderRadius: '50%', background: C.bg, border: `1px solid ${C.border}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {<img src={s.photoURL || '/wizard.png'} alt={s.name} style={{ width: '100%', height: '100%', objectFit: s.photoURL ? 'cover' : 'contain', transform: s.photoURL ? 'none' : 'scale(1.6)' }} />}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -141,7 +141,7 @@ export default function StaffTab({ staff, bookings, setBookings, isMobile, C }) 
           <div onClick={e => e.stopPropagation()} style={{ background: C.card, borderRadius: 16, padding: isMobile ? '32px 24px' : '48px 40px', maxWidth: 400, width: '100%', boxShadow: '0 16px 48px rgba(0,0,0,0.25)', textAlign: 'center', position: 'relative' }}>
             <button onClick={() => setStaffView(null)} style={{ position: 'absolute', top: 14, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.muted }}>✕</button>
             <div style={{ width: 140, height: 140, borderRadius: '50%', background: C.bg, border: `3px solid ${C.border}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-              {staffView.photoURL ? <img src={staffView.photoURL} alt={staffView.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 64 }}>👤</span>}
+              {<img src={staffView.photoURL || '/wizard.png'} alt={staffView.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
             </div>
             <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 8 }}>{staffView.name}</div>
             <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
@@ -214,7 +214,7 @@ export default function StaffTab({ staff, bookings, setBookings, isMobile, C }) 
             {/* Photo upload */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
               <div style={{ width: 72, height: 72, borderRadius: '50%', background: C.bg, border: `2px dashed ${C.border}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {staffModal.data.photoURL ? <img src={staffModal.data.photoURL} alt="staff" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 28 }}>👤</span>}
+                {<img src={staffModal.data.photoURL || '/wizard.png'} alt="staff" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
               </div>
               <div>
                 <label style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12, cursor: 'pointer', display: 'inline-block' }}>

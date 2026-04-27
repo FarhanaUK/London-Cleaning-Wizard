@@ -1,5 +1,6 @@
 import { calcHours, toInputTime, fmtDuration } from '../utils';
 import DoNotContactToggle from './DoNotContactToggle';
+import { useState } from 'react';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const FIELD_STYLE = C => ({ width: '100%', padding: '8px 12px', fontFamily: FONT, fontSize: 13, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, outline: 'none', boxSizing: 'border-box' });
@@ -30,6 +31,25 @@ export default function BookingExpandedPanel({
   const assignedMember = staff?.find(s => s.name === b.assignedStaff);
   const rate           = assignedMember?.hourlyRate !== 'N/A' ? parseFloat(assignedMember?.hourlyRate) : null;
   const hrs            = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
+  const [notifying, setNotifying] = useState(false);
+  const [notifySent, setNotifySent] = useState(null); // { cleaner, at }
+
+  const handleNotifyCleaner = async () => {
+    setNotifying(true);
+    try {
+      const res = await fetch(import.meta.env.VITE_CF_NOTIFY_CLEANER, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: b.id, cleanerName: b.assignedStaff }),
+      });
+      if (res.ok) setNotifySent({ cleaner: b.assignedStaff, at: new Date() });
+    } catch (e) {}
+    setNotifying(false);
+  };
+
+  const fmtNotifyTime = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  const lastNotified = notifySent || (b.lastNotifiedAt ? { cleaner: b.lastNotifiedCleaner, at: b.lastNotifiedAt.toDate ? b.lastNotifiedAt.toDate() : new Date(b.lastNotifiedAt) } : null);
   const earned         = rate !== null && hrs !== null ? hrs * rate : null;
 
   const saveField = (field, val) => {
@@ -166,6 +186,20 @@ export default function BookingExpandedPanel({
             {available.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
             {onHoliday.map(s => <option key={s.id} value={s.name} disabled>🏖 {s.name} (holiday)</option>)}
           </select>
+        )}
+
+        {b.assignedStaff && !isCancelled && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <button onClick={handleNotifyCleaner} disabled={notifying}
+              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
+              {notifying ? 'Sending…' : '✉ Notify Customer'}
+            </button>
+            {lastNotified && (
+              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+                ✓ Sent for <strong>{lastNotified.cleaner}</strong><br />{fmtNotifyTime(lastNotified.at)}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Pending deposit actions */}

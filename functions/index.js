@@ -943,6 +943,14 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
 
   // ── Pending deposit — no payment taken yet ──────────────────
   if (b.status === 'pending_deposit') {
+    // Cancel the Stripe payment intent so it doesn't sit as "incomplete" in Stripe dashboard
+    if (b.stripeDepositIntentId && b.stripeDepositIntentId !== 'manual') {
+      try { await stripe.paymentIntents.cancel(b.stripeDepositIntentId); } catch (e) {
+        if (!e.message?.includes('cannot be canceled') && !e.message?.includes('already canceled')) {
+          console.error('Failed to cancel Stripe intent on pending_deposit cancel:', e.message);
+        }
+      }
+    }
     await snap.ref.update({ status: 'cancelled_no_refund', cancelledAt: new Date(), cancellationReason: clean(reason||''), refundAmount: 0 });
     if (b.calendarEventId) {
       try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
@@ -1350,6 +1358,40 @@ exports.emailDepositLink = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res)
     deposit_amount: parseFloat(b.deposit).toFixed(2),
     payment_link:   paymentLink,
   }, EMAILJS_KEY.value());
+  res.json({ success: true });
+});
+
+// ── 10b. Notify customer of assigned cleaner ─────────────────
+exports.notifyCleanerAssigned = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId, cleanerName } = req.body;
+  if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
+  const db   = admin.firestore();
+  const snap = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
+  const b = snap.data();
+  const assignedCleaner = cleanerName || b.assignedStaff;
+  if (!assignedCleaner) { res.status(400).json({ error: 'No cleaner assigned to this booking' }); return; }
+  if (!process.env.EMAILJS_CLEANER_TEMPLATE) { res.status(500).json({ error: 'Cleaner notification template not configured' }); return; }
+  // Look up cleaner photo from staff collection
+  const FALLBACK_PHOTO = 'https://londoncleaningwizard.com/wizard.png';
+  let cleanerPhoto = FALLBACK_PHOTO;
+  try {
+    const staffSnap = await db.collection('staff').where('name', '==', assignedCleaner).limit(1).get();
+    if (!staffSnap.empty) cleanerPhoto = staffSnap.docs[0].data().photoURL || FALLBACK_PHOTO;
+  } catch (e) { /* photo optional */ }
+  await sendEmail(process.env.EMAILJS_CLEANER_TEMPLATE, {
+    to_name:       b.firstName,
+    to_email:      b.email,
+    cleaner_name:  assignedCleaner,
+    cleaner_photo: cleanerPhoto,
+    booking_ref:   b.bookingRef,
+    date:          b.cleanDate.split('-').reverse().join('/'),
+    time:          b.cleanTime,
+    package_name:  b.packageName,
+    address:       `${b.addr1}, ${b.postcode}`,
+  }, EMAILJS_KEY.value());
+  await snap.ref.update({ lastNotifiedCleaner: assignedCleaner, lastNotifiedAt: new Date() });
   res.json({ success: true });
 });
 

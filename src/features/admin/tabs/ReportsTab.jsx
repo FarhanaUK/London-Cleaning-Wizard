@@ -276,7 +276,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
           { label: 'Net Profit',    value: `£${periodProfit.toFixed(2)}`,      sub: `${periodMargin.toFixed(1)}% margin`,         color: periodProfit >= 0 ? '#16a34a' : '#dc2626' },
           { label: 'Avg Job Value', value: `£${avgJobVal.toFixed(2)}`,         sub: 'per booking',                                color: BIZ },
           { label: 'Cancel Rate',   value: `${cancelRate.toFixed(1)}%`,        sub: `${cancelledBkgs} of ${totalBkgs} jobs`,      color: cancelRate > 10 ? '#dc2626' : '#f97316' },
-          { label: 'Fixed Costs',   value: `£${fixedMonthly.toFixed(0)}/mo`,   sub: isMonthMode ? 'this month' : `£${(fixedMonthly*12).toFixed(0)}/yr`, color: '#f97316' },
+          { label: 'Fixed Costs',   value: `£${fixedMonthly.toFixed(2)}/mo`,   sub: isMonthMode ? 'this month' : `£${(fixedMonthly*12).toFixed(2)}/yr`, color: '#f97316' },
         ].map(({ label, value, sub, color }) => (
           <div key={label} style={{ ...RCARD, borderTop: `3px solid ${color}` }}>
             <div style={RLABEL}>{label}</div>
@@ -294,8 +294,8 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? 2 : 6, height: 100, marginBottom: 4 }}>
             {last12.map(m => (
               <div key={m.key} style={{ flex: 1, display: 'flex', gap: 2, alignItems: 'flex-end', justifyContent: 'center', opacity: m.isFuture ? 0.2 : 1 }}>
-                <div style={{ flex: 1, background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxRev)*90}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(0)}`} />
-                <div style={{ flex: 1, background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.costs/maxRev)*90}px`, minHeight: m.costs > 0 ? 2 : 0, opacity: 0.7 }} title={`Costs £${m.costs.toFixed(0)}`} />
+                <div style={{ flex: 1, background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxRev)*90}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(2)}`} />
+                <div style={{ flex: 1, background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.costs/maxRev)*90}px`, minHeight: m.costs > 0 ? 2 : 0, opacity: 0.7 }} title={`Costs £${m.costs.toFixed(2)}`} />
               </div>
             ))}
           </div>
@@ -352,7 +352,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
               : momData.map((m, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 8, marginBottom: 8, borderBottom: i < momData.length-1 ? `1px solid ${C.border}` : 'none' }}>
                   <span style={{ fontFamily: FONT, fontSize: 12, color: C.text, minWidth: 36 }}>{m.label}</span>
-                  <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>£{m.rev.toFixed(0)}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>£{m.rev.toFixed(2)}</span>
                   {m.growth !== null
                     ? <span title={m.growth >= 0 ? `Up ${m.growth.toFixed(1)}% vs same month last year` : `Down ${Math.abs(m.growth).toFixed(1)}% vs same month last year`} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: m.growth >= 0 ? '#16a34a' : '#dc2626', minWidth: 60, textAlign: 'right', cursor: 'default' }}>{m.growth >= 0 ? '▲' : '▼'} {Math.abs(m.growth).toFixed(1)}%</span>
                     : <span title="No revenue in the same month last year to compare against" style={{ fontFamily: FONT, fontSize: 11, color: C.muted, minWidth: 60, textAlign: 'right', cursor: 'default' }}>No prior data</span>
@@ -410,14 +410,14 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
             <>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 65, marginBottom: 4 }}>
                 {suppliesTrend.map(m => (
-                  <div key={m.label} style={{ flex: 1, background: '#7c3aed', borderRadius: '3px 3px 0 0', height: `${(m.amt/maxSupply)*60}px`, minHeight: m.amt > 0 ? 2 : 0, opacity: m.isFuture ? 0.15 : 0.75 }} title={`£${m.amt.toFixed(0)}`} />
+                  <div key={m.label} style={{ flex: 1, background: '#7c3aed', borderRadius: '3px 3px 0 0', height: `${(m.amt/maxSupply)*60}px`, minHeight: m.amt > 0 ? 2 : 0, opacity: m.isFuture ? 0.15 : 0.75 }} title={`£${m.amt.toFixed(2)}`} />
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {suppliesTrend.map(m => (
                   <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, opacity: m.isFuture ? 0.35 : 1 }}>
                     <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{m.label}</div>
-                    <div style={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: C.text }}>{m.amt > 0 ? `£${m.amt.toFixed(0)}` : '—'}</div>
+                    <div style={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: C.text }}>{m.amt > 0 ? `£${m.amt.toFixed(2)}` : '—'}</div>
                   </div>
                 ))}
               </div>
@@ -438,10 +438,10 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
               <div key={freq} style={{ paddingBottom: 10, marginBottom: 10, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{freq}</span>
-                  <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#16a34a' }}>£{rev.toFixed(0)}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#16a34a' }}>£{rev.toFixed(2)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{count} job{count !== 1 ? 's' : ''} · avg £{(rev/count).toFixed(0)}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{count} job{count !== 1 ? 's' : ''} · avg £{(rev/count).toFixed(2)}</span>
                   <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{periodBookings.length > 0 ? `${((count/periodBookings.length)*100).toFixed(0)}% of jobs` : ''}</span>
                 </div>
               </div>
@@ -460,7 +460,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
               <div key={pc} style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                   <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text }}>{pc}</span>
-                  <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>£{rev.toFixed(0)} · {count} job{count!==1?'s':''}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>£{rev.toFixed(2)} · {count} job{count!==1?'s':''}</span>
                 </div>
                 <div style={{ height: 5, background: C.bg, borderRadius: 99 }}>
                   <div style={{ height: '100%', width: `${(rev/maxPcRev)*100}%`, background: BIZ, borderRadius: 99 }} />
@@ -478,9 +478,9 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
               <div key={j.ref} style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 8, marginBottom: 8, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text }}>{j.name||j.ref}</div>
-                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{fmtDate(j.date)} · Revenue £{j.rev.toFixed(0)} · Labour £{j.labour.toFixed(0)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{fmtDate(j.date)} · Revenue £{j.rev.toFixed(2)} · Labour £{j.labour.toFixed(2)}</div>
                 </div>
-                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: j.profit >= 0 ? '#16a34a' : '#dc2626' }}>£{j.profit.toFixed(0)}</div>
+                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: j.profit >= 0 ? '#16a34a' : '#dc2626' }}>£{j.profit.toFixed(2)}</div>
               </div>
             ))
           }
@@ -500,7 +500,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
                   <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{c.name||'—'}</div>
                   <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{c.jobs} job{c.jobs !== 1 ? 's' : ''}</div>
                 </div>
-                <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: '#16a34a' }}>£{c.spend.toFixed(0)}</div>
+                <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: '#16a34a' }}>£{c.spend.toFixed(2)}</div>
               </div>
             ))
           }
@@ -529,9 +529,9 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
               <div key={pkg} style={{ paddingBottom: 10, marginBottom: 10, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 2 }}>
                   <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, flex: 1, minWidth: 0 }}>{pkg}</span>
-                  <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#16a34a', flexShrink: 0 }}>£{rev.toFixed(0)}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#16a34a', flexShrink: 0 }}>£{rev.toFixed(2)}</span>
                 </div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{count} job{count !== 1 ? 's' : ''} · avg £{(rev/count).toFixed(0)}</div>
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{count} job{count !== 1 ? 's' : ''} · avg £{(rev/count).toFixed(2)}</div>
               </div>
             ))
           }
