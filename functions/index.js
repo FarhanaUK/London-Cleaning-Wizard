@@ -111,6 +111,10 @@ exports.sendVerificationCode = onRequest({ secrets:[EMAILJS_KEY] }, async (req, 
     res.status(400).json({ error: 'Invalid email address' }); return;
   }
   const db      = admin.firestore();
+  const customerDoc = await db.collection('customers').doc(email.toLowerCase()).get();
+  if (!customerDoc.exists) {
+    res.status(404).json({ error: 'No account found for this email. Please select "First time booking" instead.' }); return;
+  }
   const hourAgo = new Date(Date.now() - 3600000);
   const recent  = await db.collection('verificationCodes')
     .where('email','==',email.toLowerCase()).where('createdAt','>=',hourAgo).get();
