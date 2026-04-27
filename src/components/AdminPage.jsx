@@ -13,7 +13,8 @@ const DashboardTab = lazy(() => import('../features/admin/tabs/DashboardTab'));
 const ExpensesTab  = lazy(() => import('../features/admin/tabs/ExpensesTab'));
 const CustomersTab = lazy(() => import('../features/admin/tabs/CustomersTab'));
 const CalendarTab  = lazy(() => import('../features/admin/tabs/CalendarTab'));
-const BookingsTab  = lazy(() => import('../features/admin/tabs/BookingsTab'));
+const BookingsTab    = lazy(() => import('../features/admin/tabs/BookingsTab'));
+const MarketingTab   = lazy(() => import('../features/admin/tabs/MarketingTab'));
 
 
 // ── Themes ────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ const NAV_ITEMS = [
   { id: 'supplies',  label: 'Supplies',  icon: '🧴' },
   { id: 'sop',       label: 'SOP',       icon: '📖' },
   { id: 'reports',   label: 'Reports',   icon: '📈' },
+  { id: 'marketing', label: 'Marketing', icon: '📣' },
 ];
 
 const WELCOME_MESSAGES = [
@@ -121,6 +123,7 @@ export default function AdminPage() {
 
   const [fixedCosts,            setFixedCosts]            = useState([]);
   const [supplies,              setSupplies]              = useState([]);
+  const [abandonmentStats,      setAbandonmentStats]      = useState([]);
   useEffect(() => onAuthStateChanged(auth, async u => {
     setUser(u);
     setAuthLoading(false);
@@ -174,6 +177,12 @@ export default function AdminPage() {
     return onSnapshot(collection(db, 'supplies'), snap => setSupplies(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   }, [user]);
 
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'abandonmentStats'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap => setAbandonmentStats(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -362,6 +371,7 @@ export default function AdminPage() {
           {activeView === 'sop'       && <SOPTab isMobile={isMobile} C={C} />}
           {activeView === 'reports'   && <ReportsTab bookings={bookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} isMobile={isMobile} C={C} />}
           {activeView === 'bookings'  && <BookingsTab bookings={bookings} setBookings={setBookings} staff={staff} isMobile={isMobile} C={C} user={user} schedulerLogs={schedulerLogs} bannerVisible={bannerVisible} welcomeMsg={welcomeMsg} welcomeColor={welcomeColor} />}
+          {activeView === 'marketing' && <MarketingTab abandonmentStats={abandonmentStats} bookings={bookings} isMobile={isMobile} C={C} />}
         </Suspense>
 
         </div> {/* end main content column */}

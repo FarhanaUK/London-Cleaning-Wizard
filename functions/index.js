@@ -193,11 +193,25 @@ exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, re
   // Save booking data so the webhook can create the booking if the browser closes after payment
   if (bookingData) {
     try {
-      const db = admin.firestore();
+      const db  = admin.firestore();
+      const now = new Date();
       await db.collection('pendingBookings').doc(intent.id).set({
         ...bookingData,
         stripeCustomerId: customer.id,
-        createdAt: new Date(),
+        createdAt: now,
+      });
+      // Anonymised stats record — no PII, kept indefinitely for marketing insights
+      const d = now;
+      const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+      const week = Math.ceil((dayOfYear + new Date(d.getFullYear(), 0, 1).getDay()) / 7);
+      await db.collection('abandonmentStats').doc(intent.id).set({
+        piId: intent.id, createdAt: now,
+        date: now.toISOString().slice(0, 10),
+        week, month: now.getMonth() + 1, year: now.getFullYear(),
+        packageName: bookingData.packageName || '',
+        depositAmount: amount / 100,
+        emailSent: false, emailSentAt: null,
+        converted: false, convertedAt: null,
       });
     } catch (e) {
       console.error('Failed to save pendingBooking:', e.message);
@@ -325,6 +339,11 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       } : {}),
     }, { merge: true });
   });
+
+  // Mark abandonment stat as converted
+  if (d.stripeDepositIntentId && d.stripeDepositIntentId !== 'manual') {
+    db.collection('abandonmentStats').doc(d.stripeDepositIntentId).update({ converted: true, convertedAt: new Date() }).catch(() => {});
+  }
 
   // If webhook already handled this payment, look up and return that booking ref
   if (!claimed) {
@@ -2162,6 +2181,7 @@ exports.sendAbandonedBookingEmails = onSchedule({ schedule: 'every 30 minutes', 
       unsubscribe_url: `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(d.email)}`,
     }, EMAILJS_KEY.value());
     batch.update(doc.ref, { abandonedEmailSent: true });
+    db.collection('abandonmentStats').doc(doc.id).update({ emailSent: true, emailSentAt: new Date() }).catch(() => {});
   }));
   await batch.commit();
 });
