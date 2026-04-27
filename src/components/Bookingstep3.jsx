@@ -169,7 +169,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
           email: retEmail, phone: p.phone || '',
           addr1: p.addr1 || '', postcode: p.postcode || '',
           floor: p.floor || '', parking: p.parking || '',
-          keys: p.keys || '', notes: p.notes || '', source: p.source || '',
+          keys: p.keys || '', notes: p.notes || '', source: '',
           hasPets: p.hasPets ?? null, petTypes: p.petTypes || '',
           signatureTouch: p.signatureTouch ?? true, signatureTouchNotes: p.signatureTouchNotes || '',
         });
