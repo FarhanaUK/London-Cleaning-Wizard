@@ -431,7 +431,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
                 <SectionSpinner label="Sending your verification code…" />
               ) : (
                 <div style={{ display: 'flex', gap: 12 }}>
-                  <button onClick={() => setCustType(null)} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>← Back</button>
+                  <button onClick={() => { setCustType(null); setCode(''); setCodeErr(''); setCodeSent(false); }} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>← Back</button>
                   <button onClick={handleSendCode} style={BTN}><WandIcon size={14} color="#c8b89a" /> Send Verification Code</button>
                 </div>
               )}
@@ -501,7 +501,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
                 Please review your details above before continuing — make sure everything is correct.
               </p>
               <div style={{ display: 'flex', gap: 12 }}>
-                <button onClick={() => { setCustType(null); setProfileLoaded(false); setCodeSent(false); }} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>← Back</button>
+                <button onClick={() => { setCustType(null); setProfileLoaded(false); setCodeSent(false); setCode(''); setCodeErr(''); }} style={{ ...BTN, background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)' }}>← Back</button>
                 <button onClick={handleNext} style={BTN}><WandIcon size={14} color="#c8b89a" /> Continue to Payment</button>
               </div>
             </>
