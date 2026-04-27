@@ -61,6 +61,10 @@ export default function BookingPage() {
   const update = (partial) => setBooking(b => ({ ...b, ...partial }));
 
   useEffect(() => {
+    return () => sessionStorage.removeItem(SESSION_KEY);
+  }, []);
+
+  useEffect(() => {
     if (!confirmed) {
       try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ step, booking })); } catch {}
     }
