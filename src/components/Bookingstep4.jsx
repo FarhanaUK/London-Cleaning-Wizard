@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { FullOverlay, ButtonSpinner } from './LoadingStates';
+import { FullOverlay, ButtonSpinner, SectionSpinner } from './LoadingStates';
 import { calculateTotal } from '../utils/pricing';
 import { Sparkle, WandIcon } from './Icons';
 
@@ -31,10 +31,12 @@ const STRIPE_ERRORS = {
   authentication_required: 'Your bank requires extra verification. Please follow the on-screen steps.',
 };
 
-function PaymentForm({ booking, onSuccess, onBack }) {
+function PaymentForm({ booking, onBack, T }) {
   const stripe   = useStripe();
   const elements = useElements();
 
+  const [piData,        setPiData]        = useState(null);
+  const [initError,     setInitError]     = useState('');
   const [loading,       setLoading]       = useState(false);
   const [overlayTitle,  setOverlayTitle]  = useState('');
   const [overlaySub,    setOverlaySub]    = useState('');
@@ -48,22 +50,38 @@ function PaymentForm({ booking, onSuccess, onBack }) {
     if (el.scrollHeight - el.scrollTop <= el.clientHeight + 10) setHasScrolled(true);
   };
 
-  // First booking is always full price — discount applies from 2nd clean onwards
-  const T = calculateTotal({
-    sizePrice:    booking.size?.basePrice || 0,
-    propertyType: booking.propertyType,
-    frequency:    null,
-    addons:       booking.addons || [],
-    surcharge:          0,
-    supplies:           booking.supplies,
-    suppliesFeeOverride: booking.suppliesFee,
-  });
+  // Create payment intent on mount — also saves pendingBookings so abandonment is tracked
+  useEffect(() => {
+    fetch(import.meta.env.VITE_CF_CREATE_PAYMENT_INTENT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: Math.round(parseFloat(T.deposit) * 100),
+        bookingData: {
+          ...booking,
+          package:     booking.pkg?.id,
+          packageName: booking.pkg?.name,
+          size:        booking.size?.id,
+          frequency:   booking.freq?.id,
+          total:       parseFloat(T.subtotal),
+          deposit:     parseFloat(T.deposit),
+          remaining:   parseFloat(T.remaining),
+        },
+      }),
+    })
+      .then(async r => {
+        const data = await r.json();
+        if (!r.ok) { setInitError(data.error || 'Could not initialise payment. Please try again.'); return; }
+        setPiData(data);
+      })
+      .catch(() => setInitError('Could not initialise payment. Please try again.'));
+  }, []);
 
   const handlePay = async () => {
     if (!policyChecked) { setPolicyError('Please read and accept the cancellation policy to continue.'); return; }
     setPolicyError('');
     setPayError('');
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !piData) return;
 
     // Check the date hasn't been blocked since the customer selected it
     if (booking.cleanDate) {
@@ -83,41 +101,11 @@ function PaymentForm({ booking, onSuccess, onBack }) {
     }
 
     setLoading(true);
-    setOverlayTitle('Securing your booking…');
-    setOverlaySub('Please don\'t close this window');
+    setOverlayTitle('Authorising payment…');
+    setOverlaySub('Verifying your card details securely');
 
     try {
-      // Step 1: Create PaymentIntent + pre-save pending booking
-      const piRes = await fetch(import.meta.env.VITE_CF_CREATE_PAYMENT_INTENT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: Math.round(parseFloat(T.deposit) * 100),
-          bookingData: {
-            ...booking,
-            package:     booking.pkg?.id,
-            packageName: booking.pkg?.name,
-            size:        booking.size?.id,
-            frequency:   booking.freq?.id,
-            total:       parseFloat(T.subtotal),
-            deposit:     parseFloat(T.deposit),
-            remaining:   parseFloat(T.remaining),
-          },
-        }),
-      });
-      if (!piRes.ok) {
-        const piErr = await piRes.json().catch(() => ({}));
-        setPayError(piErr.error || 'Could not initiate payment. Please try again.');
-        setLoading(false);
-        return;
-      }
-      const { clientSecret, customerId, piId } = await piRes.json();
-
-      setOverlayTitle('Authorising payment…');
-      setOverlaySub('Verifying your card details securely');
-
-      // Step 2: Confirm card payment
-      let { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      let { error, paymentIntent } = await stripe.confirmCardPayment(piData.clientSecret, {
         payment_method: { card: elements.getElement(CardNumberElement) },
       });
 
@@ -125,7 +113,7 @@ function PaymentForm({ booking, onSuccess, onBack }) {
       // even though Stripe already charged the card. Re-check the real status before giving up.
       if (error) {
         try {
-          const { paymentIntent: recovered } = await stripe.retrievePaymentIntent(clientSecret);
+          const { paymentIntent: recovered } = await stripe.retrievePaymentIntent(piData.clientSecret);
           if (recovered?.status === 'succeeded') {
             paymentIntent = recovered;
             error = null;
@@ -143,7 +131,6 @@ function PaymentForm({ booking, onSuccess, onBack }) {
         setOverlayTitle('Confirming your booking…');
         setOverlaySub('Sending confirmation to your email');
 
-        // Step 3: Confirm booking in Firestore
         const saveRes = await fetch(import.meta.env.VITE_CF_SAVE_BOOKING, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -157,8 +144,8 @@ function PaymentForm({ booking, onSuccess, onBack }) {
             deposit:               parseFloat(T.deposit),
             remaining:             parseFloat(T.remaining),
             stripeDepositIntentId: paymentIntent.id,
-            stripeCustomerId:      customerId,
-            piId,
+            stripeCustomerId:      piData.customerId,
+            piId:                  piData.piId,
           }),
         });
 
@@ -167,14 +154,6 @@ function PaymentForm({ booking, onSuccess, onBack }) {
           setPayError(saveData.error || 'Your booking could not be saved. Please call us on 020 8137 0026 — your payment has been taken and we will manually confirm your booking.');
           setLoading(false);
           return;
-        }
-        if (window.gtag) {
-          window.gtag('event', 'conversion', {
-            send_to:        'AW-18070855826/E-wKCMPTmZocEJLB7ahD',
-            value:          parseFloat(T.deposit),
-            currency:       'GBP',
-            transaction_id: saveData.bookingRef,
-          });
         }
         sessionStorage.setItem('bookingSuccess', JSON.stringify({
           packageName: booking.pkg?.name,
@@ -195,6 +174,12 @@ function PaymentForm({ booking, onSuccess, onBack }) {
       setLoading(false);
     }
   };
+
+  if (initError) return (
+    <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#8b2020', padding: '20px 0' }}>{initError}</p>
+  );
+
+  if (!piData) return <SectionSpinner label="Preparing secure payment…" />;
 
   return (
     <>
@@ -341,9 +326,19 @@ function PaymentForm({ booking, onSuccess, onBack }) {
 }
 
 export default function BookingStep4({ booking, onSuccess, onBack }) {
+  const T = calculateTotal({
+    sizePrice:    booking.size?.basePrice || 0,
+    propertyType: booking.propertyType,
+    frequency:    null,
+    addons:       booking.addons || [],
+    surcharge:          0,
+    supplies:           booking.supplies,
+    suppliesFeeOverride: booking.suppliesFee,
+  });
+
   return (
     <Elements stripe={stripePromise}>
-      <PaymentForm booking={booking} onSuccess={onSuccess} onBack={onBack} />
+      <PaymentForm booking={booking} onSuccess={onSuccess} onBack={onBack} T={T} />
     </Elements>
   );
 }
