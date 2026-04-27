@@ -64,9 +64,9 @@ function buildBookingEmailData(b) {
     date_subject:    b.cleanDate.split('-').reverse().join('.'),
     time:            b.cleanTime,
     address:         `${b.addr1}, ${b.postcode}`,
-    total:           `£${b.total}`,
-    deposit_paid:    `£${b.deposit}`,
-    remaining:       `£${b.remaining}`,
+    total:           `£${parseFloat(b.total).toFixed(2)}`,
+    deposit_paid:    `£${parseFloat(b.deposit).toFixed(2)}`,
+    remaining:       `£${parseFloat(b.remaining).toFixed(2)}`,
     notes:           clean(b.notes||''),
     keys:            clean(b.keys||''),
     addons:          (b.addons||[]).map(a => a.name).join(', ') || 'None',
@@ -200,7 +200,7 @@ exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, re
         stripeCustomerId: customer.id,
         createdAt: now,
       });
-      // Anonymised stats record — no PII, kept indefinitely for marketing insights
+      // Stats record — email kept for 30 days for conversion attribution, then stripped
       const d = now;
       const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
       const week = Math.ceil((dayOfYear + new Date(d.getFullYear(), 0, 1).getDay()) / 7);
@@ -210,6 +210,7 @@ exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, re
         week, month: now.getMonth() + 1, year: now.getFullYear(),
         packageName: bookingData.packageName || '',
         depositAmount: amount / 100,
+        email: (bookingData.email || '').toLowerCase(),
         emailSent: false, emailSentAt: null,
         converted: false, convertedAt: null,
       });
@@ -340,9 +341,21 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
     }, { merge: true });
   });
 
-  // Mark abandonment stat as converted
+  // Mark abandonment stat as converted — try exact PI match first, then fall back to email match
   if (d.stripeDepositIntentId && d.stripeDepositIntentId !== 'manual') {
     db.collection('abandonmentStats').doc(d.stripeDepositIntentId).update({ converted: true, convertedAt: new Date() }).catch(() => {});
+  }
+  if (d.email) {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    db.collection('abandonmentStats')
+      .where('email', '==', d.email.toLowerCase())
+      .where('converted', '==', false)
+      .where('createdAt', '>', thirtyDaysAgo)
+      .get()
+      .then(snap => {
+        snap.forEach(doc => doc.ref.update({ converted: true, convertedAt: new Date() }));
+      })
+      .catch(() => {});
   }
 
   // If webhook already handled this payment, look up and return that booking ref
@@ -381,8 +394,9 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
             `Add-ons: ${(d.addons||[]).map(a => a.name).join(', ') || 'None'}`,
             `Pets: ${d.hasPets ? `Yes — ${d.petTypes || 'not specified'}` : 'No'}`,
             `Signature Touch: ${d.signatureTouch !== false ? 'Opted in' : `Opted out${d.signatureTouchNotes ? ` — ${d.signatureTouchNotes}` : ''}`}`,
+            `Cleaner: ${d.assignedStaff || 'Unassigned'}`,
             `Notes: ${d.notes || 'None'}`,
-            `Total: £${d.total} | Deposit: £${d.deposit} | Remaining: £${d.remaining}`,
+            `Total: £${parseFloat(d.total||0).toFixed(2)} | Deposit: £${parseFloat(d.deposit||0).toFixed(2)} | Remaining: £${parseFloat(d.remaining||0).toFixed(2)}`,
           ].join('\n'),
         start: { dateTime: slotStart, timeZone: 'Europe/London' },
         end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
@@ -473,7 +487,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
                   `Add-ons: ${(d.addons||[]).map(a => a.name).join(', ') || 'None'}`,
                   `Pets: ${d.hasPets ? `Yes — ${d.petTypes || 'not specified'}` : 'No'}`,
                   `Notes: ${d.notes || 'None'}`,
-                  `Total: £${d.total} | No deposit — full amount charged on completion`,
+                  `Total: £${parseFloat(d.total||0).toFixed(2)} | No deposit — full amount charged on completion`,
                   `⚙️ Auto-created at booking time (pre-scheduled)`,
                 ].join('\n'),
                 start: { dateTime: slotStart, timeZone: 'Europe/London' },
@@ -575,8 +589,8 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       date:                b.cleanDate.split('-').reverse().join('/'),
       date_subject:        b.cleanDate.split('-').reverse().join('.'),
       address:             `${b.addr1}, ${b.postcode}`,
-      total:               `£${b.total}`, deposit_paid:   `£${b.deposit}`,
-      amount_charged:      `£${b.remaining}`,
+      total:               `£${parseFloat(b.total).toFixed(2)}`, deposit_paid: `£${parseFloat(b.deposit).toFixed(2)}`,
+      amount_charged:      `£${parseFloat(b.remaining).toFixed(2)}`,
       stripe_deposit_pi:   'Manual payment', stripe_remaining_pi: 'Manual payment', stripe_customer_id: '—',
       booking_type:        'One-off Clean',
       payment_note:        '',
@@ -617,13 +631,13 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
         await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
           to_email: 'bookings@londoncleaningwizard.com', booking_ref: b.bookingRef,
           customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email,
-          customer_phone: b.phone, amount: `£${b.total}`,
+          customer_phone: b.phone, amount: `£${parseFloat(b.total).toFixed(2)}`,
           date: b.cleanDate.split('-').reverse().join('/'), error_message: errMsg,
         }, EMAILJS_KEY.value()).catch(() => {});
         await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
           to_email: b.email, to_name: b.firstName, booking_ref: b.bookingRef,
           customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email,
-          customer_phone: b.phone, amount: `£${b.total}`,
+          customer_phone: b.phone, amount: `£${parseFloat(b.total).toFixed(2)}`,
           date: b.cleanDate.split('-').reverse().join('/'), error_message: errMsg,
         }, EMAILJS_KEY.value()).catch(() => {});
         res.status(400).json({ error: 'Payment was not completed successfully. Please retry.' }); return;
@@ -636,8 +650,8 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
         date:                b.cleanDate.split('-').reverse().join('/'),
         date_subject:        b.cleanDate.split('-').reverse().join('.'),
         address:             `${b.addr1}, ${b.postcode}`,
-        total:               `£${b.total}`, deposit_paid:        '£0 (recurring — no deposit)',
-        amount_charged:      `£${b.total}`,
+        total:               `£${parseFloat(b.total).toFixed(2)}`, deposit_paid: '£0 (recurring — no deposit)',
+        amount_charged:      `£${parseFloat(b.total).toFixed(2)}`,
         stripe_deposit_pi:   '—',          stripe_remaining_pi: intent.id,
         stripe_customer_id:  b.stripeCustomerId,
         booking_type:        'Recurring Clean',
@@ -653,13 +667,13 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
         to_email: 'bookings@londoncleaningwizard.com', booking_ref: b.bookingRef,
         customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email,
-        customer_phone: b.phone, amount: `£${b.total}`,
+        customer_phone: b.phone, amount: `£${parseFloat(b.total).toFixed(2)}`,
         date: b.cleanDate.split('-').reverse().join('/'), error_message: e.message,
       }, EMAILJS_KEY.value()).catch(() => {});
       await sendEmail(process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE, {
         to_email: b.email, to_name: b.firstName, booking_ref: b.bookingRef,
         customer_name: `${b.firstName} ${b.lastName}`, customer_email: b.email,
-        customer_phone: b.phone, amount: `£${b.total}`,
+        customer_phone: b.phone, amount: `£${parseFloat(b.total).toFixed(2)}`,
         date: b.cleanDate.split('-').reverse().join('/'), error_message: e.message,
       }, EMAILJS_KEY.value()).catch(() => {});
       res.status(500).json({ error: e.message }); return;
@@ -713,7 +727,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
         customer_name:  `${b.firstName} ${b.lastName}`,
         customer_email: b.email,
         customer_phone: b.phone,
-        amount:         `£${b.remaining}`,
+        amount:         `£${parseFloat(b.remaining).toFixed(2)}`,
         date:           b.cleanDate.split('-').reverse().join('/'),
         error_message:  errMsg,
       }, EMAILJS_KEY.value());
@@ -723,7 +737,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
         customer_name:  `${b.firstName} ${b.lastName}`,
         customer_email: b.email,
         customer_phone: b.phone,
-        amount:         `£${b.remaining}`,
+        amount:         `£${parseFloat(b.remaining).toFixed(2)}`,
         date:           b.cleanDate.split('-').reverse().join('/'),
         error_message:  errMsg,
       }, EMAILJS_KEY.value()).catch(() => {});
@@ -744,9 +758,9 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       date:                 b.cleanDate.split('-').reverse().join('/'),
       date_subject:         b.cleanDate.split('-').reverse().join('.'),
       address:              `${b.addr1}, ${b.postcode}`,
-      total:                `£${b.total}`,
-      deposit_paid:         `£${b.deposit}`,
-      amount_charged:       `£${b.remaining}`,
+      total:                `£${parseFloat(b.total).toFixed(2)}`,
+      deposit_paid:         `£${parseFloat(b.deposit).toFixed(2)}`,
+      amount_charged:       `£${parseFloat(b.remaining).toFixed(2)}`,
       stripe_deposit_pi:    b.stripeDepositIntentId || '—',
       stripe_remaining_pi:  intent.id,
       stripe_customer_id:   customerId || '—',
@@ -769,7 +783,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       customer_name:  `${b.firstName} ${b.lastName}`,
       customer_email: b.email,
       customer_phone: b.phone,
-      amount:         `£${b.remaining}`,
+      amount:         `£${parseFloat(b.remaining).toFixed(2)}`,
       date:           b.cleanDate.split('-').reverse().join('/'),
       error_message:  e.message,
     }, EMAILJS_KEY.value()).catch(() => {});
@@ -779,7 +793,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       customer_name:  `${b.firstName} ${b.lastName}`,
       customer_email: b.email,
       customer_phone: b.phone,
-      amount:         `£${b.remaining}`,
+      amount:         `£${parseFloat(b.remaining).toFixed(2)}`,
       date:           b.cleanDate.split('-').reverse().join('/'),
       error_message:  e.message,
     }, EMAILJS_KEY.value()).catch(() => {});
@@ -1174,8 +1188,10 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
             `Keys: ${newKeys || 'N/A'}`,
             `Add-ons: ${(newAddons||[]).map(a => a.name).join(', ') || 'None'}`,
             `Pets: ${(hasPets !== undefined ? hasPets : current.hasPets) ? `Yes — ${petTypes !== undefined ? clean(petTypes||'') : current.petTypes || 'not specified'}` : 'No'}`,
+            `Signature Touch: ${(signatureTouch !== undefined ? signatureTouch : current.signatureTouch) !== false ? 'Opted in' : `Opted out${(signatureTouchNotes !== undefined ? signatureTouchNotes : current.signatureTouchNotes) ? ` — ${signatureTouchNotes !== undefined ? clean(signatureTouchNotes||'') : current.signatureTouchNotes}` : ''}`}`,
+            `Cleaner: ${assignedStaff !== undefined ? (assignedStaff || 'Unassigned') : (current.assignedStaff || 'Unassigned')}`,
             `Notes: ${newNotes || 'None'}`,
-            `Total: £${current.total} | Deposit: £${current.deposit} | Remaining: £${current.remaining}`,
+            `Total: £${parseFloat(current.total||0).toFixed(2)} | Deposit: £${parseFloat(current.deposit||0).toFixed(2)} | Remaining: £${parseFloat(current.remaining||0).toFixed(2)}`,
             `⚠️ Edited on ${new Date().toLocaleDateString('en-GB')}`,
           ].join('\n'),
           colorId: calColorId(current.status, newFrequency || current.frequency),
@@ -1265,7 +1281,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
                 `Keys: ${keys !== undefined ? newKeys : fd.keys || 'N/A'}`,
                 `Add-ons: ${((addons !== undefined ? newAddons : fd.addons) || []).map(a => a.name).join(', ') || 'None'}`,
                 `Notes: ${notes !== undefined ? newNotes : fd.notes || 'None'}`,
-                `Total: £${total !== undefined ? total : fd.total} | Deposit: £0 | Remaining: £${total !== undefined ? total : fd.remaining}`,
+                `Total: £${parseFloat(total !== undefined ? total : fd.total||0).toFixed(2)} | Deposit: £0 | Remaining: £${parseFloat(total !== undefined ? total : fd.remaining||0).toFixed(2)}`,
                 `⚠️ Edited on ${new Date().toLocaleDateString('en-GB')}`,
               ].join('\n'),
             },
@@ -2104,7 +2120,7 @@ exports.stripeWebhook = onRequest(
             `Add-ons: ${(pd.addons||[]).map(a => a.name).join(', ') || 'None'}`,
             `Pets: ${pd.hasPets ? `Yes — ${pd.petTypes || 'not specified'}` : 'No'}`,
             `Notes: ${pd.notes || 'None'}`,
-            `Total: £${pd.total} | Deposit: £${pd.deposit} | Remaining: £${pd.remaining}`,
+            `Total: £${parseFloat(pd.total||0).toFixed(2)} | Deposit: £${parseFloat(pd.deposit||0).toFixed(2)} | Remaining: £${parseFloat(pd.remaining||0).toFixed(2)}`,
           ].join('\n'),
           start: { dateTime: slotStart, timeZone: 'Europe/London' },
           end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
@@ -2159,7 +2175,6 @@ exports.sendAbandonedBookingEmails = onSchedule({ schedule: 'every 30 minutes', 
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
   const snap   = await db.collection('pendingBookings')
     .where('createdAt', '<', twoHoursAgo)
-    .where('marketingOptOut', '==', false)
     .get();
 
   const template = process.env.EMAILJS_ABANDONED_TEMPLATE;
@@ -2195,6 +2210,16 @@ exports.cleanupPendingBookings = onSchedule('every 60 minutes', async () => {
   const batch  = db.batch();
   snap.forEach(d => batch.delete(d.ref));
   await batch.commit();
+
+  // Strip email from abandonmentStats older than 30 days (conversion window closed)
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const statsSnap = await db.collection('abandonmentStats')
+    .where('createdAt', '<', thirtyDaysAgo)
+    .where('email', '!=', '')
+    .get();
+  const statsBatch = db.batch();
+  statsSnap.forEach(d => statsBatch.update(d.ref, { email: '' }));
+  await statsBatch.commit();
 });
 
 // ── Clean up expired verification codes (Scheduled) ──────────
@@ -2229,6 +2254,11 @@ exports.unsubscribeMarketing = onRequest(async (req, res) => {
   const key = email.toLowerCase();
   await db.collection('unsubscribed').doc(key).set({ email: key, unsubscribedAt: new Date() });
   await db.collection('customers').doc(key).update({ marketingOptOut: true }).catch(() => {});
+  // Strip email from any abandonmentStats docs so they can no longer be attributed
+  const statsSnap = await db.collection('abandonmentStats').where('email', '==', key).get();
+  const batch = db.batch();
+  statsSnap.forEach(doc => batch.update(doc.ref, { email: '' }));
+  await batch.commit();
   res.json({ ok: true });
 });
 

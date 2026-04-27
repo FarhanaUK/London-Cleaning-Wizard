@@ -130,7 +130,7 @@ export default function BookingExpandedPanel({
                 const hrsNotice = ((new Date(b.cleanDateUTC) - (b.cancelledAt?.toDate ? b.cancelledAt.toDate() : new Date(b.cancelledAt))) / 3600000);
                 return { l: 'Notice Given', v: `${hrsNotice > 0 ? hrsNotice.toFixed(1) : '0'} hrs — ${hrsNotice >= 48 ? 'Full refund' : 'No refund'}` };
               })(),
-              { l: 'Refund Amount',  v: b.refundAmount != null ? `£${b.refundAmount}` : '—' },
+              { l: 'Refund Amount',  v: b.refundAmount != null ? `£${parseFloat(b.refundAmount).toFixed(2)}` : '—' },
             ].filter(Boolean).map((r, i) => (
               <div key={i}>
                 <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 2 }}>{r.l}</div>
@@ -204,7 +204,7 @@ export default function BookingExpandedPanel({
               </button>
             </div>
             <button onClick={() => handleEmailDepositLink(b)} disabled={emailingLink === b.id || emailedLinks[b.id]}
-              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '8px 16px', width: '100%', background: emailedLinks[b.id] ? '#6b7280' : '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: emailedLinks[b.id] ? 'default' : 'pointer', marginBottom: 8 }}>
+              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '8px 16px', width: '100%', background: emailedLinks[b.id] ? '#16a34a' : '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: emailedLinks[b.id] ? 'default' : 'pointer', marginBottom: 8 }}>
               {emailingLink === b.id ? 'Sending…' : emailedLinks[b.id] ? '✓ Email Sent to Customer' : '✉ Email Link to Customer'}
             </button>
             <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.danger, marginBottom: 4 }}>
@@ -230,8 +230,30 @@ export default function BookingExpandedPanel({
               </div>
             )}
             <button onClick={() => handleComplete(b)} disabled={completing === b.id}
-              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-              {completing === b.id ? 'Charging…' : isManualDeposit ? `✓ Mark Complete — £${b.remaining} collected manually` : `✓ Complete Job — Charge £${b.remaining}`}
+              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', background: '#2c2420', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+              {completing === b.id ? 'Charging…' : isManualDeposit ? `✓ Mark as Complete — £${parseFloat(b.remaining||0).toFixed(2)} collected manually` : `✓ Mark as Complete — Charge £${parseFloat(b.remaining||0).toFixed(2)}`}
+            </button>
+          </>
+        )}
+
+        {/* Payment failed */}
+        {b.status === 'payment_failed' && (
+          <>
+            <div style={{ fontFamily: FONT, fontSize: 12, color: '#16a34a', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+              ✓ Deposit paid — £{parseFloat(b.deposit).toFixed(2)}
+            </div>
+            <div style={{ width: '100%', background: '#fef2f2', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 6, padding: '12px 16px' }}>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.danger, marginBottom: 4 }}>
+                ⚠ Final Payment Failed — £{parseFloat(b.remaining).toFixed(2)}
+              </div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, lineHeight: 1.6 }}>
+                The final charge after the clean failed.
+                {b.paymentError && <><br /><em>{b.paymentError}</em></>}
+              </div>
+            </div>
+            <button onClick={() => handleComplete(b)} disabled={completing === b.id}
+              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', background: '#2c2420', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+              {completing === b.id ? 'Retrying…' : `↺ Retry Charge — £${parseFloat(b.remaining).toFixed(2)}`}
             </button>
           </>
         )}

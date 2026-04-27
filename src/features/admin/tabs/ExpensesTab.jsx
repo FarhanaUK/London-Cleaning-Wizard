@@ -205,7 +205,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button style={TAB_S(expenseTab==='variable')} onClick={() => { setExpenseTab('variable'); localStorage.setItem('expenseTab','variable'); }}>Variable</button>
           <button style={TAB_S(expenseTab==='fixed')} onClick={() => { setExpenseTab('fixed'); localStorage.setItem('expenseTab','fixed'); }}>
-            Fixed {fixedCosts.length > 0 && <span style={{ fontSize: 11, opacity: 0.8 }}>· £{fixedMonthly.toFixed(0)}/mo</span>}
+            Fixed {fixedCosts.length > 0 && <span style={{ fontSize: 11, opacity: 0.8 }}>· £{fixedMonthly.toFixed(2)}/mo</span>}
           </button>
           <button style={TAB_S(expenseTab==='pnl')} onClick={() => { setExpenseTab('pnl'); localStorage.setItem('expenseTab','pnl'); }}>P&amp;L</button>
           <button style={TAB_S(expenseTab==='hmrc')} onClick={() => { setExpenseTab('hmrc'); localStorage.setItem('expenseTab','hmrc'); }}>HMRC</button>
@@ -218,24 +218,24 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
             <div style={{ ...KCARD, background: '#f0fdf4', borderTop: '3px solid #16a34a' }}>
               <div style={{ ...KLABEL, color: '#16a34a' }}>{activeMonthLabel}</div>
-              <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{thisMonthTotal.toFixed(0)}</div>
+              <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{thisMonthTotal.toFixed(2)}</div>
               <div style={{ fontFamily: FONT, fontSize: 11, color: thisMonthTotal <= lastMonthTotal ? '#16a34a' : '#dc2626', marginTop: 3 }}>
-                {lastMonthTotal > 0 ? `${thisMonthTotal<=lastMonthTotal?'▼':'▲'} £${Math.abs(thisMonthTotal-lastMonthTotal).toFixed(0)} vs prev` : 'First month of data'}
+                {lastMonthTotal > 0 ? `${thisMonthTotal<=lastMonthTotal?'▼':'▲'} £${Math.abs(thisMonthTotal-lastMonthTotal).toFixed(2)} vs prev` : 'First month of data'}
               </div>
             </div>
             <div style={{ ...KCARD, borderTop: `3px solid ${C.accent}` }}>
               <div style={KLABEL}>{prevMonthLabel}</div>
-              <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{lastMonthTotal.toFixed(0)}</div>
+              <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{lastMonthTotal.toFixed(2)}</div>
               <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{lastMonthExp.length} entries</div>
             </div>
             <div style={{ ...KCARD, borderTop: '3px solid #6366f1' }}>
               <div style={KLABEL}>Tax Year {activeTaxYear.label}</div>
-              <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{taxYearTotal.toFixed(0)}</div>
+              <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{taxYearTotal.toFixed(2)}</div>
               <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{fmtDate(activeTaxYear.start)} – {fmtDate(activeTaxYear.end)}</div>
             </div>
             <div style={{ ...KCARD, borderTop: reimbursable > 0 ? '3px solid #dc2626' : `3px solid ${C.accent}` }}>
               <div style={KLABEL}>Reimbursable Owed</div>
-              <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: reimbursable > 0 ? '#dc2626' : C.text }}>£{reimbursable.toFixed(0)}</div>
+              <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: reimbursable > 0 ? '#dc2626' : C.text }}>£{reimbursable.toFixed(2)}</div>
               <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{reimbursableExp.length} unpaid</div>
             </div>
           </div>
@@ -246,7 +246,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
                 {last12.map(m => (
                   <div key={m.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <div style={{ width: '100%', height: `${(m.total / maxMonth) * 64}px`, minHeight: m.total > 0 ? 3 : 0, background: m.key === thisMonthKey ? BIZ : C.border, borderRadius: '3px 3px 0 0', transition: 'height 0.3s' }} title={`£${m.total.toFixed(0)}`} />
+                    <div style={{ width: '100%', height: `${(m.total / maxMonth) * 64}px`, minHeight: m.total > 0 ? 3 : 0, background: m.key === thisMonthKey ? BIZ : C.border, borderRadius: '3px 3px 0 0', transition: 'height 0.3s' }} title={`£${m.total.toFixed(2)}`} />
                     <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted, textAlign: 'center' }}>{m.label}</div>
                   </div>
                 ))}
@@ -339,13 +339,13 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                             <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{c.cat}</span>
                             <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: over ? '#dc2626' : C.text }}>
-                              £{c.total.toFixed(0)}{c.budget > 0 ? ` / £${c.budget.toFixed(0)}` : ''}
+                              £{c.total.toFixed(2)}{c.budget > 0 ? ` / £${c.budget.toFixed(2)}` : ''}
                             </span>
                           </div>
                           <div style={{ height: 6, background: C.bg, borderRadius: 99, overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${pct}%`, background: over ? '#dc2626' : CAT_COLOURS[c.cat]||C.accent, borderRadius: 99 }} />
                           </div>
-                          {over && <div style={{ fontFamily: FONT, fontSize: 10, color: '#dc2626', marginTop: 2 }}>Over budget by £{(c.total - c.budget).toFixed(0)}</div>}
+                          {over && <div style={{ fontFamily: FONT, fontSize: 10, color: '#dc2626', marginTop: 2 }}>Over budget by £{(c.total - c.budget).toFixed(2)}</div>}
                         </div>
                       );
                     })}
@@ -368,7 +368,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
             <div>
               <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Monthly Overhead</div>
               <div style={{ fontFamily: FONT, fontSize: 32, fontWeight: 700, color: C.text }}>£{fixedMonthly.toFixed(2)}</div>
-              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 2 }}>£{(fixedMonthly * 12).toFixed(0)}/year · {fixedCosts.filter(f => f.active).length} active costs</div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 2 }}>£{(fixedMonthly * 12).toFixed(2)}/year · {fixedCosts.filter(f => f.active).length} active costs</div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {fixedCosts.length > 0 && <button onClick={() => {
@@ -420,13 +420,18 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
           const rate = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : 0;
           return hrs * rate;
         };
+        const collectedAmt = b => {
+          if (b.status === 'fully_paid')   return parseFloat(b.total)   || 0;
+          if (b.status === 'deposit_paid') return parseFloat(b.deposit) || 0;
+          return 0;
+        };
         const labourInRange = (start, end) => bookings
-          .filter(b => b.cleanDate >= start && b.cleanDate <= end && b.status !== 'cancelled')
+          .filter(b => b.cleanDate >= start && b.cleanDate <= end && !b.status?.startsWith('cancelled'))
           .reduce((s, b) => s + bookingLabour(b), 0);
 
         const moStart = `${thisMonthKey}-01`, moEnd = `${thisMonthKey}-31`;
-        const moBkgs    = bookings.filter(b => b.cleanDate >= moStart && b.cleanDate <= moEnd && b.status !== 'cancelled');
-        const moRevenue = moBkgs.reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+        const moBkgs    = bookings.filter(b => b.cleanDate >= moStart && b.cleanDate <= moEnd && !b.status?.startsWith('cancelled'));
+        const moRevenue = moBkgs.reduce((s, b) => s + collectedAmt(b), 0);
         const moLabour  = labourInRange(moStart, moEnd);
         const moVarExp  = expenses.filter(e => e.date >= moStart && e.date <= moEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
         const moTotal   = moLabour + moVarExp + fixedMonthly;
@@ -434,8 +439,8 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
         const moMargin  = moRevenue > 0 ? (moProfit / moRevenue) * 100 : 0;
         const moLabourPct = moRevenue > 0 ? (moLabour / moRevenue) * 100 : 0;
 
-        const tyBkgs    = bookings.filter(b => b.cleanDate >= taxYear.start && b.cleanDate <= taxYear.end && b.status !== 'cancelled');
-        const tyRevenue = tyBkgs.reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+        const tyBkgs    = bookings.filter(b => b.cleanDate >= taxYear.start && b.cleanDate <= taxYear.end && !b.status?.startsWith('cancelled'));
+        const tyRevenue = tyBkgs.reduce((s, b) => s + collectedAmt(b), 0);
         const tyLabour  = labourInRange(taxYear.start, taxYear.end);
         const tyVarExp  = expenses.filter(e => e.date >= taxYear.start && e.date <= taxYear.end).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
         const tyFixed   = fixedMonthly * 12;
@@ -462,7 +467,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
           const nextD  = new Date(tyStartYear, 4 + i, 1);
           const mEnd   = i === 11 ? taxYear.end   : `${nextD.getFullYear()}-${String(nextD.getMonth()+1).padStart(2,'0')}-05`;
           const label  = d.toLocaleString('en-GB', { month: 'short' });
-          const rev    = bookings.filter(b => b.cleanDate >= mStart && b.cleanDate <= mEnd && b.status !== 'cancelled').reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+          const rev    = bookings.filter(b => b.cleanDate >= mStart && b.cleanDate <= mEnd && !b.status?.startsWith('cancelled')).reduce((s, b) => s + collectedAmt(b), 0);
           const lab    = labourInRange(mStart, mEnd);
           const exp    = expenses.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
           const total  = lab + exp + fixedMonthly;
@@ -500,27 +505,27 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5,1fr)', gap: 12, marginBottom: 20 }}>
               <div style={{ ...PCARD, borderTop: '3px solid #16a34a' }}>
                 <div style={KLABEL2}>Revenue</div>
-                <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#16a34a' }}>£{revenue.toFixed(0)}</div>
+                <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#16a34a' }}>£{revenue.toFixed(2)}</div>
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{bkgCount} jobs</div>
               </div>
               <div style={{ ...PCARD, borderTop: '3px solid #7c3aed' }}>
                 <div style={KLABEL2}>Subcontractors</div>
-                <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#7c3aed' }}>£{labour.toFixed(0)}</div>
+                <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#7c3aed' }}>£{labour.toFixed(2)}</div>
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{labourPct.toFixed(1)}% of revenue</div>
               </div>
               <div style={{ ...PCARD, borderTop: '3px solid #dc2626' }}>
                 <div style={KLABEL2}>Op. Costs</div>
-                <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#dc2626' }}>£{varExp.toFixed(0)}</div>
+                <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#dc2626' }}>£{varExp.toFixed(2)}</div>
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>variable expenses</div>
               </div>
               <div style={{ ...PCARD, borderTop: '3px solid #f97316' }}>
                 <div style={KLABEL2}>Fixed</div>
-                <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#f97316' }}>£{fixed.toFixed(0)}</div>
+                <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#f97316' }}>£{fixed.toFixed(2)}</div>
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{isTY ? 'annual overhead' : 'monthly overhead'}</div>
               </div>
               <div style={{ ...PCARD, borderTop: `3px solid ${profit >= 0 ? '#16a34a' : '#dc2626'}`, gridColumn: isMobile ? '1/-1' : 'auto' }}>
                 <div style={KLABEL2}>Net Profit</div>
-                <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: profit >= 0 ? '#16a34a' : '#dc2626' }}>£{profit.toFixed(0)}</div>
+                <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: profit >= 0 ? '#16a34a' : '#dc2626' }}>£{profit.toFixed(2)}</div>
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{netMargin.toFixed(1)}% margin</div>
               </div>
             </div>
@@ -576,8 +581,8 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
                   {tyMonths.map((m, idx) => (
                     <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: m.isFuture ? 0.2 : 1 }}>
                       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1, justifyContent: 'flex-end', height: 80 }}>
-                        <div style={{ background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxPnl)*70}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(0)}`} />
-                        <div style={{ background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.total/maxPnl)*70}px`, minHeight: m.total > 0 ? 2 : 0, opacity: 0.7 }} title={`Total costs £${m.total.toFixed(0)}`} />
+                        <div style={{ background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxPnl)*70}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(2)}`} />
+                        <div style={{ background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.total/maxPnl)*70}px`, minHeight: m.total > 0 ? 2 : 0, opacity: 0.7 }} title={`Total costs £${m.total.toFixed(2)}`} />
                       </div>
                       <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{m.label}</div>
                     </div>

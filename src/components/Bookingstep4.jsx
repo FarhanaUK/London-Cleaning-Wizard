@@ -40,9 +40,10 @@ function PaymentForm({ booking, onBack, T }) {
   const [loading,       setLoading]       = useState(false);
   const [overlayTitle,  setOverlayTitle]  = useState('');
   const [overlaySub,    setOverlaySub]    = useState('');
-  const [policyChecked, setPolicyChecked] = useState(false);
-  const [policyError,   setPolicyError]   = useState('');
-  const [payError,      setPayError]      = useState('');
+  const [policyChecked,  setPolicyChecked]  = useState(false);
+  const [policyError,    setPolicyError]    = useState('');
+  const [payError,       setPayError]       = useState('');
+  const [marketingOptOut, setMarketingOptOut] = useState(true);
   const [hasScrolled,   setHasScrolled]   = useState(false);
 
   const handleTCScroll = (e) => {
@@ -146,6 +147,7 @@ function PaymentForm({ booking, onBack, T }) {
             stripeDepositIntentId: paymentIntent.id,
             stripeCustomerId:      piData.customerId,
             piId:                  piData.piId,
+            marketingOptOut,
           }),
         });
 
@@ -285,7 +287,7 @@ function PaymentForm({ booking, onBack, T }) {
 
         <div
           onClick={() => { if (!hasScrolled) { setPolicyError('Please scroll through and read the full terms before accepting.'); return; } setPolicyChecked(c => !c); setPolicyError(''); }}
-          style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', background: '#2c2420', border: `2px solid ${policyChecked ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: hasScrolled ? 'pointer' : 'not-allowed', opacity: hasScrolled ? 1 : 0.6 }}
+          style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', background: '#2c2420', border: `2px solid ${policyChecked ? '#c8b89a' : hasScrolled ? 'rgba(200,184,154,0.3)' : 'rgba(200,184,154,0.1)'}`, cursor: hasScrolled ? 'pointer' : 'not-allowed' }}
         >
           <div style={{
             width: 24, height: 24, flexShrink: 0, marginTop: 1,
@@ -302,6 +304,25 @@ function PaymentForm({ booking, onBack, T }) {
         </div>
       </div>
       {policyError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{policyError}</p>}
+
+      {/* Marketing opt-in */}
+      <div
+        onClick={() => setMarketingOptOut(c => !c)}
+        style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', marginBottom: 16, background: '#2c2420', border: `2px solid ${!marketingOptOut ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}
+      >
+        <div style={{
+          flexShrink: 0, marginTop: 1, width: 24, height: 24,
+          border: `2px solid ${!marketingOptOut ? '#2d6a4f' : '#8b7355'}`,
+          background: !marketingOptOut ? '#2d6a4f' : '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 14, fontWeight: 700,
+        }}>
+          {!marketingOptOut && '✓'}
+        </div>
+        <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
+          Keep me updated with reminders and occasional offers from London Cleaning Wizard. You can unsubscribe at any time.
+        </p>
+      </div>
 
       <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
         <button onClick={onBack} style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '14px 20px', background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)', cursor: 'pointer' }}>

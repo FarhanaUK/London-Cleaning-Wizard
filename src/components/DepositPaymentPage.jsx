@@ -4,6 +4,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { FullOverlay, ButtonSpinner } from './LoadingStates';
 import { LogoMark } from './Icons';
+import ConfirmCard from './ConfirmCard';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -42,7 +43,7 @@ function PaymentForm({ details, bookingId }) {
   const [tcAgreed,       setTcAgreed]       = useState(false);
   const [policyError,    setPolicyError]    = useState('');
   const [hasScrolled,    setHasScrolled]    = useState(false);
-  const [marketingOptOut, setMarketingOptOut] = useState(false);
+  const [marketingOptOut, setMarketingOptOut] = useState(true);
 
   const handleTCScroll = (e) => {
     const el = e.target;
@@ -93,24 +94,18 @@ function PaymentForm({ details, bookingId }) {
     }
   };
 
-  if (done) return (
-    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 36, color: '#1a1410', marginBottom: 12 }}>
-        Deposit Paid
-      </div>
-      <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 300, lineHeight: 1.8, marginBottom: 24 }}>
-        Thank you, {details.firstName}. Your deposit of £{details.deposit} has been received.<br />
-        Your booking is confirmed. We'll see you on {details.cleanDate} at {details.cleanTime}.
-      </div>
-      <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', letterSpacing: '0.1em' }}>
-        Booking ref: {details.bookingRef}
-      </div>
-    </div>
-  );
+  if (done) return <ConfirmCard details={details} />;
 
   return (
     <>
       <FullOverlay show={loading} title={overlay} sub={overlaySub} />
+
+      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, color: '#1a1410', marginBottom: 6 }}>
+        Pay Your Deposit
+      </div>
+      <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#8b7355', fontWeight: 300, marginBottom: 32 }}>
+        Secure your booking by paying your 30% deposit below.
+      </div>
 
       {/* Summary */}
       <div style={{ border: '1px solid rgba(200,184,154,0.3)', padding: '16px 20px', marginBottom: 24 }}>
@@ -207,7 +202,7 @@ function PaymentForm({ details, bookingId }) {
 
         <div
           onClick={() => { if (!hasScrolled) { setPolicyError('Please scroll through and read the full terms before accepting.'); return; } setTcAgreed(c => !c); setPolicyError(''); }}
-          style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', background: '#2c2420', border: `2px solid ${tcAgreed ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: hasScrolled ? 'pointer' : 'not-allowed', opacity: hasScrolled ? 1 : 0.6 }}
+          style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', background: '#2c2420', border: `2px solid ${tcAgreed ? '#c8b89a' : hasScrolled ? 'rgba(200,184,154,0.3)' : 'rgba(200,184,154,0.1)'}`, cursor: hasScrolled ? 'pointer' : 'not-allowed' }}
         >
           <div style={{
             width: 24, height: 24, flexShrink: 0, marginTop: 1,
@@ -228,18 +223,18 @@ function PaymentForm({ details, bookingId }) {
       {/* Marketing opt-in */}
       <div
         onClick={() => setMarketingOptOut(c => !c)}
-        style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 16px', marginBottom: 16, background: '#faf9f7', border: '1px solid rgba(200,184,154,0.2)', cursor: 'pointer' }}
+        style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', marginBottom: 16, background: '#2c2420', border: `2px solid ${!marketingOptOut ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}
       >
         <div style={{
-          flexShrink: 0, marginTop: 2, width: 16, height: 16,
-          border: `1.5px solid ${!marketingOptOut ? '#c8b89a' : 'rgba(200,184,154,0.4)'}`,
-          background: !marketingOptOut ? '#c8b89a' : 'transparent',
+          flexShrink: 0, marginTop: 1, width: 24, height: 24,
+          border: `2px solid ${!marketingOptOut ? '#2d6a4f' : '#8b7355'}`,
+          background: !marketingOptOut ? '#2d6a4f' : '#fff',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontSize: 10, fontWeight: 700,
+          color: '#fff', fontSize: 14, fontWeight: 700,
         }}>
           {!marketingOptOut && '✓'}
         </div>
-        <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontWeight: 300, lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
           Keep me updated with reminders and occasional offers from London Cleaning Wizard. You can unsubscribe at any time.
         </p>
       </div>
@@ -302,13 +297,6 @@ export default function DepositPaymentPage() {
       </div>
 
       <div style={{ maxWidth: 480, margin: '48px auto', padding: '0 24px' }}>
-        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, color: '#1a1410', marginBottom: 6 }}>
-          Pay Your Deposit
-        </div>
-        <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#8b7355', fontWeight: 300, marginBottom: 32 }}>
-          Secure your booking by paying your 30% deposit below.
-        </div>
-
         {loading && (
           <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#8b7355' }}>Loading…</p>
         )}

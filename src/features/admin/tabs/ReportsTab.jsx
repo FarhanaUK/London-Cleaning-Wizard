@@ -82,7 +82,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   }, 0);
   const fixedMonthly = fixedMonthlyForPeriod(periodStart, periodEnd);
 
-  const activeBookings = bookings.filter(b => b.status !== 'cancelled');
+  const activeBookings = bookings.filter(b => !b.status?.startsWith('cancelled'));
   const periodBookings = activeBookings.filter(b => b.cleanDate >= periodStart && b.cleanDate <= periodEnd);
 
   const bookingLabour = b => {
@@ -94,7 +94,12 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   };
 
   // ── KPIs ──
-  const periodRev    = periodBookings.reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+  const collectedAmt = b => {
+    if (b.status === 'fully_paid')  return parseFloat(b.total)   || 0;
+    if (b.status === 'deposit_paid') return parseFloat(b.deposit) || 0;
+    return 0;
+  };
+  const periodRev    = periodBookings.reduce((s, b) => s + collectedAmt(b), 0);
   const periodLabour = periodBookings.reduce((s, b) => s + bookingLabour(b), 0);
   const periodExp    = expenses.filter(e => e.date >= periodStart && e.date <= periodEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
   const periodFixed  = isMonthMode ? fixedMonthly : fixedMonthly * 12;
@@ -103,7 +108,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const avgJobVal    = periodBookings.length > 0 ? periodRev / periodBookings.length : 0;
 
   const totalBkgs     = bookings.filter(b => b.cleanDate >= periodStart && b.cleanDate <= periodEnd).length;
-  const cancelledBkgs = bookings.filter(b => b.cleanDate >= periodStart && b.cleanDate <= periodEnd && b.status === 'cancelled').length;
+  const cancelledBkgs = bookings.filter(b => b.cleanDate >= periodStart && b.cleanDate <= periodEnd && b.status?.startsWith('cancelled')).length;
   const cancelRate    = totalBkgs > 0 ? (cancelledBkgs / totalBkgs) * 100 : 0;
 
   // ── Top customers ──
@@ -111,7 +116,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   periodBookings.forEach(b => {
     const key = b.email || `${b.firstName} ${b.lastName}`;
     if (!customerMap[key]) customerMap[key] = { name: `${b.firstName||''} ${b.lastName||''}`.trim(), email: b.email||'', spend: 0, jobs: 0 };
-    customerMap[key].spend += parseFloat(b.total)||0;
+    customerMap[key].spend += collectedAmt(b);
     customerMap[key].jobs  += 1;
   });
   const topCustomers = Object.values(customerMap).sort((a, b) => b.spend - a.spend).slice(0, 5);
@@ -129,7 +134,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const p = b.packageName || PACKAGES.find(pkg => pkg.id === b.package)?.name || b.package || 'Unknown';
     if (!pkgMap[p]) pkgMap[p] = { count: 0, rev: 0 };
     pkgMap[p].count += 1;
-    pkgMap[p].rev   += parseFloat(b.total)||0;
+    pkgMap[p].rev   += collectedAmt(b);
   });
   const pkgBreakdown = Object.entries(pkgMap).sort((a, b) => b[1].rev - a[1].rev);
 
@@ -138,7 +143,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const sJobs  = periodBookings.filter(b => b.assignedStaff === s.name);
     const sHours = sJobs.reduce((t, b) => { const h = calcHours(b.actualStart, b.actualFinish); return t + (h||0); }, 0);
     const sCost  = sJobs.reduce((t, b) => t + bookingLabour(b), 0);
-    const sRev   = sJobs.reduce((t, b) => t + (parseFloat(b.total)||0), 0);
+    const sRev   = sJobs.reduce((t, b) => t + collectedAmt(b), 0);
     return { name: s.name, jobs: sJobs.length, hours: sHours, cost: sCost, rev: sRev };
   }).filter(s => s.jobs > 0).sort((a, b) => b.jobs - a.jobs);
 
@@ -154,7 +159,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const f = b.frequency || 'One-off';
     if (!freqMap[f]) freqMap[f] = { count: 0, rev: 0 };
     freqMap[f].count += 1;
-    freqMap[f].rev   += parseFloat(b.total)||0;
+    freqMap[f].rev   += collectedAmt(b);
   });
   const freqBreakdown = Object.entries(freqMap).sort((a, b) => b[1].count - a[1].count);
 
@@ -164,14 +169,14 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const pc = (b.postcode || '').trim().toUpperCase().split(' ')[0] || 'Unknown';
     if (!postcodeMap[pc]) postcodeMap[pc] = { count: 0, rev: 0 };
     postcodeMap[pc].count += 1;
-    postcodeMap[pc].rev   += parseFloat(b.total)||0;
+    postcodeMap[pc].rev   += collectedAmt(b);
   });
   const topPostcodes = Object.entries(postcodeMap).sort((a, b) => b[1].rev - a[1].rev).slice(0, 8);
   const maxPcRev     = Math.max(...topPostcodes.map(([, v]) => v.rev), 1);
 
   // ── Profit per job (top 8) ──
   const jobProfits = periodBookings.map(b => {
-    const rev    = parseFloat(b.total)||0;
+    const rev    = collectedAmt(b);
     const labour = bookingLabour(b);
     const profit = rev - labour;
     return { ref: b.bookingRef||'—', name: `${b.firstName||''} ${b.lastName||''}`.trim(), date: b.cleanDate, rev, labour, profit };
@@ -187,7 +192,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const mEnd   = i === 11 ? periodEnd   : `${nextD.getFullYear()}-${String(nextD.getMonth()+1).padStart(2,'0')}-05`;
     const label  = d.toLocaleString('en-GB', { month: 'short' });
     const bkgs   = activeBookings.filter(b => b.cleanDate >= mStart && b.cleanDate <= mEnd);
-    const rev    = bkgs.reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+    const rev    = bkgs.reduce((s, b) => s + collectedAmt(b), 0);
     const lab    = bkgs.reduce((s, b) => s + bookingLabour(b), 0);
     const exp    = expenses.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
     const costs  = lab + exp + fixedMonthlyForPeriod(mStart, mEnd);
@@ -199,7 +204,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const momData = last12.filter(m => !m.isFuture).map(m => {
     const d       = new Date(m.key + '-01');
     const prevKey = `${d.getFullYear()-1}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const prevRev = activeBookings.filter(b => b.cleanDate?.startsWith(prevKey)).reduce((s, b) => s + (parseFloat(b.total)||0), 0);
+    const prevRev = activeBookings.filter(b => b.cleanDate?.startsWith(prevKey)).reduce((s, b) => s + collectedAmt(b), 0);
     const growth  = prevRev > 0 ? ((m.rev - prevRev) / prevRev) * 100 : null;
     return { label: m.label, rev: m.rev, prevRev, growth };
   });
@@ -267,9 +272,9 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5,1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Revenue',       value: `£${periodRev.toFixed(0)}`,        sub: `${periodBookings.length} jobs`,              color: '#16a34a' },
-          { label: 'Net Profit',    value: `£${periodProfit.toFixed(0)}`,      sub: `${periodMargin.toFixed(1)}% margin`,         color: periodProfit >= 0 ? '#16a34a' : '#dc2626' },
-          { label: 'Avg Job Value', value: `£${avgJobVal.toFixed(0)}`,         sub: 'per booking',                                color: BIZ },
+          { label: 'Revenue',       value: `£${periodRev.toFixed(2)}`,        sub: `${periodBookings.length} jobs`,              color: '#16a34a' },
+          { label: 'Net Profit',    value: `£${periodProfit.toFixed(2)}`,      sub: `${periodMargin.toFixed(1)}% margin`,         color: periodProfit >= 0 ? '#16a34a' : '#dc2626' },
+          { label: 'Avg Job Value', value: `£${avgJobVal.toFixed(2)}`,         sub: 'per booking',                                color: BIZ },
           { label: 'Cancel Rate',   value: `${cancelRate.toFixed(1)}%`,        sub: `${cancelledBkgs} of ${totalBkgs} jobs`,      color: cancelRate > 10 ? '#dc2626' : '#f97316' },
           { label: 'Fixed Costs',   value: `£${fixedMonthly.toFixed(0)}/mo`,   sub: isMonthMode ? 'this month' : `£${(fixedMonthly*12).toFixed(0)}/yr`, color: '#f97316' },
         ].map(({ label, value, sub, color }) => (

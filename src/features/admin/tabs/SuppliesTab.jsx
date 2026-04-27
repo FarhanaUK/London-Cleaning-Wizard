@@ -204,19 +204,19 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5,1fr)', gap: 12, marginBottom: 16 }}>
         <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: '3px solid #16a34a' }}>
           <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#16a34a', marginBottom: 4 }}>{activeMonthLabel}</div>
-          <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{thisMonthTotal.toFixed(0)}</div>
+          <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{thisMonthTotal.toFixed(2)}</div>
           <div style={{ fontFamily: FONT, fontSize: 11, color: thisMonthTotal <= lastMonthTotal ? '#16a34a' : '#dc2626', marginTop: 3 }}>
-            {lastMonthTotal > 0 ? `${thisMonthTotal <= lastMonthTotal ? '▼' : '▲'} £${Math.abs(thisMonthTotal - lastMonthTotal).toFixed(0)} vs prev` : thisMonthItems.length > 0 ? `${thisMonthItems.length} item${thisMonthItems.length !== 1 ? 's' : ''} purchased` : 'No purchases'}
+            {lastMonthTotal > 0 ? `${thisMonthTotal <= lastMonthTotal ? '▼' : '▲'} £${Math.abs(thisMonthTotal - lastMonthTotal).toFixed(2)} vs prev` : thisMonthItems.length > 0 ? `${thisMonthItems.length} item${thisMonthItems.length !== 1 ? 's' : ''} purchased` : 'No purchases'}
           </div>
         </div>
         <div style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: `3px solid ${C.accent}` }}>
           <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>{prevMonthLabel}</div>
-          <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{lastMonthTotal.toFixed(0)}</div>
+          <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{lastMonthTotal.toFixed(2)}</div>
           <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{lastMonthItems.length} item{lastMonthItems.length !== 1 ? 's' : ''}</div>
         </div>
         <div style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: '3px solid #6366f1' }}>
           <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Tax Year {activeTaxYear.label}</div>
-          <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{taxYearTotal.toFixed(0)}</div>
+          <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{taxYearTotal.toFixed(2)}</div>
           <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{fmtDate(activeTaxYear.start)} – {fmtDate(activeTaxYear.end)}</div>
         </div>
         <div style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: needRestock.length > 0 ? '3px solid #dc2626' : '3px solid #16a34a' }}>
@@ -226,7 +226,7 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
         </div>
         <div style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: reimbursable > 0 ? '3px solid #dc2626' : `3px solid ${C.accent}` }}>
           <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Reimbursable Owed</div>
-          <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: reimbursable > 0 ? '#dc2626' : C.text }}>£{reimbursable.toFixed(0)}</div>
+          <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: reimbursable > 0 ? '#dc2626' : C.text }}>£{reimbursable.toFixed(2)}</div>
           <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{reimbursableItems.length} unpaid</div>
         </div>
       </div>
@@ -238,7 +238,7 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
             {catBreakdown.map(c => (
               <div key={c.cat} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <div style={{ width: '100%', height: `${(c.value / maxCatValue) * 64}px`, minHeight: c.value > 0 ? 3 : 0, background: CAT_COLOURS[c.cat] || BIZ, borderRadius: '3px 3px 0 0', transition: 'height 0.3s' }} title={`${c.cat}: £${c.value.toFixed(0)}`} />
+                <div style={{ width: '100%', height: `${(c.value / maxCatValue) * 64}px`, minHeight: c.value > 0 ? 3 : 0, background: CAT_COLOURS[c.cat] || BIZ, borderRadius: '3px 3px 0 0', transition: 'height 0.3s' }} title={`${c.cat}: £${c.value.toFixed(2)}`} />
                 <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted, textAlign: 'center', overflow: 'hidden', maxWidth: '100%', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{c.cat.split(' ')[0]}</div>
               </div>
             ))}
@@ -359,13 +359,13 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                         <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{c.cat}</span>
                         <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: over ? '#dc2626' : C.text }}>
-                          £{c.value.toFixed(0)}{bgt > 0 ? ` / £${bgt.toFixed(0)}` : ''}
+                          £{c.value.toFixed(2)}{bgt > 0 ? ` / £${bgt.toFixed(2)}` : ''}
                         </span>
                       </div>
                       <div style={{ height: 6, background: C.bg, borderRadius: 99, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${pct}%`, background: over ? '#dc2626' : CAT_COLOURS[c.cat] || BIZ, borderRadius: 99 }} />
                       </div>
-                      {over && <div style={{ fontFamily: FONT, fontSize: 10, color: '#dc2626', marginTop: 2 }}>Over budget by £{(c.value - bgt).toFixed(0)}</div>}
+                      {over && <div style={{ fontFamily: FONT, fontSize: 10, color: '#dc2626', marginTop: 2 }}>Over budget by £{(c.value - bgt).toFixed(2)}</div>}
                     </div>
                   );
                 })}

@@ -271,7 +271,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
             <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: C.muted, lineHeight: 1 }}>×</button>
           )}
         </div>
-        <button onClick={() => setShowNewBooking(true)} style={{ ...BTN, whiteSpace: 'nowrap', background: C.accent || C.text, color: '#fff', fontWeight: 600 }}>
+        <button onClick={() => setShowNewBooking(true)} style={{ ...BTN, whiteSpace: 'nowrap', background: '#2563eb', color: '#fff', fontWeight: 600 }}>
           + New Booking
         </button>
       </div>

@@ -40,6 +40,18 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Abandonment stats — admin read only (writes via cloud functions)
+    match /abandonmentStats/{id} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Pending bookings — admin read only (writes/deletes via cloud functions)
+    match /pendingBookings/{id} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     // Everything else — deny
     match /{document=**} {
       allow read, write: if false;
