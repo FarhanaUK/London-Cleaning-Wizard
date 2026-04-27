@@ -300,8 +300,9 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       bookingCount: count + 1, lastBookingId: id, lastBookingRef: ref,
       lastPackage: d.package, lastPackageName: d.packageName, lastSize: d.size,
       lastPrice: d.total, lastDate: d.cleanDate, lastCleaner: '',
+      source: clean(d.source||''),
       updatedAt: new Date(),
-      ...(cSnap.exists ? {} : { firstBookingDate: new Date(), source: clean(d.source||'') }),
+      ...(cSnap.exists ? {} : { firstBookingDate: new Date() }),
       ...(d.stripeCustomerId ? { stripeCustomerId: d.stripeCustomerId } : {}),
       ...(d.frequency && d.frequency !== 'one-off' ? {
         recurringActive:      true,
@@ -2032,8 +2033,9 @@ exports.stripeWebhook = onRequest(
         bookingCount: count + 1, lastBookingId: id, lastBookingRef: ref,
         lastPackage: pd.package, lastPackageName: pd.packageName, lastSize: pd.size,
         lastPrice: pd.total, lastDate: pd.cleanDate, lastCleaner: '',
+        source: clean(pd.source||''),
         updatedAt: new Date(),
-        ...(cSnap.exists ? {} : { firstBookingDate: new Date(), source: clean(pd.source||'') }),
+        ...(cSnap.exists ? {} : { firstBookingDate: new Date() }),
         stripeCustomerId: pd.stripeCustomerId || pi.customer || '',
         ...(pd.frequency && pd.frequency !== 'one-off' ? {
           recurringActive:       true,
