@@ -167,7 +167,6 @@ exports.verifyCode = onRequest(async (req, res) => {
   }
   await ref.update({ used:true, usedAt:now });
   const profileDoc = await db.collection('customers').doc(email.toLowerCase()).get();
-  console.log(`verifyCode: email=${email.toLowerCase()} profileExists=${profileDoc.exists}`);
   res.json({ success:true, profile: profileDoc.exists ? profileDoc.data() : null });
 });
 
