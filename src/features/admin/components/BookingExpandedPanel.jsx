@@ -95,7 +95,7 @@ export default function BookingExpandedPanel({
           { l: 'Frequency',        v: b.frequency || 'one-off' },
           { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : 'None' },
           { l: 'Pets',             v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
-          { l: 'Signature Touch',  v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
+          (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
           { l: 'Marketing Opt-in', v: b.marketingOptOut ? '✕ Opted out at booking' : '✓ Opted in at booking' },
           { l: 'Total',            v: `£${parseFloat(b.total).toFixed(2)}` },
           b.launchDiscount && { l: 'Original price',    v: `£${parseFloat(b.originalTotal).toFixed(2)}` },

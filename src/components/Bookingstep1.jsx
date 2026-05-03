@@ -15,8 +15,6 @@ const PACKAGE_DETAIL = {
     'Doors and door frames lightly cleaned and spot-wiped',
     'High-touch areas sanitised (e.g. light switches, door handles)',
     'Bins emptied and relined',
-    'Subtle application of our signature scent (you can opt out in the details section)',
-  
   ],
   
   standard: {
@@ -36,9 +34,11 @@ const PACKAGE_DETAIL = {
         ],
       },
       {
-        heading: 'Finish:',
+        heading: 'The Signature Finish:',
         items: [
-          'Subtle application of our signature scent (you can opt out in the details section)',
+          'Your home is finished with a light mist of our exclusive signature scent, so you walk in to something that feels unmistakably luxurious. Like stepping into a five-star hotel.',
+          'Opt in and we will leave you a complimentary gift: a bottle of our signature fragrance and a hand-poured signature candle, crafted exclusively for our clients',
+          'Prefer to skip the scent? No problem. You can opt out in the next step',
           'Rooms left calm, balanced, and visually refined',
           'Completion photos provided',
         ],
@@ -87,7 +87,6 @@ const PACKAGE_DETAIL = {
       },
     ],
     footer: [
-      'Subtle application of our signature scent (you can opt out in the details section)',
       'Your home is fully restored, deeply cleaned, and reset from top to bottom.',
       'Ideal for neglected homes, move-in preparation, or a full seasonal reset.',
     ],
