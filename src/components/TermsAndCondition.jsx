@@ -182,15 +182,19 @@ export default function TermsAndConditions() {
             ),
           },
           {
-            title: "15. Changes to Terms",
+            title: "15. Complimentary Gifts",
+            content: <p>From time to time we may include a complimentary gift with certain services as a gesture of appreciation. This is entirely at our discretion and is not a guaranteed part of any service. We reserve the right to change, substitute, or discontinue the gift at any time without notice.</p>,
+          },
+          {
+            title: "16. Changes to Terms",
             content: <p>We may update these terms at any time. Continued use of our services following any changes constitutes acceptance of the updated terms.</p>,
           },
           {
-            title: "16. Governing Law",
+            title: "17. Governing Law",
             content: <p>These terms are governed by the laws of England and Wales.</p>,
           },
           {
-            title: "17. Contact",
+            title: "18. Contact",
             content: (
               <>
                 <p>Email: bookings@londoncleaningwizard.com</p>

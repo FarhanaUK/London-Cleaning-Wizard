@@ -243,14 +243,18 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0, marginLeft: 12 }}>
                       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#5a4e44' }}>
-                        from £{pkg.sizes[0].basePrice}
+                        {pkg.launchOffer
+                          ? <><span style={{ textDecoration: 'line-through', color: '#a09080', fontSize: 13, marginRight: 4 }}>£{pkg.sizes[0].basePrice}</span>from £{(pkg.sizes[0].basePrice * pkg.launchOffer).toFixed(2)}</>
+                          : <>from £{pkg.sizes[0].basePrice}</>
+                        }
                       </div>
-                      {pkg.popular && (
-                        <div style={{
-                          background: '#b8860b', color: '#fff',
-                          fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
-                          padding: '3px 10px',
-                        }}>Most Popular</div>
+                      {pkg.launchOffer && (
+                        <div style={{ background: '#8b2020', color: '#fff', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 10px' }}>
+                          50% off first clean
+                        </div>
+                      )}
+                      {pkg.popular && !pkg.launchOffer && (
+                        <div style={{ background: '#b8860b', color: '#fff', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 10px' }}>Most Popular</div>
                       )}
                     </div>
                   </div>
@@ -345,6 +349,9 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               const displayPrice = booking.propertyType === 'house'
                 ? Math.round(size.basePrice * 1.10)
                 : size.basePrice;
+              const launchPrice = booking.pkg?.launchOffer
+                ? (displayPrice * booking.pkg.launchOffer).toFixed(2)
+                : null;
               return (
                 <div
                   key={size.id}
@@ -355,7 +362,12 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                     {size.label}
                   </div>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: '#2c2420' }}>
-                    £{displayPrice}
+                    {launchPrice !== null ? (
+                      <>
+                        <span style={{ textDecoration: 'line-through', fontSize: 14, color: '#a09080', marginRight: 4 }}>£{displayPrice}</span>
+                        £{launchPrice}
+                      </>
+                    ) : `£${displayPrice}`}
                   </div>
                 </div>
               );

@@ -310,15 +310,15 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
         <Field key="keys"  name="keys"  label="Key Instructions"    placeholder="Key with concierge, smart lock code 1234, I'll be home" value={form.keys}  error={fieldErrors.keys}  onChange={updateField} />
         <Field key="notes" name="notes" label="Preferences & Notes" placeholder="e.g. allergic to strong fragrances, please avoid certain areas…"  value={form.notes} error={fieldErrors.notes} onChange={updateField} />
 
-        {/* Signature Touch */}
-        <div style={{ marginBottom: 20 }}>
+        {/* Signature Touch — only for Signature Hotel Reset */}
+        {booking.pkg?.id === 'standard' && <div style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '16px', background: form.signatureTouch ? 'rgba(200,184,154,0.22)' : '#faf9f7', border: `${form.signatureTouch ? '2px' : '1px'} solid ${form.signatureTouch ? '#c8b89a' : 'rgba(200,184,154,0.25)'}`, boxShadow: form.signatureTouch ? '0 2px 10px rgba(200,184,154,0.25)' : 'none', marginBottom: 10, transition: 'all 0.2s' }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, fontWeight: 600, color: '#2c2420', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ color: '#c8b89a' }}>✦</span> Signature Touch
               </div>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.7 }}>
-                More than just a clean, a feeling. Our Signature Touch is a complimentary luxury finishing ritual included with every visit. We may leave behind a small surprise gift and finish your home with a spritz of our house fragrance, so you walk in to something that feels hotel-ready. It's our way of going beyond the clean.
+                As your final finishing touch, we lightly mist your home with our exclusive signature scent, so every room feels calm, refined, and unmistakably luxurious. By opting in, you will also receive a complimentary gift left in your home: a bottle of our signature fragrance and a hand-poured signature candle, crafted exclusively for our clients. A small indulgence that turns a clean into a full pampering experience. You can opt out below at any time. Our complimentary gift is a gesture we love to include when we can. It may vary or stop at any time.
               </div>
             </div>
             <div
@@ -340,7 +340,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
               />
             </div>
           )}
-        </div>
+        </div>}
 
         <SelectField
           label="How did you hear about us? *"

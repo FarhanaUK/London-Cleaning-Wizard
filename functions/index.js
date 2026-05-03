@@ -301,6 +301,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       cleanDate: d.cleanDate, cleanTime: d.cleanTime,
       cleanDateUTC: toUTCISO(d.cleanDate, d.cleanTime),
       total: d.total, deposit: d.deposit, remaining: d.remaining,
+      ...(d.launchDiscount ? { launchDiscount: d.launchDiscount, originalTotal: d.originalTotal } : {}),
       stripeDepositIntentId: d.stripeDepositIntentId,
       stripeCustomerId: d.stripeCustomerId || '',
       status: d.stripeDepositIntentId === 'manual' ? 'pending_deposit' : 'deposit_paid',
@@ -333,7 +334,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
         recurringSize:        d.size,
         recurringAddons:      d.addons || [],
         recurringPropertyType: d.propertyType,
-        recurringTotal:       d.total,
+        recurringTotal:       d.recurringTotal || d.total,
         recurringDeposit:     d.deposit,
         recurringRemaining:   d.remaining,
         recurringSource:      clean(d.source||''),
@@ -1127,12 +1128,22 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
   const newSizeId      = sizeId      !== undefined ? sizeId      : current.size;
   const newFrequency   = frequency   !== undefined ? frequency   : current.frequency;
   const newAddons      = addons      !== undefined ? addons      : current.addons;
-  if (packageId   !== undefined && packageId   !== current.package)    { updates.package = newPackageId; updates.packageName = newPackageName; changes.push(`Package: ${current.packageName} → ${newPackageName}`); }
-  if (sizeId      !== undefined && sizeId      !== current.size)       { updates.size    = newSizeId;    changes.push(`Size: ${current.size} → ${newSizeId}`); }
-  if (frequency   !== undefined && frequency   !== current.frequency)  { updates.frequency = newFrequency; }
-  if (addons      !== undefined) updates.addons = newAddons;
-  if (total       !== undefined) { updates.total = total; if (changes.length > 0 || addons !== undefined) changes.push(`Total: £${current.total} → £${total}`); }
-  if (remaining   !== undefined) updates.remaining = remaining;
+  if (packageId !== undefined && packageId !== current.package) { updates.package = newPackageId; updates.packageName = newPackageName; changes.push(`Package: ${current.packageName} → ${newPackageName}`); }
+  if (sizeId    !== undefined && sizeId    !== current.size)    { updates.size = newSizeId; changes.push(`Property size: ${current.size} → ${newSizeId}`); }
+  if (frequency !== undefined && frequency !== current.frequency) { updates.frequency = newFrequency; changes.push(`Frequency: ${current.frequency || 'one-off'} → ${newFrequency}`); }
+  if (addons !== undefined) {
+    updates.addons = newAddons;
+    const oldNames = (current.addons || []).map(a => a.name).sort().join(', ') || 'None';
+    const newNames = (newAddons || []).map(a => a.name).sort().join(', ') || 'None';
+    if (oldNames !== newNames) changes.push(`Add-ons: ${oldNames} → ${newNames}`);
+  }
+  if (total !== undefined) {
+    updates.total = total;
+    const oldTotal = parseFloat(current.total || 0);
+    const newTotal = parseFloat(total);
+    if (Math.abs(newTotal - oldTotal) >= 0.01) changes.push(`Total: £${oldTotal.toFixed(2)} → £${newTotal.toFixed(2)}`);
+  }
+  if (remaining !== undefined) updates.remaining = remaining;
 
   if (hasPets             !== undefined) updates.hasPets             = hasPets;
   if (petTypes            !== undefined) updates.petTypes            = clean(petTypes);
@@ -1151,17 +1162,28 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
   if (parking  !== undefined) updates.parking  = newParking;
   if (keys     !== undefined) updates.keys     = newKeys;
   if (notes    !== undefined) updates.notes    = newNotes;
+  if ((addr1 !== undefined && clean(addr1) !== current.addr1) || (postcode !== undefined && clean(postcode).toUpperCase() !== current.postcode)) {
+    changes.push(`Address: ${current.addr1}, ${current.postcode} → ${newAddr1}, ${newPostcode}`);
+  }
 
   await snap.ref.update(updates);
 
-  // Send update email if date, time, or package changed
-  if (changes.length > 0 && process.env.EMAILJS_UPDATE_TEMPLATE) {
+  // Send update email when anything meaningful to the customer changed (not for pending_deposit — booking not yet confirmed)
+  if (changes.length > 0 && process.env.EMAILJS_UPDATE_TEMPLATE && current.status !== 'pending_deposit') {
+    const addonsList = (newAddons || []).map(a => a.name).join(', ') || 'None';
+    const newRemaining = remaining !== undefined ? parseFloat(remaining) : parseFloat(current.remaining || 0);
+    const newTotal     = total     !== undefined ? parseFloat(total)     : parseFloat(current.total     || 0);
     const updateData = {
-      booking_ref:    current.bookingRef,
-      package_name:   newPackageName,
-      date:           newDate.split('-').reverse().join('/'),
-      time:           newTime,
-      address:        `${newAddr1}, ${newPostcode}`,
+      booking_ref:     current.bookingRef,
+      package_name:    newPackageName,
+      date:            newDate.split('-').reverse().join('/'),
+      time:            newTime,
+      address:         `${newAddr1}, ${newPostcode}`,
+      frequency:       newFrequency || 'One-off',
+      addons:          addonsList,
+      total:           `£${newTotal.toFixed(2)}`,
+      deposit_paid:    `£${parseFloat(current.deposit || 0).toFixed(2)}`,
+      balance_due:     `£${newRemaining.toFixed(2)}`,
       changes_summary: changes.join('\n'),
     };
     await sendEmail(process.env.EMAILJS_UPDATE_TEMPLATE,
@@ -1245,7 +1267,21 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
         if (lastName            !== undefined) fu.lastName            = newLastName;
         if (phone               !== undefined) fu.phone               = newPhone;
         if (email               !== undefined) fu.email               = newEmail;
-        if (cleanTime)                         { fu.cleanTime = newTime; fu.cleanDateUTC = toUTCISO(fd.cleanDate, newTime); }
+
+        // Shift date to match the new day-of-week within the same week
+        let fdDateStr = fd.cleanDate;
+        if (cleanDate) {
+          const fdD = new Date(fd.cleanDate + 'T12:00:00');
+          const newDayOfWeek = new Date(newDate + 'T12:00:00').getDay();
+          const diff = newDayOfWeek - fdD.getDay();
+          fdD.setDate(fdD.getDate() + diff);
+          fdDateStr = fdD.toISOString().split('T')[0];
+          fu.cleanDate = fdDateStr;
+        }
+        const fdTime = cleanTime ? newTime : fd.cleanTime;
+        if (cleanDate || cleanTime) fu.cleanDateUTC = toUTCISO(fdDateStr, fdTime);
+        if (cleanTime) fu.cleanTime = newTime;
+
         if (packageId)                         { fu.package = newPackageId; fu.packageName = newPackageName; }
         if (sizeId)                            fu.size                = newSizeId;
         if (frequency           !== undefined) fu.frequency           = newFrequency;
@@ -1265,10 +1301,9 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
 
         // Update the calendar event for this future booking
         if (calendar && fd.calendarEventId) {
-          const fdTime   = cleanTime ? newTime : fd.cleanTime;
           const fdAddr   = addr1 !== undefined ? newAddr1 : fd.addr1;
           const fdPost   = postcode !== undefined ? newPostcode : fd.postcode;
-          const fdSlotStart = toUTCISO(fd.cleanDate, fdTime);
+          const fdSlotStart = toUTCISO(fdDateStr, fdTime);
           const fdSlotEnd   = new Date(new Date(fdSlotStart).getTime() + 60 * 1000).toISOString();
           await calendar.events.patch({
             calendarId: process.env.GOOGLE_CALENDAR_ID,
@@ -2187,6 +2222,191 @@ exports.stripeWebhook = onRequest(
   }
 );
 
+// ── 17a. Convert one-off customer to recurring ────────────────
+exports.convertToRecurring = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const db = admin.firestore();
+  const { email, frequency, cleanDate, cleanTime, lastBookingId, packageId, packageName, total: passedTotal } = req.body;
+  if (!email || !frequency || !cleanDate || !cleanTime || !lastBookingId) {
+    return res.status(400).json({ error: 'Missing required fields.' });
+  }
+  const lbDoc = await db.collection('bookings').doc(lastBookingId).get();
+  if (!lbDoc.exists) return res.status(404).json({ error: 'Booking not found.' });
+  const lb = lbDoc.data();
+
+  // Prevent duplicate: if an auto-recurring booking already exists on this date for this customer, bail out
+  const dupSnap = await db.collection('bookings')
+    .where('email', '==', email.toLowerCase())
+    .where('cleanDate', '==', cleanDate)
+    .where('isAutoRecurring', '==', true)
+    .get();
+  if (!dupSnap.empty) return res.status(409).json({ error: 'A recurring booking already exists for that date.' });
+
+  const custRef = db.collection('customers').doc(email.toLowerCase());
+  const custDoc = await custRef.get();
+  const c = custDoc.data() || {};
+
+  const freqSave    = FREQ_SAVINGS[frequency] || 0;
+  const total       = passedTotal !== undefined ? parseFloat(passedTotal) : Math.max(0, (parseFloat(lb.total) || 0) - freqSave);
+  const pkgId       = packageId   || lb.package;
+  const pkgName     = packageName || lb.packageName;
+  const ref         = `LCW-${Date.now().toString().slice(-6)}`;
+  const id          = db.collection('bookings').doc().id;
+  const recurringDay = new Date(cleanDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long' });
+
+  const bookingData = {
+    bookingRef: ref, bookingId: id,
+    email: email.toLowerCase(),
+    firstName: lb.firstName || '', lastName: lb.lastName || '',
+    phone: lb.phone || '',
+    addr1: lb.addr1 || '', postcode: lb.postcode || '',
+    propertyType: lb.propertyType || 'flat',
+    floor: lb.floor || '', parking: lb.parking || '',
+    keys: lb.keys || '', notes: lb.notes || '',
+    hasPets: lb.hasPets || false, petTypes: lb.petTypes || '',
+    signatureTouch: lb.signatureTouch !== false,
+    signatureTouchNotes: lb.signatureTouchNotes || '',
+    package: pkgId, packageName: pkgName,
+    size: lb.size, frequency,
+    addons: lb.addons || [],
+    isAirbnb: false,
+    cleanDate, cleanTime,
+    cleanDateUTC: toUTCISO(cleanDate, cleanTime),
+    total, deposit: 0, remaining: total,
+    stripeDepositIntentId: 'auto-recurring',
+    stripeCustomerId: c.stripeCustomerId || lb.stripeCustomerId || '',
+    status: 'scheduled',
+    isPhoneBooking: false,
+    isAutoRecurring: true,
+    convertedFromOneOff: true,
+    source: lb.source || '',
+    assignedStaff: c.assignedStaff || lb.assignedStaff || '',
+    createdAt: new Date(),
+  };
+
+  const profileUpdates = {
+    recurringActive: true,
+    recurringFrequency: frequency,
+    recurringDay,
+    recurringTime: cleanTime,
+    recurringPackage: pkgId,
+    recurringPackageName: pkgName,
+    recurringSize: lb.size,
+    recurringTotal: parseFloat(lb.total) || 0,
+    recurringAddons: lb.addons || [],
+    recurringPropertyType: lb.propertyType || 'flat',
+    lastDate: cleanDate,
+    lastPrice: total,
+    lastBookingId: id,
+    lastBookingRef: ref,
+    convertedAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  await db.runTransaction(async tx => {
+    tx.set(db.collection('bookings').doc(id), bookingData);
+    tx.set(custRef, profileUpdates, { merge: true });
+  });
+
+  try {
+    const calendar  = await getCalendarClient();
+    const slotStart = toUTCISO(cleanDate, cleanTime);
+    const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+    const calEvent  = await calendar.events.insert({
+      calendarId: process.env.GOOGLE_CALENDAR_ID,
+      resource: {
+        summary: `${pkgName} — ${lb.firstName} ${lb.lastName} (converted recurring)`,
+        description: [
+          `Ref: ${ref}`,
+          `Customer: ${lb.firstName} ${lb.lastName}`,
+          `Email: ${email}`,
+          `Phone: ${lb.phone || '—'}`,
+          `Address: ${lb.addr1}, ${lb.postcode}`,
+          `Frequency: ${frequency}`,
+          `Total: £${total.toFixed(2)} | Converted from one-off — full amount charged on completion`,
+          `Saving: £${freqSave} per clean`,
+          `Converted from one-off to recurring by admin`,
+        ].join('\n'),
+        start: { dateTime: slotStart, timeZone: 'Europe/London' },
+        end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
+        colorId: '5',
+      },
+    });
+    await db.collection('bookings').doc(id).update({ calendarEventId: calEvent.data.id });
+  } catch (calErr) {
+    console.error('Calendar event failed for convertToRecurring:', calErr.message);
+  }
+
+  if (process.env.EMAILJS_CONFIRM_TEMPLATE) {
+    await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE, {
+      to_name:      lb.firstName,
+      to_email:     email,
+      booking_ref:  ref,
+      package_name: lb.packageName,
+      date:         cleanDate.split('-').reverse().join('/'),
+      time:         cleanTime,
+      address:      `${lb.addr1}, ${lb.postcode}`,
+      frequency,
+      total:        `£${total.toFixed(2)}`,
+      booking_type: 'Recurring Booking',
+      recurring_note: `You are now on a ${frequency} recurring service. You are saving £${freqSave} per clean. No deposit is required — the full amount will be charged automatically once your clean is marked as complete.`,
+    }, EMAILJS_KEY.value()).catch(e => console.error('Confirm email failed:', e.message));
+  }
+
+  res.json({ success: true, bookingId: id, bookingRef: ref });
+});
+
+// ── 17b. Send recurring upgrade emails on day 5 after a one-off clean ──
+exports.sendRecurringUpgradeEmails = onSchedule(
+  { schedule: 'every day 10:05', timeZone: 'Europe/London', secrets: [EMAILJS_KEY] },
+  async () => {
+    const db       = admin.firestore();
+    const template = process.env.EMAILJS_RECURRING_UPGRADE_TEMPLATE;
+    if (!template) return;
+
+    const fiveDaysAgo    = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    const fiveDaysAgoStr = fiveDaysAgo.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+    const snap = await db.collection('bookings')
+      .where('status', '==', 'fully_paid')
+      .where('cleanDate', '==', fiveDaysAgoStr)
+      .get();
+
+    const unsubSnap = await db.collection('unsubscribed').get();
+    const unsubbed  = new Set(unsubSnap.docs.map(d => d.id));
+
+    for (const doc of snap.docs) {
+      const b = doc.data();
+      if (b.isAutoRecurring || b.recurringUpgradeEmailSent || b.marketingOptOut || b.doNotContact) continue;
+      if (!b.email || !b.firstName) continue;
+      if (unsubbed.has(b.email.toLowerCase())) continue;
+
+      const custDoc = await db.collection('customers').doc(b.email.toLowerCase()).get();
+      if (custDoc.data()?.recurringActive) continue;
+
+      const base              = parseFloat(b.total) || 0;
+      const weeklyPrice       = `£${Math.max(0, base - 30).toFixed(2)}`;
+      const fortnightlyPrice  = `£${Math.max(0, base - 15).toFixed(2)}`;
+      const monthlyPrice      = `£${Math.max(0, base - 7).toFixed(2)}`;
+
+      await sendEmail(template, {
+        to_name:            b.firstName,
+        to_email:           b.email,
+        package_name:       b.packageName,
+        days_remaining:     25,
+        weekly_price:       weeklyPrice,
+        fortnightly_price:  fortnightlyPrice,
+        monthly_price:      monthlyPrice,
+        booking_url:        'https://londoncleaningwizard.com',
+        unsubscribe_url:    `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(b.email)}`,
+      }, EMAILJS_KEY.value()).catch(e => console.error('Upgrade email failed:', b.bookingRef, e.message));
+
+      await doc.ref.update({ recurringUpgradeEmailSent: true });
+    }
+  }
+);
+
 // ── 17. Send review request emails at 10am for yesterday's completed jobs ──
 exports.sendReviewEmails = onSchedule({ schedule: 'every day 10:00', secrets: [EMAILJS_KEY] }, async () => {
   const db        = admin.firestore();
@@ -2257,10 +2477,9 @@ exports.cleanupPendingBookings = onSchedule('every 60 minutes', async () => {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const statsSnap = await db.collection('abandonmentStats')
     .where('createdAt', '<', thirtyDaysAgo)
-    .where('email', '!=', '')
     .get();
   const statsBatch = db.batch();
-  statsSnap.forEach(d => statsBatch.update(d.ref, { email: '' }));
+  statsSnap.forEach(d => { if (d.data().email) statsBatch.update(d.ref, { email: '' }); });
   await statsBatch.commit();
 });
 

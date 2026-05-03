@@ -2,9 +2,19 @@ import { HERO_IMAGE } from "../data/siteData"
 import { Sparkle, WandIcon, Constellation } from "./Icons";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePromotion } from "../hooks/usePromotion";
+
+const SEGMENT_STYLE_MAP = {
+  bold:   { fontWeight: 600, letterSpacing: '0.22em' },
+  light:  { fontWeight: 300, letterSpacing: '0.12em', color: 'rgba(252,165,165,0.65)' },
+  italic: { fontStyle: 'italic', fontWeight: 300 },
+  serif:  { fontFamily: "'Cormorant Garamond', serif", fontWeight: 400 },
+};
 
 export default function Hero({ onScrollTo }) {
   const navigate = useNavigate();
+  const { promotion } = usePromotion();
+  const LAUNCH_ACTIVE = !!promotion;
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
 
@@ -38,7 +48,56 @@ export default function Hero({ onScrollTo }) {
         @keyframes twinkle1 { 0%,100% { opacity:0.2; } 50% { opacity:0.9; } }
         @keyframes twinkle2 { 0%,100% { opacity:0.7; } 50% { opacity:0.15; } }
         @keyframes twinkle3 { 0%,100% { opacity:0.4; } 60% { opacity:1; } }
+        @keyframes launchSlideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes launchMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
       `}</style>
+
+      {LAUNCH_ACTIVE && (
+        <div style={{
+          position: 'absolute',
+          top: 60,
+          left: 0,
+          right: 0,
+          zIndex: 50,
+          background: 'linear-gradient(90deg, #7f1d1d, #991b1b, #7f1d1d)',
+          borderBottom: '1px solid rgba(255,255,255,0.12)',
+          overflow: 'hidden',
+          animation: 'launchSlideDown 0.6s cubic-bezier(0.22,1,0.36,1) both',
+          animationDelay: '0.4s',
+        }}>
+          <div style={{
+            display: 'flex',
+            whiteSpace: 'nowrap',
+            animation: 'launchMarquee 18s linear infinite',
+            willChange: 'transform',
+          }}>
+            {[0, 1].map(group => (
+              <div key={group} style={{ display: 'inline-flex', flexShrink: 0 }}>
+                {[...Array(4)].map((_, i) => (
+                  <span key={i} style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '9px 32px',
+                    fontFamily: "'Jost', sans-serif",
+                    fontSize: 11,
+                    textTransform: 'uppercase',
+                    color: '#fef2f2',
+                  }}>
+                    {(promotion?.banner || []).map((seg, si) => (
+                      <span key={si} style={SEGMENT_STYLE_MAP[seg.style] || {}}>
+                        {si > 0 && <span style={{ color: '#fca5a5', marginRight: 10 }}>✦</span>}
+                        {seg.text}
+                      </span>
+                    ))}
+                    <span style={{ color: '#fca5a5', fontSize: 14, marginLeft: 6 }}>✦</span>
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Twinkling sparkles */}
       {sparkles.map(([x, y, anim, delay, size], i) => (
@@ -69,7 +128,7 @@ export default function Hero({ onScrollTo }) {
 
       {/* ── MOBILE LAYOUT ── */}
       {isMobile && (
-        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingTop: 76 }}>
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingTop: LAUNCH_ACTIVE ? 100 : 76 }}>
 
           {/* Callout badge — above image */}
           <div style={{ padding: "16px 20px 0", position: "relative", zIndex: 2 }}>
@@ -164,7 +223,7 @@ End of Tenancy | Airbnb Services
 
       {/* ── TABLET LAYOUT ── */}
       {isTablet && (
-        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingTop: 76 }}>
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingTop: LAUNCH_ACTIVE ? 100 : 76 }}>
 
           <div style={{ position: "relative", height: "50vh", overflow: "hidden", flexShrink: 0 }}>
             <img
@@ -258,7 +317,7 @@ End of Tenancy | Airbnb Services
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
           minHeight: "100vh",
-          paddingTop: 76,
+          paddingTop: LAUNCH_ACTIVE ? 100 : 76,
         }}>
 
           {/* LEFT — text */}

@@ -113,7 +113,8 @@ function PaymentForm({ details, bookingId }) {
           Booking Summary
         </div>
         {[
-          { l: `${details.packageName} · ${details.size}`, v: `£${details.total}` },
+          { l: `${details.packageName} · ${details.size}`, v: `£${details.originalTotal || details.total}` },
+          details.launchDiscount && { l: 'Launch offer — 50% off first clean', v: `-£${parseFloat(details.launchDiscount).toFixed(2)}`, grn: true },
           { l: 'Clean Date', v: details.cleanDate },
           { l: 'Clean Time', v: details.cleanTime },
         ].filter(Boolean).map((row, i) => (
@@ -134,7 +135,7 @@ function PaymentForm({ details, bookingId }) {
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: '0.5px solid rgba(200,184,154,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: "'Jost',sans-serif" }}>
               <span style={{ color: '#16a34a', fontWeight: 300 }}>From your 2nd clean ({details.frequency})</span>
-              <span style={{ color: '#16a34a', fontWeight: 500 }}>£{(details.total - details.freqSaving).toFixed(2)} / visit</span>
+              <span style={{ color: '#16a34a', fontWeight: 500 }}>£{((details.originalTotal || details.total) - details.freqSaving).toFixed(2)} / visit</span>
             </div>
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: 'rgba(22,163,74,0.7)', fontWeight: 300, marginTop: 3 }}>
               £{details.freqSaving} {details.frequency} discount applied

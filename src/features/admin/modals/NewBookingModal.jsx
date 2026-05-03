@@ -29,10 +29,19 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api }) {
       .then(r => r.json()).then(data => setNbBlockedDates(data.blocked || [])).catch(() => {});
   }, [nbCalYear, nbCalMonth, api.getBlockedDates]);
 
-  const nbPkg   = PACKAGES.find(p => p.id === nb.packageId);
-  const nbTotal = nbPkg?.sizes.find(s => s.id === nb.sizeId)
+  const nbPkg      = PACKAGES.find(p => p.id === nb.packageId);
+  const nbRawTotal = nbPkg?.sizes.find(s => s.id === nb.sizeId)
     ? calculateTotal({ sizePrice: nbPkg.sizes.find(s => s.id === nb.sizeId).basePrice, propertyType: nb.propertyType, frequency: null, addons: nb.addons, supplies: nb.supplies, suppliesFeeOverride: nb.suppliesFee })
     : null;
+  const nbLaunchMultiplier = nbPkg?.launchOffer;
+  const nbTotal = nbRawTotal && nbLaunchMultiplier ? {
+    ...nbRawTotal,
+    originalSubtotal: nbRawTotal.subtotal,
+    subtotal:         parseFloat((nbRawTotal.subtotal  * nbLaunchMultiplier).toFixed(2)),
+    deposit:          parseFloat((nbRawTotal.deposit   * nbLaunchMultiplier).toFixed(2)),
+    remaining:        parseFloat((nbRawTotal.remaining * nbLaunchMultiplier).toFixed(2)),
+    launchDiscount:   parseFloat((nbRawTotal.subtotal  * (1 - nbLaunchMultiplier)).toFixed(2)),
+  } : nbRawTotal;
 
   const closeNewBooking = () => { onClose(); setNb(BLANK_BOOKING); setNbErr(''); setNbSubmitted(false); setNbTouched({}); };
 
@@ -58,6 +67,7 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api }) {
           total: nbTotal?.subtotal || 0,
           deposit: nbTotal?.deposit || 0,
           remaining: nbTotal?.remaining || 0,
+          ...(nbTotal?.launchDiscount ? { launchDiscount: nbTotal.launchDiscount, originalTotal: nbTotal.originalSubtotal, recurringTotal: nbTotal.originalSubtotal } : {}),
           stripeDepositIntentId: 'manual',
           stripeCustomerId: '',
           isReturning: false,
@@ -327,6 +337,11 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api }) {
                 <span>Cleaning supplies</span><span>+£{nbTotal.suppliesFee.toFixed(2)}</span>
               </div>
             )}
+            {nbTotal.launchDiscount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT, fontSize: 11, color: '#fbbf24', marginBottom: 3 }}>
+                <span>Launch offer — 50% off first clean</span><span>−£{nbTotal.launchDiscount.toFixed(2)}</span>
+              </div>
+            )}
             <div style={{ borderTop: '1px solid rgba(200,184,154,0.2)', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 300, color: '#f5f0e8' }}>
               <span style={{ fontFamily: FONT, fontSize: 12, alignSelf: 'center', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Total</span><span>£{nbTotal.subtotal.toFixed(2)}</span>
             </div>
@@ -340,7 +355,7 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api }) {
               <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(200,184,154,0.15)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT, fontSize: 11, color: '#6fcf97' }}>
                   <span>From your 2nd clean ({FREQUENCIES.find(f => f.id === nb.frequency).label})</span>
-                  <span>£{(nbTotal.subtotal - FREQUENCIES.find(f => f.id === nb.frequency).saving).toFixed(2)} / visit</span>
+                  <span>£{((nbTotal.originalSubtotal || nbTotal.subtotal) - FREQUENCIES.find(f => f.id === nb.frequency).saving).toFixed(2)} / visit</span>
                 </div>
                 <div style={{ fontFamily: FONT, fontSize: 10, color: 'rgba(111,207,151,0.7)', marginTop: 3 }}>
                   £{FREQUENCIES.find(f => f.id === nb.frequency).saving} {FREQUENCIES.find(f => f.id === nb.frequency).label.toLowerCase()} discount applied

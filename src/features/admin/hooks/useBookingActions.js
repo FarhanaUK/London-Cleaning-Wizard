@@ -220,11 +220,14 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
 
   const handleEditSave = async () => {
     setEditSaving(true); setEditErr('');
+    const pkgChanged = editData.packageId !== (editBooking.package || editBooking.packageId);
+    if (pkgChanged && !editData.sizeId) { setEditErr('Please select a property size.'); setEditSaving(false); return; }
     try {
       const payload = { bookingId: editBooking.id, ...editData, updateCustomerProfile: editScope === 'all' };
+      const packageChanged = editData.packageId !== (editBooking.package || editBooking.packageId) || editData.sizeId !== (editBooking.size || editBooking.sizeId);
       const pkg  = PACKAGES.find(p => p.id === editData.packageId);
       const size = pkg?.sizes?.find(s => s.id === editData.sizeId);
-      if (size) {
+      if (size && packageChanged) {
         const freqObj = FREQUENCIES.find(f => f.id === editData.frequency) || { saving: 0 };
         const { subtotal } = calculateTotal({
           sizePrice: size.basePrice, propertyType: editBooking.propertyType,
@@ -240,6 +243,17 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
       });
       const data = await res.json();
       if (!res.ok) { setEditErr(data.error || 'Failed to update booking.'); setEditSaving(false); return; }
+      setBookings(all => all.map(x => {
+        if (x.id !== editBooking.id) return x;
+        return {
+          ...x,
+          ...editData,
+          package:     editData.packageId || x.package,
+          size:        editData.sizeId    || x.size,
+          ...(payload.total     !== undefined ? { total:     payload.total }     : {}),
+          ...(payload.remaining !== undefined ? { remaining: payload.remaining } : {}),
+        };
+      }));
       closeEdit();
     } catch { setEditErr('Something went wrong. Please try again.'); }
     setEditSaving(false);

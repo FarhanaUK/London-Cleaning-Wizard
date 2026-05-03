@@ -40,7 +40,7 @@ function MobilePriceBar({ booking, T, TOneOff }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 14px', marginTop: 2 }}>
             {booking.freq && booking.freq.id !== 'one-off' && (
               <div style={{ width: '100%', fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#6fcf97', fontWeight: 400 }}>
-                From 2nd clean ({booking.freq.label}): £{(T.subtotal - booking.freq.saving).toFixed(2)} / visit · saves £{booking.freq.saving}
+                From 2nd clean ({booking.freq.label}): £{((T.originalSubtotal || T.subtotal) - booking.freq.saving).toFixed(2)} / visit · saves £{booking.freq.saving}
               </div>
             )}
             {T.addnSum > 0 && (
@@ -136,7 +136,7 @@ function DesktopInvoice({ booking, T, lines }) {
               <div style={{ marginTop: 8, paddingTop: 8, borderTop: '0.5px solid rgba(200,184,154,0.15)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                   <span style={{ color: '#6fcf97', fontFamily: "'Jost',sans-serif", fontWeight: 300 }}>From your 2nd clean ({booking.freq.label})</span>
-                  <span style={{ color: '#6fcf97', fontWeight: 500 }}>£{(T.subtotal - booking.freq.saving).toFixed(2)} / visit</span>
+                  <span style={{ color: '#6fcf97', fontWeight: 500 }}>£{((T.originalSubtotal || T.subtotal) - booking.freq.saving).toFixed(2)} / visit</span>
                 </div>
                 <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: 'rgba(111,207,151,0.7)', fontWeight: 300, marginTop: 3 }}>
                   £{booking.freq.saving} {booking.freq.label.toLowerCase()} discount applied
@@ -166,7 +166,7 @@ function DesktopInvoice({ booking, T, lines }) {
 export default function BookingInvoice({ booking, isMobile }) {
   const hasSel = !!booking.size;
   // First booking always at full price — no frequency discount
-  const T = hasSel ? calculateTotal({
+  const rawT = hasSel ? calculateTotal({
     sizePrice:    booking.size.basePrice,
     propertyType: booking.propertyType,
     frequency:    null,
@@ -175,13 +175,24 @@ export default function BookingInvoice({ booking, isMobile }) {
     supplies:          booking.supplies,
     suppliesFeeOverride: booking.suppliesFee,
   }) : null;
+
+  const launchMultiplier = booking.pkg?.launchOffer;
+  const T = rawT && launchMultiplier ? {
+    ...rawT,
+    originalSubtotal: rawT.subtotal,
+    subtotal:         parseFloat((rawT.subtotal  * launchMultiplier).toFixed(2)),
+    deposit:          parseFloat((rawT.deposit   * launchMultiplier).toFixed(2)),
+    remaining:        parseFloat((rawT.remaining * launchMultiplier).toFixed(2)),
+    launchDiscount:   parseFloat((rawT.subtotal  * (1 - launchMultiplier)).toFixed(2)),
+  } : rawT;
   const TOneOff = null;
 
   const lines = T ? [
-    { label: `${booking.pkg?.name} · ${booking.size?.label}`, val: `£${T.base}` },
+    { label: `${booking.pkg?.name} · ${booking.size?.label}`, val: `£${rawT.base}` },
     ...(booking.addons || []).map(a => ({ label: a.name, val: `+£${a.price}` })),
-    T.suppliesFee > 0 && { label: 'Cleaning supplies', val: `+£${T.suppliesFee}` },
-    T.surcharge > 0   && { label: 'Surcharge', val: `+£${T.surcharge}` },
+    rawT.suppliesFee > 0 && { label: 'Cleaning supplies', val: `+£${rawT.suppliesFee}` },
+    rawT.surcharge > 0   && { label: 'Surcharge', val: `+£${rawT.surcharge}` },
+    T.launchDiscount > 0 && { label: 'Launch offer — 50% off first clean', val: `-£${T.launchDiscount.toFixed(2)}`, grn: true },
     booking.cleanDateDisplay && { label: 'Date', val: booking.cleanDateDisplay },
     booking.cleanTime        && { label: 'Time', val: booking.cleanTime },
   ].filter(Boolean) : [];

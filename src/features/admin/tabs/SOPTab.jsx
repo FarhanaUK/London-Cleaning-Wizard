@@ -174,6 +174,19 @@ export default function SOPTab({ isMobile, C }) {
         </div>
       </Section>
 
+      <Section title="Converting a One-Off Customer to Recurring" C={C}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+          If a customer completes a one-off clean and then contacts you to start a recurring service, you can convert them without making them pay the full first-clean price again. Their most recent one-off counts as the first clean, and all future recurring cleans are priced at the recurring discount rate.
+        </div>
+        <Row C={C} label="Qualifying window" value="Within 30 days of their last completed one-off clean" note="After 30 days the conversion offer expires and they would need to book a new first clean at full price." />
+        <Row C={C} label="Automatic email" value="Sent automatically on day 5 after their one-off is marked complete" note="The email tells them how many days they have left to qualify and shows the discounted recurring price. No action needed from you — it sends itself." />
+        <Row C={C} label="How to convert" value="Go to CRM → find the customer → click Convert to Recurring" note="The button only appears if their last one-off was within the last 30 days. Pick the frequency, preferred day and time, and the date for their first recurring clean. The system creates the booking at the discounted price and updates their profile." />
+        <Row C={C} label="Payment on first recurring clean" value="Auto-charged on completion — no new deposit required" note="The customer already paid in full for their one-off. Their saved card is charged automatically when the first recurring clean is marked complete, the same as any subsequent recurring clean." />
+        <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginTop: 4, fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+          <strong style={{ color: C.text }}>Note:</strong> For this to work the customer must have a saved card on file from their one-off payment. If they paid by cash or bank transfer, you will need to take card details separately before converting.
+        </div>
+      </Section>
+
       <Section title="System Alerts & What To Do" C={C}>
         <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
           This system saves everything to a cloud database (Firebase/Firestore) in real time. If a save fails, you will see an alert pop-up. Below is what each alert means and exactly what to do.

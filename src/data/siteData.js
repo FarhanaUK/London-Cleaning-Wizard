@@ -77,7 +77,7 @@ export const PACKAGES = [
     tags: ['Whole home', 'Photos sent', 'Fragrance finish'],
     showFreq: true, showAddons: true,
     sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 2  },
+      { id: 'studio', label: 'Studio',    basePrice: 115  },
       { id: '1bed',   label: '1 Bedroom', basePrice: 125 },
       { id: '2bed',   label: '2 Bedroom', basePrice: 145 },
       { id: '3bed',   label: '3 Bedroom', basePrice: 170 },
@@ -85,7 +85,7 @@ export const PACKAGES = [
     ],
   },
   {
-    id: 'standard', name: 'Signature Hotel Reset', popular: true,
+    id: 'standard', name: 'Signature Hotel Reset', popular: true, launchOffer: 0.5,
     desc: 'Designed to make your home feel calm, clear, and taken care of. Estimated 3–6 hrs depending on property size.',
     tags: ['Whole home', 'Same cleaner', 'Linen change', 'Hotel finish'],
     showFreq: true, showAddons: true,

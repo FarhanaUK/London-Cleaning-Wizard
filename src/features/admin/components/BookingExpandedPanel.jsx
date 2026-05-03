@@ -98,6 +98,8 @@ export default function BookingExpandedPanel({
           { l: 'Signature Touch',  v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
           { l: 'Marketing Opt-in', v: b.marketingOptOut ? '✕ Opted out at booking' : '✓ Opted in at booking' },
           { l: 'Total',            v: `£${parseFloat(b.total).toFixed(2)}` },
+          b.launchDiscount && { l: 'Original price',    v: `£${parseFloat(b.originalTotal).toFixed(2)}` },
+          b.launchDiscount && { l: 'Launch offer',      v: `-£${parseFloat(b.launchDiscount).toFixed(2)}`, launch: true },
           { l: 'Deposit paid',     v: b.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(b.deposit).toFixed(2)}`, highlight: b.status === 'pending_deposit' },
           { l: 'Remaining',        v: `£${parseFloat(b.remaining).toFixed(2)}` },
           { l: 'Source',           v: b.source || '—' },
@@ -107,7 +109,7 @@ export default function BookingExpandedPanel({
         ].filter(Boolean).map((r, i) => (
           <div key={i}>
             <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 2 }}>{r.l}</div>
-            <div style={{ fontFamily: FONT, fontSize: 13, color: r.highlight ? '#fff' : C.text, ...(r.highlight ? { background: C.danger, display: 'inline-block', padding: '2px 8px', borderRadius: 4 } : {}) }}>{r.v}</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: r.highlight ? '#fff' : r.launch ? '#b45309' : C.text, ...(r.highlight ? { background: C.danger, display: 'inline-block', padding: '2px 8px', borderRadius: 4 } : {}) }}>{r.v}</div>
           </div>
         ))}
       </div>

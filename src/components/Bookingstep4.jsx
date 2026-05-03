@@ -144,6 +144,7 @@ function PaymentForm({ booking, onBack, T }) {
             total:                 parseFloat(T.subtotal),
             deposit:               parseFloat(T.deposit),
             remaining:             parseFloat(T.remaining),
+            ...(T.originalSubtotal ? { recurringTotal: T.originalSubtotal, originalTotal: T.originalSubtotal, launchDiscount: T.launchDiscount } : {}),
             stripeDepositIntentId: paymentIntent.id,
             stripeCustomerId:      piData.customerId,
             piId:                  piData.piId,
@@ -196,6 +197,7 @@ function PaymentForm({ booking, onBack, T }) {
           { l: `${booking.pkg?.name} · ${booking.size?.label}`, v: `£${T.base}` },
           T.freqSave > 0 && { l: `${booking.freq?.label} discount`, v: `-£${T.freqSave}`, grn: true },
           ...(booking.addons||[]).map(a => ({ l: a.name, v: `+£${a.price}` })),
+          T.launchDiscount > 0 && { l: 'Launch offer — 50% off first clean', v: `-£${T.launchDiscount.toFixed(2)}`, grn: true },
         ].filter(Boolean).map((row, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '0.5px solid rgba(200,184,154,0.15)', fontFamily: "'Jost',sans-serif" }}>
             <span style={{ color: row.grn ? '#16a34a' : '#6b5e56', fontWeight: row.grn ? 400 : 300 }}>{row.l}</span>
@@ -217,7 +219,7 @@ function PaymentForm({ booking, onBack, T }) {
         {booking.freq && booking.freq.id !== 'one-off' && (
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: '0.5px solid rgba(200,184,154,0.15)', display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: "'Jost',sans-serif" }}>
             <span style={{ color: '#16a34a', fontWeight: 300 }}>From your 2nd clean ({booking.freq.label})</span>
-            <span style={{ color: '#16a34a', fontWeight: 500 }}>£{(T.subtotal - booking.freq.saving).toFixed(2)} / visit</span>
+            <span style={{ color: '#16a34a', fontWeight: 500 }}>£{((T.originalSubtotal || T.subtotal) - booking.freq.saving).toFixed(2)} / visit</span>
           </div>
         )}
       </div>
@@ -357,9 +359,19 @@ export default function BookingStep4({ booking, onSuccess, onBack }) {
     suppliesFeeOverride: booking.suppliesFee,
   });
 
+  const launchMultiplier = booking.pkg?.launchOffer;
+  const effectiveT = launchMultiplier ? {
+    ...T,
+    originalSubtotal: T.subtotal,
+    subtotal:         parseFloat((T.subtotal  * launchMultiplier).toFixed(2)),
+    deposit:          parseFloat((T.deposit   * launchMultiplier).toFixed(2)),
+    remaining:        parseFloat((T.remaining * launchMultiplier).toFixed(2)),
+    launchDiscount:   parseFloat((T.subtotal  * (1 - launchMultiplier)).toFixed(2)),
+  } : T;
+
   return (
     <Elements stripe={stripePromise}>
-      <PaymentForm booking={booking} onSuccess={onSuccess} onBack={onBack} T={T} />
+      <PaymentForm booking={booking} onSuccess={onSuccess} onBack={onBack} T={effectiveT} />
     </Elements>
   );
 }

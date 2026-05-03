@@ -14,7 +14,8 @@ const ExpensesTab  = lazy(() => import('../features/admin/tabs/ExpensesTab'));
 const CustomersTab = lazy(() => import('../features/admin/tabs/CustomersTab'));
 const CalendarTab  = lazy(() => import('../features/admin/tabs/CalendarTab'));
 const BookingsTab    = lazy(() => import('../features/admin/tabs/BookingsTab'));
-const MarketingTab   = lazy(() => import('../features/admin/tabs/MarketingTab'));
+const MarketingTab    = lazy(() => import('../features/admin/tabs/MarketingTab'));
+const PromotionsTab   = lazy(() => import('../features/admin/tabs/PromotionsTab'));
 
 
 // ── Themes ────────────────────────────────────────────────────
@@ -58,7 +59,8 @@ const NAV_ITEMS = [
   { id: 'supplies',  label: 'Supplies',  icon: '🧴' },
   { id: 'sop',       label: 'SOP',       icon: '📖' },
   { id: 'reports',   label: 'Reports',   icon: '📈' },
-  { id: 'marketing', label: 'Marketing', icon: '📣' },
+  { id: 'marketing',  label: 'Marketing',  icon: '📣' },
+  { id: 'promotions', label: 'Promotions', icon: '🎁' },
 ];
 
 const WELCOME_MESSAGES = [
@@ -371,7 +373,8 @@ export default function AdminPage() {
           {activeView === 'sop'       && <SOPTab isMobile={isMobile} C={C} />}
           {activeView === 'reports'   && <ReportsTab bookings={bookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} isMobile={isMobile} C={C} />}
           {activeView === 'bookings'  && <BookingsTab bookings={bookings} setBookings={setBookings} staff={staff} isMobile={isMobile} C={C} user={user} schedulerLogs={schedulerLogs} bannerVisible={bannerVisible} welcomeMsg={welcomeMsg} welcomeColor={welcomeColor} />}
-          {activeView === 'marketing' && <MarketingTab abandonmentStats={abandonmentStats} bookings={bookings} isMobile={isMobile} C={C} />}
+          {activeView === 'marketing'  && <MarketingTab abandonmentStats={abandonmentStats} bookings={bookings} isMobile={isMobile} C={C} />}
+          {activeView === 'promotions' && <PromotionsTab isMobile={isMobile} C={C} />}
         </Suspense>
 
         </div> {/* end main content column */}

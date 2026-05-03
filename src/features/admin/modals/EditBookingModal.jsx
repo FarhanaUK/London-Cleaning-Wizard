@@ -107,17 +107,19 @@ export default function EditBookingModal({ editBooking, editData, setEditData, e
             <input value={editData.petTypes ?? ''} onChange={e => setEditData(p => ({ ...p, petTypes: e.target.value }))} style={FIELD(C)} />
           </FieldRow>
         )}
-        <FieldRow label="Signature Touch" C={C}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            {[{v: true, l:'Opted in'},{v: false, l:'Opted out'}].map(opt => (
-              <button key={String(opt.v)} onClick={() => setEditData(p => ({ ...p, signatureTouch: opt.v }))}
-                style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '8px 20px', background: editData.signatureTouch === opt.v ? C.text : 'transparent', color: editData.signatureTouch === opt.v ? '#fff' : C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
-                {opt.l}
-              </button>
-            ))}
-          </div>
-        </FieldRow>
-        {editData.signatureTouch === false && (
+        {editData.packageId === 'standard' && (
+          <FieldRow label="Signature Touch" C={C}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {[{v: true, l:'Opted in'},{v: false, l:'Opted out'}].map(opt => (
+                <button key={String(opt.v)} onClick={() => setEditData(p => ({ ...p, signatureTouch: opt.v }))}
+                  style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '8px 20px', background: editData.signatureTouch === opt.v ? C.text : 'transparent', color: editData.signatureTouch === opt.v ? '#fff' : C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
+                  {opt.l}
+                </button>
+              ))}
+            </div>
+          </FieldRow>
+        )}
+        {editData.packageId === 'standard' && editData.signatureTouch === false && (
           <FieldRow label="Opt-out reason" C={C}>
             <input value={editData.signatureTouchNotes ?? ''} onChange={e => setEditData(p => ({ ...p, signatureTouchNotes: e.target.value }))} style={FIELD(C)} />
           </FieldRow>

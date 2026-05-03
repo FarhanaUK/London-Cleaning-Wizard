@@ -456,8 +456,9 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                   style={{ flexShrink: 0, width: 15, height: 15, accentColor: C.accent, cursor: 'pointer', marginRight: 4 }}
                 />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: FONT, fontSize: isMobile ? 14 : 15, fontWeight: 600, color: C.text, marginBottom: 3 }}>
-                    {b.firstName} {b.lastName}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <span style={{ fontFamily: FONT, fontSize: isMobile ? 14 : 15, fontWeight: 600, color: C.text }}>{b.firstName} {b.lastName}</span>
+                    {b.bookingRef && <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: '1px 7px' }}>{b.bookingRef}</span>}
                   </div>
                   <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
                     {b.packageName} · {b.size} &nbsp;·&nbsp; {fmtDate(b.cleanDate)} at {b.cleanTime}<br />

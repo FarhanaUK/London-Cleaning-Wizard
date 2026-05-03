@@ -155,7 +155,10 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
                 return (
                   <div key={b.id} style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', gap: 12, alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2 }}>{b.customerName || `${b.firstName || ''} ${b.lastName || ''}`.trim()}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                        <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: C.text }}>{b.customerName || `${b.firstName || ''} ${b.lastName || ''}`.trim()}</div>
+                        {b.bookingRef && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: '1px 7px' }}>{b.bookingRef}</div>}
+                      </div>
                       <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 10 }}>{fmtDate(b.cleanDate)} · {b.packageName || b.package} · {b.addr1}</div>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                         <div>

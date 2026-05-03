@@ -1,5 +1,11 @@
 import { useState } from 'react';
 import { fmtDate } from '../utils';
+import { FREQUENCIES, PACKAGES, PROPERTY_TYPES } from '../../../data/siteData';
+import { TIMES } from '../../../constants/timeOptions';
+
+const RECURRING_PACKAGES = PACKAGES.filter(p => p.showFreq);
+
+const FREQ_SAVINGS = { weekly: 30, fortnightly: 15, monthly: 7 };
 
 const FONT  = "'Inter', 'Segoe UI', sans-serif";
 const INPUT = { fontFamily: FONT, fontSize: 14, padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#1e293b', outline: 'none', width: '100%', boxSizing: 'border-box', marginBottom: 12 };
@@ -35,6 +41,13 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
   const [editClientData,   setEditClientData]   = useState({});
   const [editClientSaving, setEditClientSaving] = useState(false);
   const [editClientErr,    setEditClientErr]    = useState('');
+  const [convertOpen,      setConvertOpen]      = useState(false);
+  const [convertFreq,      setConvertFreq]      = useState('weekly');
+  const [convertDate,      setConvertDate]      = useState('');
+  const [convertTime,      setConvertTime]      = useState('9:00 AM');
+  const [convertPkg,       setConvertPkg]       = useState('refresh');
+  const [convertSaving,    setConvertSaving]    = useState(false);
+  const [convertErr,       setConvertErr]       = useState('');
 
   // Build customer map from bookings
   const customerMap = {};
@@ -119,21 +132,41 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
             <button onClick={() => setSelectedCustomer(null)} style={{ ...BTN, background: 'transparent', color: C.muted, border: `1px solid ${C.border}`, marginBottom: 16, fontSize: 12 }}>← Back to customers</button>
           )}
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '24px', marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-              <div>
-                <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 4 }}>{sc.firstName} {sc.lastName}</div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f8fafc', color: C.muted, padding: '3px 10px', borderRadius: 20, border: `1px solid ${C.border}` }}>Residential</div>
-                  {sc.hasActive && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f0fdf4', color: C.success, padding: '3px 10px', borderRadius: 20, border: `1px solid rgba(22,163,74,0.2)` }}>Active Recurring</div>}
+            {(() => {
+              const thirtyDaysAgoStr = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+              const qualifyingBooking = sc.bookings
+                .filter(b => b.status === 'fully_paid' && !b.isAutoRecurring && b.cleanDate >= thirtyDaysAgoStr)
+                .sort((a, b) => b.cleanDate.localeCompare(a.cleanDate))[0];
+              const canConvert = !sc.hasActive && qualifyingBooking;
+              return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                  <div>
+                    <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 4 }}>{sc.firstName} {sc.lastName}</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f8fafc', color: C.muted, padding: '3px 10px', borderRadius: 20, border: `1px solid ${C.border}` }}>Residential</div>
+                      {sc.hasActive && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f0fdf4', color: C.success, padding: '3px 10px', borderRadius: 20, border: `1px solid rgba(22,163,74,0.2)` }}>Active Recurring</div>}
+                      {canConvert && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#fffbeb', color: '#92400e', padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(146,64,14,0.2)' }}>Qualifies for Recurring</div>}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {canConvert && (
+                      <button
+                        onClick={() => { setConvertOpen(true); setConvertFreq('weekly'); setConvertDate(''); setConvertTime('9:00 AM'); setConvertErr(''); setConvertPkg(qualifyingBooking.package || 'refresh'); }}
+                        style={{ ...BTN, background: '#16a34a', color: '#fff', fontSize: 12 }}
+                      >
+                        Convert to Recurring
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setEditClient(sc); setEditClientData({ firstName: sc.firstName, lastName: sc.lastName, phone: sc.phone || '', addr1: sc.addr1 || '', postcode: sc.postcode || '' }); setEditClientErr(''); }}
+                      style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}
+                    >
+                      Edit Client
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={() => { setEditClient(sc); setEditClientData({ firstName: sc.firstName, lastName: sc.lastName, phone: sc.phone || '', addr1: sc.addr1 || '', postcode: sc.postcode || '' }); setEditClientErr(''); }}
-                style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}
-              >
-                Edit Client
-              </button>
-            </div>
+              );
+            })()}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10, marginBottom: 20 }}>
               {[
                 { label: 'Total Bookings',    value: sc.totalBookings },
@@ -191,6 +224,134 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
         </div>
       )}
 
+      {/* Convert to Recurring Modal */}
+      {convertOpen && sc && (() => {
+        const thirtyDaysAgoStr = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+        const qualifyingBooking = sc.bookings
+          .filter(b => b.status === 'fully_paid' && !b.isAutoRecurring && b.cleanDate >= thirtyDaysAgoStr)
+          .sort((a, b) => b.cleanDate.localeCompare(a.cleanDate))[0];
+        if (!qualifyingBooking) return null;
+        const saving      = FREQ_SAVINGS[convertFreq] || 0;
+        const selectedPkg = RECURRING_PACKAGES.find(p => p.id === convertPkg) || RECURRING_PACKAGES[0];
+        const sizeEntry   = selectedPkg?.sizes.find(s => s.id === qualifyingBooking.size);
+        const propMulti   = PROPERTY_TYPES.find(t => t.id === qualifyingBooking.propertyType)?.multiplier || 1;
+        const basePrice   = sizeEntry ? sizeEntry.basePrice * propMulti : (parseFloat(qualifyingBooking.total) || 0);
+        const newPrice    = Math.max(0, basePrice - saving);
+        const freqLabel   = FREQUENCIES.find(f => f.id === convertFreq)?.label || convertFreq;
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,20,16,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div style={{ width: '100%', maxWidth: 460, background: C.card, borderRadius: 12, padding: 28, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 700, color: C.text }}>Convert to Recurring</div>
+                <button onClick={() => setConvertOpen(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>✕</button>
+              </div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 20 }}>
+                {sc.firstName} {sc.lastName} · {qualifyingBooking.packageName}
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, marginBottom: 4 }}>Package</div>
+                <select
+                  value={convertPkg}
+                  onChange={e => setConvertPkg(e.target.value)}
+                  style={{ ...INPUT, marginBottom: 0 }}
+                >
+                  {RECURRING_PACKAGES.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, marginBottom: 4 }}>Frequency</div>
+                <select
+                  value={convertFreq}
+                  onChange={e => setConvertFreq(e.target.value)}
+                  style={{ ...INPUT, marginBottom: 0 }}
+                >
+                  {FREQUENCIES.filter(f => f.id !== 'one-off').map(f => (
+                    <option key={f.id} value={f.id}>{f.label} — save £{f.saving} per clean</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, marginBottom: 4 }}>First Recurring Clean Date</div>
+                <input
+                  type="date"
+                  value={convertDate}
+                  min={new Date().toLocaleDateString('en-CA')}
+                  max={new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA')}
+                  onChange={e => setConvertDate(e.target.value)}
+                  style={{ ...INPUT, marginBottom: 0 }}
+                />
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 4 }}>Must be within the next 2 weeks</div>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, marginBottom: 4 }}>Time</div>
+                <select
+                  value={convertTime}
+                  onChange={e => setConvertTime(e.target.value)}
+                  style={{ ...INPUT, marginBottom: 0 }}
+                >
+                  {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+
+              <div style={{ background: '#f0fdf4', border: '1px solid rgba(22,163,74,0.2)', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#166534', marginBottom: 2 }}>
+                  {freqLabel} price: £{newPrice.toFixed(2)} per clean
+                </div>
+                <div style={{ fontFamily: FONT, fontSize: 11, color: '#166534' }}>
+                  Saving £{saving} vs one-off (£{basePrice.toFixed(2)})
+                </div>
+              </div>
+
+              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
+                Card on file will be charged on completion of each clean. No new deposit required.
+              </div>
+
+              {convertErr && <p style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginBottom: 12 }}>{convertErr}</p>}
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setConvertOpen(false)} style={{ ...BTN, background: 'transparent', color: C.text, border: `1px solid ${C.border}` }}>Cancel</button>
+                <button
+                  disabled={convertSaving}
+                  onClick={async () => {
+                    if (!convertDate) { setConvertErr('Please pick a date for the first recurring clean.'); return; }
+                    setConvertSaving(true); setConvertErr('');
+                    try {
+                      const res = await fetch(import.meta.env.VITE_CF_CONVERT_TO_RECURRING, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          email: sc.email,
+                          frequency: convertFreq,
+                          cleanDate: convertDate,
+                          cleanTime: convertTime,
+                          lastBookingId: qualifyingBooking.id,
+                          packageId: selectedPkg.id,
+                          packageName: selectedPkg.name,
+                          total: newPrice,
+                        }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) { setConvertErr(data.error || 'Something went wrong.'); setConvertSaving(false); return; }
+                      setConvertOpen(false);
+                    } catch { setConvertErr('Something went wrong. Please try again.'); }
+                    setConvertSaving(false);
+                  }}
+                  style={{ ...BTN, flex: 1, background: '#16a34a', color: '#fff' }}
+                >
+                  {convertSaving ? 'Converting…' : 'Convert to Recurring'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Edit Client Modal */}
       {editClient && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,20,16,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -231,6 +392,9 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                     ));
                     const failed = results.find(r => !r.ok);
                     if (failed) { const d = await failed.json(); setEditClientErr(d.error || 'Failed to update.'); setEditClientSaving(false); return; }
+                    setBookings(prev => prev.map(bk =>
+                      (bk.email || '').toLowerCase() === editClient.email ? { ...bk, ...editClientData } : bk
+                    ));
                     setEditClient(null); setEditClientData({});
                   } catch { setEditClientErr('Something went wrong.'); }
                   setEditClientSaving(false);
