@@ -413,9 +413,9 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
   // Pre-create all recurring follow-up bookings within the 28-day window
   if (d.frequency && d.frequency !== 'one-off') {
     try {
-      // Discount applies from 2nd clean onwards
+      // Discount applies from 2nd clean onwards — use recurringTotal (full pre-discount price) if available
       const freqSave     = FREQ_SAVINGS[d.frequency] || 0;
-      const discountedTotal = Math.max(0, d.total - freqSave);
+      const discountedTotal = Math.max(0, (d.recurringTotal || d.total) - freqSave);
 
       const LEAD   = 28;
       const firstClean = new Date(d.cleanDate + 'T12:00:00');
