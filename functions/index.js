@@ -1455,6 +1455,7 @@ exports.getDepositDetails = onRequest(async (req, res) => {
     clientSecret: b.pendingDepositClientSecret,
     frequency:    b.frequency || 'one-off',
     freqSaving:   FREQ_SAVINGS[b.frequency] || 0,
+    ...(b.launchDiscount ? { launchDiscount: b.launchDiscount, originalTotal: b.originalTotal } : {}),
   });
 });
 
