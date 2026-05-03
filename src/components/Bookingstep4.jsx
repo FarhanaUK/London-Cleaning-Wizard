@@ -159,14 +159,16 @@ function PaymentForm({ booking, onBack, T }) {
           return;
         }
         sessionStorage.setItem('bookingSuccess', JSON.stringify({
-          packageName: booking.pkg?.name,
-          size:        booking.size?.label,
-          cleanDate:   booking.cleanDateDisplay,
-          cleanTime:   booking.cleanTime,
-          address:     `${booking.addr1}, ${booking.postcode}`,
-          deposit:     T.deposit.toFixed(2),
-          remaining:   T.remaining.toFixed(2),
-          bookingRef:  saveData.bookingRef,
+          packageName:   booking.pkg?.name,
+          size:          booking.size?.label,
+          cleanDate:     booking.cleanDateDisplay,
+          cleanTime:     booking.cleanTime,
+          address:       `${booking.addr1}, ${booking.postcode}`,
+          total:         T.subtotal.toFixed(2),
+          deposit:       T.deposit.toFixed(2),
+          remaining:     T.remaining.toFixed(2),
+          bookingRef:    saveData.bookingRef,
+          ...(T.originalSubtotal ? { originalTotal: T.originalSubtotal.toFixed(2), launchDiscount: T.launchDiscount.toFixed(2) } : {}),
         }));
         sessionStorage.removeItem('bookingSession');
         setLoading(false);

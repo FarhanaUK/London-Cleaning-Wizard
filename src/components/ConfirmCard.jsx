@@ -16,6 +16,9 @@ export default function ConfirmCard({ details }) {
         <div style={{ background: '#F2EDE5', padding: '16px 20px', textAlign: 'left', marginBottom: 20 }}>
           {[
             { l: 'Service',              v: `${details.packageName}${details.size ? ' · ' + details.size : ''}` },
+            details.originalTotal        ? { l: 'Package price',              v: `£${details.originalTotal}`, strike: true } : { l: 'Package price', v: `£${details.total}` },
+            details.launchDiscount       ? { l: 'Launch offer — 50% off first clean', v: `-£${details.launchDiscount}`, grn: true } : null,
+            { l: 'Total',                v: `£${details.total}` },
             { l: 'Date',                 v: details.cleanDate },
             { l: 'Time',                 v: details.cleanTime },
             details.address ? { l: 'Address', v: details.address } : null,
@@ -28,8 +31,8 @@ export default function ConfirmCard({ details }) {
               borderBottom: '0.5px solid rgba(200,184,154,0.2)',
               fontFamily: "'Jost',sans-serif",
             }}>
-              <span style={{ color: '#8b7355', fontWeight: 300 }}>{row.l}</span>
-              <span style={{ color: row.gold ? '#2d6a4f' : '#1a1410', fontWeight: 500 }}>{row.v}</span>
+              <span style={{ color: row.grn ? '#16a34a' : '#8b7355', fontWeight: 300 }}>{row.l}</span>
+              <span style={{ color: row.gold ? '#2d6a4f' : row.grn ? '#16a34a' : '#1a1410', fontWeight: 500, textDecoration: row.strike ? 'line-through' : 'none', opacity: row.strike ? 0.5 : 1 }}>{row.v}</span>
             </div>
           ))}
         </div>
