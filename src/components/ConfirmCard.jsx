@@ -24,6 +24,7 @@ export default function ConfirmCard({ details }) {
             details.address ? { l: 'Address', v: details.address } : null,
             { l: 'Deposit paid',         v: `£${details.deposit}`, gold: true },
             { l: 'Balance on clean day', v: `£${details.remaining}` },
+            details.freqSaving > 0 ? { l: `From your 2nd clean (${details.frequency})`, v: `£${(parseFloat(details.originalTotal || details.total) - details.freqSaving).toFixed(2)} / visit`, grn: true } : null,
           ].filter(Boolean).map(row => (
             <div key={row.l} style={{
               display: 'flex', justifyContent: 'space-between',

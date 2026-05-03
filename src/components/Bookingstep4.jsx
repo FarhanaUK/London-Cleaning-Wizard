@@ -169,6 +169,7 @@ function PaymentForm({ booking, onBack, T }) {
           remaining:     T.remaining.toFixed(2),
           bookingRef:    saveData.bookingRef,
           ...(T.originalSubtotal ? { originalTotal: T.originalSubtotal.toFixed(2), launchDiscount: T.launchDiscount.toFixed(2) } : {}),
+          ...(booking.freq && booking.freq.id !== 'one-off' ? { frequency: booking.freq.label, freqSaving: booking.freq.saving } : {}),
         }));
         sessionStorage.removeItem('bookingSession');
         setLoading(false);
