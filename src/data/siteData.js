@@ -73,8 +73,8 @@ export const PROPERTY_TYPES = [
 export const PACKAGES = [
   {
     id: 'refresh', name: 'The Essential Reset', popular: false,
-    desc: 'Your home is left clean, tidy, and refreshed. Estimated 2–5hrs depending on property size.',
-    tags: ['Whole home', 'Photos sent', 'Fragrance finish'],
+    desc: 'This service focuses on visible cleanliness and overall reset. Heavier buildup or stubborn marks may require a Deep Reset. Typically 3–4 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
+    tags: ['Whole home', 'Photos sent'],
     showFreq: true, showAddons: true,
     sizes: [
       { id: 'studio', label: 'Studio',    basePrice: 115  },
@@ -86,7 +86,7 @@ export const PACKAGES = [
   },
   {
     id: 'standard', name: 'Signature Hotel Reset', popular: true, launchOffer: 0.5,
-    desc: 'Designed to make your home feel calm, clear, and taken care of. Estimated 3–6 hrs depending on property size.',
+    desc: 'Designed to create a calm, refined, hotel-like finish in your home. Typically 3.5–4.5 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
     tags: ['Whole home', 'Same cleaner', 'Linen change', 'Hotel finish'],
     showFreq: true, showAddons: true,
     sizes: [
