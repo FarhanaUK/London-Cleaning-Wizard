@@ -6,7 +6,7 @@ import { usePromotion } from "../hooks/usePromotion";
 
 const SEGMENT_STYLE_MAP = {
   bold:   { fontWeight: 600, letterSpacing: '0.22em' },
-  light:  { fontWeight: 300, letterSpacing: '0.12em', color: 'rgba(252,165,165,0.65)' },
+  light:  { fontWeight: 300, letterSpacing: '0.12em' },
   italic: { fontStyle: 'italic', fontWeight: 300 },
   serif:  { fontFamily: "'Cormorant Garamond', serif", fontWeight: 400 },
 };
@@ -68,7 +68,7 @@ export default function Hero({ onScrollTo }) {
           <div style={{
             display: 'flex',
             width: 'max-content',
-            animation: 'launchMarquee 18s linear infinite',
+            animation: 'launchMarquee 28s linear infinite',
             willChange: 'transform',
           }}>
             {[0, 1].map(group => (
