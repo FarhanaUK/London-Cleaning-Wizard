@@ -1,4 +1,4 @@
-export const PHOTOS = {
+﻿export const PHOTOS = {
   hero:     "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1600&q=85&fit=crop",
   kitchen:  "https://images.unsplash.com/photo-1556909172-54557c7e4fb7?w=900&q=80&fit=crop",
   living:   "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=900&q=80&fit=crop",
@@ -13,21 +13,21 @@ export const PHOTOS = {
 export const HERO_IMAGE = "/wizard.png";
 
 export const SERVICES = [
-  { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly · Monthly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "The Essential Reset",       alt: "Regularly cleaned living room in East London home" },
-  { img: PHOTOS.kitchen,  title: "Deep Kitchen Clean",  tag: "One-off · Seasonal",     desc: "Degreasing, descaling and scrubbing every surface until your kitchen gleams like new.", spell: "The Gleam Enchantment", alt: "Professionally deep cleaned kitchen in East London" },
-  { img: PHOTOS.bathroom, title: "Bathroom & Ensuite",  tag: "Luxury standard",  desc: "Sanitised to perfection. Limescale banished, surfaces polished, mirrors streak-free.", spell: "The Purity Ritual",     alt: "Spotless cleaned bathroom and ensuite in East London" },
-  { img: PHOTOS.bedroom,  title: "Bedroom Refresh",     tag: "Linen change available", desc: "Fresh, airy bedrooms. Dusting, vacuuming, linen changes and meticulous attention.", spell: "The Serenity Cast",       alt: "Fresh and clean bedroom refresh service in East London" },
-  { img: PHOTOS.hallway,  title: "Airbnb/End of Tenancy", tag: "Maximise your deposit return",     desc: "A landlord-approved full clean. Every inch, every surface — nothing left to chance.", spell: "The Grand Restoration", alt: "End of tenancy clean in East London rental property" },
+  { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly · Monthly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "The Essential Reset",       alt: "Regularly cleaned living room in London home" },
+  { img: PHOTOS.kitchen,  title: "Deep Kitchen Clean",  tag: "One-off · Seasonal",     desc: "Degreasing, descaling and scrubbing every surface until your kitchen gleams like new.", spell: "The Gleam Enchantment", alt: "Professionally deep cleaned kitchen in London" },
+  { img: PHOTOS.bathroom, title: "Bathroom & Ensuite",  tag: "Luxury standard",  desc: "Sanitised to perfection. Limescale banished, surfaces polished, mirrors streak-free.", spell: "The Purity Ritual",     alt: "Spotless cleaned bathroom and ensuite in London" },
+  { img: PHOTOS.bedroom,  title: "Bedroom Refresh",     tag: "Linen change available", desc: "Fresh, airy bedrooms. Dusting, vacuuming, linen changes and meticulous attention.", spell: "The Serenity Cast",       alt: "Fresh and clean bedroom refresh service in London" },
+  { img: PHOTOS.hallway,  title: "Airbnb/End of Tenancy", tag: "Maximise your deposit return",     desc: "A landlord-approved full clean. Every inch, every surface — nothing left to chance.", spell: "The Grand Restoration", alt: "End of tenancy clean in London rental property" },
   { img: PHOTOS.cleaner1, title: "Move-In Preparation", tag: "Fresh start",            desc: "Move into a home that feels truly yours from day one. Magic from the very first step.", spell: "The Welcome Charm",    alt: "Move-in cleaning preparation service by London Cleaning Wizard" },
 ];
 
 export const GALLERY = [
-  { img: PHOTOS.kitchen,  label: "Kitchen",     alt: "Professionally cleaned kitchen in East London" },
+  { img: PHOTOS.kitchen,  label: "Kitchen",     alt: "Professionally cleaned kitchen in London" },
   { img: PHOTOS.living,   label: "Living Room", alt: "Spotless living room cleaned by London Cleaning Wizard" },
-  { img: PHOTOS.bathroom, label: "Bathroom",    alt: "Gleaming bathroom cleaned in East London home" },
-  { img: PHOTOS.bedroom,  label: "Bedroom",     alt: "Fresh bedroom after professional clean in East London" },
-  { img: PHOTOS.hallway,  label: "Hallway",     alt: "Clean bright hallway in East London property" },
-  { img: PHOTOS.dining,   label: "Dining Room", alt: "Professionally cleaned dining room in East London" },
+  { img: PHOTOS.bathroom, label: "Bathroom",    alt: "Gleaming bathroom cleaned in London home" },
+  { img: PHOTOS.bedroom,  label: "Bedroom",     alt: "Fresh bedroom after professional clean in London" },
+  { img: PHOTOS.hallway,  label: "Hallway",     alt: "Clean bright hallway in London property" },
+  { img: PHOTOS.dining,   label: "Dining Room", alt: "Professionally cleaned dining room in London" },
 ];
 
 export const TESTIMONIALS = [

@@ -1,4 +1,4 @@
-import { Sparkle } from "./Icons";
+﻿import { Sparkle } from "./Icons";
 import Reveal from "./Reveal";
 import { AREAS } from "../data/siteData";
 import { useState, useEffect } from "react";
@@ -21,7 +21,7 @@ export default function Areas() {
   return (
     <section
     id="areas"
-      aria-label="Areas we serve in East London"
+      aria-label="Areas we serve in London"
       style={{ padding: isMobile ? "60px 20px" : "80px clamp(24px, 6vw, 100px)", background: "#f2ede6", position: "relative", overflow: "hidden" }}
     >
       <Reveal>
@@ -47,7 +47,7 @@ export default function Areas() {
             color: "#1a1410",
             lineHeight: 1.1,
           }}>
-            Serving <em>East London</em>
+            Serving <em>London</em>
           </h2>
           <p style={{
             fontFamily: "'Jost', sans-serif",
@@ -58,7 +58,7 @@ export default function Areas() {
             maxWidth: 500,
             margin: "16px auto 0",
           }}>
-            We cover all major East London postcodes. If you don't see your area listed, get in touch, we may still be able to help.
+            We cover all major London postcodes. If you don't see your area listed, get in touch, we may still be able to help.
           </p>
         </div>
       </Reveal>

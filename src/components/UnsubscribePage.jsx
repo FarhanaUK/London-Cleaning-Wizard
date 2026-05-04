@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 export default function UnsubscribePage() {
@@ -26,7 +26,7 @@ export default function UnsubscribePage() {
           London Cleaning Wizard
         </div>
         <div style={{ color: 'rgba(200,184,154,0.6)', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', marginTop: 4 }}>
-          Est. East London
+          Est. London
         </div>
       </div>
 

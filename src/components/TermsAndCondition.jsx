@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 
 export default function TermsAndConditions() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -76,7 +76,7 @@ export default function TermsAndConditions() {
                     <li key={s}>{s}</li>
                   ))}
                 </ul>
-                <p style={{ marginTop: 16 }}>Our services primarily cover East London. We may accept bookings outside of this area at our discretion. Additional travel or service fees may apply for locations outside East London. Service availability depends on location and scheduling.</p>
+                <p style={{ marginTop: 16 }}>Our services primarily cover London. We may accept bookings outside of this area at our discretion. Additional travel or service fees may apply for locations outside London. Service availability depends on location and scheduling.</p>
               </>
             ),
           },

@@ -158,7 +158,7 @@ export default function Hero({ onScrollTo }) {
                   cursor: "pointer",
                 }}
               >
-                <WandIcon size={13} color="#c8b89a" /> Book a Reset
+                <WandIcon size={13} color="#c8b89a" /> Book a Clean
               </button>
              
             </div>
@@ -168,7 +168,7 @@ export default function Hero({ onScrollTo }) {
           <div style={{ position: "relative", height: "40vh", overflow: "hidden", flexShrink: 0, marginTop: -30 }}>
             <img
               src={HERO_IMAGE}
-              alt="Professional home cleaning service in East London by London Cleaning Wizard"
+              alt="Professional home cleaning service in London by London Cleaning Wizard"
               style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%" }}
             />
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, background: "linear-gradient(to top, #45413D, transparent)" }} />
@@ -178,7 +178,7 @@ export default function Hero({ onScrollTo }) {
           <div style={{ padding: "24px 20px 48px", flex: 1 }}>
 
             <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, margin: 0 }}>
-              Professional Home Cleaning Services in East London, London
+              Professional Home Cleaning Services in London
             </h1>
 
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 10, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
@@ -228,7 +228,7 @@ End of Tenancy | Airbnb Services
           <div style={{ position: "relative", height: "50vh", overflow: "hidden", flexShrink: 0 }}>
             <img
               src={HERO_IMAGE}
-              alt="Professional home cleaning service in East London by London Cleaning Wizard"
+              alt="Professional home cleaning service in London by London Cleaning Wizard"
               style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%" }}
             />
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, background: "linear-gradient(to top, #45413D, transparent)" }} />
@@ -266,7 +266,7 @@ End of Tenancy | Airbnb Services
           <div style={{ padding: "40px 48px 60px" }}>
 
             <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, margin: 0 }}>
-              Professional Home Cleaning Services in East London, London
+              Professional Home Cleaning Services in London
             </h1>
 
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 15, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
@@ -282,7 +282,7 @@ End of Tenancy | Airbnb Services
               Transforming,
             </p>
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 300, lineHeight: 1.02, marginBottom: 24, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-              <span style={{ color: "#e8d9c0" }}>East London Homes</span>
+              <span style={{ color: "#e8d9c0" }}>London Homes</span>
               <span style={{ color: "#c8b89a", marginLeft: 12 }}>✦</span>
             </p>
 
@@ -325,7 +325,7 @@ End of Tenancy | Airbnb Services
             <div style={{ maxWidth: 520, width: "100%" }}>
 
               <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, margin: 0 }}>
-                Professional Home Cleaning Services in East London, London
+                Professional Home Cleaning Services in London
               </h1>
 
               <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, letterSpacing: "0.2em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
@@ -341,7 +341,7 @@ End of Tenancy | Airbnb Services
                 Transforming,
               </p>
               <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 4.5vw, 72px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic", whiteSpace: "nowrap" }}>
-                <span style={{ color: "#e8d9c0" }}>East London Homes</span>
+                <span style={{ color: "#e8d9c0" }}>London Homes</span>
                 <span style={{ color: "#c8b89a", marginLeft: 14 }}>✦</span>
               </p>
 
@@ -371,7 +371,7 @@ End of Tenancy | Airbnb Services
           <div style={{ position: "relative" }}>
             <img
               src={HERO_IMAGE}
-              alt="Professional home cleaning service in East London by London Cleaning Wizard"
+              alt="Professional home cleaning service in London by London Cleaning Wizard"
               style={{ position: "absolute", top: 0, left: "-35%", width: "120%", height: "100%", objectFit: "cover", objectPosition: "30% 40%" }}
             />
 
@@ -399,7 +399,7 @@ End of Tenancy | Airbnb Services
                   cursor: "pointer",
                 }}
               >
-                <WandIcon size={13} color="#c8b89a" /> Book a Reset
+                <WandIcon size={13} color="#c8b89a" /> Book a Clean
               </button>
 
   

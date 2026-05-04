@@ -1,4 +1,4 @@
-import { Sparkle, LogoMark } from "./Icons";
+﻿import { Sparkle, LogoMark } from "./Icons";
 import { NAV_LINKS } from "../data/siteData";
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -119,7 +119,7 @@ export default function Footer() {
                 marginTop: 3,
               }}
             >
-              Residential Cleaning · East London
+              Residential Cleaning · London
             </div>
           </div>
         </div>
@@ -244,7 +244,7 @@ export default function Footer() {
               letterSpacing: "0.1em",
             }}
           >
-            Crafted with care · East London
+            Crafted with care · London
           </p>
           <Sparkle size={8} color="#8b7355" />
         </div>

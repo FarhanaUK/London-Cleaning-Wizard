@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Sparkle, WandIcon } from "./Icons";
 import Reveal from "./Reveal";
 import { PHOTOS } from "../data/siteData";
@@ -34,8 +34,8 @@ export default function About() {
       style={{ padding: isMobile ? "60px 20px" : "100px clamp(24px, 6vw, 100px)", background: "#faf9f7" }}
     >
       <meta itemProp="name" content="London Cleaning Wizard" />
-      <meta itemProp="description" content="Professional residential cleaning services in East London. DBS-checked, eco-friendly, fully insured cleaning team." />
-      <meta itemProp="areaServed" content="East London" />
+      <meta itemProp="description" content="Professional residential cleaning services in London. DBS-checked, eco-friendly, fully insured cleaning team." />
+      <meta itemProp="areaServed" content="London" />
 
       <div style={{
         display: "grid",
@@ -51,7 +51,7 @@ export default function About() {
           <div style={{ position: "relative", maxWidth: isMobile ? "100%" : isTablet ? 480 : "100%", margin: isMobile || isTablet ? "0 auto" : 0 }}>
             <img
               src={PHOTOS.cleaner1}
-              alt="London Cleaning Wizard professional cleaning team in East London"
+              alt="London Cleaning Wizard professional cleaning team in London"
               itemProp="image"
               style={{
                 width: "100%",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Sparkle } from "./Icons";
 import Reveal from "./Reveal";
 import { GALLERY } from "../data/siteData";
@@ -83,7 +83,7 @@ export default function Gallery() {
               maxWidth: isMobile ? "100%" : 300,
               fontWeight: 300,
             }}>
-              Every image is from a real East London home. No staging, just genuine, magical results.
+              Every image is from a real London home. No staging, just genuine, magical results.
             </p>
           </div>
         </Reveal>
@@ -199,7 +199,7 @@ export default function Gallery() {
           <div style={{ textAlign: "center", marginTop: 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
             <Sparkle size={9} color="#c8b89a" />
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: isMobile ? 13 : 16, letterSpacing: "0.12em", color: "#8b7355" }}>
-              {isMobile ? "Tap any image to enlarge" : "Click any image to enlarge · All photos from real East London homes"}
+              {isMobile ? "Tap any image to enlarge" : "Click any image to enlarge · All photos from real London homes"}
             </p>
             <Sparkle size={9} color="#c8b89a" />
           </div>

@@ -1,4 +1,4 @@
-export const RULES = {
+﻿export const RULES = {
   firstName: { test: v => v.trim().length >= 2,                                                        msg: 'Please enter your first name.' },
   lastName:  { test: v => v.trim().length >= 2,                                                        msg: 'Please enter your last name.' },
   email:     { test: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()),                                msg: 'Please enter a valid email address.' },
@@ -14,7 +14,7 @@ export const RULES = {
     msg: 'Please enter a valid UK mobile or landline number.'
   },
 
-  postcode:  { test: v => /^(E[0-9]{1,2}[A-Z]?|EC[0-9][A-Z]?|IG([1-9]|10|11))\s?[0-9][A-Z]{2}$/i.test(v.trim()), msg: 'We currently only cover East London postcodes (E1–E20, EC1–EC4, IG1–IG11). We may clean outside this area at our discretion — please call us on 020 8137 0026 to enquire.' },
+  postcode:  { test: v => /^(E[0-9]{1,2}[A-Z]?|EC[0-9][A-Z]?|IG([1-9]|10|11))\s?[0-9][A-Z]{2}$/i.test(v.trim()), msg: 'We currently only cover London postcodes (E1–E20, EC1–EC4, IG1–IG11). We may clean outside this area at our discretion — please call us on 020 8137 0026 to enquire.' },
   addr1:     { test: v => v.trim().length >= 5,                                                        msg: 'Please enter your address.' },
 };
 

@@ -1,4 +1,4 @@
-
+﻿
 import { Sparkle } from "./Icons";
 import Reveal from "./Reveal";
 import { TESTIMONIALS } from "../data/siteData";
@@ -53,7 +53,7 @@ export default function Testimonials() {
               <div style={{ borderTop: `1px solid ${i === 1 ? "rgba(44,36,32,0.18)" : "rgba(200,184,154,0.15)"}`, paddingTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, color: i === 1 ? "#2c2420" : "#f5f0e8" }}>{t.name}</div>
-                  <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.16em", color: i === 1 ? "#6b5e52" : "#8b7355", textTransform: "uppercase", marginTop: 3 }}>{t.area} · East London</div>
+                  <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.16em", color: i === 1 ? "#6b5e52" : "#8b7355", textTransform: "uppercase", marginTop: 3 }}>{t.area} · London</div>
                 </div>
                 <div style={{ display: "flex", gap: 2 }}>
                   {[...Array(t.stars)].map((_, si) => (

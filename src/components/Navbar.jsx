@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { LogoMark, WandIcon } from "./Icons";
 import { NAV_LINKS } from "../data/siteData";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -95,7 +95,7 @@ export default function Navbar() {
               textTransform: "uppercase",
               marginTop: 1,
             }}>
-              Est. East London
+              Est. London
             </div>
           </div>
         </div>
