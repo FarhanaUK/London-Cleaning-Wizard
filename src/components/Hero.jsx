@@ -86,11 +86,11 @@ export default function Hero({ onScrollTo }) {
                   }}>
                     {(promotion?.banner || []).map((seg, si) => (
                       <span key={si} style={SEGMENT_STYLE_MAP[seg.style] || {}}>
-                        {si > 0 && <span style={{ color: '#fca5a5', marginRight: 10 }}>âœ¦</span>}
+                        {si > 0 && <span style={{ color: '#fca5a5', marginRight: 10 }}>✦</span>}
                         {seg.text}
                       </span>
                     ))}
-                    <span style={{ color: '#fca5a5', fontSize: 14, marginLeft: 6 }}>âœ¦</span>
+                    <span style={{ color: '#fca5a5', fontSize: 14, marginLeft: 6 }}>✦</span>
                   </span>
                 ))}
               </div>
@@ -195,7 +195,7 @@ End of Tenancy | Airbnb Services
             </p>
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(36px, 9vw, 52px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 4, letterSpacing: "-0.015em", fontStyle: "italic" }}>
               <span style={{ color: "#e8d9c0" }}>London Homes</span>
-              <span style={{ color: "#c8b89a", marginLeft: 10 }}>âœ¦</span>
+              <span style={{ color: "#c8b89a", marginLeft: 10 }}>✦</span>
             </p>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 13, lineHeight: 1.8, color: "rgba(245,240,232,0.65)", marginBottom: 28, fontWeight: 300 }}>
@@ -283,7 +283,7 @@ End of Tenancy | Airbnb Services
             </p>
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 300, lineHeight: 1.02, marginBottom: 24, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic" }}>
               <span style={{ color: "#e8d9c0" }}>East London Homes</span>
-              <span style={{ color: "#c8b89a", marginLeft: 12 }}>âœ¦</span>
+              <span style={{ color: "#c8b89a", marginLeft: 12 }}>✦</span>
             </p>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 500, marginBottom: 36, fontWeight: 300 }}>
@@ -342,7 +342,7 @@ End of Tenancy | Airbnb Services
               </p>
               <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 4.5vw, 72px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic", whiteSpace: "nowrap" }}>
                 <span style={{ color: "#e8d9c0" }}>East London Homes</span>
-                <span style={{ color: "#c8b89a", marginLeft: 14 }}>âœ¦</span>
+                <span style={{ color: "#c8b89a", marginLeft: 14 }}>✦</span>
               </p>
 
               <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 400, marginBottom: 44, fontWeight: 300 }}>
