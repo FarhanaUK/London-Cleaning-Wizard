@@ -50,7 +50,7 @@ export const AREAS = [
   "Marylebone", "Clerkenwell",
   // West
   "Kensington", "Chelsea", "Fulham", "Notting Hill",
-  "Hammersmith", "Chiswick", "Ealing", "Shepherd's Bush",
+  "Hammersmith", "Shepherd's Bush",
   // South
   "Brixton", "Clapham", "Battersea", "Bermondsey",
   "Peckham", "Greenwich", "Lewisham", "Vauxhall",
