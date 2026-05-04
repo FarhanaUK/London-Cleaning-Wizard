@@ -188,6 +188,19 @@ export default function SOPTab({ isMobile, C }) {
         </div>
       </Section>
 
+      <Section title="Changing a Recurring Customer's Clean Day" C={C}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+          If a recurring customer wants to move their clean to a different day of the week (e.g. from every Monday to every Friday), you can update all future bookings in one action without cancelling or rebuilding the series.
+        </div>
+        <Row C={C} label="Step 1" value="Go to Bookings tab and find any upcoming booking in their recurring series" note="It does not matter which one — just pick the next scheduled one." />
+        <Row C={C} label="Step 2" value="Click Edit Booking and change the date to the new day" note="For example, if they want to move from Monday 12th to Friday — change the date to Friday 16th. The system uses the day of the week you pick, not the exact date." />
+        <Row C={C} label="Step 3" value='In the "Apply changes to" selector choose "This and all future bookings"' note="This is the key step. If you only choose This booking only, only that one date changes." />
+        <Row C={C} label="Step 4" value="Save — all future bookings shift to the new day" note="Every upcoming booking in the series is moved to the equivalent day in its own week. Their customer profile is also updated so the scheduler creates all new bookings on the correct day going forward." />
+        <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginTop: 4, fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+          <strong style={{ color: C.text }}>Note:</strong> This also works for changing the time. Change the date and/or time in the edit form, select This and all future bookings, and both the day and time will update across all upcoming bookings.
+        </div>
+      </Section>
+
       <Section title="System Alerts & What To Do" C={C}>
         <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
           This system saves everything to a cloud database (Firebase/Firestore) in real time. If a save fails, you will see an alert pop-up. Below is what each alert means and exactly what to do.

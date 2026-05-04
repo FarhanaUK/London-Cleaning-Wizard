@@ -62,10 +62,10 @@ export default function BookingExpandedPanel({
   };
 
   const saveDoNotContact = next => {
-    setBookings(prev => prev.map(x => x.id === b.id ? { ...x, doNotContact: next } : x));
+    setBookings(prev => prev.map(x => x.email === b.email ? { ...x, doNotContact: next } : x));
     fetch(import.meta.env.VITE_CF_SET_DO_NOT_CONTACT, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId: b.id, doNotContact: next }),
+      body: JSON.stringify({ email: b.email, doNotContact: next }),
     }).catch(() => {});
   };
 

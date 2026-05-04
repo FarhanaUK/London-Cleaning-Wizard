@@ -43,6 +43,9 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
   const [freqFilter,   setFreqFilter]   = useState(() => localStorage.getItem('bkFreq')   || 'all');
   const [searchQuery,  setSearchQuery]  = useState('');
 
+  // Pagination
+  const [page, setPage] = useState(1);
+
   // Expand / UI state
   const [expanded,  setExpanded]  = useState(null);
   const [statsOpen, setStatsOpen] = useState(false);
@@ -64,13 +67,49 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
   // New Booking modal state
   const [showNewBooking, setShowNewBooking] = useState(false);
 
+  const exportCSV = () => {
+    const headers = [
+      'Booked On', 'Booking Ref', 'First Name', 'Last Name', 'Email', 'Phone',
+      'Clean Date', 'Clean Time', 'Package', 'Property Type', 'Size',
+      'Address', 'Postcode', 'Floor/Access', 'Parking', 'Keys',
+      'Frequency', 'Add-ons', 'Pets', 'Signature Touch', 'Notes',
+      'Total', 'Deposit', 'Remaining', 'Status',
+    ];
+    const escape = v => {
+      const s = v == null ? '' : String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = displayedBookings.map(b => [
+      fmtCreatedAt(b.createdAt), b.bookingRef, b.firstName, b.lastName, b.email, b.phone,
+      fmtDate(b.cleanDate), b.cleanTime, b.packageName, b.propertyType, b.size,
+      b.addr1, b.postcode, b.floor || '', b.parking || '', b.keys || '',
+      b.frequency || 'one-off',
+      b.addons?.length ? b.addons.map(a => a.name).join('; ') : '',
+      b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No',
+      b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : 'Opted in',
+      b.notes || '',
+      b.total, b.deposit, b.remaining,
+      STATUS_COLOURS[b.status]?.label || b.status,
+    ].map(escape).join(','));
+    const csv = [headers.map(escape).join(','), ...rows].join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bookings-${dateFrom}-to-${dateTo}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Persist filters
   useEffect(() => { localStorage.setItem('bkPreset', preset);       }, [preset]);
   useEffect(() => { localStorage.setItem('bkStatus', statusFilter); }, [statusFilter]);
   useEffect(() => { localStorage.setItem('bkFreq',   freqFilter);   }, [freqFilter]);
 
+
   const applyPreset = p => {
-    setPreset(p);
+    setPreset(p); setPage(1);
     if (p === 'today') {
       setDateFrom(today); setDateTo(today);
     } else if (p === 'week') {
@@ -130,6 +169,11 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
     .sort((a, b) => a.cleanDate === b.cleanDate
       ? (a.cleanTime || '').localeCompare(b.cleanTime || '')
       : a.cleanDate.localeCompare(b.cleanDate));
+
+  const PAGE_SIZE   = 10;
+  const totalPages  = Math.max(1, Math.ceil(displayedBookings.length / PAGE_SIZE));
+  const safePage    = Math.min(page, totalPages);
+  const pagedBookings = displayedBookings.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Derived stats
   const activeBookings         = displayedBookings.filter(b => !b.status?.startsWith('cancelled'));
@@ -266,13 +310,18 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
             type="text"
             placeholder="Search by name, email, booking ref, phone, postcode…"
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
             style={{ width: '100%', padding: '10px 36px 10px 14px', fontFamily: FONT, fontSize: 13, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, outline: 'none', boxSizing: 'border-box' }}
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: C.muted, lineHeight: 1 }}>×</button>
           )}
         </div>
+        {displayedBookings.length > 0 && (
+          <button onClick={exportCSV} style={{ ...BTN, whiteSpace: 'nowrap', background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontWeight: 500 }}>
+            ⬇ CSV
+          </button>
+        )}
         <button onClick={() => setShowNewBooking(true)} style={{ ...BTN, whiteSpace: 'nowrap', background: '#2563eb', color: '#fff', fontWeight: 600 }}>
           + New Booking
         </button>
@@ -290,9 +339,9 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
             </select>
             {preset !== 'all' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input type="date" value={dateFrom} min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateFrom(e.target.value); setPreset('custom'); }} style={{ ...DATE_INPUT, flex: 1 }} />
+                <input type="date" value={dateFrom} min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateFrom(e.target.value); setPreset('custom'); setPage(1); }} style={{ ...DATE_INPUT, flex: 1 }} />
                 <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>to</span>
-                <input type="date" value={dateTo}   min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateTo(e.target.value);   setPreset('custom'); }} style={{ ...DATE_INPUT, flex: 1 }} />
+                <input type="date" value={dateTo}   min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateTo(e.target.value); setPreset('custom'); setPage(1); }} style={{ ...DATE_INPUT, flex: 1 }} />
               </div>
             )}
           </div>
@@ -307,9 +356,9 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
             </div>
             {preset !== 'all' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-                <input type="date" value={dateFrom} min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateFrom(e.target.value); setPreset('custom'); }} style={DATE_INPUT} />
+                <input type="date" value={dateFrom} min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateFrom(e.target.value); setPreset('custom'); setPage(1); }} style={DATE_INPUT} />
                 <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>to</span>
-                <input type="date" value={dateTo}   min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateTo(e.target.value);   setPreset('custom'); }} style={DATE_INPUT} />
+                <input type="date" value={dateTo}   min={`${year}-01-01`} max={`${year}-12-31`} onChange={e => { setDateTo(e.target.value); setPreset('custom'); setPage(1); }} style={DATE_INPUT} />
               </div>
             )}
           </div>
@@ -318,7 +367,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
 
       {/* Status + Frequency filters */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...DATE_INPUT, flex: 1, minWidth: 160 }}>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} style={{ ...DATE_INPUT, flex: 1, minWidth: 160 }}>
           <option value="all">All Statuses</option>
           <option value="pending_deposit">Awaiting Deposit</option>
           <option value="deposit_paid">Deposit Paid — Balance Due</option>
@@ -330,7 +379,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
           <option value="phone">Phone Bookings</option>
           <option value="website">Website Bookings</option>
         </select>
-        <select value={freqFilter} onChange={e => setFreqFilter(e.target.value)} style={{ ...DATE_INPUT, flex: 1, minWidth: 160 }}>
+        <select value={freqFilter} onChange={e => { setFreqFilter(e.target.value); setPage(1); }} style={{ ...DATE_INPUT, flex: 1, minWidth: 160 }}>
           <option value="all">All Frequencies</option>
           <option value="one-off">One-off</option>
           <option value="weekly">Weekly</option>
@@ -415,17 +464,17 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, paddingLeft: 4 }}>
           <input
             type="checkbox"
-            checked={displayedBookings.length > 0 && displayedBookings.every(b => selected.has(b.id))}
-            onChange={e => setSelected(e.target.checked ? new Set(displayedBookings.map(b => b.id)) : new Set())}
+            checked={pagedBookings.length > 0 && pagedBookings.every(b => selected.has(b.id))}
+            onChange={e => setSelected(e.target.checked ? new Set(pagedBookings.map(b => b.id)) : new Set())}
             style={{ width: 15, height: 15, accentColor: C.accent, cursor: 'pointer' }}
           />
           <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted, cursor: 'pointer' }}
             onClick={() => {
-              const allSelected = displayedBookings.every(b => selected.has(b.id));
-              setSelected(allSelected ? new Set() : new Set(displayedBookings.map(b => b.id)));
+              const allSelected = pagedBookings.every(b => selected.has(b.id));
+              setSelected(allSelected ? new Set() : new Set(pagedBookings.map(b => b.id)));
             }}
           >
-            Select all ({displayedBookings.length})
+            Select all ({pagedBookings.length})
           </span>
         </div>
       )}
@@ -437,7 +486,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
             No bookings found.
           </div>
         )}
-        {displayedBookings.map(b => {
+        {pagedBookings.map(b => {
           const sc = STATUS_COLOURS[b.status] || { bg: '#f5f5f5', color: '#5a5a5a', label: b.status };
           const isOpen = expanded === b.id;
           return (
@@ -506,6 +555,29 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
           );
         })}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '20px 0', fontFamily: FONT }}>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={safePage === 1}
+            style={{ fontSize: 13, padding: '7px 16px', border: `1px solid ${C.border}`, borderRadius: 6, background: safePage === 1 ? C.surface : C.text, color: safePage === 1 ? C.muted : '#fff', cursor: safePage === 1 ? 'not-allowed' : 'pointer' }}
+          >
+            Previous
+          </button>
+          <span style={{ fontSize: 13, color: C.muted }}>
+            Page {safePage} of {totalPages} &nbsp;·&nbsp; {displayedBookings.length} bookings
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={safePage === totalPages}
+            style={{ fontSize: 13, padding: '7px 16px', border: `1px solid ${C.border}`, borderRadius: 6, background: safePage === totalPages ? C.surface : C.text, color: safePage === totalPages ? C.muted : '#fff', cursor: safePage === totalPages ? 'not-allowed' : 'pointer' }}
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       {/* New Booking Modal */}
       <NewBookingModal

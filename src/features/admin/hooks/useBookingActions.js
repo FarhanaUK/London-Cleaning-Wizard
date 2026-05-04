@@ -146,7 +146,22 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
         ? `Full refund of £${refundAmt} will be issued (more than 48hrs notice).`
         : `No refund will be issued (less than 48hrs notice).`;
     }
-    if (!window.confirm(`Cancel this booking?\n\n${msg}\n\nThis cannot be undone.`)) return;
+
+    let consecutiveWarning = '';
+    if (booking.isAutoRecurring) {
+      const series = bookings
+        .filter(b => b.isAutoRecurring && b.id !== booking.id && (
+          booking.recurringId ? b.recurringId === booking.recurringId : b.email === booking.email
+        ))
+        .sort((a, b) => a.cleanDate.localeCompare(b.cleanDate));
+      const prevBooking = [...series].filter(b => b.cleanDate < booking.cleanDate).pop();
+      const nextBooking = series.find(b => b.cleanDate > booking.cleanDate);
+      if (prevBooking?.status?.startsWith('cancelled') || nextBooking?.status?.startsWith('cancelled')) {
+        consecutiveWarning = `\n\n⚠️ SERIES WILL BE STOPPED: This is the 2nd consecutive cancellation. Confirming will automatically stop the recurring series and remove all future scheduled bookings. ${booking.firstName} ${booking.lastName} will need to rebook from scratch at full price.`;
+      }
+    }
+
+    if (!window.confirm(`Cancel this booking?\n\n${msg}${consecutiveWarning}\n\nThis cannot be undone.`)) return;
     setCancelling(booking.id); setCancelErr('');
     try {
       const res  = await fetch(import.meta.env.VITE_CF_CANCEL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: booking.id, reason: 'Cancelled by admin' }) });

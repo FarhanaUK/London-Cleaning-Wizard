@@ -262,8 +262,9 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
     }
   }
 
-  const ref = `LCW-${Date.now().toString().slice(-6)}`;
-  const id  = db.collection('bookings').doc().id;
+  const ref        = `LCW-${Date.now().toString().slice(-6)}`;
+  const id         = db.collection('bookings').doc().id;
+  const recurringId = (d.frequency && d.frequency !== 'one-off') ? 'RS' + Date.now().toString(36).toUpperCase() : null;
 
   // If this is a real Stripe payment, claim the pendingBookings doc atomically.
   // This ensures only one path (saveBooking or webhook) creates the booking.
@@ -326,6 +327,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       ...(d.stripeCustomerId ? { stripeCustomerId: d.stripeCustomerId } : {}),
       ...(d.frequency && d.frequency !== 'one-off' ? {
         recurringActive:      true,
+        recurringId:          recurringId,
         recurringFrequency:   d.frequency,
         recurringDay:         new Date(d.cleanDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long' }),
         recurringTime:        d.cleanTime,
@@ -465,6 +467,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
             stripeCustomerId: d.stripeCustomerId || '',
             status: 'scheduled', isPhoneBooking: false,
             isAutoRecurring: true, source: clean(d.source||''),
+            recurringId: recurringId || '',
             createdAt: new Date(),
           };
           await db.collection('bookings').doc(rId).set(recurringData);
@@ -810,15 +813,19 @@ async function checkConsecutiveCancellations(db, b, emailjsKey) {
   try {
     const email = b.email.toLowerCase();
 
-    // Fetch all auto-recurring bookings for this customer (simple single-field query)
-    const allSnap = await db.collection('bookings')
-      .where('email', '==', email)
-      .where('isAutoRecurring', '==', true)
-      .get();
+    // If the booking has a recurringId, only look at bookings in the same series
+    let allSnap;
+    if (b.recurringId) {
+      allSnap = await db.collection('bookings').where('recurringId', '==', b.recurringId).get();
+    } else {
+      allSnap = await db.collection('bookings')
+        .where('email', '==', email)
+        .where('isAutoRecurring', '==', true)
+        .get();
+    }
 
     if (allSnap.empty) return { consecutiveAlert: false };
 
-    // Sort by cleanDate ascending
     const all = allSnap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, z) => a.cleanDate.localeCompare(z.cleanDate));
@@ -1703,6 +1710,7 @@ exports.createRecurringBookings = onSchedule(
           status:          'scheduled',
           isPhoneBooking:  false,
           isAutoRecurring: true,
+          recurringId:     c.recurringId || '',
           source:          c.recurringSource || c.source || '',
           assignedStaff:   c.assignedStaff || '',
           createdAt:       new Date(),
@@ -1878,6 +1886,7 @@ exports.triggerSchedulerNow = onRequest({ secrets: [EMAILJS_KEY] }, async (req, 
           stripeCustomerId: c.stripeCustomerId || '',
           status: 'scheduled', isPhoneBooking: false,
           isAutoRecurring: true, source: c.recurringSource || c.source || '',
+          recurringId: c.recurringId || '',
           createdAt: new Date(),
         };
 
@@ -2158,6 +2167,7 @@ exports.stripeWebhook = onRequest(
         stripeCustomerId: pd.stripeCustomerId || pi.customer || '',
         ...(pd.frequency && pd.frequency !== 'one-off' ? {
           recurringActive:       true,
+          recurringId:           'RS' + Date.now().toString(36).toUpperCase(),
           recurringFrequency:    pd.frequency,
           recurringDay:          new Date(pd.cleanDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long' }),
           recurringTime:         pd.cleanTime,
@@ -2289,6 +2299,7 @@ exports.convertToRecurring = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
 
   const profileUpdates = {
     recurringActive: true,
+    recurringId:     'RS' + Date.now().toString(36).toUpperCase(),
     recurringFrequency: frequency,
     recurringDay,
     recurringTime: cleanTime,
@@ -2497,12 +2508,24 @@ exports.cleanupExpiredCodes = onSchedule('every 60 minutes', async () => {
 
 // ── Set do-not-contact flag on a booking (admin only) ────────
 exports.setDoNotContact = onRequest({ cors: ['https://londoncleaningwizard.com', 'http://localhost:5173', 'http://localhost:5174'] }, async (req, res) => {
-  const { bookingId, doNotContact } = req.body;
-  if (!bookingId || typeof doNotContact !== 'boolean') {
-    res.status(400).json({ error: 'Missing bookingId or doNotContact' }); return;
+  const { email, bookingId, doNotContact } = req.body;
+  if (typeof doNotContact !== 'boolean' || (!email && !bookingId)) {
+    res.status(400).json({ error: 'Missing email or bookingId, and doNotContact' }); return;
   }
   const db = admin.firestore();
-  await db.collection('bookings').doc(bookingId).update({ doNotContact });
+  let resolvedEmail = email;
+  if (!resolvedEmail && bookingId) {
+    const snap = await db.collection('bookings').doc(bookingId).get();
+    resolvedEmail = snap.data()?.email;
+  }
+  if (!resolvedEmail) { res.status(400).json({ error: 'Could not resolve email' }); return; }
+  const [bookingsSnap] = await Promise.all([
+    db.collection('bookings').where('email', '==', resolvedEmail).get(),
+    db.collection('customers').doc(resolvedEmail).set({ doNotContact }, { merge: true }),
+  ]);
+  const batch = db.batch();
+  bookingsSnap.docs.forEach(doc => batch.update(doc.ref, { doNotContact }));
+  await batch.commit();
   res.json({ ok: true });
 });
 
