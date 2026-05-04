@@ -228,7 +228,7 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
       const pkg  = PACKAGES.find(p => p.id === editData.packageId);
       const size = pkg?.sizes?.find(s => s.id === editData.sizeId);
       if (size && packageChanged) {
-        const freqObj = FREQUENCIES.find(f => f.id === editData.frequency) || { saving: 0 };
+        const freqObj = FREQUENCIES.find(f => f.id === (editBooking.frequency || 'one-off')) || { saving: 0 };
         const { subtotal } = calculateTotal({
           sizePrice: size.basePrice, propertyType: editBooking.propertyType,
           frequency: freqObj, addons: editData.addons || [],
@@ -248,8 +248,8 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
         return {
           ...x,
           ...editData,
-          package:     editData.packageId || x.package,
-          size:        editData.sizeId    || x.size,
+          package: editData.packageId || x.package,
+          size:    editData.sizeId    || x.size,
           ...(payload.total     !== undefined ? { total:     payload.total }     : {}),
           ...(payload.remaining !== undefined ? { remaining: payload.remaining } : {}),
         };

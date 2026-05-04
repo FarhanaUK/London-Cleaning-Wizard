@@ -18,14 +18,15 @@ const STATUS_COLOURS = {
 };
 
 const DOT_COLOURS = {
-  pending_deposit:  '#d97706',
-  deposit_paid:     '#2563eb',
-  fully_paid:       '#16a34a',
-  payment_failed:   '#dc2626',
-  cancelled_full:   '#94a3b8',
-  cancelled_late:   '#94a3b8',
-  cancelled_noshow: '#94a3b8',
-  completed:        '#16a34a',
+  pending_deposit:          '#d97706',
+  deposit_paid:             '#2563eb',
+  fully_paid:               '#16a34a',
+  payment_failed:           '#dc2626',
+  cancelled_full_refund:    '#94a3b8',
+  cancelled_partial_refund: '#94a3b8',
+  cancelled_no_refund:      '#94a3b8',
+  cancelled_late_fee:       '#94a3b8',
+  completed:                '#16a34a',
 };
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -35,6 +36,9 @@ function getDot(b) {
   if (b.frequency && b.frequency !== 'one-off') {
     const depositCollected = b.status === 'deposit_paid' || b.status === 'fully_paid';
     return depositCollected ? '#7c3aed' : '#eab308';
+  }
+  if (b.status === 'scheduled') {
+    return parseFloat(b.deposit) > 0 ? '#2563eb' : '#d97706';
   }
   return DOT_COLOURS[b.status] || '#94a3b8';
 }

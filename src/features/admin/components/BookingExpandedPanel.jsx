@@ -102,7 +102,7 @@ export default function BookingExpandedPanel({
           b.launchDiscount && { l: 'Launch offer',      v: `-£${parseFloat(b.launchDiscount).toFixed(2)}`, launch: true },
           { l: 'Deposit paid',     v: b.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(b.deposit).toFixed(2)}`, highlight: b.status === 'pending_deposit' },
           { l: 'Remaining',        v: `£${parseFloat(b.remaining).toFixed(2)}` },
-          { l: 'Source',           v: b.source || '—' },
+          !b.isAutoRecurring && { l: 'Source', v: b.source || '—' },
           b.stripeDepositIntentId   && { l: 'Stripe Deposit PI',   v: b.stripeDepositIntentId },
           b.stripeRemainingIntentId && { l: 'Stripe Remaining PI', v: b.stripeRemainingIntentId },
           b.stripeCustomerId        && { l: 'Stripe Customer ID',  v: b.stripeCustomerId },

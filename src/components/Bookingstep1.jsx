@@ -25,6 +25,7 @@ const PACKAGE_DETAIL = {
       {
         heading: 'Everything in Essential Reset, plus:',
         items: [
+          'Linen change',
           'Hotel-style bed presentation (tight, smooth, and styled)',
           'Cushions and soft furnishings neatly arranged',
           'Light decluttering and surface organisation',

@@ -1094,6 +1094,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
     hasPets, petTypes, signatureTouch, signatureTouchNotes,
     addr1, postcode, floor, parking, keys, notes,
     total, remaining, assignedStaff, actualStart, actualFinish,
+    isAutoRecurring,
   } = req.body;
   if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
   const db   = admin.firestore();
@@ -1131,6 +1132,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
   if (packageId !== undefined && packageId !== current.package) { updates.package = newPackageId; updates.packageName = newPackageName; changes.push(`Package: ${current.packageName} → ${newPackageName}`); }
   if (sizeId    !== undefined && sizeId    !== current.size)    { updates.size = newSizeId; changes.push(`Property size: ${current.size} → ${newSizeId}`); }
   if (frequency !== undefined && frequency !== current.frequency) { updates.frequency = newFrequency; changes.push(`Frequency: ${current.frequency || 'one-off'} → ${newFrequency}`); }
+  if (isAutoRecurring !== undefined) updates.isAutoRecurring = isAutoRecurring;
   if (addons !== undefined) {
     updates.addons = newAddons;
     const oldNames = (current.addons || []).map(a => a.name).sort().join(', ') || 'None';

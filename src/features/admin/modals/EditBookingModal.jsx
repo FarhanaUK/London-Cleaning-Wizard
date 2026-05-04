@@ -6,7 +6,7 @@ const FIELD  = C => ({ width: '100%', padding: '8px 12px', fontFamily: FONT, fon
 const LABEL  = { fontFamily: FONT, fontSize: 11, color: undefined, marginBottom: 4 };
 const SECTION = { fontFamily: FONT, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', margin: '20px 0 12px' };
 
-export default function EditBookingModal({ editBooking, editData, setEditData, editScope, setEditScope, editSaving, editErr, onClose, onSave, isMobile, C }) {
+export default function EditBookingModal({ editBooking, editData, setEditData, editScope, setEditScope, editSaving, editErr, onClose, onSave, qualifiesForRecurring, isMobile, C }) {
   if (!editBooking) return null;
 
   const currentPkg = PACKAGES.find(p => p.id === editData.packageId);
@@ -61,9 +61,10 @@ export default function EditBookingModal({ editBooking, editData, setEditData, e
         </FieldRow>
         {currentPkg?.showFreq && (
           <FieldRow label="Frequency" C={C}>
-            <select value={editData.frequency || 'one-off'} onChange={e => setEditData(p => ({ ...p, frequency: e.target.value }))} style={FIELD(C)}>
-              {FREQUENCIES.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
-            </select>
+            <div style={{ ...FIELD(C), background: C.bg, color: C.muted, cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>{FREQUENCIES.find(f => f.id === (editData.frequency || 'one-off'))?.label || 'One-off'}</span>
+              <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted }}>Use Stop Series or Convert to Recurring to change</span>
+            </div>
           </FieldRow>
         )}
         {currentPkg?.showAddons && (

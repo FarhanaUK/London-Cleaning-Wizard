@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { fmtDate } from '../utils';
 import { FREQUENCIES, PACKAGES, PROPERTY_TYPES } from '../../../data/siteData';
 import { TIMES } from '../../../constants/timeOptions';
+import NewBookingModal from '../modals/NewBookingModal';
 
 const RECURRING_PACKAGES = PACKAGES.filter(p => p.showFreq);
 
@@ -34,6 +35,11 @@ function DoNotContactToggle({ value, onChange }) {
   );
 }
 
+const BOOKING_API = {
+  getBlockedDates: import.meta.env.VITE_CF_GET_BLOCKED_DATES,
+  saveBooking:     import.meta.env.VITE_CF_SAVE_BOOKING,
+};
+
 export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
   const [customerSearch,   setCustomerSearch]   = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -41,6 +47,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
   const [editClientData,   setEditClientData]   = useState({});
   const [editClientSaving, setEditClientSaving] = useState(false);
   const [editClientErr,    setEditClientErr]    = useState('');
+  const [newBookingOpen,   setNewBookingOpen]   = useState(false);
   const [convertOpen,      setConvertOpen]      = useState(false);
   const [convertFreq,      setConvertFreq]      = useState('weekly');
   const [convertDate,      setConvertDate]      = useState('');
@@ -149,6 +156,12 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => setNewBookingOpen(true)}
+                      style={{ ...BTN, background: '#2c2420', color: '#f5f0e8', fontSize: 12 }}
+                    >
+                      + New Booking
+                    </button>
                     {canConvert && (
                       <button
                         onClick={() => { setConvertOpen(true); setConvertFreq('weekly'); setConvertDate(''); setConvertTime('9:00 AM'); setConvertErr(''); setConvertPkg(qualifyingBooking.package || 'refresh'); }}
@@ -223,6 +236,16 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
           ))}
         </div>
       )}
+
+      {/* New Booking Modal */}
+      <NewBookingModal
+        isOpen={newBookingOpen}
+        onClose={() => setNewBookingOpen(false)}
+        isMobile={isMobile}
+        C={C}
+        api={BOOKING_API}
+        initialCustomer={sc}
+      />
 
       {/* Convert to Recurring Modal */}
       {convertOpen && sc && (() => {

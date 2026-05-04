@@ -14,7 +14,7 @@ const isValidUKPhone    = p => /^(\+44\s?7\d{3}|\(?07\d{3}\)?)\s?\d{3}\s?\d{3}$/
 const isValidEmail      = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 const isValidUKPostcode = p => /^[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}$/i.test(p.trim());
 
-export default function NewBookingModal({ isOpen, onClose, isMobile, C, api }) {
+export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, initialCustomer }) {
   const [nb,             setNb]             = useState(BLANK_BOOKING);
   const [nbSaving,       setNbSaving]       = useState(false);
   const [nbErr,          setNbErr]          = useState('');
@@ -23,6 +23,21 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api }) {
   const [nbBlockedDates, setNbBlockedDates] = useState([]);
   const [nbCalYear,      setNbCalYear]      = useState(() => new Date().getFullYear());
   const [nbCalMonth,     setNbCalMonth]     = useState(() => new Date().getMonth());
+
+  useEffect(() => {
+    if (isOpen) {
+      setNb(initialCustomer ? {
+        ...BLANK_BOOKING,
+        firstName: initialCustomer.firstName || '',
+        lastName:  initialCustomer.lastName  || '',
+        email:     initialCustomer.email     || '',
+        phone:     initialCustomer.phone     || '',
+        addr1:     initialCustomer.addr1     || '',
+        postcode:  initialCustomer.postcode  || '',
+      } : BLANK_BOOKING);
+      setNbErr(''); setNbSubmitted(false); setNbTouched({});
+    }
+  }, [isOpen, initialCustomer]);
 
   useEffect(() => {
     fetch(`${api.getBlockedDates}?year=${nbCalYear}&month=${nbCalMonth + 1}`)
@@ -47,7 +62,7 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api }) {
 
   const handleNewBooking = async () => {
     setNbSubmitted(true);
-    if (!nb.firstName || !nb.lastName || !nb.email || !nb.phone || !nb.addr1 || !nb.postcode || !nb.sizeId || !nb.cleanDate || !nb.cleanTime || !nb.hearAbout || nb.hasPets === null) {
+    if (!nb.firstName || !nb.lastName || !nb.email || !nb.phone || !nb.addr1 || !nb.postcode || !nb.sizeId || !nb.cleanDate || !nb.cleanTime || (!initialCustomer && !nb.hearAbout) || nb.hasPets === null) {
       setNbErr('Please fill in all required fields.'); return;
     }
     if (!isValidEmail(nb.email))         { setNbErr('Email address is not valid — e.g. name@example.com'); return; }
@@ -91,6 +106,12 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api }) {
           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 300, color: '#1a1410' }}>New Booking</div>
           <button onClick={closeNewBooking} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#8b7355' }}>✕</button>
         </div>
+
+        {initialCustomer && (
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '8px 14px', marginBottom: 16, fontFamily: FONT, fontSize: 12, color: '#166534' }}>
+            Pre-filled from <strong>{initialCustomer.firstName} {initialCustomer.lastName}</strong>'s profile — edit any field if needed.
+          </div>
+        )}
 
         {/* Customer */}
         <div style={{ fontFamily: FONT, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 12 }}>Customer Details</div>
@@ -393,14 +414,16 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api }) {
           <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Notes</div>
           <textarea value={nb.notes} onChange={e => setNb(p => ({ ...p, notes: e.target.value }))} rows={3} style={{ ...INPUT, marginBottom: 0, resize: 'vertical' }} />
         </div>
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && !nb.hearAbout ? C.danger : '#8b7355', marginBottom: 4 }}>How did they hear about us? *</div>
-          <select value={nb.hearAbout} onChange={e => setNb(p => ({ ...p, hearAbout: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderColor: nbSubmitted && !nb.hearAbout ? C.danger : undefined }}>
-            <option value="">— Select —</option>
-            {HOW_HEARD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-          </select>
-          {nbSubmitted && !nb.hearAbout && <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 4 }}>This field is required</div>}
-        </div>
+        {!initialCustomer && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && !nb.hearAbout ? C.danger : '#8b7355', marginBottom: 4 }}>How did they hear about us? *</div>
+            <select value={nb.hearAbout} onChange={e => setNb(p => ({ ...p, hearAbout: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderColor: nbSubmitted && !nb.hearAbout ? C.danger : undefined }}>
+              <option value="">— Select —</option>
+              {HOW_HEARD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+            {nbSubmitted && !nb.hearAbout && <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 4 }}>This field is required</div>}
+          </div>
+        )}
         <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f5f0e8', border: '1px solid #d4c4ae', borderRadius: 6, fontFamily: FONT, fontSize: 12, color: '#8b7355' }}>
           📞 This booking will be marked as a <strong>Phone booking</strong> in all emails and records.
         </div>
