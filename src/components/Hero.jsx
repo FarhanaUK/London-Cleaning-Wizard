@@ -1,4 +1,4 @@
-import { HERO_IMAGE } from "../data/siteData"
+﻿import { HERO_IMAGE } from "../data/siteData"
 import { Sparkle, WandIcon, Constellation } from "./Icons";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -86,11 +86,11 @@ export default function Hero({ onScrollTo }) {
                   }}>
                     {(promotion?.banner || []).map((seg, si) => (
                       <span key={si} style={SEGMENT_STYLE_MAP[seg.style] || {}}>
-                        {si > 0 && <span style={{ color: '#fca5a5', marginRight: 10 }}>✦</span>}
+                        {si > 0 && <span style={{ color: '#fca5a5', marginRight: 10 }}>âœ¦</span>}
                         {seg.text}
                       </span>
                     ))}
-                    <span style={{ color: '#fca5a5', fontSize: 14, marginLeft: 6 }}>✦</span>
+                    <span style={{ color: '#fca5a5', fontSize: 14, marginLeft: 6 }}>âœ¦</span>
                   </span>
                 ))}
               </div>
@@ -114,7 +114,7 @@ export default function Hero({ onScrollTo }) {
         </div>
       ))}
 
-      {/* Constellations — desktop only */}
+      {/* Constellations â€” desktop only */}
       {isDesktop && (
         <>
           <div style={{ position: "absolute", top: 90, left: 40, pointerEvents: "none" }}>
@@ -126,16 +126,16 @@ export default function Hero({ onScrollTo }) {
         </>
       )}
 
-      {/* ── MOBILE LAYOUT ── */}
+      {/* â”€â”€ MOBILE LAYOUT â”€â”€ */}
       {isMobile && (
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingTop: LAUNCH_ACTIVE ? 100 : 76 }}>
 
-          {/* Callout badge — above image */}
+          {/* Callout badge â€” above image */}
           <div style={{ padding: "16px 20px 0", position: "relative", zIndex: 2 }}>
             <div style={{ background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 16px", borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for you.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 10, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 10, letterSpacing: "0.02em" }}>Save Â£30 on weekly cleans</div>
               <button
                 onClick={() => navigate("/book")}
                 style={{
@@ -194,8 +194,8 @@ End of Tenancy | Airbnb Services
               Transforming,
             </p>
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(36px, 9vw, 52px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 4, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-              <span style={{ color: "#e8d9c0" }}>East London Homes</span>
-              <span style={{ color: "#c8b89a", marginLeft: 10 }}>✦</span>
+              <span style={{ color: "#e8d9c0" }}>London Homes</span>
+              <span style={{ color: "#c8b89a", marginLeft: 10 }}>âœ¦</span>
             </p>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 13, lineHeight: 1.8, color: "rgba(245,240,232,0.65)", marginBottom: 28, fontWeight: 300 }}>
@@ -221,7 +221,7 @@ End of Tenancy | Airbnb Services
         </div>
       )}
 
-      {/* ── TABLET LAYOUT ── */}
+      {/* â”€â”€ TABLET LAYOUT â”€â”€ */}
       {isTablet && (
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingTop: LAUNCH_ACTIVE ? 100 : 76 }}>
 
@@ -237,7 +237,7 @@ End of Tenancy | Airbnb Services
             <div style={{ position: "absolute", bottom: 24, right: 32, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 18px", zIndex: 10, borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for you.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save Â£30 on weekly cleans</div>
               <button
                 onClick={() => navigate("/book")}
                 style={{
@@ -257,7 +257,7 @@ End of Tenancy | Airbnb Services
                   cursor: "pointer",
                 }}
               >
-                <WandIcon size={13} color="#c8b89a" /> Book a Reset
+                <WandIcon size={13} color="#c8b89a" /> Book a Clean
               </button>
             </div>
           </div>
@@ -283,7 +283,7 @@ End of Tenancy | Airbnb Services
             </p>
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 300, lineHeight: 1.02, marginBottom: 24, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic" }}>
               <span style={{ color: "#e8d9c0" }}>East London Homes</span>
-              <span style={{ color: "#c8b89a", marginLeft: 12 }}>✦</span>
+              <span style={{ color: "#c8b89a", marginLeft: 12 }}>âœ¦</span>
             </p>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 500, marginBottom: 36, fontWeight: 300 }}>
@@ -309,7 +309,7 @@ End of Tenancy | Airbnb Services
         </div>
       )}
 
-      {/* ── DESKTOP LAYOUT ── */}
+      {/* â”€â”€ DESKTOP LAYOUT â”€â”€ */}
       {isDesktop && (
         <div style={{
           position: "relative",
@@ -320,7 +320,7 @@ End of Tenancy | Airbnb Services
           paddingTop: LAUNCH_ACTIVE ? 100 : 76,
         }}>
 
-          {/* LEFT — text */}
+          {/* LEFT â€” text */}
           <div style={{ display: "flex", alignItems: "center", paddingLeft: "clamp(24px, 8vw, 100px)", paddingRight: "clamp(20px, 3vw, 48px)", paddingTop: 48, paddingBottom: 64 }}>
             <div style={{ maxWidth: 520, width: "100%" }}>
 
@@ -342,7 +342,7 @@ End of Tenancy | Airbnb Services
               </p>
               <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 4.5vw, 72px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic", whiteSpace: "nowrap" }}>
                 <span style={{ color: "#e8d9c0" }}>East London Homes</span>
-                <span style={{ color: "#c8b89a", marginLeft: 14 }}>✦</span>
+                <span style={{ color: "#c8b89a", marginLeft: 14 }}>âœ¦</span>
               </p>
 
               <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 400, marginBottom: 44, fontWeight: 300 }}>
@@ -367,7 +367,7 @@ End of Tenancy | Airbnb Services
             </div>
           </div>
 
-          {/* RIGHT — image */}
+          {/* RIGHT â€” image */}
           <div style={{ position: "relative" }}>
             <img
               src={HERO_IMAGE}
@@ -379,7 +379,7 @@ End of Tenancy | Airbnb Services
             <div style={{ position: "absolute", top: 120, right: 40, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "14px 22px", zIndex: 10, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)", backdropFilter: "blur(4px)" }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for you.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save Â£30 on weekly cleans</div>
               <button
                 onClick={() => navigate("/book")}
                 style={{
