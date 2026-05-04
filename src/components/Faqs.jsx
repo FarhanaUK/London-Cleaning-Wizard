@@ -4,7 +4,7 @@ import { Sparkle } from "./Icons";
 const FAQS = [
   {
     question: "What areas do you cover?",
-    answer: "We cover all major London postcodes including Hackney, Tower Hamlets, Newham, Waltham Forest, Bethnal Green, Bow, Stratford, Canary Wharf, Poplar, Leyton, Ilford, Wanstead, Forest Gate, Dalston, Shoreditch, and Mile End. If you don't see your area listed, get in touch and we may still be able to help.",
+    answer: "We cover areas across London including Hackney, Islington, Camden, Westminster, Kensington, Chelsea, Clapham, Brixton, Shoreditch, Canary Wharf, Stratford, Greenwich, and many more. If you don't see your area listed, get in touch and we may still be able to help.",
   },
   {
     question: "Are your cleaners DBS checked?",

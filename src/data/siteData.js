@@ -37,10 +37,26 @@ export const TESTIMONIALS = [
 ];
 
 export const AREAS = [
+  // East
   "Hackney", "Tower Hamlets", "Newham", "Waltham Forest",
   "Bethnal Green", "Bow", "Stratford", "Canary Wharf",
   "Poplar", "Leyton", "Ilford", "Wanstead",
   "Forest Gate", "Dalston", "Shoreditch", "Mile End",
+  // North
+  "Islington", "Camden", "Stoke Newington", "Highbury",
+  "Holloway", "Finsbury Park", "Haringey", "Tottenham",
+  // Central
+  "Westminster", "City of London", "Soho", "Covent Garden",
+  "Marylebone", "Clerkenwell",
+  // West
+  "Kensington", "Chelsea", "Fulham", "Notting Hill",
+  "Hammersmith", "Chiswick", "Ealing", "Shepherd's Bush",
+  // South
+  "Brixton", "Clapham", "Battersea", "Bermondsey",
+  "Peckham", "Greenwich", "Lewisham", "Vauxhall",
+  "Elephant & Castle", "Southwark", "Wandsworth",
+  // North West
+  "Hampstead", "Kilburn", "Swiss Cottage", "Golders Green",
 ];
 
 export const STATS = [

@@ -14,7 +14,7 @@
     msg: 'Please enter a valid UK mobile or landline number.'
   },
 
-  postcode:  { test: v => /^(E[0-9]{1,2}[A-Z]?|EC[0-9][A-Z]?|IG([1-9]|10|11))\s?[0-9][A-Z]{2}$/i.test(v.trim()), msg: 'We currently only cover London postcodes (E1–E20, EC1–EC4, IG1–IG11). We may clean outside this area at our discretion — please call us on 020 8137 0026 to enquire.' },
+  postcode:  { test: v => /^(EC[1-4]|WC[1-2]|E[1-9]|E1[0-8]|N[1-9]|N1[0-9]|N20|N21|N22|NW[1-9]|NW1[0-1]|SE[1-9]|SE1[0-9]|SE2[0-8]|SW[1-9]|SW1[0-9]|W[1-9]|W1[0-4]|WC[1-2]|BR[1-8]|CR[0-9]|DA[1-9]|DA1[0-8]|EN[1-9]|EN1[0-1]|HA[0-9]|IG[1-9]|IG1[0-1]|KT[1-9]|KT1[0-9]|KT2[0-4]|RM[1-9]|RM1[0-9]|RM2[0]|SM[1-7]|TW[1-9]|TW1[0-9]|TW2[0]|UB[1-9]|UB1[0-1])\s?[0-9][A-Z]{2}$/i.test(v.trim()), msg: 'We currently serve London. If your postcode is outside London, please call us on 020 8137 0026 to check availability.' },
   addr1:     { test: v => v.trim().length >= 5,                                                        msg: 'Please enter your address.' },
 };
 

@@ -58,7 +58,7 @@ export default function Areas() {
             maxWidth: 500,
             margin: "16px auto 0",
           }}>
-            We cover all major London postcodes. If you don't see your area listed, get in touch, we may still be able to help.
+            We cover all areas across London. If you don't see your area listed, get in touch — we may still be able to help.
           </p>
         </div>
       </Reveal>
