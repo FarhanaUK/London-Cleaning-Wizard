@@ -67,12 +67,12 @@ export default function Hero({ onScrollTo }) {
         }}>
           <div style={{
             display: 'flex',
-            whiteSpace: 'nowrap',
+            width: 'max-content',
             animation: 'launchMarquee 18s linear infinite',
             willChange: 'transform',
           }}>
             {[0, 1].map(group => (
-              <div key={group} style={{ display: 'inline-flex', flexShrink: 0 }}>
+              <div key={group} style={{ display: 'flex', flexShrink: 0 }}>
                 {[...Array(4)].map((_, i) => (
                   <span key={i} style={{
                     display: 'inline-flex',
