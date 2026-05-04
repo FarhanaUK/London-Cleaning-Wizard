@@ -37,26 +37,29 @@ export const TESTIMONIALS = [
 ];
 
 export const AREAS = [
-  // East
-  "Hackney", "Tower Hamlets", "Newham", "Waltham Forest",
-  "Bethnal Green", "Bow", "Stratford", "Canary Wharf",
-  "Poplar", "Leyton", "Ilford", "Wanstead",
-  "Forest Gate", "Dalston", "Shoreditch", "Mile End",
-  // North
-  "Islington", "Camden", "Stoke Newington", "Highbury",
-  "Holloway", "Finsbury Park", "Haringey", "Tottenham",
+  // East & Riverside
+  "Canary Wharf", "Poplar", "Wapping", "Limehouse",
+  "Bethnal Green", "Bow", "Mile End", "Shoreditch",
+  "Dalston", "Hackney", "Stratford", "Forest Gate",
+  "Spitalfields", "Whitechapel", "Stepney", "Leyton",
   // Central
-  "Westminster", "City of London", "Soho", "Covent Garden",
-  "Marylebone", "Clerkenwell",
-  // West
-  "Kensington", "Chelsea", "Fulham", "Notting Hill",
-  "Hammersmith", "Shepherd's Bush",
-  // South
-  "Brixton", "Clapham", "Battersea", "Bermondsey",
-  "Peckham", "Greenwich", "Lewisham", "Vauxhall",
-  "Elephant & Castle", "Southwark", "Wandsworth",
+  "City of London", "Clerkenwell", "Aldgate",
+  "Westminster", "Mayfair", "Soho", "Covent Garden",
+  "Marylebone", "Fitzrovia", "Pimlico", "Victoria",
+  // North
+  "Islington", "Canonbury", "Highbury", "Stoke Newington",
+  "Camden", "Primrose Hill", "Finsbury Park", "Holloway",
   // North West
-  "Hampstead", "Kilburn", "Swiss Cottage", "Golders Green",
+  "St John's Wood", "Hampstead", "Swiss Cottage", "Kilburn",
+  // West
+  "Notting Hill", "Kensington", "South Kensington",
+  "Knightsbridge", "Chelsea", "Fulham", "Earl's Court",
+  "Hammersmith", "Shepherd's Bush",
+  // South East & South
+  "London Bridge", "Borough", "Bermondsey", "Canada Water",
+  "Southwark", "Waterloo", "Vauxhall", "Greenwich",
+  "Brixton", "Clapham", "Battersea", "Wandsworth",
+  "Peckham", "Lewisham", "Putney",
 ];
 
 export const STATS = [
