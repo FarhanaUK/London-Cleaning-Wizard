@@ -7,8 +7,8 @@ const FAQS = [
     answer: "We cover areas across London including Hackney, Islington, Camden, Westminster, Kensington, Chelsea, Clapham, Brixton, Shoreditch, Canary Wharf, Stratford, Greenwich, and many more. If you don't see your area listed, get in touch and we may still be able to help.",
   },
   {
-    question: "Are your cleaners DBS checked?",
-    answer: "Yes. All of our cleaners are fully DBS checked. We take the safety and security of your home very seriously.",
+    question: "Are your cleaners vetted?",
+    answer: "Yes. Every cleaner we work with is carefully vetted before joining us. We take the safety and security of your home very seriously and only work with people we trust.",
   },
   {
     question: "Are you insured?",
@@ -16,7 +16,7 @@ const FAQS = [
   },
   {
     question: "Do you bring your own equipment and products?",
-    answer: "By default, we ask that you provide your own cleaning products and supplies. During the booking process you can add our cleaning supplies for a small fee, and we'll bring everything needed including our eco-friendly products that are safe for children, pets, and your home.\n\nPlease note that we do not bring mops or vacuums regardless of the supplies option, so a working mop and vacuum must be available at the property. You will also need to provide access to electricity and water.",
+    answer: "By default, we ask that you provide your own cleaning products and supplies. During the booking process you can add our cleaning supplies for a small fee, and we'll bring everything needed to get the job done.\n\nPlease note that we do not bring mops or vacuums regardless of the supplies option, so a working mop and vacuum must be available at the property. You will also need to provide access to electricity and water.",
   },
   {
     question: "Do I need to be home during the clean?",

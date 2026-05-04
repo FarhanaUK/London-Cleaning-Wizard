@@ -4,12 +4,12 @@ import Reveal from "./Reveal";
 import { PHOTOS } from "../data/siteData";
 
 const FEATURES = [
-  "DBS-Checked Team",
-  "Premium Cleaning Products",
+  "Carefully Vetted Team",
+  "Quality Cleaning Products",
   "Fully Insured",
   "Flexible Scheduling",
   "Free Re-clean Guarantee",
-  "Locally Based in E. London",
+  "London Based",
 ];
 
 export default function About() {
@@ -34,7 +34,7 @@ export default function About() {
       style={{ padding: isMobile ? "60px 20px" : "100px clamp(24px, 6vw, 100px)", background: "#faf9f7" }}
     >
       <meta itemProp="name" content="London Cleaning Wizard" />
-      <meta itemProp="description" content="Professional residential cleaning services in London. DBS-checked, eco-friendly, fully insured cleaning team." />
+      <meta itemProp="description" content="Professional residential cleaning services in London. Vetted, trained, and fully insured cleaning team." />
       <meta itemProp="areaServed" content="London" />
 
       <div style={{
@@ -142,8 +142,8 @@ export default function About() {
               fontWeight: 300,
               marginBottom: 36,
             }}>
-              Our team are DBS-checked, trained in premium residential methods,
-              and chosen for their meticulous eye. We use professional-grade products,
+              Our team are carefully vetted, trained in premium residential methods,
+              and chosen for their meticulous eye. We use quality cleaning products,
               carefully selected to deliver a thorough, high-quality clean every time.
             </p>
 
