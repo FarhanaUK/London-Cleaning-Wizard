@@ -106,7 +106,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '',
-    addr1: '', postcode: '', floor: '', parking: '', keys: '', notes: '', source: '',
+    addr1: '', postcode: '', floor: '', parking: '', keys: '', notes: booking.notes || '', source: '',
     hasPets: null, petTypes: '',
     signatureTouch: true, signatureTouchNotes: '',
   });
@@ -168,7 +168,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
           email: retEmail, phone: p.phone || '',
           addr1: p.addr1 || '', postcode: p.postcode || '',
           floor: p.floor || '', parking: p.parking || '',
-          keys: p.keys || '', notes: p.notes || '', source: p.source || '',
+          keys: p.keys || '', notes: booking.notes || p.notes || '', source: p.source || '',
           hasPets: p.hasPets ?? null, petTypes: p.petTypes || '',
           signatureTouch: p.signatureTouch ?? true, signatureTouchNotes: p.signatureTouchNotes || '',
         });
@@ -192,8 +192,10 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
   const handleNext = async () => {
     const errors = validateForm(form);
     if (!form.source) errors.source = 'Please let us know how you heard about us.';
-    if (form.hasPets === null) errors.hasPets = 'Please let us know whether there are pets at the property.';
-    if (form.hasPets === true && !form.petTypes.trim()) errors.petTypes = 'Please describe your pets.';
+    if (!booking.pkg?.isHourly) {
+      if (form.hasPets === null) errors.hasPets = 'Please let us know whether there are pets at the property.';
+      if (form.hasPets === true && !form.petTypes.trim()) errors.petTypes = 'Please describe your pets.';
+    }
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       setSubmitError('Please fix the errors above.');
@@ -256,8 +258,8 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
         </div>
       </div>
 
-      {/* Pets */}
-      <div style={SECTION}>
+      {/* Pets — hidden for commercial and basic/hourly packages */}
+      {!booking.pkg?.isHourly && <div style={SECTION}>
         <div style={SECTION_TITLE}>Pets at the Property</div>
         <div style={{ marginBottom: 20 }}>
           <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Are there any pets at the property? *</label>
@@ -302,7 +304,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
             </div>
           </>
         )}
-      </div>
+      </div>}
 
       {/* Preferences */}
       <div style={SECTION}>

@@ -157,14 +157,16 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
           );
         })}
 
-        {/* Property type */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Property Type</div>
-          <select value={nb.propertyType} onChange={e => setNb(p => ({ ...p, propertyType: e.target.value, sizeId: e.target.value === 'house' && p.sizeId === 'studio' ? '' : p.sizeId }))} style={{ ...INPUT, marginBottom: 0 }}>
-            <option value="flat">Flat / Apartment / Studio</option>
-            <option value="house">House (+10%)</option>
-          </select>
-        </div>
+        {/* Property type — hidden for hourly */}
+        {!nbPkg?.isHourly && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Property Type</div>
+            <select value={nb.propertyType} onChange={e => setNb(p => ({ ...p, propertyType: e.target.value, sizeId: e.target.value === 'house' && p.sizeId === 'studio' ? '' : p.sizeId }))} style={{ ...INPUT, marginBottom: 0 }}>
+              <option value="flat">Flat / Apartment / Studio</option>
+              <option value="house">House (+10%)</option>
+            </select>
+          </div>
+        )}
 
         {/* Package */}
         <div style={{ fontFamily: FONT, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', margin: '20px 0 12px' }}>Service</div>
@@ -172,23 +174,35 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
           <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Package *</div>
           <select value={nb.packageId} onChange={e => {
             const pkg = PACKAGES.find(p => p.id === e.target.value);
-            const isDeep = e.target.value === 'deep';
-            setNb(p => ({ ...p, packageId: e.target.value, sizeId: '', addons: [], frequency: pkg?.showFreq ? p.frequency : 'one-off', supplies: isDeep ? 'cleaner' : p.supplies, suppliesFee: isDeep ? DEEP_SUPPLIES_FEE : undefined }));
+            const isDeep   = e.target.value === 'deep';
+            const isHourly = pkg?.isHourly;
+            setNb(p => ({ ...p, packageId: e.target.value, sizeId: '', addons: [], frequency: pkg?.showFreq ? p.frequency : 'one-off', supplies: isDeep ? 'cleaner' : p.supplies, suppliesFee: isDeep ? DEEP_SUPPLIES_FEE : undefined, propertyType: isHourly ? 'flat' : p.propertyType }));
           }} style={{ ...INPUT, marginBottom: 0 }}>
-            {PACKAGES.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {PACKAGES.filter(p => p.id !== 'airbnb').map(p => <option key={p.id} value={p.id}>{p.name}{p.isHourly ? ' — Hourly' : ''}</option>)}
           </select>
         </div>
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && !nb.sizeId ? C.danger : '#8b7355', marginBottom: 4 }}>Size *</div>
-          <select value={nb.sizeId} onChange={e => setNb(p => ({ ...p, sizeId: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderColor: nbSubmitted && !nb.sizeId ? C.danger : undefined }}>
-            <option value="">— Select size —</option>
-            {(nbPkg?.sizes || []).filter(s => !(nb.propertyType === 'house' && s.id === 'studio')).map(s => {
-              const price = Math.round(s.basePrice * (nb.propertyType === 'house' ? 1.10 : 1.0));
-              return <option key={s.id} value={s.id}>{s.label} — £{price}</option>;
-            })}
-          </select>
-          {nbSubmitted && !nb.sizeId && <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 4 }}>This field is required</div>}
-        </div>
+        {nbPkg?.isHourly ? (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && !nb.sizeId ? C.danger : '#8b7355', marginBottom: 4 }}>Hours *</div>
+            <select value={nb.sizeId} onChange={e => setNb(p => ({ ...p, sizeId: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderColor: nbSubmitted && !nb.sizeId ? C.danger : undefined }}>
+              <option value="">— Select hours —</option>
+              {(nbPkg?.sizes || []).map(s => <option key={s.id} value={s.id}>{s.label} — £{s.basePrice}</option>)}
+            </select>
+            {nbSubmitted && !nb.sizeId && <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 4 }}>This field is required</div>}
+          </div>
+        ) : (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && !nb.sizeId ? C.danger : '#8b7355', marginBottom: 4 }}>Size *</div>
+            <select value={nb.sizeId} onChange={e => setNb(p => ({ ...p, sizeId: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderColor: nbSubmitted && !nb.sizeId ? C.danger : undefined }}>
+              <option value="">— Select size —</option>
+              {(nbPkg?.sizes || []).filter(s => !(nb.propertyType === 'house' && s.id === 'studio')).map(s => {
+                const price = Math.round(s.basePrice * (nb.propertyType === 'house' ? 1.10 : 1.0));
+                return <option key={s.id} value={s.id}>{s.label} — £{price}</option>;
+              })}
+            </select>
+            {nbSubmitted && !nb.sizeId && <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 4 }}>This field is required</div>}
+          </div>
+        )}
         {nbPkg?.showFreq ? (
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Frequency</div>
