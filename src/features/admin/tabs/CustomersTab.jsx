@@ -407,14 +407,12 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                   setEditClientSaving(true); setEditClientErr('');
                   try {
                     const sorted  = [...editClient.bookings].sort((a, b) => (b.cleanDate || '') > (a.cleanDate || '') ? 1 : -1);
-                    const results = await Promise.all(editClient.bookings.map(bk =>
-                      fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ bookingId: bk.id, ...editClientData, ...(bk.id === sorted[0].id ? { updateCustomerProfile: true } : {}) }),
-                      })
-                    ));
-                    const failed = results.find(r => !r.ok);
-                    if (failed) { const d = await failed.json(); setEditClientErr(d.error || 'Failed to update.'); setEditClientSaving(false); return; }
+                    const anchor  = sorted[0];
+                    const res = await fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ bookingId: anchor.id, ...editClientData, updateCustomerProfile: true, skipEmail: true }),
+                    });
+                    if (!res.ok) { const d = await res.json(); setEditClientErr(d.error || 'Failed to update.'); setEditClientSaving(false); return; }
                     setBookings(prev => prev.map(bk =>
                       (bk.email || '').toLowerCase() === editClient.email ? { ...bk, ...editClientData } : bk
                     ));

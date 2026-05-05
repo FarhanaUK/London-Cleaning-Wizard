@@ -1094,7 +1094,7 @@ exports.markDepositPaid = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) 
 exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
   const {
-    bookingId, updateCustomerProfile,
+    bookingId, updateCustomerProfile, skipEmail,
     cleanDate, cleanTime,
     firstName, lastName, email, phone,
     packageId, packageName, sizeId, frequency, addons,
@@ -1178,7 +1178,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
   await snap.ref.update(updates);
 
   // Send update email when anything meaningful to the customer changed (not for pending_deposit — booking not yet confirmed)
-  if (changes.length > 0 && process.env.EMAILJS_UPDATE_TEMPLATE && current.status !== 'pending_deposit') {
+  if (changes.length > 0 && !skipEmail && process.env.EMAILJS_UPDATE_TEMPLATE && current.status !== 'pending_deposit') {
     const addonsList = (newAddons || []).map(a => a.name).join(', ') || 'None';
     const newRemaining = remaining !== undefined ? parseFloat(remaining) : parseFloat(current.remaining || 0);
     const newTotal     = total     !== undefined ? parseFloat(total)     : parseFloat(current.total     || 0);
@@ -2167,7 +2167,6 @@ exports.stripeWebhook = onRequest(
         stripeCustomerId: pd.stripeCustomerId || pi.customer || '',
         ...(pd.frequency && pd.frequency !== 'one-off' ? {
           recurringActive:       true,
-          recurringId:           'RS' + Date.now().toString(36).toUpperCase(),
           recurringFrequency:    pd.frequency,
           recurringDay:          new Date(pd.cleanDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long' }),
           recurringTime:         pd.cleanTime,
