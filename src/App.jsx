@@ -23,6 +23,7 @@ const UnsubscribePage = lazy(() => import("./components/UnsubscribePage"))
 const TermsAndCondition = lazy(() => import("./components/TermsAndCondition"))
 const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy"))
 const Faqs = lazy(() => import("./components/Faqs"))
+const ContactPage = lazy(() => import("./components/Contact"))
 
 const scrollTo = (id) =>
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="/pay-deposit" element={<DepositPaymentPage />} />
           <Route path="/booking-success" element={<BookingSuccess />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
+          <Route path="/quote" element={<ContactPage />} />
         </Routes>
       </Suspense>
 

@@ -178,7 +178,16 @@ const COMMERCIAL_SERVICES = [
 export default function BookingStep1({ booking, onUpdate, onNext }) {
   const [error,      setError]      = useState('');
   const [expanded,   setExpanded]   = useState(null);
-  const [pkgTab,     setPkgTab]     = useState('signature');
+  const [pkgTab,     setPkgTab]     = useState(() => {
+    const saved = sessionStorage.getItem('pkgTab');
+    if (saved) return saved;
+    const id = booking.pkg?.id;
+    if (id === 'hourly') return 'hourly';
+    if (id === 'airbnb_commercial' || id === 'office_cleaning') return 'commercial';
+    return 'signature';
+  });
+
+  const setTab = (tab) => { setPkgTab(tab); sessionStorage.setItem('pkgTab', tab); };
 
   const update = (partial) => { onUpdate(partial); setError(''); };
 
@@ -195,17 +204,17 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
   };
 
   const switchToHourly = () => {
-    setPkgTab('hourly');
+    setTab('hourly');
     update({ pkg: HOURLY_PKG, size: null, sizePrice: 0, propertyType: 'flat', freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false });
   };
 
   const switchToSignature = () => {
-    setPkgTab('signature');
+    setTab('signature');
     update({ pkg: null, size: null, sizePrice: 0, propertyType: null, freq: null, addons: [], supplies: null, mopAck: false });
   };
 
   const switchToCommercial = () => {
-    setPkgTab('commercial');
+    setTab('commercial');
     update({ pkg: null, size: null, sizePrice: 0, propertyType: null, freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false });
   };
 
@@ -393,8 +402,8 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(200,184,154,0.2)', fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#8b7355', fontWeight: 300, lineHeight: 1.6 }}>
                   <span style={{ fontWeight: 600, color: '#5a4e44' }}>Please note: </span>This is a timed service. Your cleaner works for the booked duration only, no checklist, no completion guarantee, and no reclean promise. For a guaranteed full home clean, upgrade to one of our reset packages.
                 </div>
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(200,184,154,0.2)', fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#c8b89a', fontWeight: 400, lineHeight: 1.6 }}>
-                  Booking regularly? Our Essential Reset starts from £85/clean with weekly bookings, with a guaranteed full home clean.
+                <div style={{ marginTop: 12, padding: '12px 14px', background: '#2c2420', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.7 }}>
+                  <span style={{ color: '#c8b89a', fontWeight: 600, marginRight: 6 }}>✦</span>Booking regularly? Our Essential Reset starts from £85/clean with weekly bookings, with a full home clean every visit.
                 </div>
               </div>
             </div>
@@ -476,8 +485,18 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
 
                   {/* Upgrade prompt */}
                   {upgradePrompt && (
-                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(200,184,154,0.2)', fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#c8b89a', fontWeight: 400, lineHeight: 1.6 }}>
-                      {upgradePrompt}
+                    <div style={{ marginTop: 12, padding: '12px 14px', background: '#2c2420', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.7 }}>
+                      <span style={{ color: '#c8b89a', fontWeight: 600, marginRight: 6 }}>✦</span>{upgradePrompt}
+                      <div style={{ marginTop: 10 }}>
+                        <a
+                          href="/quote"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ display: 'inline-block', fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, padding: '9px 18px', background: '#c8b89a', color: '#1a1410', textDecoration: 'none', cursor: 'pointer' }}
+                        >
+                          Get a tailored quote
+                        </a>
+                      </div>
                     </div>
                   )}
                 </div>

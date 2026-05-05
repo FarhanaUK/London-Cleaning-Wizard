@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sparkle, WandIcon } from "./Icons";
 import Reveal from "./Reveal";
-import { SERVICES, CONTACT_INFO } from "../data/siteData";
+import { CONTACT_INFO } from "../data/siteData";
 import emailjs from "@emailjs/browser";
 
 const HOW_HEARD_OPTIONS = [
@@ -15,13 +15,27 @@ const HOW_HEARD_OPTIONS = [
   "Other",
 ];
 
+const SERVICE_OPTIONS = [
+  "Airbnb & Serviced Apartments",
+  "Office Cleaning",
+];
+
+const FREQUENCY_OPTIONS = [
+  "Weekly",
+  "Fortnightly",
+  "Monthly",
+  "Not sure yet",
+];
+
 export default function Contact() {
   const [form, setForm] = useState({
     name: "",
+    businessName: "",
     email: "",
     phone: "",
     postcode: "",
     service: "",
+    frequency: "",
     notes: "",
     howHeard: "",
     howHeardOther: "",
@@ -32,6 +46,7 @@ export default function Contact() {
   const [submitError, setSubmitError] = useState("");
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+  const formRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -52,14 +67,12 @@ export default function Contact() {
       newErrors.email = "Please enter a valid email address.";
     if (!form.phone.trim())
       newErrors.phone = "Please enter your phone number.";
-    else if (!/^(\+44\s?7\d{3}|\(?07\d{3}\)?)\s?\d{3}\s?\d{3}$/.test(form.phone.replace(/\s/g, "")))
-      newErrors.phone = "Please enter a valid UK mobile number (e.g. 07700 900 123).";
     if (!form.postcode.trim())
       newErrors.postcode = "Please enter your postcode.";
-    else if (!/^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i.test(form.postcode))
-      newErrors.postcode = "Please enter a valid UK postcode.";
     if (!form.service)
       newErrors.service = "Please select a service.";
+    if (!form.frequency)
+      newErrors.frequency = "Please select how often you need cleaning.";
     if (!form.howHeard)
       newErrors.howHeard = "Please let us know how you heard about us.";
     if (form.howHeard === "Other" && !form.howHeardOther.trim())
@@ -79,36 +92,26 @@ export default function Contact() {
     const howHeardFinal = form.howHeard === "Other"
       ? `Other: ${form.howHeardOther}`
       : form.howHeard;
+    const notes = `Frequency: ${form.frequency}${form.notes ? `\n\n${form.notes}` : ""}`;
+    const payload = {
+      from_name: form.name,
+      business_name: form.businessName || "N/A",
+      from_email: form.email,
+      phone: form.phone,
+      postcode: form.postcode,
+      service: form.service,
+      notes,
+      how_heard: howHeardFinal,
+    };
     try {
       await emailjs.send(
         import.meta.env.VITE_EMAILJS_SERVICE_ID,
-        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-        {
-          from_name: form.name,
-          from_email: form.email,
-          phone: form.phone,
-          postcode: form.postcode,
-          service: form.service,
-          notes: form.notes,
-          how_heard: howHeardFinal,
-        },
-        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-      );
-      await emailjs.send(
-        import.meta.env.VITE_EMAILJS_SERVICE_ID,
-        import.meta.env.VITE_EMAILJS_AUTO_REPLY_TEMPLATE_ID,
-        {
-          from_name: form.name,
-          from_email: form.email,
-          phone: form.phone,
-          postcode: form.postcode,
-          service: form.service,
-          notes: form.notes,
-          how_heard: howHeardFinal,
-        },
+        import.meta.env.VITE_EMAILJS_QUOTE_TEMPLATE,
+        payload,
         import.meta.env.VITE_EMAILJS_PUBLIC_KEY
       );
       setSent(true);
+      setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     } catch (err) {
       console.error("EmailJS error:", err);
       setSubmitError("Something went wrong. Please try again or call us directly.");
@@ -157,7 +160,7 @@ export default function Contact() {
   return (
     <section
       id="contact"
-      aria-label="Contact London Cleaning Wizard — Book a free quote"
+      aria-label="Request a commercial cleaning quote from London Cleaning Wizard"
       itemScope
       itemType="https://schema.org/ContactPage"
       style={{ padding: isMobile ? "60px 20px" : "100px clamp(24px, 6vw, 100px)", background: "#faf9f7" }}
@@ -185,7 +188,7 @@ export default function Contact() {
               alignItems: "center",
               gap: 10,
             }}>
-              <WandIcon size={16} color="#c8b89a" /> Cast the First Spell
+              <WandIcon size={16} color="#c8b89a" /> Tailored Commercial Pricing
             </div>
 
             <h2 style={{
@@ -196,7 +199,7 @@ export default function Contact() {
               marginBottom: 28,
               color: "#1a1410",
             }}>
-              Ready for a<br /><em>spotless home?</em>
+              Request a<br /><em>commercial quote</em>
             </h2>
 
             <div style={{ width: 44, height: 1, background: "#c8b89a", marginBottom: 28 }} />
@@ -209,8 +212,7 @@ export default function Contact() {
               fontWeight: 300,
               marginBottom: 40,
             }}>
-              Fill in the form and we'll reply within a few hours with a free,
-              transparent quote. No pressure, no obligation... just a little magic.
+              Whether you run an Airbnb, a serviced apartment, or an office, we will put together a bespoke cleaning plan around your schedule. Fill in the form and we will be in touch within a few hours.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
@@ -250,6 +252,7 @@ export default function Contact() {
 
         {/* Right — form */}
         <Reveal delay={160}>
+          <div ref={formRef}>
           {sent ? (
             <div style={{ padding: isMobile ? "40px 24px" : "60px 44px", background: "#f2ede6", textAlign: "center" }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, gap: 8 }}>
@@ -273,7 +276,7 @@ export default function Contact() {
                 lineHeight: 1.85,
                 fontWeight: 300,
               }}>
-                We've received your enquiry and will be in touch shortly with a personalised quote for your home.
+                We've received your enquiry and will be in touch shortly with a tailored commercial quote.
               </p>
             </div>
           ) : (
@@ -294,6 +297,17 @@ export default function Contact() {
                 </div>
 
                 <div>
+                  <label style={labelStyle}><Sparkle size={7} color="#c8b89a" /> Business Name <span style={{ textTransform: "none", letterSpacing: 0, fontSize: 11, color: "#8b7355", fontWeight: 300 }}>(optional)</span></label>
+                  <input
+                    type="text"
+                    placeholder="Your company or trading name"
+                    value={form.businessName}
+                    onChange={e => { setForm({ ...form, businessName: e.target.value }); }}
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div>
                   <label style={labelStyle}><Sparkle size={7} color="#c8b89a" /> Email Address *</label>
                   <input
                     type="email"
@@ -306,7 +320,7 @@ export default function Contact() {
                   {errors.email && <p style={errorTextStyle}>{errors.email}</p>}
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 28 : 20 }}>
                   <div>
                     <label style={labelStyle}><Sparkle size={7} color="#c8b89a" /> Phone *</label>
                     <input
@@ -341,9 +355,22 @@ export default function Contact() {
                     style={errors.service ? { ...inputErrorStyle, appearance: "none", cursor: "pointer" } : { ...inputStyle, appearance: "none", cursor: "pointer" }}
                   >
                     <option value="">Select a service…</option>
-                    {SERVICES.map(s => <option key={s.title}>{s.title}</option>)}
+                    {SERVICE_OPTIONS.map(s => <option key={s}>{s}</option>)}
                   </select>
                   {errors.service && <p style={errorTextStyle}>{errors.service}</p>}
+                </div>
+
+                <div>
+                  <label style={labelStyle}><Sparkle size={7} color="#c8b89a" /> How often do you need cleaning? *</label>
+                  <select
+                    value={form.frequency}
+                    onChange={e => { setForm({ ...form, frequency: e.target.value }); setErrors({ ...errors, frequency: "" }); }}
+                    style={errors.frequency ? { ...inputErrorStyle, appearance: "none", cursor: "pointer" } : { ...inputStyle, appearance: "none", cursor: "pointer" }}
+                  >
+                    <option value="">Select frequency…</option>
+                    {FREQUENCY_OPTIONS.map(f => <option key={f}>{f}</option>)}
+                  </select>
+                  {errors.frequency && <p style={errorTextStyle}>{errors.frequency}</p>}
                 </div>
 
                 <div>
@@ -374,10 +401,10 @@ export default function Contact() {
                 )}
 
                 <div>
-                  <label style={labelStyle}><Sparkle size={7} color="#c8b89a" /> Additional Notes</label>
+                  <label style={labelStyle}><Sparkle size={7} color="#c8b89a" /> Property / space details</label>
                   <textarea
                     rows={3}
-                    placeholder="Home size, preferred dates, anything else…"
+                    placeholder={isMobile ? "E.g. 2-bed Airbnb, full turnaround clean, 3hrs between checkouts / 10-desk office, kitchen + toilets, after-hours Mon-Fri..." : "E.g. 2-bed Airbnb in Shoreditch — full turnaround clean including linen change, 3hrs between checkouts / 10-desk open-plan office in Canary Wharf — kitchen, toilets and floors, after-hours clean Mon-Fri..."}
                     value={form.notes}
                     onChange={e => setForm({ ...form, notes: e.target.value })}
                     style={{ ...inputStyle, resize: "none" }}
@@ -402,7 +429,7 @@ export default function Contact() {
                 <button
                   onClick={handleSubmit}
                   disabled={loading}
-                  aria-label="Submit quote request form"
+                  aria-label="Submit commercial quote request"
                   style={{
                     width: "100%",
                     fontFamily: "'Jost', sans-serif",
@@ -424,12 +451,13 @@ export default function Contact() {
                   }}
                 >
                   <WandIcon size={16} color="#c8b89a" />
-                  {loading ? "Sending…" : "Request Your Free Quote"}
+                  {loading ? "Sending…" : "Request Your Quote"}
                 </button>
 
               </div>
             </div>
           )}
+          </div>
         </Reveal>
       </div>
     </section>
