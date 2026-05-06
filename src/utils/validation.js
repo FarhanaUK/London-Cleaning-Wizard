@@ -14,7 +14,7 @@
     msg: 'Please enter a valid UK mobile or landline number.'
   },
 
-  postcode:  { test: v => /^(EC[1-4]|WC[1-2]|E[1-9]|E1[0-8]|N[1-9]|N1[0-9]|N20|N21|N22|NW[1-9]|NW1[0-1]|SE[1-9]|SE1[0-9]|SE2[0-8]|SW[1-9]|SW1[0-9]|W[1-9]|W1[0-4]|WC[1-2]|BR[1-8]|CR[0-9]|DA[1-9]|DA1[0-8]|EN[1-9]|EN1[0-1]|HA[0-9]|IG[1-9]|IG1[0-1]|KT[1-9]|KT1[0-9]|KT2[0-4]|RM[1-9]|RM1[0-9]|RM2[0]|SM[1-7]|TW[1-9]|TW1[0-9]|TW2[0]|UB[1-9]|UB1[0-1])\s?[0-9][A-Z]{2}$/i.test(v.trim()), msg: 'We currently serve London. If your postcode is outside London, please call us on 020 8137 0026 to check availability.' },
+  postcode:  { test: v => /^(E1W|E[1-9]|E1[0-7]|EC[1-4][A-Z]|WC[1-2][A-Z]|N[1-8]|N16|NW[1-3]|NW5|NW6|NW8|SE[1-9]|SE1[0-7]|SW1[A-Z]|SW[2-9]|SW1[0-2]|W1[A-Z]|W[2-9]|W1[0-4])\s?[0-9][A-Z]{2}$/i.test(v.trim()), msg: 'We currently serve across central and east London. If your postcode is outside our area, please call us on 020 8137 0026 to check availability.' },
   addr1:     { test: v => v.trim().length >= 5,                                                        msg: 'Please enter your address.' },
 };
 

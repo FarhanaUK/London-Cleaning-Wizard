@@ -1,8 +1,15 @@
-﻿import { Sparkle } from "./Icons";
+import { Sparkle } from "./Icons";
 import Reveal from "./Reveal";
-import { AREAS } from "../data/siteData";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+
+const REGIONS = [
+  { label: "East & Riverside",    desc: "Canary Wharf, Shoreditch, Hackney, Stratford and beyond" },
+  { label: "Central & City",      desc: "Mayfair, Soho, Westminster, Covent Garden and more" },
+  { label: "North",               desc: "Islington, Camden, Hampstead, King's Cross and surrounding" },
+  { label: "West",                desc: "Kensington, Notting Hill, Chelsea, Paddington and nearby" },
+  { label: "South & South East",  desc: "Greenwich, Brixton, Bermondsey, Peckham and further" },
+];
 
 export default function Areas() {
   const navigate = useNavigate();
@@ -20,16 +27,16 @@ export default function Areas() {
 
   return (
     <section
-    id="areas"
+      id="areas"
       aria-label="Areas we serve in London"
       style={{ padding: isMobile ? "60px 20px" : "80px clamp(24px, 6vw, 100px)", background: "#f2ede6", position: "relative", overflow: "hidden" }}
     >
       <Reveal>
-        <div style={{ textAlign: "center", marginBottom: isMobile ? 32 : 44 }}>
+        <div style={{ textAlign: "center", marginBottom: isMobile ? 40 : 56 }}>
           <div style={{
             fontFamily: "'Jost', sans-serif",
-            fontSize: isMobile ? 13 : 16,
-            letterSpacing: "0.2em",
+            fontSize: isMobile ? 10 : 11,
+            letterSpacing: "0.28em",
             color: "#8b7355",
             textTransform: "uppercase",
             marginBottom: 16,
@@ -38,82 +45,110 @@ export default function Areas() {
             justifyContent: "center",
             gap: 10,
           }}>
-            <Sparkle size={8} color="#c8b89a" /> Our Territory
+            <Sparkle size={7} color="#c8b89a" /> Our Territory
           </div>
           <h2 style={{
             fontFamily: "'Cormorant Garamond', serif",
-            fontSize: isMobile ? "clamp(28px, 7vw, 38px)" : "clamp(36px, 4.5vw, 56px)",
+            fontSize: isMobile ? "clamp(28px, 7vw, 38px)" : "clamp(36px, 4.5vw, 52px)",
             fontWeight: 300,
             color: "#1a1410",
             lineHeight: 1.1,
+            marginBottom: 16,
           }}>
             Serving <em>London</em>
           </h2>
           <p style={{
             fontFamily: "'Jost', sans-serif",
-            fontSize: isMobile ? 13 : 18,
+            fontSize: isMobile ? 13 : 15,
             lineHeight: 1.8,
             color: "#5a4e44",
             fontWeight: 300,
-            maxWidth: 500,
-            margin: "16px auto 0",
+            maxWidth: 460,
+            margin: "0 auto",
           }}>
-            We cover all areas across London. If you don't see your area listed, get in touch — we may still be able to help.
+            We cover a wide area across London. Check if we serve your location below.
           </p>
         </div>
       </Reveal>
 
       <Reveal delay={100}>
-        <div
-          itemScope
-          itemType="https://schema.org/LocalBusiness"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: isMobile ? "8px" : "8px 10px",
-            justifyContent: "center",
-            maxWidth: 780,
-            margin: "0 auto",
-          }}
-        >
-          {AREAS.map((area, i) => (
-            <span
-              key={area}
-              itemProp="areaServed"
-              style={{
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2, 1fr)" : "repeat(5, 1fr)",
+          gap: isMobile ? 12 : 14,
+          maxWidth: 1100,
+          margin: "0 auto 40px",
+        }}>
+          {REGIONS.map((region, i) => (
+            <div key={region.label} style={{
+              padding: isMobile ? "24px 20px" : "28px 22px",
+              background: "#fff",
+              borderBottom: "2px solid #c8b89a",
+              textAlign: "center",
+            }}>
+              <div style={{
                 fontFamily: "'Jost', sans-serif",
-                fontSize: isMobile ? 11 : 13,
-                letterSpacing: "0.12em",
-                padding: isMobile ? "7px 14px" : "8px 18px",
-                border: "1px solid #d4c4ae",
-                color: "#5a4e44",
+                fontSize: 9,
+                letterSpacing: "0.24em",
                 textTransform: "uppercase",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              {i % 4 === 0 && <Sparkle size={6} color="#c8b89a" />}
-              {area}
-            </span>
+                color: "#c8b89a",
+                marginBottom: 12,
+              }}>
+                <Sparkle size={6} color="#c8b89a" />
+              </div>
+              <div style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: isMobile ? 18 : 20,
+                fontWeight: 400,
+                color: "#1a1410",
+                lineHeight: 1.2,
+                marginBottom: 10,
+              }}>
+                {region.label}
+              </div>
+              <p style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: isMobile ? 11 : 12,
+                lineHeight: 1.7,
+                color: "#8b7355",
+                fontWeight: 300,
+                margin: 0,
+              }}>
+                {region.desc}
+              </p>
+            </div>
           ))}
         </div>
 
-        <p style={{
-          fontFamily: "'Jost', sans-serif",
-          textAlign: "center",
-          marginTop: 28,
-          fontSize: isMobile ? 13 : 16,
-          color: "#8b7355",
-          letterSpacing: "0.08em",
-          padding: isMobile ? "0 16px" : 0,
-        }}>
-          Not on the list?{' '}
-          <span
-            onClick={() => navigate('/faqs#faq-contact')}
-            style={{ color: "#2c2420", fontWeight: 500, textDecoration: "underline", textDecorationColor: "rgba(44,36,32,0.3)", textUnderlineOffset: 3, cursor: 'pointer' }}
-          >Get in touch</span> — we may be able to accommodate you.
-        </p>
+        <div style={{ textAlign: "center" }}>
+          <p style={{
+            fontFamily: "'Jost', sans-serif",
+            fontSize: isMobile ? 13 : 14,
+            color: "#5a4e44",
+            fontWeight: 300,
+            marginBottom: 20,
+            letterSpacing: "0.04em",
+          }}>
+            Not sure if we cover your area?
+          </p>
+          <button
+            onClick={() => navigate("/areas")}
+            style={{
+              fontFamily: "'Jost', sans-serif",
+              fontSize: 11,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              fontWeight: 500,
+              padding: "14px 36px",
+              background: "#2c2420",
+              color: "#f5f0e8",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            See All Areas We Cover
+          </button>
+        </div>
       </Reveal>
     </section>
   );

@@ -24,6 +24,10 @@ const TermsAndCondition = lazy(() => import("./components/TermsAndCondition"))
 const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy"))
 const Faqs = lazy(() => import("./components/Faqs"))
 const ContactPage = lazy(() => import("./components/Contact"))
+const ServicesPage = lazy(() => import("./components/ServicesPage"))
+const SignatureTouchPage = lazy(() => import("./components/SignatureTouchPage"))
+const AboutPage = lazy(() => import("./components/AboutPage"))
+const AreasPage = lazy(() => import("./components/AreasPage"))
 
 const scrollTo = (id) =>
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })
@@ -45,6 +49,14 @@ function MainPage() {
 
 export default function App() {
   const { pathname } = useLocation()
+
+  useEffect(() => {
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  }, [])
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname])
 
   useEffect(() => {
     if (window.gtag) {
@@ -74,6 +86,10 @@ export default function App() {
           <Route path="/booking-success" element={<BookingSuccess />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
           <Route path="/quote" element={<ContactPage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/signature-touch" element={<SignatureTouchPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/areas" element={<AreasPage />} />
         </Routes>
       </Suspense>
 

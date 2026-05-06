@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PACKAGES, PROPERTY_TYPES, FREQUENCIES, ADDONS } from '../data/siteData';
 import { DEEP_SUPPLIES_FEE } from '../utils/pricing';
 import { validateStep1 } from '../utils/validation';
@@ -176,6 +177,7 @@ const COMMERCIAL_SERVICES = [
 ];
 
 export default function BookingStep1({ booking, onUpdate, onNext }) {
+  const location = useLocation();
   const [error,      setError]      = useState('');
   const [expanded,   setExpanded]   = useState(null);
   const [pkgTab,     setPkgTab]     = useState(() => {
@@ -188,6 +190,12 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
   });
 
   const setTab = (tab) => { setPkgTab(tab); sessionStorage.setItem('pkgTab', tab); };
+
+  useEffect(() => {
+    if (location.state?.pkgTab) {
+      setTab(location.state.pkgTab);
+    }
+  }, [location.state]);
 
   const update = (partial) => { onUpdate(partial); setError(''); };
 
@@ -234,12 +242,12 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
         @keyframes twinkle1 { 0%,100% { opacity:0.5; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }
         @keyframes twinkle2 { 0%,100% { opacity:1; transform:scale(1.2); } 50% { opacity:0.4; transform:scale(0.9); } }
         @keyframes twinkle3 { 0%,100% { opacity:0.6; transform:scale(1); } 60% { opacity:1; transform:scale(1.4); } }
-        .pkg-tab-bar { display:flex; gap:0; margin-bottom:24px; border:1px solid rgba(200,184,154,0.4); overflow:hidden; }
-        .pkg-tab-bar button { flex:1; padding:11px 10px; border:none; cursor:pointer; font-family:'Jost',sans-serif; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; transition:all 0.15s; }
+        .pkg-tab-bar { display:flex; gap:6px; margin-bottom:24px; }
+        .pkg-tab-bar button { flex:1; padding:11px 10px; border:1px solid rgba(200,184,154,0.4); border-radius:6px; cursor:pointer; font-family:'Jost',sans-serif; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; transition:all 0.15s; }
         @media (max-width:640px) {
           .pkg-tab-bar { flex-wrap:wrap; }
-          .pkg-tab-bar button { flex:1 1 50%; font-size:10px; padding:10px 6px; }
-          .pkg-tab-bar button:last-child { flex:1 1 100%; border-top:1px solid rgba(200,184,154,0.3); }
+          .pkg-tab-bar button { flex:1 1 calc(50% - 3px); font-size:10px; padding:10px 6px; }
+          .pkg-tab-bar button:last-child { flex:1 1 100%; }
         }
         .book-next-btn { font-family:'Jost',sans-serif; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; font-weight:500; padding:14px 32px; background:#2c2420; color:#f5f0e8; border:none; cursor:pointer; display:flex; align-items:center; gap:10px; }
         @media (max-width:640px) {
@@ -251,6 +259,9 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
       `}</style>
       {/* Package tab switcher */}
       <>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, color: '#1a1410', marginBottom: 12 }}>
+          What are you looking for?
+        </div>
         <div className="pkg-tab-bar">
           {[
             { id: 'signature',  label: 'Signature Packages' },

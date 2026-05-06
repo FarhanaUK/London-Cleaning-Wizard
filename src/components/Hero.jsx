@@ -62,8 +62,6 @@ export default function Hero({ onScrollTo }) {
           background: 'linear-gradient(90deg, #7f1d1d, #991b1b, #7f1d1d)',
           borderBottom: '1px solid rgba(255,255,255,0.12)',
           overflow: 'hidden',
-          animation: 'launchSlideDown 0.6s cubic-bezier(0.22,1,0.36,1) both',
-          animationDelay: '0.4s',
         }}>
           <div style={{
             display: 'flex',
@@ -130,9 +128,9 @@ export default function Hero({ onScrollTo }) {
           {/* Callout badge - above image */}
           <div style={{ padding: "16px 20px 0", position: "relative", zIndex: 2 }}>
             <div style={{ background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 16px", borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for you.</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for your space.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 10, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 10, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
               <button
                 onClick={() => navigate("/book")}
                 style={{
@@ -180,23 +178,23 @@ export default function Hero({ onScrollTo }) {
 
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 10, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
               <Sparkle size={7} color="#c8b89a" />
-           Premium Residential Cleaning <br />
-End of Tenancy | Airbnb Services
+           Transforming, London Spaces <br />
+Homes | Airbnbs | Offices
               <Sparkle size={7} color="#c8b89a" />
             </div>
 
             <div style={{ width: 28, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 16 }} />
 
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(36px, 9vw, 52px)", fontWeight: 300, lineHeight: 1.0, color: "#f5f0e8", marginBottom: 0, letterSpacing: "-0.015em" }}>
-              Transforming,
+              Premium Cleaning
             </p>
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(36px, 9vw, 52px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 4, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-              <span style={{ color: "#e8d9c0" }}>London Homes</span>
+              <span style={{ color: "#e8d9c0" }}>Services</span>
               <span style={{ color: "#c8b89a", marginLeft: 10 }}>✦</span>
             </p>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 13, lineHeight: 1.8, color: "rgba(245,240,232,0.65)", marginBottom: 28, fontWeight: 300 }}>
-              Your home is reset to feel calm, fresh, and quietly pampered. A hotel experience, at home.
+              Hotel-standard cleaning for homes, Airbnbs and offices across London. From £30/hour or full Reset packages from £115.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32 }}>
@@ -229,9 +227,9 @@ End of Tenancy | Airbnb Services
 
             {/* Callout badge */}
             <div style={{ position: "absolute", bottom: 24, right: 32, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 18px", zIndex: 10, borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for you.</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for your space.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
               <button
                 onClick={() => navigate("/book")}
                 style={{
@@ -265,23 +263,23 @@ End of Tenancy | Airbnb Services
 
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 15, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
               <Sparkle size={8} color="#c8b89a" />
-            Premium Residential Cleaning <br />
-End of Tenancy | Airbnb Services
+            Transforming, London Spaces <br />
+Homes | Airbnbs | Offices
               <Sparkle size={8} color="#c8b89a" />
             </div>
 
             <div style={{ width: 32, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 20 }} />
 
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 300, lineHeight: 1.02, color: "#f5f0e8", marginBottom: 4, letterSpacing: "-0.015em" }}>
-              Transforming,
+              Premium Cleaning
             </p>
             <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(44px, 7vw, 64px)", fontWeight: 300, lineHeight: 1.02, marginBottom: 24, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic" }}>
-              <span style={{ color: "#e8d9c0" }}>London Homes</span>
+              <span style={{ color: "#e8d9c0" }}>Services</span>
               <span style={{ color: "#c8b89a", marginLeft: 12 }}>✦</span>
             </p>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 500, marginBottom: 36, fontWeight: 300 }}>
-              Your home is reset to feel calm, fresh, and quietly pampered. A hotel experience, at home.
+              Hotel-standard cleaning for homes, Airbnbs and offices across London. From £30/hour or full Reset packages from £115.
             </p>
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 40 }}>
@@ -321,23 +319,23 @@ End of Tenancy | Airbnb Services
 
               <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, letterSpacing: "0.2em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
                 <Sparkle size={12} color="#c8b89a" />
-            Premium Residential Cleaning <br />
-End of Tenancy | Airbnb Services
+            Transforming, London Spaces <br />
+Homes | Airbnbs | Offices
                 <Sparkle size={12} color="#c8b89a" />
               </div>
 
               <div style={{ width: 40, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 0 }} />
 
               <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 4.5vw, 72px)", fontWeight: 300, lineHeight: 1.0, color: "#f5f0e8", marginBottom: 0, letterSpacing: "-0.015em" }}>
-                Transforming,
+                Premium Cleaning
               </p>
               <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(46px, 4.5vw, 72px)", fontWeight: 300, lineHeight: 1.0, marginBottom: 20, marginTop: 10, letterSpacing: "-0.015em", fontStyle: "italic", whiteSpace: "nowrap" }}>
-                <span style={{ color: "#e8d9c0" }}>London Homes</span>
+                <span style={{ color: "#e8d9c0" }}>Services</span>
                 <span style={{ color: "#c8b89a", marginLeft: 14 }}>✦</span>
               </p>
 
               <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 400, marginBottom: 44, fontWeight: 300 }}>
-                Your home is reset to feel calm, fresh, and quietly pampered. A hotel experience, at home.
+                Hotel-standard cleaning for homes, Airbnbs and offices across London. From £30/hour or full Reset packages from £115.
               </p>
 
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 52 }}>
@@ -368,9 +366,9 @@ End of Tenancy | Airbnb Services
 
             {/* Callout badge */}
             <div style={{ position: "absolute", top: 120, right: 40, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "14px 22px", zIndex: 10, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)", backdropFilter: "blur(4px)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for you.</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for your space.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Save £30 on weekly cleans</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
               <button
                 onClick={() => navigate("/book")}
                 style={{

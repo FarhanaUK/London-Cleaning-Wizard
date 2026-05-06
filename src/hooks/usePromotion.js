@@ -2,8 +2,21 @@ import { db } from '../firebase/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 
-let _cache   = undefined; // undefined = not yet fetched, null = fetched but none active
-let _promise = null;      // deduplicates concurrent fetches
+const LS_KEY = 'lcw_promotion';
+
+function readLocalStorage() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)); } catch { return null; }
+}
+
+function writeLocalStorage(promo) {
+  try {
+    if (promo) localStorage.setItem(LS_KEY, JSON.stringify(promo));
+    else localStorage.removeItem(LS_KEY);
+  } catch {}
+}
+
+let _cache   = undefined;
+let _promise = null;
 
 function fetchActivePromotion() {
   if (_promise) return _promise;
@@ -11,6 +24,7 @@ function fetchActivePromotion() {
     .then(snap => {
       const promo = snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() };
       _cache = promo;
+      writeLocalStorage(promo);
       return promo;
     })
     .catch(() => {
@@ -27,7 +41,8 @@ export function clearPromotionCache() {
 }
 
 export function usePromotion() {
-  const [promotion, setPromotion] = useState(_cache !== undefined ? _cache : null);
+  const lsValue = _cache !== undefined ? _cache : readLocalStorage();
+  const [promotion, setPromotion] = useState(lsValue);
   const [loading,   setLoading]   = useState(_cache === undefined);
 
   useEffect(() => {

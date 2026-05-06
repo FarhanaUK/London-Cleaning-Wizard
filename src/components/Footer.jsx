@@ -119,7 +119,7 @@ export default function Footer() {
                 marginTop: 3,
               }}
             >
-              Residential Cleaning · London
+              Cleaning Services · London
             </div>
           </div>
         </div>

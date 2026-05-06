@@ -16,7 +16,7 @@ function useInView(threshold = 0.12) {
   return [ref, inView];
 }
 
-export default function Reveal({ children, delay = 0, className = "" }) {
+export default function Reveal({ children, delay = 0, className = "", style = {} }) {
   const [ref, inView] = useInView();
   // Stay visible for first 150ms so IntersectionObserver can fire before
   // we hide anything — prevents above-fold elements flashing invisible.
@@ -33,6 +33,7 @@ export default function Reveal({ children, delay = 0, className = "" }) {
         opacity:    visible ? 1 : 0,
         transform:  visible ? "translateY(0)" : "translateY(28px)",
         transition: ready ? `opacity 0.8s ease ${delay}ms, transform 0.8s ease ${delay}ms` : "none",
+        ...style,
       }}
     >
       {children}

@@ -70,7 +70,7 @@ function SelectField({ label, value, options, onChange, placeholder = 'Select…
 }
 
 // Module-level component — stable reference, never remounts
-function Field({ name, label, type = 'text', placeholder, readOnly, value, error, onChange }) {
+function Field({ name, label, type = 'text', placeholder, readOnly, value, error, onChange, onBlur }) {
   return (
     <div style={{ marginBottom: 20 }}>
       <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> {label}</label>
@@ -81,7 +81,7 @@ function Field({ name, label, type = 'text', placeholder, readOnly, value, error
         readOnly={readOnly}
         placeholder={placeholder}
         onChange={e => onChange(name, e.target.value)}
-        onBlur={e => onChange(name, e.target.value)}
+        onBlur={e => (onBlur || onChange)(name, e.target.value)}
         style={{ ...INPUT(!!error), background: readOnly ? '#faf9f7' : 'white' }}
         autoComplete={name}
       />
@@ -123,9 +123,18 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
   const updateField = useCallback((field, value) => {
     setForm(f => ({ ...f, [field]: value }));
+    if (field !== 'postcode') {
+      const err = validateField(field, value);
+      setFieldErrors(e => ({ ...e, [field]: err }));
+    } else {
+      setFieldErrors(e => ({ ...e, postcode: null }));
+    }
+    setSubmitError('');
+  }, []);
+
+  const blurField = useCallback((field, value) => {
     const err = validateField(field, value);
     setFieldErrors(e => ({ ...e, [field]: err }));
-    setSubmitError('');
   }, []);
 
   const handleSendCode = async () => {
@@ -247,7 +256,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
         <div style={SECTION_TITLE}>Property Details</div>
         <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px' }}>
           <Field key="addr1"    name="addr1"    label="Address Line 1 *"    placeholder="Flat 3, 42 Mare Street" value={form.addr1}    error={fieldErrors.addr1}    onChange={updateField} />
-          <Field key="postcode" name="postcode" label="Postcode *"           placeholder="E8 1HL"                 value={form.postcode} error={fieldErrors.postcode} onChange={updateField} />
+          <Field key="postcode" name="postcode" label="Postcode *"           placeholder="E8 1HL"                 value={form.postcode} error={fieldErrors.postcode} onChange={updateField} onBlur={blurField} />
           <Field key="floor"    name="floor"    label="Floor / Access Notes" placeholder="2nd floor, no lift"     value={form.floor}    error={fieldErrors.floor}    onChange={updateField} />
           <SelectField
             label="Parking"
