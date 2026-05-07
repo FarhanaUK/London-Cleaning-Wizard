@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { fmtDate } from '../utils';
 import { FREQUENCIES, PACKAGES, PROPERTY_TYPES } from '../../../data/siteData';
 import { TIMES } from '../../../constants/timeOptions';
@@ -55,6 +55,10 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
   const [convertPkg,       setConvertPkg]       = useState('refresh');
   const [convertSaving,    setConvertSaving]    = useState(false);
   const [convertErr,       setConvertErr]       = useState('');
+  const [sigTouchOptingOut, setSigTouchOptingOut] = useState(false);
+  const [sigTouchNote,      setSigTouchNote]      = useState('');
+
+  useEffect(() => { setSigTouchOptingOut(false); setSigTouchNote(''); }, [selectedCustomer]);
 
   // Build customer map from bookings
   const customerMap = {};
@@ -210,6 +214,75 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                 }).catch(() => {});
               }}
             />
+
+            {(() => {
+              const stdBooking = [...sc.bookings]
+                .sort((a, b) => (b.cleanDate || '') > (a.cleanDate || '') ? 1 : -1)
+                .find(b => !b.status?.startsWith('cancelled') && (b.package === 'standard' || b.packageId === 'standard'));
+              if (!stdBooking) return null;
+              const optedIn = stdBooking.signatureTouch !== false;
+              const saveSigTouch = (touch, notes) => {
+                fetch(import.meta.env.VITE_CF_SET_SIGNATURE_TOUCH, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: sc.email, signatureTouch: touch, signatureTouchNotes: notes }),
+                }).catch(() => {});
+                setBookings(all => all.map(x =>
+                  x.email?.toLowerCase() === sc.email?.toLowerCase() && (x.package === 'standard' || x.packageId === 'standard')
+                    ? { ...x, signatureTouch: touch, signatureTouchNotes: notes }
+                    : x
+                ));
+              };
+              return (
+                <div style={{ padding: '10px 14px', background: optedIn ? '#f0fdf4' : '#fef9f0', borderRadius: 6, marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: optedIn ? '#166534' : '#92400e' }}>
+                        {optedIn ? '✓ Signature Touch: Opted in' : '✕ Signature Touch: Opted out'}
+                      </div>
+                      {!optedIn && stdBooking.signatureTouchNotes && !sigTouchOptingOut && (
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: '#92400e', marginTop: 2 }}>Reason: {stdBooking.signatureTouchNotes}</div>
+                      )}
+                    </div>
+                    {!sigTouchOptingOut && (
+                      <button
+                        onClick={() => {
+                          if (optedIn) { setSigTouchOptingOut(true); setSigTouchNote(''); }
+                          else saveSigTouch(true, '');
+                        }}
+                        style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '6px 12px', background: optedIn ? '#dcfce7' : '#fef3c7', color: optedIn ? '#166534' : '#92400e', border: 'none', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}
+                      >
+                        {optedIn ? 'Mark opted out' : 'Mark opted in'}
+                      </button>
+                    )}
+                  </div>
+                  {sigTouchOptingOut && (
+                    <div style={{ marginTop: 10 }}>
+                      <input
+                        autoFocus
+                        value={sigTouchNote}
+                        onChange={e => setSigTouchNote(e.target.value)}
+                        placeholder="Reason for opting out (optional)"
+                        style={{ width: '100%', padding: '8px 12px', fontFamily: FONT, fontSize: 13, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+                      />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => { saveSigTouch(false, sigTouchNote); setSigTouchOptingOut(false); }}
+                          style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '6px 14px', background: '#92400e', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                        >
+                          Confirm opt-out
+                        </button>
+                        <button
+                          onClick={() => setSigTouchOptingOut(false)}
+                          style={{ fontFamily: FONT, fontSize: 11, padding: '6px 14px', background: 'transparent', color: '#92400e', border: '1px solid #92400e', borderRadius: 6, cursor: 'pointer' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {sc.latestNotes && (
               <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 14px', fontFamily: FONT, fontSize: 12, color: C.muted, fontStyle: 'italic' }}>

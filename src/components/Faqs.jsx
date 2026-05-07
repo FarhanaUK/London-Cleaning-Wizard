@@ -1,10 +1,11 @@
 ﻿import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { Sparkle } from "./Icons";
 
 const FAQS = [
   {
     question: "What areas do you cover?",
-    answer: "We cover areas across London including Hackney, Islington, Camden, Westminster, Kensington, Chelsea, Clapham, Brixton, Shoreditch, Canary Wharf, Stratford, Greenwich, and many more. If you don't see your area listed, get in touch and we may still be able to help.",
+    answer: "We cover a wide area across central and east London. Our coverage spans East & Riverside (Canary Wharf, Shoreditch, Hackney, Stratford, Bethnal Green, Dalston and more), Central & City (Mayfair, Soho, Westminster, Covent Garden, Bloomsbury and more), North (Islington, Camden, Hampstead, King's Cross and more), West (Kensington, Chelsea, Notting Hill, Paddington, Maida Vale and more), and South & South East (Greenwich, Brixton, Clapham, Bermondsey, Peckham, Battersea and more). Visit our Areas page to see the full list, or give us a call on 020 8137 0026 if you're not sure we cover your location.",
   },
   {
     question: "Are your cleaners vetted?",
@@ -28,23 +29,43 @@ const FAQS = [
   },
   {
     question: "How much does a clean cost?",
-    answer: "Our pricing is tailored to your home and the service you need. Factors include the size of your property, the type of clean, and your location. Request a free quote and we'll provide a transparent, no-obligation price.",
+    answer: "Our pricing is transparent and displayed in full on our booking page. Home cleaning packages start from £115 for a studio Essential Reset and from £145 for the Signature Hotel Reset. Deep cleans (including end of tenancy) start from £225. Airbnb turnaround cleans start from £95. Hourly cleaning starts from £90 for 3 hours (£30/hr). Airbnb & Serviced Apartment hourly cleans and office cleaning are priced at £35/hr, from £70 and £105 respectively. All prices include VAT and there are no hidden fees.",
+  },
+  {
+    question: "Do you offer hourly cleaning?",
+    answer: "Yes. Our hourly cleaning option is ideal if you need specific areas tackled rather than a full package clean. It starts from 3 hours at £30/hour (minimum £90). You decide the priorities: whether that's the kitchen, bathrooms, or a general tidy. Book directly through our website or call us on 020 8137 0026.",
+  },
+  {
+    question: "Do you offer discounts for regular cleans?",
+    answer: "Yes. We offer loyalty discounts for recurring bookings. Weekly cleans save you £30 per clean, fortnightly saves £15, and monthly saves £7. The discount applies from your second clean onwards and is applied automatically. Please note that missing two consecutive cleans will end your recurring arrangement.",
   },
   {
     question: "Do you require a deposit?",
-    answer: "Yes, a 30% deposit is required to secure your booking and goes toward the total cost of your clean. The deposit is fully refundable if you cancel more than 48 hours before your scheduled clean by phone call only.\n\nFor recurring bookings, no deposit is taken from the second clean onwards — the full amount is charged automatically on completion. If you cancel a recurring clean with less than 48 hours notice, a 30% charge will be applied to your saved payment method.",
+    answer: "Yes, a 30% deposit is required to secure your booking and goes toward the total cost of your clean. The deposit is fully refundable if you cancel more than 48 hours before your scheduled clean by phone call only.\n\nFor recurring bookings, no deposit is taken from the second clean onwards. The full amount is charged automatically on completion. If you cancel a recurring clean with less than 48 hours notice, a 30% charge will be applied to your saved payment method.",
   },
   {
     question: "What is your cancellation policy?",
-    answer: "All cancellations must be made by phone call only on 020 8137 0026 — email, text or WhatsApp will not be accepted as valid notice.\n\nOne-off bookings / First Booking: Full refund if cancelled more than 48 hours before your clean. No refund if cancelled with less than 48 hours notice.\n\nRecurring services: Cancel any time with 48 hours notice at no charge. Cancellations with less than 48 hours notice will incur a 30% charge applied to your saved payment method. Missing two consecutive cleans ends your recurring arrangement and discount.",
+    answer: "All cancellations must be made by phone call only on 020 8137 0026. Email, text or WhatsApp will not be accepted as valid notice.\n\nOne-off bookings / First Booking: Full refund if cancelled more than 48 hours before your clean. No refund if cancelled with less than 48 hours notice.\n\nRecurring services: Cancel any time with 48 hours notice at no charge. Cancellations with less than 48 hours notice will incur a 30% charge applied to your saved payment method. Missing two consecutive cleans ends your recurring arrangement and discount.",
   },
   {
     question: "Do you offer a satisfaction guarantee?",
     answer: "Yes. If you're not happy with your clean, please let us know within 24 hours and we'll arrange a free re-clean where appropriate. We're committed to making sure every home is perfected.",
   },
   {
-    question: "Do you offer Airbnb and end of tenancy cleans?",
-    answer: "Yes. We offer both Airbnb turnaround cleans and full end of tenancy cleans. Our end of tenancy service is landlord-approved and designed to maximise your chances of a full deposit return. We'll make sure every inch of your property is spotless.",
+    question: "Do you offer Airbnb and short-let cleaning?",
+    answer: "Yes. We offer two Airbnb cleaning options: a fixed-price Airbnb Turnaround package (from £95 for a studio) with a completion photo sent to you, and an hourly Airbnb & Serviced Apartments option at £35/hr (minimum 2 hours) for more flexible turnarounds. Both are designed to get your property guest-ready quickly and to a hotel standard.",
+  },
+  {
+    question: "Do you offer end of tenancy cleaning?",
+    answer: "Yes. Our Deep Clean is a full end of tenancy and move-in clean, covering everything from inside the oven and fridge to behind appliances. It starts from £225 for a studio and comes with a photo report. It is designed to maximise your chances of a full deposit return and meets landlord and agent standards.",
+  },
+  {
+    question: "Do you clean offices or commercial properties?",
+    answer: "Yes. We offer office and commercial cleaning at £35/hour with a minimum of 3 hours. We work around your schedule, including after hours and early mornings, so your team walks into a fresh environment. Call us on 020 8137 0026 or email bookings@londoncleaningwizard.com to discuss your requirements and get a quote.",
+  },
+  {
+    question: "Can I set up a regular cleaning arrangement for my Airbnb or business?",
+    answer: "Yes. If you need recurring cleans (weekly, fortnightly, or monthly) without having to rebook each time, fill in our quote form at londoncleaningwizard.com/quote. Tell us about your property, preferred frequency, and access arrangements and we will be in touch within a few hours to set everything up. For one-off Airbnb turnarounds or office cleans, you can book directly through our website.",
   },
   {
     question: "What are your working hours?",
@@ -99,8 +120,14 @@ export default function Faqs() {
   const toggle = (i) => setOpenIndex(openIndex === i ? null : i);
 
   return (
-    <div style={{
-      background: "#faf9f7",
+    <>
+      <Helmet>
+        <title>FAQs | London Cleaning Wizard</title>
+        <meta name="description" content="Answers to your most common questions about our London cleaning services — pricing, what's included, how to book, cancellations, supplies and more." />
+        <link rel="canonical" href="https://londoncleaningwizard.com/faqs" />
+      </Helmet>
+      <div style={{
+        background: "#faf9f7",
       minHeight: "100vh",
       padding: isMobile ? "100px 20px 60px" : "120px clamp(20px, 6vw, 160px) 80px",
     }}>
@@ -320,5 +347,6 @@ export default function Faqs() {
 </div>
       </div>
     </div>
+    </>
   );
 }

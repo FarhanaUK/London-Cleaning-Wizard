@@ -1,7 +1,7 @@
 ﻿import { Sparkle, LogoMark } from "./Icons";
 import { NAV_LINKS } from "../data/siteData";
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 
 export default function Footer() {
   const [screen, setScreen] = useState(() => {
@@ -126,91 +126,87 @@ export default function Footer() {
 
       </div>
 
-      {/* Social media links */}
-      <div
-        style={{
-          display: "flex",
-          gap: isTablet ? 12 : 16,
-          marginBottom: 28,
-          flexWrap: "wrap",
-        }}
-      >
+      {/* Services + Company columns */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr 1fr" : isTablet ? "1fr 1fr 1fr" : "1fr 1fr 1fr",
+        gap: isMobile ? "32px 20px" : "0 40px",
+        marginBottom: 36,
+        paddingBottom: 32,
+        borderBottom: "1px solid rgba(200,184,154,0.08)",
+      }}>
+
+        {/* Services */}
+        <div>
+          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8b7355", marginBottom: 14 }}>
+            Services
+          </div>
+          {[
+            { label: "Regular Clean",       href: "/regular-clean" },
+            { label: "Deep Clean",          href: "/deep-clean" },
+            { label: "Hourly Clean",        href: "/hourly-clean" },
+            { label: "Commercial & Airbnb", href: "/commercial-clean" },
+            { label: "Signature Hotel Reset", href: "/signature-touch" },
+          ].map(({ label, href }) => (
+            <a key={label} href={href} style={{ display: "block", fontFamily: "'Jost',sans-serif", fontSize: isMobile ? 11 : 12, color: "rgba(245,240,232,0.45)", textDecoration: "none", marginBottom: 10, letterSpacing: "0.04em" }}>
+              {label}
+            </a>
+          ))}
+        </div>
+
+        {/* Company */}
+        <div>
+          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8b7355", marginBottom: 14 }}>
+            Company
+          </div>
+          {[
+            { label: "About Us",    href: "/about" },
+            { label: "Areas",       href: "/areas" },
+            { label: "Services",    href: "/services" },
+            { label: "FAQs",        href: "/faqs" },
+            { label: "Get a Quote", href: "/quote" },
+            { label: "Contact",     href: "/faqs#faq-contact" },
+          ].map(({ label, href }) => (
+            <a key={label} href={href} style={{ display: "block", fontFamily: "'Jost',sans-serif", fontSize: isMobile ? 11 : 12, color: "rgba(245,240,232,0.45)", textDecoration: "none", marginBottom: 10, letterSpacing: "0.04em" }}>
+              {label}
+            </a>
+          ))}
+        </div>
+
+        {/* Social */}
+        <div>
+          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "#8b7355", marginBottom: 14 }}>
+            Follow Us
+          </div>
+          {[
+            { label: "Instagram", href: "https://instagram.com/londoncleaningwizard" },
+            { label: "Facebook",  href: "https://facebook.com/londoncleaningwizard" },
+            { label: "TikTok",    href: "https://tiktok.com/@londoncleaningwizard" },
+          ].map(({ label, href }) => (
+            <a key={label} href={href} target="_blank" rel="noopener noreferrer" style={{ display: "block", fontFamily: "'Jost',sans-serif", fontSize: isMobile ? 11 : 12, color: "rgba(245,240,232,0.45)", textDecoration: "none", marginBottom: 10, letterSpacing: "0.04em" }}>
+              {label}
+            </a>
+          ))}
+        </div>
+
+      </div>
+
+      {/* Legal links */}
+      <div style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: isMobile ? "8px 16px" : "6px 24px",
+        marginBottom: 24,
+      }}>
         {[
-          { label: "Instagram", href: "https://instagram.com/londoncleaningwizard" },
-          { label: "Facebook", href: "https://facebook.com/londoncleaningwizard" },
-          { label: "TikTok", href: "https://tiktok.com/@londoncleaningwizard" },
+          { label: "Privacy Policy",    href: "/privacy-policy" },
+          { label: "Terms & Conditions", href: "/terms-and-conditions" },
         ].map(({ label, href }) => (
-          <a
-            key={label}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Follow London Cleaning Wizard on ${label}`}
-            style={{
-              fontFamily: "'Jost', sans-serif",
-              fontSize: isMobile ? 10 : isTablet ? 10.5 : 11,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "rgba(245,240,232,0.35)",
-              textDecoration: "none",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <Sparkle size={6} color="#8b7355" /> {label}
+          <a key={label} href={href} style={{ fontFamily: "'Jost',sans-serif", fontSize: isMobile ? 10 : 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(245,240,232,0.18)", textDecoration: "none" }}>
+            {label}
           </a>
         ))}
       </div>
-
-     {/* Legal links */}
-<div
-  style={{
-    display: "flex",
-    flexDirection: isMobile ? "column" : "row", // stack on mobile
-    alignItems: isMobile ? "flex-start" : "center",
-    gap: isMobile ? 10 : isTablet ? 16 : 24,
-    marginBottom: 24,
-  }}
->
-  {[ 
-    { label: "Privacy Policy", href: "/privacy-policy" },
-    { label: "Terms & Conditions", href: "/terms-and-conditions" },
-    { label: "FAQs", href: "/faqs" },
-  ].map(({ label, href }) => (
-    <a
-      key={label}
-      href={href}
-      style={{
-        fontFamily: "'Jost', sans-serif",
-        fontSize: isMobile ? 10 : isTablet ? 10.5 : 11,
-        letterSpacing: "0.12em",
-        textTransform: "uppercase",
-        color: "rgba(245,240,232,0.25)",
-        textDecoration: "none",
-        marginBottom: isMobile ? 8 : 0, // add spacing between stacked links
-      }}
-    >
-      {label}
-    </a>
-  ))}
-
-  {/* Contacts link scrolling to bottom of FAQs */}
-  <span
-    onClick={() => scrollTo("contact")}
-    style={{
-      fontFamily: "'Jost', sans-serif",
-      fontSize: isMobile ? 10 : isTablet ? 10.5 : 11,
-      letterSpacing: "0.12em",
-      textTransform: "uppercase",
-      color: "rgba(245,240,232,0.25)",
-      cursor: "pointer",
-      marginBottom: isMobile ? 8 : 0, // same spacing
-    }}
-  >
-    Contacts
-  </span>
-</div>
 
       {/* Bottom row */}
       <div

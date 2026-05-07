@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect } from "react"
+import { Helmet } from "react-helmet-async"
 import { Routes, Route, useLocation } from "react-router-dom"
 
 // ✅ Always-loaded core UI (small + needed everywhere)
@@ -28,6 +29,10 @@ const ServicesPage = lazy(() => import("./components/ServicesPage"))
 const SignatureTouchPage = lazy(() => import("./components/SignatureTouchPage"))
 const AboutPage = lazy(() => import("./components/AboutPage"))
 const AreasPage = lazy(() => import("./components/AreasPage"))
+const HourlyPage = lazy(() => import("./components/HourlyPage"))
+const CommercialPage = lazy(() => import("./components/CommercialPage"))
+const RegularCleanPage = lazy(() => import("./components/RegularCleanPage"))
+const DeepCleanPage = lazy(() => import("./components/DeepCleanPage"))
 
 const scrollTo = (id) =>
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })
@@ -35,6 +40,11 @@ const scrollTo = (id) =>
 function MainPage() {
   return (
     <>
+      <Helmet>
+        <title>Premium Home & Commercial Cleaning London | London Cleaning Wizard</title>
+        <meta name="description" content="Premium home & commercial cleaning across London. Vetted, trained & fully insured. Regular, deep & end of tenancy cleans. Free quote today." />
+        <link rel="canonical" href="https://londoncleaningwizard.com/" />
+      </Helmet>
       <Hero onScrollTo={scrollTo} />
       <StatsStrip />
 
@@ -90,6 +100,10 @@ export default function App() {
           <Route path="/signature-touch" element={<SignatureTouchPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/areas" element={<AreasPage />} />
+          <Route path="/hourly-clean" element={<HourlyPage />} />
+          <Route path="/commercial-clean" element={<CommercialPage />} />
+          <Route path="/regular-clean" element={<RegularCleanPage />} />
+          <Route path="/deep-clean" element={<DeepCleanPage />} />
         </Routes>
       </Suspense>
 

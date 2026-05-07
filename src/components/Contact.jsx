@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Helmet } from "react-helmet-async";
 import { Sparkle, WandIcon } from "./Icons";
 import Reveal from "./Reveal";
 import { CONTACT_INFO } from "../data/siteData";
@@ -158,100 +159,138 @@ export default function Contact() {
   };
 
   return (
-    <section
-      id="contact"
+    <>
+      <Helmet>
+        <title>Get a Free Quote | Commercial & Specialist Cleaning London | London Cleaning Wizard</title>
+        <meta name="description" content="Get a tailored quote for commercial, office or specialist cleaning in London. Tell us what you need and we'll get back to you within 24 hours." />
+        <link rel="canonical" href="https://londoncleaningwizard.com/quote" />
+      </Helmet>
+      <section
+        id="contact"
       aria-label="Request a commercial cleaning quote from London Cleaning Wizard"
       itemScope
       itemType="https://schema.org/ContactPage"
-      style={{ padding: isMobile ? "60px 20px" : "100px clamp(24px, 6vw, 100px)", background: "#faf9f7" }}
+      style={{ padding: isMobile ? "100px 20px 60px" : isTablet ? "100px 32px 80px" : "100px clamp(24px, 6vw, 100px)", background: "#faf9f7" }}
     >
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : "1fr 1fr",
-        gap: isMobile ? 48 : isTablet ? 60 : 80,
-        alignItems: "start",
-        maxWidth: 1200,
-        margin: "0 auto",
-      }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
 
-        {/* Left — info */}
-        <Reveal>
-          <div>
-            <div style={{
-              fontFamily: "'Jost', sans-serif",
-              fontSize: isMobile ? 13 : 16,
-              letterSpacing: "0.2em",
-              color: "#8b7355",
-              textTransform: "uppercase",
-              marginBottom: 20,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}>
-              <WandIcon size={16} color="#c8b89a" /> Tailored Commercial Pricing
-            </div>
-
-            <h2 style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: isMobile ? "clamp(28px, 7vw, 38px)" : "clamp(36px, 4.5vw, 56px)",
-              fontWeight: 300,
-              lineHeight: 1.1,
-              marginBottom: 28,
-              color: "#1a1410",
-            }}>
-              Request a<br /><em>commercial quote</em>
-            </h2>
-
-            <div style={{ width: 44, height: 1, background: "#c8b89a", marginBottom: 28 }} />
-
-            <p style={{
-              fontFamily: "'Jost', sans-serif",
-              fontSize: isMobile ? 13 : 18,
-              lineHeight: 1.9,
-              color: "#5a4e44",
-              fontWeight: 300,
-              marginBottom: 40,
-            }}>
-              Whether you run an Airbnb, a serviced apartment, or an office, we will put together a bespoke cleaning plan around your schedule. Fill in the form and we will be in touch within a few hours.
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-              {CONTACT_INFO.map(({ label, value }) => (
-                <div key={label} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                  <Sparkle size={10} color="#c8b89a" style={{ marginTop: 3, flexShrink: 0 }} />
-                  <div>
-                    <div style={{
-                      fontFamily: "'Jost', sans-serif",
-                      fontSize: isMobile ? 10 : 13,
-                      letterSpacing: "0.18em",
-                      color: "#8b7355",
-                      textTransform: "uppercase",
-                      marginBottom: 2,
-                    }}>
-                      {label}
-                    </div>
-                    <div style={{
-                      fontFamily: "'Jost', sans-serif",
-                      fontSize: isMobile ? 14 : 18,
-                      color: "#2c2420",
-                    }}>
-                      {value}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {!isMobile && (
-              <div style={{ marginTop: 52, opacity: 0.1 }}>
-                <WandIcon size={80} color="#2c2420" />
+        {/* Mobile: title only above the form */}
+        {isMobile && (
+          <Reveal>
+            <div style={{ marginBottom: 32 }}>
+              <div style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: 13,
+                letterSpacing: "0.2em",
+                color: "#8b7355",
+                textTransform: "uppercase",
+                marginBottom: 20,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}>
+                <WandIcon size={16} color="#c8b89a" /> Tailored Commercial Pricing
               </div>
-            )}
-          </div>
-        </Reveal>
+              <h2 style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: "clamp(28px, 7vw, 38px)",
+                fontWeight: 300,
+                lineHeight: 1.1,
+                marginBottom: 24,
+                color: "#1a1410",
+              }}>
+                Request a<br /><em>commercial quote</em>
+              </h2>
+              <div style={{ width: 44, height: 1, background: "#c8b89a" }} />
+            </div>
+          </Reveal>
+        )}
 
-        {/* Right — form */}
-        <Reveal delay={160}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : "1fr 1fr",
+          gap: isMobile ? 0 : isTablet ? 60 : 80,
+          alignItems: "start",
+        }}>
+
+          {/* Left — full info, desktop/tablet only */}
+          {!isMobile && (
+            <Reveal>
+              <div>
+                <div style={{
+                  fontFamily: "'Jost', sans-serif",
+                  fontSize: isTablet ? 13 : 16,
+                  letterSpacing: "0.2em",
+                  color: "#8b7355",
+                  textTransform: "uppercase",
+                  marginBottom: 20,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}>
+                  <WandIcon size={16} color="#c8b89a" /> Tailored Commercial Pricing
+                </div>
+
+                <h2 style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: "clamp(36px, 4.5vw, 56px)",
+                  fontWeight: 300,
+                  lineHeight: 1.1,
+                  marginBottom: 28,
+                  color: "#1a1410",
+                }}>
+                  Request a<br /><em>commercial quote</em>
+                </h2>
+
+                <div style={{ width: 44, height: 1, background: "#c8b89a", marginBottom: 28 }} />
+
+                <p style={{
+                  fontFamily: "'Jost', sans-serif",
+                  fontSize: isTablet ? 15 : 18,
+                  lineHeight: 1.9,
+                  color: "#5a4e44",
+                  fontWeight: 300,
+                  marginBottom: 40,
+                }}>
+                  For one-off Airbnb or office cleans, you can book directly through our website. This form is for hosts and businesses who need a <em>regular</em> arrangement — weekly, fortnightly, or monthly — without having to rebook each time. Fill in as much detail as you can and we will be in touch within a few hours to set everything up.
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+                  {CONTACT_INFO.map(({ label, value }) => (
+                    <div key={label} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                      <Sparkle size={10} color="#c8b89a" style={{ marginTop: 3, flexShrink: 0 }} />
+                      <div>
+                        <div style={{
+                          fontFamily: "'Jost', sans-serif",
+                          fontSize: isTablet ? 10 : 13,
+                          letterSpacing: "0.18em",
+                          color: "#8b7355",
+                          textTransform: "uppercase",
+                          marginBottom: 2,
+                        }}>
+                          {label}
+                        </div>
+                        <div style={{
+                          fontFamily: "'Jost', sans-serif",
+                          fontSize: isTablet ? 15 : 18,
+                          color: "#2c2420",
+                        }}>
+                          {value}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: 52, opacity: 0.1 }}>
+                  <WandIcon size={80} color="#2c2420" />
+                </div>
+              </div>
+            </Reveal>
+          )}
+
+          {/* Form */}
+          <Reveal delay={isMobile ? 0 : 160}>
           <div ref={formRef}>
           {sent ? (
             <div style={{ padding: isMobile ? "40px 24px" : "60px 44px", background: "#f2ede6", textAlign: "center" }}>
@@ -459,7 +498,51 @@ export default function Contact() {
           )}
           </div>
         </Reveal>
+
+        </div>{/* end grid */}
+
+        {/* Mobile: description + contact info below the form */}
+        {isMobile && (
+          <Reveal delay={80}>
+            <div style={{ marginTop: 40 }}>
+              <p style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: 13,
+                lineHeight: 1.9,
+                color: "#5a4e44",
+                fontWeight: 300,
+                marginBottom: 32,
+              }}>
+                For one-off Airbnb or office cleans, you can book directly through our website. This form is for hosts and businesses who need a <em>regular</em> arrangement — weekly, fortnightly, or monthly — without having to rebook each time. Fill in as much detail as you can and we will be in touch within a few hours to set everything up.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+                {CONTACT_INFO.map(({ label, value }) => (
+                  <div key={label} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                    <Sparkle size={10} color="#c8b89a" style={{ marginTop: 3, flexShrink: 0 }} />
+                    <div>
+                      <div style={{
+                        fontFamily: "'Jost', sans-serif",
+                        fontSize: 10,
+                        letterSpacing: "0.18em",
+                        color: "#8b7355",
+                        textTransform: "uppercase",
+                        marginBottom: 2,
+                      }}>
+                        {label}
+                      </div>
+                      <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 14, color: "#2c2420" }}>
+                        {value}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        )}
+
       </div>
     </section>
+    </>
   );
 }

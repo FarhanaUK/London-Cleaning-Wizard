@@ -147,7 +147,7 @@ export default function BookingPage() {
       }}>
 
         {/* Steps column */}
-        <div style={{ paddingRight: isMobile ? 0 : 40, paddingTop: 80 }}>
+        <div style={{ paddingRight: isMobile ? 0 : 40, paddingTop: isMobile ? 16 : 80 }}>
           {step === 1 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => goToStep(2)} />}
           {step === 2 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(3)} onBack={() => goToStep(1)} />}
           {step === 3 && <BookingStep3 booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} isMobile={isMobile} />}

@@ -5,9 +5,12 @@ import { NAV_LINKS } from "../data/siteData";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 
 const SERVICE_SUB_LINKS = [
-  { label: "Signature Packages", tab: "signature"  },
-  { label: "Hourly Clean",       tab: "hourly"     },
-  { label: "Commercial",         tab: "commercial" },
+  { label: "Signature Hotel Reset", tab: "signature"  },
+  { label: "Regular Clean",         tab: "regular"    },
+  { label: "Deep Clean",            tab: "deep"       },
+  { label: "Hourly Clean",          tab: "hourly"     },
+  { label: "Commercial & Airbnb",   tab: "commercial" },
+  { label: "Go to Booking >",         tab: "book",      cta: true     },
 ];
 
 export default function Navbar() {
@@ -54,10 +57,15 @@ export default function Navbar() {
   useEffect(() => { setServicesOpen(false); }, [location.pathname]);
 
   const goToBooking = (tab) => {
-    sessionStorage.setItem("pkgTab", tab);
     setServicesOpen(false);
     setMenuOpen(false);
-    navigate("/book", { state: { pkgTab: tab } });
+    if (tab === 'hourly') navigate('/hourly-clean');
+    else if (tab === 'commercial') navigate('/commercial-clean');
+    else if (tab === 'regular') navigate('/regular-clean');
+    else if (tab === 'deep') navigate('/deep-clean');
+    else if (tab === 'book') navigate('/book');
+    else if (tab === 'signature') navigate('/signature-touch');
+    else navigate('/book', { state: { pkgTab: tab } });
   };
 
   const goHome = () => {
@@ -173,24 +181,29 @@ export default function Navbar() {
                   padding: "6px 0",
                 }}>
                   {SERVICE_SUB_LINKS.map(item => (
-                    <div
-                      key={item.label}
-                      onClick={() => goToBooking(item.tab)}
-                      onMouseEnter={e => e.currentTarget.style.color = "#1a1410"}
-                      onMouseLeave={e => e.currentTarget.style.color = "#5a4e44"}
-                      style={{
-                        fontFamily: "'Jost', sans-serif",
-                        fontSize: 11,
-                        letterSpacing: "0.12em",
-                        textTransform: "uppercase",
-                        padding: "12px 24px",
-                        cursor: "pointer",
-                        color: "#5a4e44",
-                        transition: "color 0.2s",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {item.label}
+                    <div key={item.label}>
+                      {item.cta && (
+                        <div style={{ height: 1, background: "rgba(200,184,154,0.15)", margin: "4px 0" }} />
+                      )}
+                      <div
+                        onClick={() => goToBooking(item.tab)}
+                        onMouseEnter={e => e.currentTarget.style.color = "#1a1410"}
+                        onMouseLeave={e => e.currentTarget.style.color = item.cta ? "#1a1410" : "#5a4e44"}
+                        style={{
+                          fontFamily: "'Jost', sans-serif",
+                          fontSize: 11,
+                          letterSpacing: "0.12em",
+                          textTransform: "uppercase",
+                          padding: "11px 24px",
+                          cursor: "pointer",
+                          color: item.cta ? "#1a1410" : "#5a4e44",
+                          background: "transparent",
+                          transition: "color 0.2s",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {item.label}
+                      </div>
                     </div>
                   ))}
                 </div>,
@@ -203,6 +216,17 @@ export default function Navbar() {
                   {label}
                 </Link>
               ))}
+
+              <a href="tel:02081370026" style={{
+                ...linkStyle,
+                textDecoration: "none",
+                display: "flex", alignItems: "center", gap: 5,
+                whiteSpace: "nowrap",
+                color: isDark ? "#2c2420" : "rgba(245,240,232,0.85)",
+                fontWeight: 500,
+              }}>
+                {isTablet ? "📞" : "📞 020 8137 0026"}
+              </a>
 
               <Link to="/book" style={{
                 fontFamily: "'Jost', sans-serif",
@@ -220,19 +244,31 @@ export default function Navbar() {
                 gap: 6,
                 textDecoration: "none",
               }}>
-                {!isTablet && <WandIcon size={14} color="#c8b89a" />} Book a Clean
+                {!isTablet && <WandIcon size={14} color="#c8b89a" />} Book Now
               </Link>
             </div>
           )}
 
-          {/* Hamburger — mobile only */}
+          {/* Phone + Hamburger — mobile only */}
           {isMobile && (
-            <button onClick={() => setMenuOpen(!menuOpen)} style={{
-              background: "none", border: "none", cursor: "pointer",
-              fontSize: 22, color: isDark ? "#2c2420" : "#f5f0e8",
-            }}>
-              {menuOpen ? "✕" : "☰"}
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <a href="tel:02081370026" style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: 11, fontWeight: 500,
+                letterSpacing: "0.04em",
+                color: isDark ? "#2c2420" : "rgba(245,240,232,0.9)",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}>
+                📞
+              </a>
+              <button onClick={() => setMenuOpen(!menuOpen)} style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 22, color: isDark ? "#2c2420" : "#f5f0e8",
+              }}>
+                {menuOpen ? "✕" : "☰"}
+              </button>
+            </div>
           )}
         </div>
 
@@ -265,10 +301,10 @@ export default function Navbar() {
                 onClick={() => goToBooking(item.tab)}
                 style={{
                   fontFamily: "'Jost', sans-serif",
-                  fontSize: 16,
+                  fontSize: item.cta ? 14 : 16,
                   letterSpacing: "0.16em",
                   textTransform: "uppercase",
-                  color: "#f5f0e8",
+                  color: item.cta ? "#c8b89a" : "#f5f0e8",
                   cursor: "pointer",
                   marginBottom: 14,
                 }}
@@ -294,7 +330,7 @@ export default function Navbar() {
             background: "#2c2420", color: "#f5f0e8", cursor: "pointer",
             display: "flex", alignItems: "center", gap: 10, textDecoration: "none",
           }}>
-            <WandIcon size={14} color="#c8b89a" /> Book a Clean
+            <WandIcon size={14} color="#c8b89a" /> Book Now
           </Link>
         </div>
       )}

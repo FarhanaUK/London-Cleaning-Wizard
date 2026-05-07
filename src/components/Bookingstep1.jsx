@@ -5,7 +5,7 @@ import { DEEP_SUPPLIES_FEE } from '../utils/pricing';
 import { validateStep1 } from '../utils/validation';
 import { Sparkle, WandIcon } from './Icons';
 
-// What each package includes — shown in expandable checklist
+// What each package includes - shown in expandable checklist
 const PACKAGE_DETAIL = {
   refresh: [
     'Full home clean across all rooms',
@@ -20,11 +20,11 @@ const PACKAGE_DETAIL = {
   
   standard: {
     intro: [
-      'For homes that are already maintained and need a refined, hotel-style finish. The Signature Hotel Reset goes beyond cleaning. It transforms your home into a calm, beautifully presented space that feels like a luxury hotel. You walk in, and everything just feels lighter, calmer, and easier.',
+      'For homes that are already maintained and need a refined, hotel-style finish. The Signature Hotel Reset goes beyond cleaning. It transforms your home into a calm, beautifully presented space that feels like a premium hotel. You walk in, and everything just feels lighter, calmer, and easier.',
     ],
     sections: [
       {
-        heading: 'Everything in Essential Reset, plus:',
+        heading: 'Everything in Regular Clean, plus:',
         items: [
           'Linen change',
           'Hotel-style bed presentation (tight, smooth, and styled)',
@@ -53,11 +53,11 @@ const PACKAGE_DETAIL = {
   },
   deep: {
     intro: [
-      'The Deep Reset is our most intensive service. A full top-to-bottom restoration for homes that need more than a standard clean.',
+      'The Deep Clean is our most intensive service. A full top-to-bottom restoration for homes that need more than a standard clean.',
     ],
     sections: [
       {
-        heading: 'Everything in Essential Reset & Signature Hotel Reset, plus:',
+        heading: 'Everything in Regular Clean & Signature Hotel Reset, plus:',
         items: [
           'Walls wiped down (spot marks and scuffs removed)',
           'Skirting boards, blinds, and light fittings cleaned',
@@ -192,10 +192,18 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
   const setTab = (tab) => { setPkgTab(tab); sessionStorage.setItem('pkgTab', tab); };
 
   useEffect(() => {
-    if (location.state?.pkgTab) {
-      setTab(location.state.pkgTab);
-    }
+    if (!location.state?.pkgTab) return;
+    const tab = location.state.pkgTab;
+    if (tab === 'hourly') switchToHourly();
+    else if (tab === 'commercial') switchToCommercial();
+    else switchToSignature();
   }, [location.state]);
+
+  useEffect(() => {
+    if (pkgTab === 'hourly' && !booking.pkg) {
+      update({ pkg: HOURLY_PKG, size: null, sizePrice: 0, propertyType: 'flat', freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (partial) => { onUpdate(partial); setError(''); };
 
@@ -213,7 +221,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
 
   const switchToHourly = () => {
     setTab('hourly');
-    update({ pkg: HOURLY_PKG, size: null, sizePrice: 0, propertyType: 'flat', freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false });
+    update({ pkg: HOURLY_PKG, size: null, sizePrice: 0, propertyType: 'flat', freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false, notes: '' });
   };
 
   const switchToSignature = () => {
@@ -223,7 +231,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
 
   const switchToCommercial = () => {
     setTab('commercial');
-    update({ pkg: null, size: null, sizePrice: 0, propertyType: null, freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false });
+    update({ pkg: null, size: null, sizePrice: 0, propertyType: null, freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false, notes: '' });
   };
 
   const toggleExpand = (e, pkgId) => {
@@ -256,11 +264,30 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
         @media (min-width:641px) and (max-width:1024px) {
           .book-next-btn { width:100%; justify-content:center; }
         }
+        .card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+        .card-price-col { display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0; margin-left:12px; }
+        @media (max-width:640px) {
+          .card-header { flex-wrap:wrap; gap:6px 0; }
+          .card-price-col { align-items:flex-start; margin-left:0; }
+        }
       `}</style>
+      {/* Hero strip */}
+      <div className="hero-strip" style={{ marginBottom: 28, paddingBottom: 24, borderBottom: '1px solid rgba(200,184,154,0.2)' }}>
+        <div style={{ padding: '10px 16px', background: '#8b2020', display: 'flex', alignItems: 'flex-start', gap: 10, margin: '0 -16px' }}>
+          <span style={{ fontSize: 14, flexShrink: 0 }}>🎁</span>
+          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', flex: 1, lineHeight: 1.5 }}>
+            <strong>Launch Offer</strong> · 50% off your first Signature Hotel Reset
+          </div>
+        </div>
+      </div>
+
       {/* Package tab switcher */}
       <>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, color: '#1a1410', marginBottom: 12 }}>
-          What are you looking for?
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 300, color: '#1a1410', marginBottom: 4 }}>
+          Choose your perfect clean
+        </div>
+        <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b7355', fontWeight: 300, marginBottom: 14 }}>
+          Three packages, one promise: a home that feels reset.
         </div>
         <div className="pkg-tab-bar">
           {[
@@ -286,7 +313,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
             {PACKAGES.filter(p => !['airbnb','hourly','airbnb_commercial','office_cleaning'].includes(p.id)).map(pkg => (
               <div key={pkg.id}>
                 <div style={CARD(booking.pkg?.id === pkg.id)} onClick={() => handlePackageSelect(pkg)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                  <div className="card-header">
                     <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 21, fontWeight: 400, color: '#1a1410', display: 'flex', alignItems: 'center' }}>
                       {pkg.id === 'standard' ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center' }}>
@@ -305,7 +332,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                         </span>
                       ) : pkg.name}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0, marginLeft: 12 }}>
+                    <div className="card-price-col">
                       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#5a4e44' }}>
                         {pkg.launchOffer
                           ? <><span style={{ textDecoration: 'line-through', color: '#a09080', fontSize: 13, marginRight: 4 }}>£{pkg.sizes[0].basePrice}</span>from £{(pkg.sizes[0].basePrice * pkg.launchOffer).toFixed(2)}</>
@@ -320,7 +347,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                       {pkg.popular && !pkg.launchOffer && (
                         <div style={{ background: '#b8860b', color: '#fff', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 10px' }}>Most Popular</div>
                       )}
-                      {pkg.showFreq && (
+                      {pkg.showFreq && !pkg.launchOffer && (
                         <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#2d6a4f', fontWeight: 600, letterSpacing: '0.03em', textAlign: 'right', background: '#f0fdf4', padding: '3px 8px', border: '1px solid #bbf7d0' }}>
                           from £{pkg.sizes[0].basePrice - 30}/clean · weekly
                         </div>
@@ -414,7 +441,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                   <span style={{ fontWeight: 600, color: '#5a4e44' }}>Please note: </span>This is a timed service. Your cleaner works for the booked duration only, no checklist, no completion guarantee, and no reclean promise. For a guaranteed full home clean, upgrade to one of our reset packages.
                 </div>
                 <div style={{ marginTop: 12, padding: '12px 14px', background: '#2c2420', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.7 }}>
-                  <span style={{ color: '#c8b89a', fontWeight: 600, marginRight: 6 }}>✦</span>Booking regularly? Our Essential Reset starts from £85/clean with weekly bookings, with a full home clean every visit.
+                  <span style={{ color: '#c8b89a', fontWeight: 600, marginRight: 6 }}>✦</span>Booking regularly? Our Regular Clean starts from £85/clean with weekly bookings, with a full home clean every visit.
                 </div>
               </div>
             </div>
@@ -455,7 +482,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                   onClick={() => update({ pkg, size: null, sizePrice: 0, propertyType: pkg.id === 'office_cleaning' ? 'office' : 'airbnb' })}
                   style={CARD(booking.pkg?.id === pkg.id)}
                 >
-                  {/* Header row — matches signature card layout */}
+                  {/* Header row - matches signature card layout */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                     <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 21, fontWeight: 400, color: '#1a1410' }}>
                       {headline}
@@ -470,7 +497,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                     </div>
                   </div>
 
-                  {/* Description — matches signature card */}
+                  {/* Description - matches signature card */}
                   <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#6b5e56', fontWeight: 300, marginBottom: 10, lineHeight: 1.6 }}>
                     {description}
                   </div>
@@ -536,7 +563,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                   <textarea
                     value={booking.notes || ''}
                     onChange={e => update({ notes: e.target.value })}
-                    placeholder="e.g. Full office clean — desks, surfaces, kitchen area, toilets. Floors need hoovering and mopping. Pay attention to the reception area..."
+                    placeholder="e.g. Full office clean: desks, surfaces, kitchen area, toilets. Floors need hoovering and mopping. Pay attention to the reception area..."
                     rows={4}
                     style={{ width: '100%', boxSizing: 'border-box', background: '#fdf8f3', border: '1px solid rgba(200,184,154,0.45)', padding: '11px 14px', fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#1a1410', outline: 'none', resize: 'vertical', lineHeight: 1.6 }}
                   />
@@ -547,7 +574,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
         )}
       </>
 
-      {/* Property type — not shown for hourly */}
+      {/* Property type - not shown for hourly */}
       {booking.pkg && !booking.pkg?.isHourly && (
         <>
           <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Property Type</div>
@@ -571,7 +598,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
         </>
       )}
 
-      {/* Size grid — not shown for hourly */}
+      {/* Size grid - not shown for hourly */}
       {sizes.length > 0 && !booking.pkg?.isHourly && (
         <>
           <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Property Size</div>
@@ -629,7 +656,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
           </div>
           {booking.freq && booking.freq.id !== 'one-off' && (
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '3px solid #16a34a', padding: '10px 14px', marginBottom: 24, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
-              Your first clean is at the full price — the <strong>£{booking.freq.saving} discount</strong> applies from your second clean onwards.
+              Your first clean is at the full price. The <strong>£{booking.freq.saving} discount</strong> applies from your second clean onwards.
               <div style={{ marginTop: 6, color: '#4b5563', fontWeight: 300 }}>
                 Missing two consecutive cleans cancels the recurring arrangement and the discount. Rebooking starts at the standard first-clean rate.
               </div>
@@ -725,7 +752,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
             </div>
           )}
 
-          {/* Mop & vacuum acknowledgment — always required */}
+          {/* Mop & vacuum acknowledgment - always required */}
           <div
             onClick={() => update({ mopAck: !booking.mopAck })}
             style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: '#fdf8f3', border: '1px solid rgba(200,184,154,0.3)', cursor: 'pointer', marginBottom: 24 }}
@@ -745,6 +772,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
           </div>
         </>
       )}
+
 
       {error && (
         <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>

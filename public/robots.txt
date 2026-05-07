@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /book
+Disallow: /pay-deposit
+Disallow: /booking-success
+Disallow: /unsubscribe
+
+Sitemap: https://londoncleaningwizard.com/sitemap.xml

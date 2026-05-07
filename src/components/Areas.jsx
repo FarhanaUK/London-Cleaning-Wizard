@@ -1,7 +1,7 @@
 import { Sparkle } from "./Icons";
 import Reveal from "./Reveal";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 const REGIONS = [
   { label: "East & Riverside",    desc: "Canary Wharf, Shoreditch, Hackney, Stratford and beyond" },
@@ -12,7 +12,6 @@ const REGIONS = [
 ];
 
 export default function Areas() {
-  const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
 
@@ -131,8 +130,8 @@ export default function Areas() {
           }}>
             Not sure if we cover your area?
           </p>
-          <button
-            onClick={() => navigate("/areas")}
+          <Link
+            to="/areas"
             style={{
               fontFamily: "'Jost', sans-serif",
               fontSize: 11,
@@ -142,12 +141,12 @@ export default function Areas() {
               padding: "14px 36px",
               background: "#2c2420",
               color: "#f5f0e8",
-              border: "none",
-              cursor: "pointer",
+              textDecoration: "none",
+              display: "inline-block",
             }}
           >
             See All Areas We Cover
-          </button>
+          </Link>
         </div>
       </Reveal>
     </section>

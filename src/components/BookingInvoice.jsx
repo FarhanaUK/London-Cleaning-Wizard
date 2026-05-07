@@ -5,7 +5,7 @@ const fmt = (n) => Number(n).toFixed(2);
 
 const PROMISES = [];
 
-// ── Mobile sticky bar — shows at top of form on small screens
+// ── Mobile sticky bar - shows at top of form on small screens
 function MobilePriceBar({ booking, T, TOneOff }) {
   return (
     <div style={{
@@ -75,14 +75,14 @@ function MobilePriceBar({ booking, T, TOneOff }) {
           color: T ? '#c8b89a' : 'rgba(200,184,154,0.25)',
           fontStyle: T ? 'normal' : 'italic',
         }}>
-          {T ? `£${fmt(T.subtotal)}` : '—'}
+          {T ? `£${fmt(T.subtotal)}` : '-'}
         </div>
       </div>
     </div>
   );
 }
 
-// ── Desktop sidebar — full invoice panel
+// ── Desktop sidebar - full invoice panel
 function DesktopInvoice({ booking, T, lines }) {
   return (
     <div style={{ background: '#1a1410', padding: 28 }}>
@@ -94,12 +94,37 @@ function DesktopInvoice({ booking, T, lines }) {
       }}>✦ Your Booking</div>
 
       {!booking.size ? (
-        <p style={{
-          fontFamily: "'Jost',sans-serif", fontSize: 13, fontStyle: 'italic',
-          color: 'rgba(255,255,255,0.8)', fontWeight: 300, margin: 0,
-        }}>
-          Select a package to see your quote
-        </p>
+        <>
+          <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontStyle: 'italic', color: 'rgba(255,255,255,0.4)', fontWeight: 300, margin: '0 0 20px' }}>
+            Select a package to see your quote
+          </p>
+          <div style={{ borderTop: '1px solid rgba(200,184,154,0.1)', paddingTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { text: 'Fully insured & vetted cleaners',    tag: null },
+              { text: 'Same trusted cleaner every visit',   tag: null },
+              { text: '100% satisfaction or we re-clean',   tag: null },
+              { text: 'Hotel-standard finish, every clean', tag: 'Signature Hotel Reset only' },
+              { text: 'Signature scent + handmade gift',    tag: 'Signature Hotel Reset only' },
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 300, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5 }}>
+                <span style={{ color: '#c8b89a', flexShrink: 0, marginTop: 1 }}>✓</span>
+                <span>
+                  {item.text}
+                  {item.tag && (
+                    <span style={{ display: 'block', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(200,184,154,0.45)', fontWeight: 400, marginTop: 2 }}>
+                      {item.tag}
+                    </span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px solid rgba(200,184,154,0.07)' }}>
+            <a href="tel:02081370026" style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#c8b89a', textDecoration: 'none', fontWeight: 400, letterSpacing: '0.04em' }}>
+              📞 Need help? 020 8137 0026
+            </a>
+          </div>
+        </>
       ) : (
         <>
           {lines.map((line, i) => (
@@ -165,7 +190,7 @@ function DesktopInvoice({ booking, T, lines }) {
 
 export default function BookingInvoice({ booking, isMobile }) {
   const hasSel = !!booking.size;
-  // First booking always at full price — no frequency discount
+  // First booking always at full price - no frequency discount
   const rawT = hasSel ? calculateTotal({
     sizePrice:    booking.size.basePrice,
     propertyType: booking.propertyType,
@@ -192,7 +217,7 @@ export default function BookingInvoice({ booking, isMobile }) {
     ...(booking.addons || []).map(a => ({ label: a.name, val: `+£${a.price}` })),
     rawT.suppliesFee > 0 && { label: 'Cleaning supplies', val: `+£${rawT.suppliesFee}` },
     rawT.surcharge > 0   && { label: 'Surcharge', val: `+£${rawT.surcharge}` },
-    T.launchDiscount > 0 && { label: 'Launch offer — 50% off first clean', val: `-£${T.launchDiscount.toFixed(2)}`, grn: true },
+    T.launchDiscount > 0 && { label: 'Launch offer: 50% off first clean', val: `-£${T.launchDiscount.toFixed(2)}`, grn: true },
     booking.cleanDateDisplay && { label: 'Date', val: booking.cleanDateDisplay },
     booking.cleanTime        && { label: 'Time', val: booking.cleanTime },
   ].filter(Boolean) : [];

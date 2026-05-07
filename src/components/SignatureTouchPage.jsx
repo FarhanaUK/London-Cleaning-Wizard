@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { Link, useNavigate } from "react-router-dom";
 import { Sparkle, WandIcon } from "./Icons";
 import Reveal from "./Reveal";
 import { PACKAGES } from "../data/siteData";
@@ -73,7 +74,13 @@ export default function SignatureTouchPage() {
   }, []);
 
   return (
-    <div style={{ background: "#faf9f7" }}>
+    <>
+      <Helmet>
+        <title>The Signature Touch | Premium Regular Cleaning London | London Cleaning Wizard</title>
+        <meta name="description" content="The Signature Touch is our premium recurring clean — same cleaner every visit, hotel-style bed making, completion photos and a personalised finish. Book your regular clean today." />
+        <link rel="canonical" href="https://londoncleaningwizard.com/signature-touch" />
+      </Helmet>
+      <div style={{ background: "#faf9f7" }}>
 
       {/* Hero */}
       <div style={{
@@ -467,8 +474,8 @@ export default function SignatureTouchPage() {
 
         <Reveal delay={120}>
           <div style={{ textAlign: "center" }}>
-            <button
-              onClick={() => navigate('/book')}
+            <Link
+              to="/book"
               style={{
                 fontFamily: "'Jost', sans-serif",
                 fontSize: 12,
@@ -478,15 +485,14 @@ export default function SignatureTouchPage() {
                 padding: isMobile ? "14px 36px" : "16px 48px",
                 background: "#2c2420",
                 color: "#f5f0e8",
-                border: "none",
-                cursor: "pointer",
+                textDecoration: "none",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
               }}
             >
               <WandIcon size={14} color="#c8b89a" /> Book the Signature Reset
-            </button>
+            </Link>
             <p style={{
               fontFamily: "'Jost', sans-serif",
               fontSize: 12,
@@ -501,5 +507,6 @@ export default function SignatureTouchPage() {
       </section>
 
     </div>
+    </>
   );
 }

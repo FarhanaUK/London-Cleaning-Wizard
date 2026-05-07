@@ -78,6 +78,7 @@ function buildBookingEmailData(b) {
     signature_touch: b.package === 'standard' ? (b.signatureTouch !== false ? 'Opted in' : `Opted out${b.signatureTouchNotes ? ` — ${clean(b.signatureTouchNotes)}` : ''}`) : '',
     source:          clean(b.source||'—'),
     is_returning:    b.isReturning ? 'Returning customer' : 'New customer',
+    media_consent:   b.mediaConsent ? 'Yes - consented to photos and videos on social media' : 'No consent given',
     stripe_deposit_pi:  b.stripeDepositIntentId || '—',
     stripe_customer_id: b.stripeCustomerId || '—',
     booking_channel: b.isPhoneBooking ? '📞 Phone booking' : '🌐 Online booking',
@@ -310,6 +311,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       source: clean(d.source||''), createdAt: new Date(),
       marketingOptOut: d.marketingOptOut === true,
       doNotContact:    d.marketingOptOut === true,
+      mediaConsent:    d.mediaConsent === true,
     });
     tx.set(cRef, {
       firstName: clean(d.firstName), lastName: clean(d.lastName), phone: clean(d.phone),
@@ -399,6 +401,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
             ...(d.package === 'standard' ? [`Signature Touch: ${d.signatureTouch !== false ? 'Opted in' : `Opted out${d.signatureTouchNotes ? ` — ${d.signatureTouchNotes}` : ''}`}`] : []),
             `Cleaner: ${d.assignedStaff || 'Unassigned'}`,
             `Notes: ${d.notes || 'None'}`,
+            `Media consent: ${d.mediaConsent ? 'Yes - consented to photos/videos on social media' : 'No'}`,
             `Total: £${parseFloat(d.total||0).toFixed(2)} | Deposit: £${parseFloat(d.deposit||0).toFixed(2)} | Remaining: £${parseFloat(d.remaining||0).toFixed(2)}`,
           ].join('\n'),
         start: { dateTime: slotStart, timeZone: 'Europe/London' },
@@ -1101,7 +1104,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
     hasPets, petTypes, signatureTouch, signatureTouchNotes,
     addr1, postcode, floor, parking, keys, notes,
     total, remaining, assignedStaff, actualStart, actualFinish,
-    isAutoRecurring,
+    isAutoRecurring, mediaConsent,
   } = req.body;
   if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
   const db   = admin.firestore();
@@ -1158,6 +1161,8 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
   if (petTypes            !== undefined) updates.petTypes            = clean(petTypes);
   if (signatureTouch      !== undefined) updates.signatureTouch      = signatureTouch;
   if (signatureTouchNotes !== undefined) updates.signatureTouchNotes = clean(signatureTouchNotes || '');
+  if (mediaConsent        !== undefined) updates.mediaConsent        = mediaConsent === true;
+  const newMediaConsent = mediaConsent !== undefined ? mediaConsent === true : current.mediaConsent;
 
   const newAddr1    = addr1    !== undefined ? clean(addr1)                  : current.addr1;
   const newPostcode = postcode !== undefined ? clean(postcode).toUpperCase() : current.postcode;
@@ -1230,6 +1235,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
             ...(current.package === 'standard' ? [`Signature Touch: ${(signatureTouch !== undefined ? signatureTouch : current.signatureTouch) !== false ? 'Opted in' : `Opted out${(signatureTouchNotes !== undefined ? signatureTouchNotes : current.signatureTouchNotes) ? ` — ${signatureTouchNotes !== undefined ? clean(signatureTouchNotes||'') : current.signatureTouchNotes}` : ''}`}`] : []),
             `Cleaner: ${assignedStaff !== undefined ? (assignedStaff || 'Unassigned') : (current.assignedStaff || 'Unassigned')}`,
             `Notes: ${newNotes || 'None'}`,
+            `Media consent: ${newMediaConsent ? 'Yes - consented to photos/videos on social media' : 'No'}`,
             `Total: £${parseFloat(current.total||0).toFixed(2)} | Deposit: £${parseFloat(current.deposit||0).toFixed(2)} | Remaining: £${parseFloat(current.remaining||0).toFixed(2)}`,
             `⚠️ Edited on ${new Date().toLocaleDateString('en-GB')}`,
           ].join('\n'),
@@ -1299,6 +1305,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
         if (petTypes            !== undefined) fu.petTypes            = clean(petTypes);
         if (signatureTouch      !== undefined) fu.signatureTouch      = signatureTouch;
         if (signatureTouchNotes !== undefined) fu.signatureTouchNotes = clean(signatureTouchNotes || '');
+        if (mediaConsent        !== undefined) fu.mediaConsent        = mediaConsent === true;
         if (addr1               !== undefined) fu.addr1               = newAddr1;
         if (postcode            !== undefined) fu.postcode            = newPostcode;
         if (floor               !== undefined) fu.floor               = newFloor;
@@ -1327,12 +1334,17 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
                 `Email: ${current.email}`,
                 `Phone: ${newPhone}`,
                 `Address: ${fdAddr}, ${fdPost}`,
+                `Property: ${fd.propertyType || ''} · ${sizeId !== undefined ? newSizeId : fd.size || ''}`,
                 `Frequency: ${newFrequency}`,
                 `Floor / Lift: ${floor !== undefined ? newFloor : fd.floor || '—'}`,
                 `Parking: ${parking !== undefined ? newParking : fd.parking || '—'}`,
                 `Keys: ${keys !== undefined ? newKeys : fd.keys || 'N/A'}`,
                 `Add-ons: ${((addons !== undefined ? newAddons : fd.addons) || []).map(a => a.name).join(', ') || 'None'}`,
+                ...(!['hourly','airbnb_commercial','office_cleaning'].includes(fd.package) ? [`Pets: ${(hasPets !== undefined ? hasPets : fd.hasPets) ? `Yes — ${petTypes !== undefined ? clean(petTypes||'') : fd.petTypes || 'not specified'}` : 'No'}`] : []),
+                ...(fd.package === 'standard' ? [`Signature Touch: ${(signatureTouch !== undefined ? signatureTouch : fd.signatureTouch) !== false ? 'Opted in' : `Opted out${(signatureTouchNotes !== undefined ? signatureTouchNotes : fd.signatureTouchNotes) ? ` — ${signatureTouchNotes !== undefined ? clean(signatureTouchNotes||'') : fd.signatureTouchNotes}` : ''}`}`] : []),
+                `Cleaner: ${fd.assignedStaff || 'Unassigned'}`,
                 `Notes: ${notes !== undefined ? newNotes : fd.notes || 'None'}`,
+                `Media consent: ${(mediaConsent !== undefined ? mediaConsent === true : fd.mediaConsent) ? 'Yes - consented to photos/videos on social media' : 'No'}`,
                 `Total: £${parseFloat(total !== undefined ? total : fd.total||0).toFixed(2)} | Deposit: £0 | Remaining: £${parseFloat(total !== undefined ? total : fd.remaining||0).toFixed(2)}`,
                 `⚠️ Edited on ${new Date().toLocaleDateString('en-GB')}`,
               ].join('\n'),
@@ -2525,6 +2537,67 @@ exports.setDoNotContact = onRequest({ cors: ['https://londoncleaningwizard.com',
   const batch = db.batch();
   bookingsSnap.docs.forEach(doc => batch.update(doc.ref, { doNotContact }));
   await batch.commit();
+  res.json({ ok: true });
+});
+
+// ── Set Signature Touch preference (syncs all standard bookings + calendar) ───
+exports.setSignatureTouch = onRequest({ cors: ['https://londoncleaningwizard.com', 'http://localhost:5173', 'http://localhost:5174'] }, async (req, res) => {
+  const { email, signatureTouch, signatureTouchNotes } = req.body;
+  if (typeof signatureTouch !== 'boolean' || !email) {
+    res.status(400).json({ error: 'Missing email or signatureTouch' }); return;
+  }
+  const db = admin.firestore();
+  const notes = clean(signatureTouchNotes || '');
+  const [bookingsSnap] = await Promise.all([
+    db.collection('bookings').where('email', '==', email.toLowerCase()).where('package', '==', 'standard').get(),
+    db.collection('customers').doc(email.toLowerCase()).set({ signatureTouch, signatureTouchNotes: notes }, { merge: true }),
+  ]);
+  const batch = db.batch();
+  bookingsSnap.docs.forEach(doc => batch.update(doc.ref, { signatureTouch, signatureTouchNotes: notes }));
+  await batch.commit();
+
+  // Patch Google Calendar descriptions for every affected booking
+  const docsWithCal = bookingsSnap.docs.filter(d => d.data().calendarEventId);
+  if (docsWithCal.length > 0) {
+    const calendar = await getCalendarClient().catch(() => null);
+    if (calendar) {
+      await Promise.allSettled(docsWithCal.map(async fdoc => {
+        const b = fdoc.data();
+        try {
+          const sigLine = signatureTouch !== false
+            ? 'Opted in'
+            : `Opted out${notes ? ` — ${notes}` : ''}`;
+          const description = [
+            `Ref: ${b.bookingRef}`,
+            `Customer: ${b.firstName} ${b.lastName}`,
+            `Email: ${b.email}`,
+            `Phone: ${b.phone || ''}`,
+            `Address: ${b.addr1}, ${b.postcode}`,
+            `Property: ${b.propertyType || ''} · ${b.size || ''}`,
+            `Frequency: ${b.frequency || 'One-off'}`,
+            `Floor / Lift: ${b.floor || '—'}`,
+            `Parking: ${b.parking || '—'}`,
+            `Keys: ${b.keys || 'N/A'}`,
+            `Add-ons: ${(b.addons||[]).map(a => a.name).join(', ') || 'None'}`,
+            `Pets: ${b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No'}`,
+            `Signature Touch: ${sigLine}`,
+            `Cleaner: ${b.assignedStaff || 'Unassigned'}`,
+            `Notes: ${b.notes || 'None'}`,
+            `Media consent: ${b.mediaConsent ? 'Yes - consented to photos/videos on social media' : 'No'}`,
+            `Total: £${parseFloat(b.total||0).toFixed(2)} | Deposit: £${parseFloat(b.deposit||0).toFixed(2)} | Remaining: £${parseFloat(b.remaining||0).toFixed(2)}`,
+          ].join('\n');
+          await calendar.events.patch({
+            calendarId: process.env.GOOGLE_CALENDAR_ID,
+            eventId:    b.calendarEventId,
+            resource:   { description },
+          });
+        } catch (e) {
+          console.error('Calendar patch failed for', b.bookingRef, e.message);
+        }
+      }));
+    }
+  }
+
   res.json({ ok: true });
 });
 

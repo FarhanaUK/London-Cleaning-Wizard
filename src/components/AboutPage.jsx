@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { Sparkle } from "./Icons";
 
 export default function AboutPage() {
@@ -27,7 +28,13 @@ export default function AboutPage() {
   const py = isMobile ? "56px" : isTablet ? "64px" : "72px";
 
   return (
-    <div style={{ background: "#faf9f7" }}>
+    <>
+      <Helmet>
+        <title>About Us | London Cleaning Wizard</title>
+        <meta name="description" content="Learn the story behind London Cleaning Wizard — why we started, our values, and our mission to bring premium home & commercial cleaning to London." />
+        <link rel="canonical" href="https://londoncleaningwizard.com/about" />
+      </Helmet>
+      <div style={{ background: "#faf9f7" }}>
 
       {/* Hero banner */}
       <div style={{
@@ -156,5 +163,6 @@ export default function AboutPage() {
       </div>
 
     </div>
+    </>
   );
 }

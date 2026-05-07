@@ -1,7 +1,7 @@
 ﻿import { HERO_IMAGE } from "../data/siteData"
 import { Sparkle, WandIcon, Constellation } from "./Icons";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { usePromotion } from "../hooks/usePromotion";
 
 const SEGMENT_STYLE_MAP = {
@@ -12,7 +12,6 @@ const SEGMENT_STYLE_MAP = {
 };
 
 export default function Hero({ onScrollTo }) {
-  const navigate = useNavigate();
   const { promotion } = usePromotion();
   const LAUNCH_ACTIVE = !!promotion;
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -131,15 +130,15 @@ export default function Hero({ onScrollTo }) {
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for your space.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 10, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
-              <button
-                onClick={() => navigate("/book")}
+              <Link
+                to="/book"
                 style={{
                   fontFamily: "'Jost', sans-serif",
                   fontSize: 12,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
                   color: "#f5f0e8",
-                  border: "none",
+                  textDecoration: "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -150,11 +149,10 @@ export default function Hero({ onScrollTo }) {
                   borderRadius: 8,
                   width: "100%",
                   boxSizing: "border-box",
-                  cursor: "pointer",
                 }}
               >
                 <WandIcon size={13} color="#c8b89a" /> Book a Clean
-              </button>
+              </Link>
              
             </div>
           </div>
@@ -163,7 +161,7 @@ export default function Hero({ onScrollTo }) {
           <div style={{ position: "relative", height: "40vh", overflow: "hidden", flexShrink: 0, marginTop: -30 }}>
             <img
               src={HERO_IMAGE}
-              alt="Professional home cleaning service in London by London Cleaning Wizard"
+              alt="Professional home & commercial cleaning service in London by London Cleaning Wizard"
               style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%" }}
             />
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, background: "linear-gradient(to top, #45413D, transparent)" }} />
@@ -173,7 +171,7 @@ export default function Hero({ onScrollTo }) {
           <div style={{ padding: "24px 20px 48px", flex: 1 }}>
 
             <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, margin: 0 }}>
-              Professional Home Cleaning Services in London
+              Professional Home & Commercial Cleaning Services in London
             </h1>
 
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 10, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
@@ -220,7 +218,7 @@ Homes | Airbnbs | Offices
           <div style={{ position: "relative", height: "50vh", overflow: "hidden", flexShrink: 0 }}>
             <img
               src={HERO_IMAGE}
-              alt="Professional home cleaning service in London by London Cleaning Wizard"
+              alt="Professional home & commercial cleaning service in London by London Cleaning Wizard"
               style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%" }}
             />
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, background: "linear-gradient(to top, #45413D, transparent)" }} />
@@ -230,15 +228,15 @@ Homes | Airbnbs | Offices
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for your space.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
-              <button
-                onClick={() => navigate("/book")}
+              <Link
+                to="/book"
                 style={{
                   fontFamily: "'Jost', sans-serif",
                   fontSize: 14,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
                   color: "#f5f0e8",
-                  border: "none",
+                  textDecoration: "none",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 8,
@@ -246,11 +244,10 @@ Homes | Airbnbs | Offices
                   background: "#2c2420",
                   padding: "10px 18px",
                   borderRadius: 8,
-                  cursor: "pointer",
                 }}
               >
                 <WandIcon size={13} color="#c8b89a" /> Book a Clean
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -258,7 +255,7 @@ Homes | Airbnbs | Offices
           <div style={{ padding: "40px 48px 60px" }}>
 
             <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, margin: 0 }}>
-              Professional Home Cleaning Services in London
+              Professional Home & Commercial Cleaning Services in London
             </h1>
 
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 15, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
@@ -314,7 +311,7 @@ Homes | Airbnbs | Offices
             <div style={{ maxWidth: 520, width: "100%" }}>
 
               <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, margin: 0 }}>
-                Professional Home Cleaning Services in London
+                Professional Home & Commercial Cleaning Services in London
               </h1>
 
               <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, letterSpacing: "0.2em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
@@ -360,7 +357,7 @@ Homes | Airbnbs | Offices
           <div style={{ position: "relative" }}>
             <img
               src={HERO_IMAGE}
-              alt="Professional home cleaning service in London by London Cleaning Wizard"
+              alt="Professional home & commercial cleaning service in London by London Cleaning Wizard"
               style={{ position: "absolute", top: 0, left: "-35%", width: "120%", height: "100%", objectFit: "cover", objectPosition: "30% 40%" }}
             />
 
@@ -369,15 +366,15 @@ Homes | Airbnbs | Offices
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for your space.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
-              <button
-                onClick={() => navigate("/book")}
+              <Link
+                to="/book"
                 style={{
                   fontFamily: "'Jost', sans-serif",
                   fontSize: 14,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
                   color: "#f5f0e8",
-                  border: "none",
+                  textDecoration: "none",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 8,
@@ -385,11 +382,10 @@ Homes | Airbnbs | Offices
                   background: "#2c2420",
                   padding: "10px 18px",
                   borderRadius: 8,
-                  cursor: "pointer",
                 }}
               >
                 <WandIcon size={13} color="#c8b89a" /> Book a Clean
-              </button>
+              </Link>
 
   
             </div>

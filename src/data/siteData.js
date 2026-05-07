@@ -13,9 +13,9 @@
 export const HERO_IMAGE = "/wizard.png";
 
 export const SERVICES = [
-  { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly · Monthly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "The Essential Reset",       alt: "Regularly cleaned living room in London home" },
+  { img: PHOTOS.living,   title: "Regular Home Clean",  tag: "Weekly · Fortnightly · Monthly",   desc: "A consistent, thorough clean of every room — dusting, vacuuming, mopping and more.", spell: "Regular Clean",       alt: "Regularly cleaned living room in London home" },
   { img: PHOTOS.kitchen,  title: "Deep Kitchen Clean",  tag: "One-off · Seasonal",     desc: "Degreasing, descaling and scrubbing every surface until your kitchen gleams like new.", spell: "The Gleam Enchantment", alt: "Professionally deep cleaned kitchen in London" },
-  { img: PHOTOS.bathroom, title: "Bathroom & Ensuite",  tag: "Luxury standard",  desc: "Sanitised to perfection. Limescale banished, surfaces polished, mirrors streak-free.", spell: "The Purity Ritual",     alt: "Spotless cleaned bathroom and ensuite in London" },
+  { img: PHOTOS.bathroom, title: "Bathroom & Ensuite",  tag: "Premium standard",  desc: "Sanitised to perfection. Limescale banished, surfaces polished, mirrors streak-free.", spell: "The Purity Ritual",     alt: "Spotless cleaned bathroom and ensuite in London" },
   { img: PHOTOS.bedroom,  title: "Bedroom Refresh",     tag: "Linen change available", desc: "Fresh, airy bedrooms. Dusting, vacuuming, linen changes and meticulous attention.", spell: "The Serenity Cast",       alt: "Fresh and clean bedroom refresh service in London" },
   { img: PHOTOS.hallway,  title: "Airbnb/End of Tenancy", tag: "Maximise your deposit return",     desc: "A landlord-approved full clean. Every inch, every surface — nothing left to chance.", spell: "The Grand Restoration", alt: "End of tenancy clean in London rental property" },
   { img: PHOTOS.cleaner1, title: "Move-In Preparation", tag: "Fresh start",            desc: "Move into a home that feels truly yours from day one. Magic from the very first step.", spell: "The Welcome Charm",    alt: "Move-in cleaning preparation service by London Cleaning Wizard" },
@@ -152,6 +152,7 @@ export const NAV_LINKS = [
   { path: "/signature-touch", label: "Signature Touch" },
   { path: "/areas",           label: "Areas"           },
   { path: "/faqs",            label: "FAQs"            },
+  { path: "/quote",           label: "Get a Quote"     },
 ];
 
 
@@ -162,8 +163,8 @@ export const PROPERTY_TYPES = [
 
 export const PACKAGES = [
   {
-    id: 'refresh', name: 'The Essential Reset', popular: false,
-    desc: 'This service focuses on visible cleanliness and overall reset. Heavier buildup or stubborn marks may require a Deep Reset. Typically 3–4 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
+    id: 'refresh', name: 'Regular Clean - The Essential Reset', popular: false,
+    desc: 'This service focuses on visible cleanliness and overall reset. Heavier buildup or stubborn marks may require a Deep Clean. Typically 3–4 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
     tags: ['Whole home', 'Photos sent'],
     showFreq: true, showAddons: true,
     sizes: [
@@ -190,7 +191,7 @@ export const PACKAGES = [
   
 
   {
-    id: 'deep', name: 'Deep Reset', popular: false,
+    id: 'deep', name: 'Deep Clean - Deep Reset', popular: false,
     desc: 'A full transformation clean for heavily used or move-in ready homes. 2 cleaners · estimated 4–10 hrs depending on property size.',
     tags: ['Oven included', 'Inside fridge', 'Behind appliances', 'Photo report'],
     showFreq: false, showAddons: false,

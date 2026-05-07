@@ -225,6 +225,7 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
       floor: b.floor || '', parking: b.parking || '', keys: b.keys || '',
       hasPets: b.hasPets ?? null, petTypes: b.petTypes || '',
       signatureTouch: b.signatureTouch ?? true, signatureTouchNotes: b.signatureTouchNotes || '',
+      mediaConsent: b.mediaConsent ?? false,
       notes: b.notes || '',
     });
     setEditScope('this');
@@ -259,15 +260,29 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
       const data = await res.json();
       if (!res.ok) { setEditErr(data.error || 'Failed to update booking.'); setEditSaving(false); return; }
       setBookings(all => all.map(x => {
-        if (x.id !== editBooking.id) return x;
-        return {
-          ...x,
-          ...editData,
-          package: editData.packageId || x.package,
-          size:    editData.sizeId    || x.size,
-          ...(payload.total     !== undefined ? { total:     payload.total }     : {}),
-          ...(payload.remaining !== undefined ? { remaining: payload.remaining } : {}),
-        };
+        if (x.id === editBooking.id) {
+          return {
+            ...x, ...editData,
+            package: editData.packageId || x.package,
+            size:    editData.sizeId    || x.size,
+            ...(payload.total     !== undefined ? { total:     payload.total }     : {}),
+            ...(payload.remaining !== undefined ? { remaining: payload.remaining } : {}),
+          };
+        }
+        if (editScope === 'all' && x.email === editBooking.email && x.cleanDate > editBooking.cleanDate && x.status === 'scheduled') {
+          return {
+            ...x,
+            firstName: editData.firstName, lastName: editData.lastName,
+            phone: editData.phone,
+            mediaConsent: editData.mediaConsent,
+            hasPets: editData.hasPets, petTypes: editData.petTypes,
+            signatureTouch: editData.signatureTouch, signatureTouchNotes: editData.signatureTouchNotes,
+            addr1: editData.addr1, postcode: editData.postcode,
+            floor: editData.floor, parking: editData.parking, keys: editData.keys,
+            notes: editData.notes, addons: editData.addons,
+          };
+        }
+        return x;
       }));
       closeEdit();
     } catch { setEditErr('Something went wrong. Please try again.'); }

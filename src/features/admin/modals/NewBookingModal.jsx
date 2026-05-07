@@ -186,7 +186,11 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
             <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && !nb.sizeId ? C.danger : '#8b7355', marginBottom: 4 }}>Hours *</div>
             <select value={nb.sizeId} onChange={e => setNb(p => ({ ...p, sizeId: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderColor: nbSubmitted && !nb.sizeId ? C.danger : undefined }}>
               <option value="">— Select hours —</option>
-              {(nbPkg?.sizes || []).map(s => <option key={s.id} value={s.id}>{s.label} — £{s.basePrice}</option>)}
+              {(nbPkg?.sizes || []).map(s => {
+                const hrs  = parseFloat(s.id.replace('h', ''));
+                const rate = Math.round(s.basePrice / hrs);
+                return <option key={s.id} value={s.id}>{s.label} — £{s.basePrice} (£{rate}/hr)</option>;
+              })}
             </select>
             {nbSubmitted && !nb.sizeId && <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 4 }}>This field is required</div>}
           </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 
 export default function PrivacyPolicy() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -10,8 +11,14 @@ export default function PrivacyPolicy() {
   }, []);
 
   return (
-    <div style={{
-      background: "#faf9f7",
+    <>
+      <Helmet>
+        <title>Privacy Policy | London Cleaning Wizard</title>
+        <meta name="description" content="Our privacy policy explains how London Cleaning Wizard collects, uses and protects your personal data in line with UK GDPR." />
+        <link rel="canonical" href="https://londoncleaningwizard.com/privacy-policy" />
+      </Helmet>
+      <div style={{
+        background: "#faf9f7",
       minHeight: "100vh",
       padding: isMobile ? "100px 20px 60px" : "120px clamp(20px, 6vw, 160px) 80px",
     }}>
@@ -239,5 +246,6 @@ export default function PrivacyPolicy() {
 
       </div>
     </div>
+    </>
   );
 }

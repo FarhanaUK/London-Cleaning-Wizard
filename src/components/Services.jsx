@@ -2,14 +2,12 @@ import { useState, useEffect } from "react";
 import { Sparkle } from "./Icons";
 import Reveal from "./Reveal";
 import { SERVICES } from "../data/siteData";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function Services() {
   const [hovered, setHovered] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
-  const navigate = useNavigate();
-
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -61,11 +59,11 @@ export default function Services() {
       }}>
         {SERVICES.map((service, i) => (
           <Reveal key={service.title} delay={i * 75}>
-            <div
-              style={{ overflow: "hidden", position: "relative", background: "#10121a", aspectRatio: "4/3", cursor: "pointer" }}
+            <Link
+              to="/book"
+              style={{ overflow: "hidden", position: "relative", background: "#10121a", aspectRatio: "4/3", cursor: "pointer", display: "block", textDecoration: "none" }}
               onMouseEnter={() => !isMobile && setHovered(i)}
               onMouseLeave={() => !isMobile && setHovered(null)}
-              onClick={() => navigate('/book')}
             >
               <img
                 src={service.img}
@@ -138,7 +136,7 @@ export default function Services() {
                   </span>
                 </div>
               </div>
-            </div>
+            </Link>
           </Reveal>
         ))}
       </div>

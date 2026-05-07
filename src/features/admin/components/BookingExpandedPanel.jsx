@@ -33,6 +33,8 @@ export default function BookingExpandedPanel({
   const hrs            = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
   const [notifying, setNotifying] = useState(false);
   const [notifySent, setNotifySent] = useState(null); // { cleaner, at }
+  const [sigTouchOptingOut, setSigTouchOptingOut] = useState(false);
+  const [sigTouchNote, setSigTouchNote] = useState('');
 
   const handleNotifyCleaner = async () => {
     setNotifying(true);
@@ -97,6 +99,7 @@ export default function BookingExpandedPanel({
           !['hourly','airbnb_commercial','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
           (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
           { l: 'Marketing Opt-in', v: b.marketingOptOut ? '✕ Opted out at booking' : '✓ Opted in at booking' },
+          { l: 'Media Consent', v: b.mediaConsent ? '✓ Consented to photos/videos on social media' : '✕ No consent given' },
           { l: 'Total',            v: `£${parseFloat(b.total).toFixed(2)}` },
           b.launchDiscount && { l: 'Original price',    v: `£${parseFloat(b.originalTotal).toFixed(2)}` },
           b.launchDiscount && { l: 'Launch offer',      v: `-£${parseFloat(b.launchDiscount).toFixed(2)}`, launch: true },
@@ -160,6 +163,79 @@ export default function BookingExpandedPanel({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Signature Touch toggle — standard package only */}
+      {(b.package === 'standard' || b.packageId === 'standard') && (
+        <div style={{ padding: '10px 14px', background: b.signatureTouch !== false ? '#f0fdf4' : '#fef9f0', borderRadius: 6, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: b.signatureTouch !== false ? '#166534' : '#92400e' }}>
+                {b.signatureTouch !== false ? '✓ Signature Touch: Opted in' : '✕ Signature Touch: Opted out'}
+              </div>
+              {b.signatureTouch === false && b.signatureTouchNotes && !sigTouchOptingOut && (
+                <div style={{ fontFamily: FONT, fontSize: 11, color: '#92400e', marginTop: 2 }}>Reason: {b.signatureTouchNotes}</div>
+              )}
+            </div>
+            {!sigTouchOptingOut && (
+              <button
+                onClick={() => {
+                  if (b.signatureTouch !== false) {
+                    setSigTouchOptingOut(true);
+                    setSigTouchNote('');
+                  } else {
+                    fetch(import.meta.env.VITE_CF_SET_SIGNATURE_TOUCH, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email: b.email, signatureTouch: true, signatureTouchNotes: '' }),
+                    }).catch(() => {});
+                    setBookings(all => all.map(x =>
+                      x.email?.toLowerCase() === b.email?.toLowerCase() && (x.package === 'standard' || x.packageId === 'standard')
+                        ? { ...x, signatureTouch: true, signatureTouchNotes: '' } : x
+                    ));
+                  }
+                }}
+                style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '6px 12px', background: b.signatureTouch !== false ? '#dcfce7' : '#fef3c7', color: b.signatureTouch !== false ? '#166534' : '#92400e', border: 'none', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}
+              >
+                {b.signatureTouch !== false ? 'Mark opted out' : 'Mark opted in'}
+              </button>
+            )}
+          </div>
+          {sigTouchOptingOut && (
+            <div style={{ marginTop: 10 }}>
+              <input
+                autoFocus
+                value={sigTouchNote}
+                onChange={e => setSigTouchNote(e.target.value)}
+                placeholder="Reason for opting out (optional)"
+                style={{ ...FIELD_STYLE(C), marginBottom: 8 }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => {
+                    fetch(import.meta.env.VITE_CF_SET_SIGNATURE_TOUCH, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email: b.email, signatureTouch: false, signatureTouchNotes: sigTouchNote }),
+                    }).catch(() => {});
+                    setBookings(all => all.map(x =>
+                      x.email?.toLowerCase() === b.email?.toLowerCase() && (x.package === 'standard' || x.packageId === 'standard')
+                        ? { ...x, signatureTouch: false, signatureTouchNotes: sigTouchNote } : x
+                    ));
+                    setSigTouchOptingOut(false);
+                  }}
+                  style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '6px 14px', background: '#92400e', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                >
+                  Confirm opt-out
+                </button>
+                <button
+                  onClick={() => setSigTouchOptingOut(false)}
+                  style={{ fontFamily: FONT, fontSize: 11, padding: '6px 14px', background: 'transparent', color: '#92400e', border: '1px solid #92400e', borderRadius: 6, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

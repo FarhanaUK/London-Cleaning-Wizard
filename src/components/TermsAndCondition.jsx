@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 
 export default function TermsAndConditions() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -10,8 +11,14 @@ export default function TermsAndConditions() {
   }, []);
 
   return (
-    <div style={{
-      background: "#faf9f7",
+    <>
+      <Helmet>
+        <title>Terms & Conditions | London Cleaning Wizard</title>
+        <meta name="description" content="Read the terms and conditions for London Cleaning Wizard cleaning services, including booking, cancellation, payment and liability policies." />
+        <link rel="canonical" href="https://londoncleaningwizard.com/terms-and-conditions" />
+      </Helmet>
+      <div style={{
+        background: "#faf9f7",
       minHeight: "100vh",
       padding: isMobile ? "100px 20px 60px" : "120px clamp(20px, 6vw, 160px) 80px",
     }}>
@@ -45,7 +52,7 @@ export default function TermsAndConditions() {
             color: "#8b7355",
             letterSpacing: "0.06em",
           }}>
-            Last Updated: April 2026
+            Last Updated: May 2026
           </p>
         </div>
 
@@ -72,11 +79,17 @@ export default function TermsAndConditions() {
               <>
                 <p>We provide cleaning services including:</p>
                 <ul style={{ marginTop: 12, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-                  {["Regular home cleaning (Essential Reset & Signature Hotel Reset)", "Deep cleaning — including end of tenancy & move-in preparation (Deep Reset)", "Airbnb turnaround cleaning"].map(s => (
+                  {[
+                    "Regular home cleaning (Regular Clean & Signature Hotel Reset) — available as one-off or recurring (weekly, fortnightly, or monthly)",
+                    "Deep cleaning, including end of tenancy and move-in preparation (Deep Clean) — one-off only",
+                    "Hourly cleaning — flexible, task-directed cleans from 3 hours (one-off only)",
+                    "Airbnb and short-let turnaround cleaning — fixed-price packages or hourly, one-off or recurring by arrangement",
+                    "Office and commercial cleaning — hourly from 3 hours, one-off or recurring by arrangement",
+                  ].map(s => (
                     <li key={s}>{s}</li>
                   ))}
                 </ul>
-                <p style={{ marginTop: 16 }}>Our services primarily cover London. We may accept bookings outside of this area at our discretion. Additional travel or service fees may apply for locations outside London. Service availability depends on location and scheduling.</p>
+                <p style={{ marginTop: 16 }}>Our services cover central and east London. We do not cover all areas of London. Please check our Areas page or contact us before booking to confirm we serve your location. We may accept bookings outside our standard coverage area at our discretion, and additional travel fees may apply.</p>
               </>
             ),
           },
@@ -84,9 +97,19 @@ export default function TermsAndConditions() {
             title: "3. Pricing & Bookings",
             content: (
               <>
-                <p>Our prices are fixed and displayed on our booking page. There are no hidden fees. You can book directly through our website or by calling us on 020 8137 0026.</p>
+                <p>Our prices are displayed in full on our booking page with no hidden fees. Fixed-price packages are charged at a set rate based on property size and service type. Hourly services (Hourly Clean, Airbnb & Serviced Apartments, and Office Cleaning) are charged at a fixed hourly rate for the duration selected, subject to the minimum booking hours stated. You can book directly through our website or by calling us on 020 8137 0026.</p>
                 <p style={{ marginTop: 16 }}>We may request photos or videos of the property before or after booking to assess the condition accurately. A booking is confirmed once a deposit has been paid.</p>
                 <p style={{ marginTop: 16 }}><strong>Property Condition:</strong> Our pricing is based on the information provided at the time of booking, including any photos or videos where requested. If the actual condition of the property differs significantly from what was described or shown, additional charges may apply or the service may be refused. Even where photos or videos were not requested, if our cleaner arrives and finds the property to be in a condition that falls significantly outside the scope of the booked service, we reserve the right to either charge an additional fee or cancel the clean. In all such cases, the deposit will be retained to cover our costs.</p>
+              </>
+            ),
+          },
+          {
+            title: "3a. Commercial & Airbnb Bookings",
+            content: (
+              <>
+                <p>Bookings for recurring office, commercial, and Airbnb or serviced apartment arrangements are handled via our quote form, by phone, or by email rather than through the standard online booking form. We will ask for details about the property, including type, size, frequency, and access arrangements, before confirming any booking.</p>
+                <p style={{ marginTop: 16 }}><strong>Photos and video:</strong> We may request photos or a short video of the property before confirming a quote. Providing accurate information is the client's responsibility. If the actual condition of the property differs significantly from what was described or shown, we reserve the right to adjust the price, reduce the scope, or refuse the clean. In all such cases the deposit will be retained to cover our costs.</p>
+                <p style={{ marginTop: 16 }}><strong>Recurring commercial arrangements:</strong> We offer recurring booking arrangements for commercial clients (weekly, fortnightly, or monthly) on the same terms as residential recurring bookings. No deposit is taken from the second clean onwards, and payment is charged automatically on completion of each clean. There are no fixed-term contracts. Arrangements can be ended by either party with 48 hours written notice.</p>
               </>
             ),
           },
@@ -137,9 +160,13 @@ export default function TermsAndConditions() {
             ),
           },
           {
-            title: "8. Photography",
+            title: "8. Photography & Video",
             content: (
-              <p>Our cleaners will take before and after photos for quality control, training, and dispute protection. Photos will not be shared publicly without consent. Customers may be required to send photos before booking. If the property differs from what was shown, the price may increase or the service may be refused.</p>
+              <>
+                <p>Our cleaners take before and after photos and videos for quality control, training, and dispute protection. This content is for internal use only and will never be shared publicly without your explicit consent.</p>
+                <p style={{ marginTop: 16 }}><strong>Social media consent:</strong> During the booking process you may choose to give permission for before/after photos and videos of your clean to be shared on London Cleaning Wizard's social media channels. This is entirely optional. Your personal details and address will never be shown. You may withdraw consent at any time by contacting us at bookings@londoncleaningwizard.com. We will only share content from bookings where consent was given at the time of booking.</p>
+                <p style={{ marginTop: 16 }}><strong>Pre-booking photos:</strong> We may ask customers to send photos or videos of the property before confirming a booking, particularly for commercial, Airbnb, or deep cleans. If the property differs significantly from what was shown, the price may increase or the service may be refused.</p>
+              </>
             ),
           },
           {
@@ -226,5 +253,6 @@ export default function TermsAndConditions() {
 
       </div>
     </div>
+    </>
   );
 }

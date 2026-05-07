@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { Sparkle } from "./Icons";
 import { AREAS } from "../data/siteData";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 const REGIONS = [
   {
@@ -29,7 +30,6 @@ const REGIONS = [
 const areaMap = Object.fromEntries(AREAS.map(a => [a.name, a.postcode]));
 
 export default function AreasPage() {
-  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [screen, setScreen] = useState(() => {
     const w = window.innerWidth;
@@ -63,7 +63,13 @@ export default function AreasPage() {
   })).filter(r => r.areas.length > 0);
 
   return (
-    <div style={{ background: "#faf9f7" }}>
+    <>
+      <Helmet>
+        <title>Areas We Cover | London Cleaning Services | London Cleaning Wizard</title>
+        <meta name="description" content="London Cleaning Wizard covers east, central and north London. Find out if we clean in your area — Hackney, Tower Hamlets, Bethnal Green, Canary Wharf, Stratford and more." />
+        <link rel="canonical" href="https://londoncleaningwizard.com/areas" />
+      </Helmet>
+      <div style={{ background: "#faf9f7" }}>
 
       {/* Hero */}
       <div style={{
@@ -175,12 +181,13 @@ export default function AreasPage() {
           <a href="tel:02081370026" style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "14px 32px", background: "#f5f0e8", color: "#1a1410", textDecoration: "none" }}>
             Call Us
           </a>
-          <button onClick={() => navigate("/book")} style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "14px 32px", background: "transparent", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", cursor: "pointer" }}>
+          <Link to="/book" style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "14px 32px", background: "transparent", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", textDecoration: "none" }}>
             Book a Clean
-          </button>
+          </Link>
         </div>
       </div>
 
     </div>
+    </>
   );
 }
