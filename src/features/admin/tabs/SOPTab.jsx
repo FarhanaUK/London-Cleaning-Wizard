@@ -307,6 +307,86 @@ export default function SOPTab({ isMobile, C }) {
         </div>
       </Section>
 
+      <Section title="Wrong or Incorrect Booking" C={C}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+          If a customer books the wrong package, date, or property size, follow the steps below depending on whether they have paid their deposit.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 10 }}>Scenario A: No deposit paid</div>
+        {[
+          'Cancel the incorrect booking in the Bookings tab (change status to Cancelled).',
+          'Go to the Customers tab, find the customer, and click New Booking.',
+          'Their name, email, phone, address and postcode will be pre-filled automatically.',
+          'Select the correct package, size, date and time and save.',
+          'Send the customer the new booking confirmation and deposit payment link.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 10px' }}>Scenario B: Deposit already paid</div>
+        {[
+          'Contact the customer to confirm what they actually wanted and agree the correct booking.',
+          'Cancel the incorrect booking using the Cancel Booking button in the Bookings tab. The system will handle the refund automatically based on notice given: if the clean date is more than 48 hours away, the deposit is refunded in full with no further action needed. If the clean date is less than 48 hours away, the system will not refund automatically — in that case, manually refund the deposit via Stripe Dashboard before proceeding.',
+          'Create the new correct booking from their customer profile (Customers tab → New Booking).',
+          'Send the new deposit payment link for the corrected booking.',
+          'Add a note on the new booking: "Rebooking — original deposit refunded on [date]."',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ background: '#fef9ef', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', marginTop: 8, fontFamily: FONT, fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+          <strong>Key rule:</strong> Never carry a deposit forward to the replacement booking. The customer pays a fresh deposit on the correct booking. This keeps payment records clean and avoids accounting discrepancies.
+        </div>
+      </Section>
+
+      <Section title="Marketing Tab" C={C}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+          The Marketing tab helps you track and recover revenue from two groups: people who started a booking but never paid, and customers who haven't booked in a long time.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 10 }}>Abandoned Bookings</div>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 10 }}>
+          Tracks every customer who reached the payment step but did not complete their booking. The system automatically sends them a recovery email 2 hours after they abandon. You can see whether the email was sent and whether they eventually came back and booked.
+        </div>
+        {[
+          'Stats are broken down by today, this week, this month, and this year.',
+          'Each row shows the date, package they were looking at, the deposit amount, whether the automated email was sent, and whether they converted.',
+          'Converted means they completed a booking after abandoning. Lost means they did not.',
+          'You do not need to take any action — the recovery email sends itself. This tab is for visibility only.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Lapsed Customers</div>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 10 }}>
+          Shows every customer whose last clean was more than 90 days ago. These are people who used the service but have not come back. Sorted by most recently lapsed so you can prioritise who to reach out to first.
+        </div>
+        {[
+          'Orange badge: lapsed 90–180 days ago. Recently gone quiet — worth a personal follow-up.',
+          'Red badge: lapsed 180+ days ago. Long lapsed — lower chance of return but still worth trying.',
+          'A re-engagement email goes out automatically to lapsed customers. This tab is for your visibility and any manual follow-up you want to do.',
+          'You can search by name or email to find a specific customer.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginTop: 8, fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+          <strong style={{ color: C.text }}>Note:</strong> Both recovery emails are fully automated. You do not need to manually send anything. Use this tab to monitor performance and spot patterns — for example, if a particular package has a high abandonment rate, or if lapsed customers tend to drop off after a specific number of cleans.
+        </div>
+      </Section>
+
       <Section title="System Alerts & What To Do" C={C}>
         <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
           This system saves everything to a cloud database (Firebase/Firestore) in real time. If a save fails, you will see an alert pop-up. Below is what each alert means and exactly what to do.
