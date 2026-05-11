@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import BookingInvoice  from './BookingInvoice';
 import BookingStep1    from './Bookingstep1';
 import BookingStep2    from './Bookingstep2';
@@ -47,9 +48,14 @@ export default function BookingPage() {
 
   useEffect(() => {
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    });
   }, []);
 
   useEffect(() => {
@@ -84,6 +90,11 @@ export default function BookingPage() {
 
   return (
     <>
+      <Helmet>
+        <title>Book a Clean | London Cleaning Wizard</title>
+        <meta name="description" content="Book residential cleaning, hourly cleans, Airbnb turnarounds and office cleaning across London. Packages from £115 or from £30/hour. Book online today." />
+        <link rel="canonical" href="https://londoncleaningwizard.com/book" />
+      </Helmet>
       {/* Progress bar */}
       <div style={{
         position: 'sticky',

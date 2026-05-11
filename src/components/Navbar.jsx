@@ -89,7 +89,7 @@ export default function Navbar() {
       <nav
         ref={navRef}
         style={{
-          position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000,
           display: "flex", flexDirection: "column",
           background: isDark ? "rgba(250,249,247,0.97)" : "rgba(250,249,247,0)",
           backdropFilter: "blur(18px)",

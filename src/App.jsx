@@ -41,8 +41,8 @@ function MainPage() {
   return (
     <>
       <Helmet>
-        <title>Premium Home & Commercial Cleaning London | London Cleaning Wizard</title>
-        <meta name="description" content="Premium home & commercial cleaning across London. Vetted, trained & fully insured. Regular, deep & end of tenancy cleans. Free quote today." />
+        <title>London Cleaning Wizard | Premium Home Cleaning London</title>
+        <meta name="description" content="Hotel-standard home cleaning across London. Vetted insured cleaners. Same cleaner every visit. Reset packages from £115. 50% off your first Signature Hotel Reset." />
         <link rel="canonical" href="https://londoncleaningwizard.com/" />
       </Helmet>
       <Hero onScrollTo={scrollTo} />

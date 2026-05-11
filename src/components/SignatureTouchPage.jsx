@@ -76,8 +76,8 @@ export default function SignatureTouchPage() {
   return (
     <>
       <Helmet>
-        <title>The Signature Touch | Premium Regular Cleaning London | London Cleaning Wizard</title>
-        <meta name="description" content="The Signature Touch is our premium recurring clean — same cleaner every visit, hotel-style bed making, completion photos and a personalised finish. Book your regular clean today." />
+        <title>The Signature Touch | London Cleaning Wizard</title>
+        <meta name="description" content="Our Signature Hotel Reset includes a handmade candle, signature scent and personal message card crafted by our founder. A pamper experience for your home." />
         <link rel="canonical" href="https://londoncleaningwizard.com/signature-touch" />
       </Helmet>
       <div style={{ background: "#faf9f7" }}>
@@ -122,7 +122,6 @@ export default function SignatureTouchPage() {
           gap: isMobile ? 40 : 64,
           alignItems: "center",
         }}>
-          {/* Image */}
           <div style={{ flexShrink: 0 }}>
             <img
               src="/room spray.jpeg"
@@ -135,25 +134,21 @@ export default function SignatureTouchPage() {
               }}
             />
           </div>
-
-          {/* Text */}
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", color: "#c8b89a", marginBottom: 20 }}>
-              The Experience
+              The Finishing Touch
             </div>
             <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: isMobile ? 28 : isTablet ? 32 : 38, fontWeight: 300, color: "#1a1410", lineHeight: 1.2, marginBottom: 20, letterSpacing: "-0.01em" }}>
-              A pamper experience for your home
+              A Signature Room Spray, Crafted by Hand
             </h2>
             <div style={{ width: 36, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 28 }} />
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: isMobile ? 14 : 15, color: "#5a4e44", lineHeight: 1.9, fontWeight: 300, marginBottom: 32 }}>
-              We don't think of a clean home as the end of the job. We think of it as the start of the feeling. So we built our Signature Hotel Reset around all of it.
+              Every Signature Hotel Reset ends the same way. Your cleaner mists your home with our handcrafted room spray, blended from pure natural oils, so the moment you walk in, your home does not just look clean. It feels it.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 18, marginBottom: 36 }}>
               {[
                 "A spotless home, finished to a hotel standard",
                 "A calming signature scent, misted through your space so it feels as good as it looks",
-                "A handmade candle, crafted at home, to extend the feeling long after we've gone",
-                "A message card, because being thoughtful matters",
               ].map(item => (
                 <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
                   <span style={{ color: "#c8b89a", fontSize: 14, marginTop: 3, flexShrink: 0 }}>✦</span>
@@ -326,56 +321,138 @@ export default function SignatureTouchPage() {
       {/* The Signature Touch - the gift */}
       <section style={{
         background: "#2c2420",
-        padding: isMobile ? "56px 24px" : isTablet ? "64px 40px" : "80px clamp(40px, 6vw, 100px)",
+        padding: isMobile ? "56px 24px" : isTablet ? "64px 40px" : "80px 40px",
       }}>
-        <div style={{
-          maxWidth: 640,
-          margin: "0 auto",
-          textAlign: isMobile ? "left" : "center",
-        }}>
+        {/* Section heading */}
+        <div style={{ textAlign: "center", marginBottom: isMobile ? 40 : 56 }}>
           <div style={{ marginBottom: 16 }}>
             <WandIcon size={28} color="#c8b89a" />
           </div>
-            <div style={{
-              fontFamily: "'Jost', sans-serif",
-              fontSize: 10,
-              letterSpacing: "0.28em",
-              color: "#c8b89a",
-              textTransform: "uppercase",
-              marginBottom: 16,
-            }}>
-              The Finishing Touch
+          <div style={{
+            fontFamily: "'Jost', sans-serif",
+            fontSize: 10,
+            letterSpacing: "0.28em",
+            color: "#c8b89a",
+            textTransform: "uppercase",
+            marginBottom: 16,
+          }}>
+            The Experience
+          </div>
+          <h2 style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: isMobile ? 32 : isTablet ? 36 : 42,
+            fontWeight: 300,
+            lineHeight: 1.1,
+            color: "#f5f0e8",
+            marginBottom: 24,
+          }}>
+            A pamper experience for your home
+          </h2>
+          <div style={{ width: 36, height: 1, background: "rgba(200,184,154,0.4)", margin: "0 auto" }} />
+        </div>
+
+        {/* Image + text */}
+          <div style={{
+            maxWidth: 1300,
+            margin: "0 auto",
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            alignItems: "flex-start",
+            gap: isMobile ? 32 : 64,
+          }}>
+            <div style={{ flexShrink: 0, width: isMobile ? "100%" : "58%" }}>
+              <img
+                src="/RoomSpray.jpeg"
+                alt="London Cleaning Wizard signature room spray"
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  display: "block",
+                }}
+              />
             </div>
-            <h2 style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: isMobile ? 32 : isTablet ? 36 : 42,
-              fontWeight: 300,
-              lineHeight: 1.1,
-              color: "#f5f0e8",
-              marginBottom: 20,
-            }}>
-              The Signature Touch
-            </h2>
-            <p style={{
-              fontFamily: "'Jost', sans-serif",
-              fontSize: isMobile ? 14 : 15,
-              lineHeight: 1.9,
-              color: "rgba(245,240,232,0.65)",
-              fontWeight: 300,
-              marginBottom: 24,
-            }}>
-              At the end of every visit, we leave behind a small, carefully chosen gift. A quiet gesture that marks the difference between a home that has been cleaned and one that has been truly cared for.
-            </p>
-            <p style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontStyle: "italic",
-              fontSize: isMobile ? 18 : 21,
-              color: "#c8b89a",
-              lineHeight: 1.5,
-              margin: 0,
-            }}>
-              "It's the detail that makes it feel like coming home."
-            </p>
+            <div style={{ flex: 1, textAlign: "left", marginTop: -35 }}>
+              <h3 style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: isMobile ? 24 : 30,
+                fontWeight: 300,
+                color: "#f5f0e8",
+                lineHeight: 1.2,
+                marginBottom: 20,
+              }}>
+                Room Spray & Candle
+              </h3>
+              <p style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: isMobile ? 14 : 15,
+                lineHeight: 1.9,
+                color: "rgba(245,240,232,0.65)",
+                fontWeight: 300,
+                marginBottom: 12,
+              }}>
+                No other cleaning business does this. We do not just want your home to be clean. We want you to feel it. We want you to walk through the door and feel looked after, indulged, and genuinely cared for in a way that a standard clean simply cannot deliver.
+              </p>
+              <p style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: isMobile ? 14 : 15,
+                lineHeight: 1.9,
+                color: "rgba(245,240,232,0.65)",
+                fontWeight: 300,
+                marginBottom: 12,
+              }}>
+                That is why we created the Signature Touch. A ritual at the end of every visit, designed entirely around you feeling pampered.
+              </p>
+              <p style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: 14,
+                fontWeight: 300,
+                lineHeight: 1.9,
+                color: "rgba(245,240,232,0.65)",
+                marginBottom: 12,
+              }}>
+                When your cleaner leaves, they mist your home with our signature scent. You walk in to that feeling. That calm, that warmth, that sense that everything is exactly as it should be.
+              </p>
+              <p style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: 14,
+                fontWeight: 300,
+                lineHeight: 1.9,
+                color: "rgba(245,240,232,0.65)",
+                marginBottom: 12,
+              }}>
+                But we did not want that feeling to be something you could only have in the first hour. So we created our own signature room spray, blended from pure natural oils, to leave behind for you. The same scent. The same feeling. Yours to bring back whenever you need it.
+              </p>
+              <p style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: 14,
+                fontWeight: 300,
+                lineHeight: 1.9,
+                color: "rgba(245,240,232,0.65)",
+                marginBottom: 20,
+              }}>
+                Not just a clean home. A full experience. That is what we wanted to create for you. So alongside the spray, we also leave behind a handmade candle crafted at home, your own bottle of the signature scent to keep, and a personal message card. Because the details are what make it feel like someone truly cared.
+              </p>
+              <p style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontStyle: "italic",
+                fontSize: isMobile ? 18 : 21,
+                color: "#c8b89a",
+                lineHeight: 1.5,
+                marginBottom: 20,
+              }}>
+                "It's the detail that makes it feel like coming home."
+              </p>
+              <p style={{
+                fontFamily: "'Jost', sans-serif",
+                fontSize: 11,
+                fontWeight: 300,
+                lineHeight: 1.8,
+                color: "rgba(245,240,232,0.35)",
+                fontStyle: "italic",
+              }}>
+                Complimentary with your Signature Hotel Reset. This is a heartfelt gesture we love to include. Availability may vary and is not guaranteed with every visit.
+              </p>
+            </div>
           </div>
       </section>
 

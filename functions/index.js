@@ -1,6 +1,7 @@
 // v2
-const { onRequest }    = require('firebase-functions/v2/https');
-const { onSchedule }   = require('firebase-functions/v2/scheduler');
+const { onRequest }        = require('firebase-functions/v2/https');
+const { onSchedule }       = require('firebase-functions/v2/scheduler');
+const { onDocumentDeleted } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const admin            = require('firebase-admin');
 const Stripe           = require('stripe');
@@ -211,6 +212,8 @@ exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, re
         week, month: now.getMonth() + 1, year: now.getFullYear(),
         packageName: bookingData.packageName || '',
         depositAmount: amount / 100,
+        totalAmount: bookingData.total || 0,
+        frequency: bookingData.frequency || 'one-off',
         email: (bookingData.email || '').toLowerCase(),
         emailSent: false, emailSentAt: null,
         converted: false, convertedAt: null,
@@ -402,6 +405,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
             `Cleaner: ${d.assignedStaff || 'Unassigned'}`,
             `Notes: ${d.notes || 'None'}`,
             `Media consent: ${d.mediaConsent ? 'Yes - consented to photos/videos on social media' : 'No'}`,
+            `Marketing opt-in: ${d.marketingOptOut ? 'Opted out' : 'Opted in'}`,
             `Total: £${parseFloat(d.total||0).toFixed(2)} | Deposit: £${parseFloat(d.deposit||0).toFixed(2)} | Remaining: £${parseFloat(d.remaining||0).toFixed(2)}`,
           ].join('\n'),
         start: { dateTime: slotStart, timeZone: 'Europe/London' },
@@ -493,7 +497,10 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
                   `Keys: ${d.keys || 'N/A'}`,
                   `Add-ons: ${(d.addons||[]).map(a => a.name).join(', ') || 'None'}`,
                   ...(['hourly','airbnb_commercial','office_cleaning'].includes(d.package) ? [] : [`Pets: ${d.hasPets ? `Yes — ${d.petTypes || 'not specified'}` : 'No'}`]),
+                  ...(d.package === 'standard' ? [`Signature Touch: ${d.signatureTouch !== false ? 'Opted in' : `Opted out${d.signatureTouchNotes ? ` — ${d.signatureTouchNotes}` : ''}`}`] : []),
+                  `Cleaner: ${d.assignedStaff || 'Unassigned'}`,
                   `Notes: ${d.notes || 'None'}`,
+                  `Media consent: ${d.mediaConsent ? 'Yes - consented to photos/videos on social media' : 'No'}`,
                   `Total: £${parseFloat(d.total||0).toFixed(2)} | No deposit — full amount charged on completion`,
                   `⚙️ Auto-created at booking time (pre-scheduled)`,
                 ].join('\n'),
@@ -1113,8 +1120,10 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
   const current = snap.data();
   const updates = { updatedAt: new Date() };
   if (assignedStaff !== undefined) updates.assignedStaff = assignedStaff;
-  if (actualStart  !== undefined) updates.actualStart  = actualStart;
-  if (actualFinish !== undefined) updates.actualFinish = actualFinish;
+  if (actualStart   !== undefined) updates.actualStart   = actualStart;
+  if (actualFinish  !== undefined) updates.actualFinish  = actualFinish;
+  const { secondCleaner } = req.body;
+  if (secondCleaner !== undefined) updates.secondCleaner = secondCleaner || '';
 
   // Track significant changes for email notification
   const changes = [];
@@ -1420,7 +1429,7 @@ exports.emailDepositLink = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res)
 // ── 10b. Notify customer of assigned cleaner ─────────────────
 exports.notifyCleanerAssigned = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
-  const { bookingId, cleanerName } = req.body;
+  const { bookingId, cleanerName, secondCleaner: reqSecondCleaner } = req.body;
   if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
   const db   = admin.firestore();
   const snap = await db.collection('bookings').doc(bookingId).get();
@@ -1428,26 +1437,38 @@ exports.notifyCleanerAssigned = onRequest({ secrets:[EMAILJS_KEY] }, async (req,
   const b = snap.data();
   const assignedCleaner = cleanerName || b.assignedStaff;
   if (!assignedCleaner) { res.status(400).json({ error: 'No cleaner assigned to this booking' }); return; }
-  if (!process.env.EMAILJS_CLEANER_TEMPLATE) { res.status(500).json({ error: 'Cleaner notification template not configured' }); return; }
-  // Look up cleaner photo from staff collection
+  // Prefer the value passed from the client (reflects current UI state) over stale Firestore data
+  const secondCleaner = reqSecondCleaner !== undefined ? reqSecondCleaner : (b.secondCleaner || '');
+  const hasSecond = !!secondCleaner;
+  const template  = hasSecond ? process.env.EMAILJS_CLEANER_2_TEMPLATE : process.env.EMAILJS_CLEANER_TEMPLATE;
+  if (!template) { res.status(500).json({ error: 'Cleaner notification template not configured' }); return; }
   const FALLBACK_PHOTO = 'https://londoncleaningwizard.com/wizard.png';
-  let cleanerPhoto = FALLBACK_PHOTO;
-  try {
-    const staffSnap = await db.collection('staff').where('name', '==', assignedCleaner).limit(1).get();
-    if (!staffSnap.empty) cleanerPhoto = staffSnap.docs[0].data().photoURL || FALLBACK_PHOTO;
-  } catch (e) { /* photo optional */ }
-  await sendEmail(process.env.EMAILJS_CLEANER_TEMPLATE, {
-    to_name:       b.firstName,
-    to_email:      b.email,
-    cleaner_name:  assignedCleaner,
-    cleaner_photo: cleanerPhoto,
-    booking_ref:   b.bookingRef,
-    date:          b.cleanDate.split('-').reverse().join('/'),
-    time:          b.cleanTime,
-    package_name:  b.packageName,
-    address:       `${b.addr1}, ${b.postcode}`,
+  const lookupPhoto = async (name) => {
+    try {
+      const s = await db.collection('staff').where('name', '==', name).limit(1).get();
+      return s.empty ? FALLBACK_PHOTO : (s.docs[0].data().photoURL || FALLBACK_PHOTO);
+    } catch { return FALLBACK_PHOTO; }
+  };
+  const [cleanerPhoto, cleanerPhoto2] = await Promise.all([
+    lookupPhoto(assignedCleaner),
+    hasSecond ? lookupPhoto(secondCleaner) : Promise.resolve(''),
+  ]);
+  const combinedName = hasSecond ? `${assignedCleaner} & ${secondCleaner}` : assignedCleaner;
+  await sendEmail(template, {
+    to_name:         b.firstName,
+    to_email:        b.email,
+    cleaner_name:    combinedName,
+    cleaner_name_1:  assignedCleaner,
+    cleaner_photo:   cleanerPhoto,
+    cleaner_name_2:  secondCleaner,
+    cleaner_photo_2: cleanerPhoto2,
+    booking_ref:     b.bookingRef,
+    date:            b.cleanDate.split('-').reverse().join('/'),
+    time:            b.cleanTime,
+    package_name:    b.packageName,
+    address:         `${b.addr1}, ${b.postcode}`,
   }, EMAILJS_KEY.value());
-  await snap.ref.update({ lastNotifiedCleaner: assignedCleaner, lastNotifiedAt: new Date() });
+  await snap.ref.update({ lastNotifiedCleaner: combinedName, lastNotifiedAt: new Date() });
   res.json({ success: true });
 });
 
@@ -1483,7 +1504,7 @@ exports.getDepositDetails = onRequest(async (req, res) => {
 // ── 12. Confirm deposit payment (called after Stripe success) ─
 exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
-  const { bookingId, paymentIntentId, marketingOptOut } = req.body;
+  const { bookingId, paymentIntentId, marketingOptOut, mediaConsent } = req.body;
   if (!bookingId || !paymentIntentId) { res.status(400).json({ error: 'Missing required fields' }); return; }
   const db     = admin.firestore();
   const stripe = new Stripe(STRIPE_KEY.value());
@@ -1508,7 +1529,46 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
     updateData.marketingOptOut = marketingOptOut;
     updateData.doNotContact    = marketingOptOut;
   }
+  if (typeof mediaConsent === 'boolean') {
+    updateData.mediaConsent = mediaConsent;
+  }
   await snap.ref.update(updateData);
+
+  // Update Google Calendar event: colour → blue (deposit paid) + patch description with media consent
+  if (b.calendarEventId) {
+    try {
+      const calendar = await getCalendarClient();
+      const resolvedMediaConsent = typeof mediaConsent === 'boolean' ? mediaConsent : (b.mediaConsent || false);
+      const description = [
+        `Ref: ${b.bookingRef}`,
+        `Customer: ${b.firstName} ${b.lastName}`,
+        `Email: ${b.email}`,
+        `Phone: ${b.phone}`,
+        `Address: ${b.addr1}, ${b.postcode}`,
+        `Property: ${b.propertyType} · ${b.size}`,
+        `Frequency: ${b.frequency || 'One-off'}`,
+        `Floor / Lift: ${b.floor || '—'}`,
+        `Parking: ${b.parking || '—'}`,
+        `Keys: ${b.keys || 'N/A'}`,
+        `Add-ons: ${(b.addons||[]).map(a => a.name).join(', ') || 'None'}`,
+        ...(['hourly','airbnb_commercial','office_cleaning'].includes(b.package) ? [] : [`Pets: ${b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No'}`]),
+        ...(b.package === 'standard' ? [`Signature Touch: ${b.signatureTouch !== false ? 'Opted in' : `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}`}`] : []),
+        `Cleaner: ${b.assignedStaff || 'Unassigned'}`,
+        `Notes: ${b.notes || 'None'}`,
+        `Media consent: ${resolvedMediaConsent ? 'Yes - consented to photos/videos on social media' : 'No'}`,
+        `Marketing opt-in: ${(typeof marketingOptOut === 'boolean' ? marketingOptOut : b.marketingOptOut) ? 'Opted out' : 'Opted in'}`,
+        `Total: £${parseFloat(b.total||0).toFixed(2)} | Deposit: £${parseFloat(b.deposit||0).toFixed(2)} | Remaining: £${parseFloat(b.remaining||0).toFixed(2)}`,
+      ].join('\n');
+      await calendar.events.patch({
+        calendarId: process.env.GOOGLE_CALENDAR_ID,
+        eventId:    b.calendarEventId,
+        resource:   { colorId: calColorId('deposit_paid', b.frequency), description },
+      });
+    } catch (e) {
+      console.error('confirmDepositPayment: calendar patch failed:', e.message);
+    }
+  }
+
   // Backfill stripeCustomerId onto any pre-created recurring bookings missing it
   if (customerId && b.email) {
     const recurringSnap = await db.collection('bookings')
@@ -1523,7 +1583,59 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
   res.json({ success: true });
 });
 
-// ── 13. Delete booking (admin only) ──────────────────────────
+// ── 13. Trash booking (soft delete — moves to trash, removes calendar event) ──
+exports.trashBooking = onRequest(async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId } = req.body;
+  if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
+  const db   = admin.firestore();
+  const snap = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
+  const b = snap.data();
+  if (b.calendarEventId) {
+    try {
+      const calendar = await getCalendarClient();
+      await calendar.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId });
+    } catch (e) {
+      console.error('Failed to delete calendar event on trash:', e.message);
+    }
+  }
+  await snap.ref.update({ deleted: true, deletedAt: new Date(), calendarEventId: null });
+  res.json({ success: true });
+});
+
+// ── 13b. Restore booking from trash ──────────────────────────
+exports.restoreBooking = onRequest(async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId } = req.body;
+  if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
+  const db   = admin.firestore();
+  const snap = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
+  const b = snap.data();
+  await snap.ref.update({ deleted: false, deletedAt: null });
+  try {
+    const calendar  = await getCalendarClient();
+    const slotStart = toUTCISO(b.cleanDate, b.cleanTime);
+    const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+    const calEvent  = await calendar.events.insert({
+      calendarId: process.env.GOOGLE_CALENDAR_ID,
+      resource: {
+        summary:     `${b.packageName} — ${b.firstName} ${b.lastName}`,
+        description: `${b.addr1}, ${b.postcode} | ${b.phone} | ${b.email}`,
+        start:       { dateTime: slotStart, timeZone: 'Europe/London' },
+        end:         { dateTime: slotEnd,   timeZone: 'Europe/London' },
+        colorId:     calColorId(b.status, b.frequency),
+      },
+    });
+    await snap.ref.update({ calendarEventId: calEvent.data.id });
+  } catch (e) {
+    console.error('Failed to recreate calendar event on restore:', e.message);
+  }
+  res.json({ success: true });
+});
+
+// ── 13c. Permanently delete booking from trash ────────────────
 exports.deleteBooking = onRequest(async (req, res) => {
   if (!guard(req, res)) return;
   const { bookingId } = req.body;
@@ -1759,7 +1871,10 @@ exports.createRecurringBookings = onSchedule(
                 `Keys: ${c.keys || 'N/A'}`,
                 `Add-ons: ${(c.recurringAddons||[]).map(a => a.name).join(', ') || 'None'}`,
                 ...(['hourly','airbnb_commercial','office_cleaning'].includes(c.recurringPackage) ? [] : [`Pets: ${c.hasPets ? `Yes — ${c.petTypes || 'not specified'}` : 'No'}`]),
+                ...(c.recurringPackage === 'standard' ? [`Signature Touch: ${c.signatureTouch !== false ? 'Opted in' : `Opted out${c.signatureTouchNotes ? ` — ${c.signatureTouchNotes}` : ''}`}`] : []),
+                `Cleaner: ${c.assignedStaff || 'Unassigned'}`,
                 `Notes: ${c.notes || 'None'}`,
+                `Media consent: ${c.mediaConsent ? 'Yes - consented to photos/videos on social media' : 'No'}`,
                 `Total: £${total} | No deposit — full amount charged on completion`,
                 `⚙️ Auto-created by recurring scheduler`,
               ].join('\n'),
@@ -2220,7 +2335,11 @@ exports.stripeWebhook = onRequest(
             `Keys: ${pd.keys || 'N/A'}`,
             `Add-ons: ${(pd.addons||[]).map(a => a.name).join(', ') || 'None'}`,
             ...(['hourly','airbnb_commercial','office_cleaning'].includes(pd.package) ? [] : [`Pets: ${pd.hasPets ? `Yes — ${pd.petTypes || 'not specified'}` : 'No'}`]),
+            ...(pd.package === 'standard' ? [`Signature Touch: ${pd.signatureTouch !== false ? 'Opted in' : `Opted out${pd.signatureTouchNotes ? ` — ${pd.signatureTouchNotes}` : ''}`}`] : []),
+            `Cleaner: ${pd.assignedStaff || 'Unassigned'}`,
             `Notes: ${pd.notes || 'None'}`,
+            `Media consent: ${pd.mediaConsent ? 'Yes - consented to photos/videos on social media' : 'No'}`,
+            `Marketing opt-in: ${pd.marketingOptOut ? 'Opted out' : 'Opted in'}`,
             `Total: £${parseFloat(pd.total||0).toFixed(2)} | Deposit: £${parseFloat(pd.deposit||0).toFixed(2)} | Remaining: £${parseFloat(pd.remaining||0).toFixed(2)}`,
           ].join('\n'),
           start: { dateTime: slotStart, timeZone: 'Europe/London' },
@@ -2347,7 +2466,17 @@ exports.convertToRecurring = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
           `Email: ${email}`,
           `Phone: ${lb.phone || '—'}`,
           `Address: ${lb.addr1}, ${lb.postcode}`,
+          `Property: ${lb.propertyType} · ${lb.size}`,
           `Frequency: ${frequency}`,
+          `Floor / Lift: ${lb.floor || '—'}`,
+          `Parking: ${lb.parking || '—'}`,
+          `Keys: ${lb.keys || 'N/A'}`,
+          `Add-ons: ${(lb.addons||[]).map(a => a.name).join(', ') || 'None'}`,
+          ...(['hourly','airbnb_commercial','office_cleaning'].includes(pkgId) ? [] : [`Pets: ${lb.hasPets ? `Yes — ${lb.petTypes || 'not specified'}` : 'No'}`]),
+          ...(pkgId === 'standard' ? [`Signature Touch: ${lb.signatureTouch !== false ? 'Opted in' : `Opted out${lb.signatureTouchNotes ? ` — ${lb.signatureTouchNotes}` : ''}`}`] : []),
+          `Cleaner: ${c.assignedStaff || lb.assignedStaff || 'Unassigned'}`,
+          `Notes: ${lb.notes || 'None'}`,
+          `Media consent: ${lb.mediaConsent ? 'Yes - consented to photos/videos on social media' : 'No'}`,
           `Total: £${total.toFixed(2)} | Converted from one-off — full amount charged on completion`,
           `Saving: £${freqSave} per clean`,
           `Converted from one-off to recurring by admin`,
@@ -2649,5 +2778,21 @@ exports.sendReengagementEmails = onSchedule({ schedule: 'every monday 10:00', se
       unsubscribe_url: `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(doc.id)}`,
     }, EMAILJS_KEY.value());
   }));
+});
+
+// ── Firestore trigger: clean up calendar event when booking is deleted ──────
+// Fires whenever a booking document is deleted — regardless of whether it was
+// deleted via the admin panel, Firebase console, or any other path.
+exports.onBookingDeleted = onDocumentDeleted('bookings/{bookingId}', async (event) => {
+  const b = event.data.data();
+  if (!b || !b.calendarEventId) return;
+  try {
+    const calendar = await getCalendarClient();
+    await calendar.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId });
+  } catch (e) {
+    if (e?.code !== 410 && e?.status !== 410 && e?.code !== 404 && e?.status !== 404) {
+      console.error('onBookingDeleted: calendar delete failed:', e.message);
+    }
+  }
 });
 

@@ -44,6 +44,7 @@ function PaymentForm({ details, bookingId }) {
   const [policyError,    setPolicyError]    = useState('');
   const [hasScrolled,    setHasScrolled]    = useState(false);
   const [marketingOptOut, setMarketingOptOut] = useState(true);
+  const [mediaConsent,    setMediaConsent]    = useState(false);
 
   const handleTCScroll = (e) => {
     const el = e.target;
@@ -75,7 +76,7 @@ function PaymentForm({ details, bookingId }) {
         await fetch(import.meta.env.VITE_CF_CONFIRM_DEPOSIT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId, paymentIntentId: paymentIntent.id, marketingOptOut }),
+          body: JSON.stringify({ bookingId, paymentIntentId: paymentIntent.id, marketingOptOut, mediaConsent }),
         });
         // Google Ads conversion tracking
         if (window.gtag) {
@@ -224,7 +225,7 @@ function PaymentForm({ details, bookingId }) {
       {/* Marketing opt-in */}
       <div
         onClick={() => setMarketingOptOut(c => !c)}
-        style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', marginBottom: 16, background: '#2c2420', border: `2px solid ${!marketingOptOut ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}
+        style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', marginBottom: 12, background: '#2c2420', border: `2px solid ${!marketingOptOut ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}
       >
         <div style={{
           flexShrink: 0, marginTop: 1, width: 24, height: 24,
@@ -237,6 +238,25 @@ function PaymentForm({ details, bookingId }) {
         </div>
         <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
           Keep me updated with reminders and occasional offers from London Cleaning Wizard. You can unsubscribe at any time.
+        </p>
+      </div>
+
+      {/* Media consent */}
+      <div
+        onClick={() => setMediaConsent(c => !c)}
+        style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', marginBottom: 16, background: '#2c2420', border: `2px solid ${mediaConsent ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}
+      >
+        <div style={{
+          flexShrink: 0, marginTop: 1, width: 24, height: 24,
+          border: `2px solid ${mediaConsent ? '#2d6a4f' : '#8b7355'}`,
+          background: mediaConsent ? '#2d6a4f' : '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 14, fontWeight: 700,
+        }}>
+          {mediaConsent && '✓'}
+        </div>
+        <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
+          I consent to London Cleaning Wizard taking before and after photos or short videos of the clean for use on social media. This is entirely optional.
         </p>
       </div>
 

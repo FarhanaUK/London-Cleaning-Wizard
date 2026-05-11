@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import AbandonedTab from './marketing/AbandonedTab';
 import LapsedTab    from './marketing/LapsedTab';
+import AudienceTab  from './marketing/AudienceTab';
 import { FONT }     from './marketing/shared.jsx';
 
 const tabs = [
   { id: 'abandoned', label: 'Abandoned Bookings' },
   { id: 'lapsed',    label: 'Lapsed Customers' },
+  { id: 'audience',  label: 'Audience' },
 ];
 
 export default function MarketingTab({ abandonmentStats, bookings, isMobile, C }) {
@@ -32,8 +34,9 @@ export default function MarketingTab({ abandonmentStats, bookings, isMobile, C }
         ))}
       </div>
 
-      {subTab === 'abandoned' && <AbandonedTab abandonmentStats={abandonmentStats} C={C} />}
+      {subTab === 'abandoned' && <AbandonedTab abandonmentStats={abandonmentStats} bookings={bookings} C={C} />}
       {subTab === 'lapsed'    && <LapsedTab bookings={bookings} C={C} />}
+      {subTab === 'audience'  && <AudienceTab bookings={bookings} C={C} />}
     </div>
   );
 }

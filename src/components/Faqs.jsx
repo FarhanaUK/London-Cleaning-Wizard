@@ -123,7 +123,7 @@ export default function Faqs() {
     <>
       <Helmet>
         <title>FAQs | London Cleaning Wizard</title>
-        <meta name="description" content="Answers to your most common questions about our London cleaning services — pricing, what's included, how to book, cancellations, supplies and more." />
+        <meta name="description" content="Common questions about our cleaning packages, pricing, booking process and what's included. Get answers before you book." />
         <link rel="canonical" href="https://londoncleaningwizard.com/faqs" />
       </Helmet>
       <div style={{

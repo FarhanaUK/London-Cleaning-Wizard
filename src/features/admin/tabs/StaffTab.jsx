@@ -7,7 +7,16 @@ const FONT  = "'Inter', 'Segoe UI', sans-serif";
 const INPUT = { fontFamily: FONT, fontSize: 14, padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#1e293b', outline: 'none', width: '100%', boxSizing: 'border-box', marginBottom: 12 };
 const BTN   = { fontFamily: FONT, fontSize: 14, fontWeight: 600, padding: '9px 18px', borderRadius: 7, border: 'none', cursor: 'pointer', transition: 'opacity 0.15s' };
 
-export default function StaffTab({ staff, bookings, setBookings, isMobile, C }) {
+function getYearStart(joinDate) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!joinDate) return `${today.slice(0, 4)}-01-01`;
+  const join = new Date(joinDate + 'T12:00:00');
+  const yr = new Date().getFullYear();
+  const annivThisYear = new Date(yr, join.getMonth(), join.getDate()).toISOString().slice(0, 10);
+  return annivThisYear <= today ? annivThisYear : new Date(yr - 1, join.getMonth(), join.getDate()).toISOString().slice(0, 10);
+}
+
+export default function StaffTab({ staff, bookings, setBookings, stDistributions, isMobile, C }) {
   const [staffSearch,          setStaffSearch]          = useState('');
   const [staffModal,           setStaffModal]           = useState(null);
   const [staffSaving,          setStaffSaving]          = useState(false);
@@ -58,7 +67,7 @@ export default function StaffTab({ staff, bookings, setBookings, isMobile, C }) 
         const { id, _photoFile, ...rest } = d;
         await updateDoc(doc(db, 'staff', id), { ...rest, hourlyRate: d.hourlyRate === 'N/A' ? 'N/A' : parseFloat(d.hourlyRate) || 0, photoURL });
         const newHolidays = new Set(d.holidays || []);
-        const conflicts = bookings.filter(bk => bk.assignedStaff === d.name && newHolidays.has(bk.cleanDate) && bk.cleanDate >= new Date().toISOString().split('T')[0]);
+        const conflicts = bookings.filter(bk => (bk.assignedStaff === d.name || bk.secondCleaner === d.name) && newHolidays.has(bk.cleanDate) && bk.cleanDate >= new Date().toISOString().split('T')[0]);
         if (conflicts.length > 0) setStaffHolidayConflicts({ staffName: d.name, conflicts });
       }
       setStaffModal(null);
@@ -119,6 +128,11 @@ export default function StaffTab({ staff, bookings, setBookings, isMobile, C }) 
                       const yr   = new Date().getFullYear();
                       const days = (s.holidays || []).filter(d => d.startsWith(yr)).length;
                       return days > 0 ? <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: '#fef9c3', color: '#854d0e' }}>🏖 {days}d off {yr}</span> : null;
+                    })()}
+                    {(() => {
+                      const yearStart = getYearStart(s.joinDate);
+                      const count = (stDistributions || []).filter(d => d.cleaner === s.name && d.date >= yearStart).reduce((sum, d) => sum + (d.qty || 0), 0);
+                      return count > 0 ? <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: '#f0fdf4', color: '#15803d' }}>✦ {count} spray{count !== 1 ? 's' : ''} this year</span> : null;
                     })()}
                   </div>
                   <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 4, display: 'flex', gap: 16, flexWrap: 'wrap' }}>

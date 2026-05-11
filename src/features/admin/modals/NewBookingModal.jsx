@@ -13,6 +13,7 @@ const BLANK_BOOKING = { firstName:'', lastName:'', email:'', phone:'', addr1:'',
 const isValidUKPhone    = p => /^(\+44\s?7\d{3}|\(?07\d{3}\)?)\s?\d{3}\s?\d{3}$/.test(p.trim()) || /^(\+44\s?[12]\d{2,4}|\(?0[12]\d{2,4}\)?)\s?\d{3,4}\s?\d{3,4}$/.test(p.trim());
 const isValidEmail      = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 const isValidUKPostcode = p => /^[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}$/i.test(p.trim());
+const isInCoverageArea  = p => /^(E1W|E[1-9]|E1[0-7]|EC[1-4][A-Z]|WC[1-2][A-Z]|N[1-8]|N16|NW[1-3]|NW5|NW6|NW8|SE[1-9]|SE1[0-7]|SW1[A-Z]|SW[2-9]|SW1[0-2]|W1[A-Z]|W[2-9]|W1[0-4])\s?[0-9][A-Z]{2}$/i.test(p.trim());
 
 export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, initialCustomer }) {
   const [nb,             setNb]             = useState(BLANK_BOOKING);
@@ -23,6 +24,7 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
   const [nbBlockedDates, setNbBlockedDates] = useState([]);
   const [nbCalYear,      setNbCalYear]      = useState(() => new Date().getFullYear());
   const [nbCalMonth,     setNbCalMonth]     = useState(() => new Date().getMonth());
+  const [nbStOtherNote,  setNbStOtherNote]  = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -76,6 +78,7 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...nb,
+          signatureTouchNotes: nb.signatureTouchNotes === 'Other' ? nbStOtherNote.trim() || 'Other' : nb.signatureTouchNotes,
           package: nb.packageId, packageName: nbPkg?.name,
           size: nb.sizeId,
           frequency: nb.frequency,
@@ -153,6 +156,11 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
                   ? <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 4 }}>Not valid — {f.hint}</div>
                   : f.hint && !nb[f.key] && <div style={{ fontFamily: FONT, fontSize: 11, color: '#a89070', marginTop: 4 }}>{f.hint}</div>
               }
+              {f.key === 'postcode' && nb.postcode && isValidUKPostcode(nb.postcode) && (
+                isInCoverageArea(nb.postcode)
+                  ? <div style={{ fontFamily: FONT, fontSize: 11, color: '#2d6a4f', marginTop: 4 }}>✓ Within our coverage area</div>
+                  : <div style={{ fontFamily: FONT, fontSize: 11, color: '#92400e', marginTop: 4 }}>⚠ Outside our standard coverage area — you can still book</div>
+              )}
             </div>
           );
         })}
@@ -445,6 +453,55 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
         <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f5f0e8', border: '1px solid #d4c4ae', borderRadius: 6, fontFamily: FONT, fontSize: 12, color: '#8b7355' }}>
           📞 This booking will be marked as a <strong>Phone booking</strong> in all emails and records.
         </div>
+
+        {/* Signature Touch — standard package only */}
+        {nb.packageId === 'standard' && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: FONT, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 10 }}>Signature Touch</div>
+            <div style={{ padding: '12px 14px', background: nb.signatureTouch ? '#f0fdf4' : '#fefce8', border: `1px solid ${nb.signatureTouch ? '#bbf7d0' : '#fde68a'}`, borderRadius: 6, marginBottom: nb.signatureTouch ? 0 : 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: nb.signatureTouch ? '#166534' : '#92400e' }}>
+                  {nb.signatureTouch ? '✓ Opted in' : '✕ Opted out'}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setNb(p => ({ ...p, signatureTouch: !p.signatureTouch, signatureTouchNotes: '' })); setNbStOtherNote(''); }}
+                  style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '5px 12px', background: nb.signatureTouch ? '#dcfce7' : '#fef3c7', color: nb.signatureTouch ? '#166534' : '#92400e', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+                >
+                  {nb.signatureTouch ? 'Mark opted out' : 'Mark opted in'}
+                </button>
+              </div>
+            </div>
+            {!nb.signatureTouch && (
+              <div style={{ marginTop: 0 }}>
+                <select
+                  value={nb.signatureTouchNotes}
+                  onChange={e => setNb(p => ({ ...p, signatureTouchNotes: e.target.value }))}
+                  style={{ ...INPUT, marginBottom: 0, borderColor: '#fde68a' }}
+                >
+                  <option value="">Reason for opting out (optional)</option>
+                  <option value="Scent doesn't match my preference">Scent doesn't match my preference</option>
+                  <option value="Fragrance allergy or sensitivity">Fragrance allergy or sensitivity</option>
+                  <option value="Candles not suitable for my home">Candles not suitable for my home</option>
+                  <option value="Don't use home fragrance products">Don't use home fragrance products</option>
+                  <option value="Already have enough home fragrance">Already have enough home fragrance</option>
+                  <option value="Prefer a tidy clean only">Prefer a tidy clean only</option>
+                  <option value="Prefer to receive it occasionally">Prefer to receive it occasionally</option>
+                  <option value="Other">Other</option>
+                </select>
+                {nb.signatureTouchNotes === 'Other' && (
+                  <textarea
+                    placeholder="Please tell us a bit more…"
+                    value={nbStOtherNote}
+                    onChange={e => setNbStOtherNote(e.target.value)}
+                    rows={3}
+                    style={{ ...INPUT, marginTop: 8, marginBottom: 0, resize: 'vertical' }}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Terms & Conditions */}
         <div style={{ fontFamily: FONT, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', margin: '20px 0 12px' }}>

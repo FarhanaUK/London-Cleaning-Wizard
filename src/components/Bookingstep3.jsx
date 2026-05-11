@@ -103,6 +103,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
   const [secondsLeft,   setSecondsLeft]   = useState(600);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [lastBooking,   setLastBooking]   = useState(null);
+  const [stOtherNote,   setStOtherNote]   = useState('');
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '',
@@ -229,7 +230,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
       floor: form.floor, parking: form.parking,
       keys: form.keys, notes: form.notes, source: form.source,
       hasPets: form.hasPets, petTypes: form.petTypes,
-      signatureTouch: form.signatureTouch, signatureTouchNotes: form.signatureTouchNotes,
+      signatureTouch: form.signatureTouch, signatureTouchNotes: form.signatureTouchNotes === 'Other' ? stOtherNote.trim() || 'Other' : form.signatureTouchNotes,
       isReturning: custType === 'returning',
     });
     onNext();
@@ -333,7 +334,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
               </div>
             </div>
             <div
-              onClick={() => setForm(f => ({ ...f, signatureTouch: !f.signatureTouch, signatureTouchNotes: '' }))}
+              onClick={() => { setForm(f => ({ ...f, signatureTouch: !f.signatureTouch, signatureTouchNotes: '' })); setStOtherNote(''); }}
               style={{ flexShrink: 0, width: 40, height: 22, borderRadius: 11, position: 'relative', background: form.signatureTouch ? '#c8b89a' : 'rgba(200,184,154,0.2)', cursor: 'pointer', transition: 'background 0.2s', marginTop: 2 }}
             >
               <div style={{ position: 'absolute', top: 3, left: form.signatureTouch ? 19 : 3, width: 16, height: 16, background: 'white', borderRadius: '50%', transition: 'left 0.2s' }} />
@@ -342,13 +343,30 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
           {!form.signatureTouch && (
             <div>
               <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Let us know why you're opting out (optional)</label>
-              <input
-                type="text"
-                placeholder="e.g. fragrance allergy, prefer no extras…"
+              <select
                 value={form.signatureTouchNotes}
                 onChange={e => setForm(f => ({ ...f, signatureTouchNotes: e.target.value }))}
                 style={INPUT(false)}
-              />
+              >
+                <option value="">Select a reason…</option>
+                <option value="Scent doesn't match my preference">Scent doesn't match my preference</option>
+                <option value="Fragrance allergy or sensitivity">Fragrance allergy or sensitivity</option>
+                <option value="Candles not suitable for my home">Candles not suitable for my home</option>
+                <option value="Don't use home fragrance products">Don't use home fragrance products</option>
+                <option value="Already have enough home fragrance">Already have enough home fragrance</option>
+                <option value="Prefer a tidy clean only">Prefer a tidy clean only</option>
+                <option value="Prefer to receive it occasionally">Prefer to receive it occasionally</option>
+                <option value="Other">Other</option>
+              </select>
+              {form.signatureTouchNotes === 'Other' && (
+                <textarea
+                  placeholder="Please tell us a bit more…"
+                  value={stOtherNote}
+                  onChange={e => setStOtherNote(e.target.value)}
+                  rows={3}
+                  style={{ ...INPUT(false), marginTop: 8, resize: 'vertical' }}
+                />
+              )}
             </div>
           )}
         </div>}

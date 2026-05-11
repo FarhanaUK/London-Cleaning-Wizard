@@ -68,7 +68,7 @@ export default function DashboardTab({ bookings, staff, isMobile, C }) {
   const activeStaff = [...staff].filter(s => s.status === 'Active').sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
   const staffJobs   = activeStaff.map(s => {
     const rate    = s.hourlyRate !== 'N/A' ? parseFloat(s.hourlyRate) || null : null;
-    const ppJobs  = activeBookings.filter(b => b.assignedStaff === s.name && b.cleanDate >= payPeriod.start && b.cleanDate <= payPeriod.end);
+    const ppJobs  = activeBookings.filter(b => (b.assignedStaff === s.name || b.secondCleaner === s.name) && b.cleanDate >= payPeriod.start && b.cleanDate <= payPeriod.end);
     const ppHours = ppJobs.reduce((sum, b) => { const h = calcHours(b.actualStart || b.cleanTime, b.actualFinish); return sum + (h || 0); }, 0);
     const ppEarned = rate !== null ? ppHours * rate : null;
     return { ...s, rate, ppJobs, ppHours, ppEarned };
@@ -153,7 +153,7 @@ export default function DashboardTab({ bookings, staff, isMobile, C }) {
                     <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{b.cleanTime}</div>
                   </div>
                   {b.assignedStaff
-                    ? <span style={{ fontFamily: FONT, fontSize: 10, background: '#ede9fe', color: '#6d28d9', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>👤 {b.assignedStaff}</span>
+                    ? <span style={{ fontFamily: FONT, fontSize: 10, background: '#ede9fe', color: '#6d28d9', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>👤 {[b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ')}</span>
                     : <span style={{ fontFamily: FONT, fontSize: 10, background: '#fee2e2', color: '#dc2626', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>Unassigned</span>}
                 </div>
               ))}

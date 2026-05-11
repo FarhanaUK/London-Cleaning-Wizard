@@ -54,7 +54,7 @@ export default function Hero({ onScrollTo }) {
       {LAUNCH_ACTIVE && (
         <div style={{
           position: 'absolute',
-          top: 60,
+          top: 68,
           left: 0,
           right: 0,
           zIndex: 50,

@@ -276,7 +276,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
         <div style={{ padding: '10px 16px', background: '#8b2020', display: 'flex', alignItems: 'flex-start', gap: 10, margin: '0 -16px' }}>
           <span style={{ fontSize: 14, flexShrink: 0 }}>🎁</span>
           <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', flex: 1, lineHeight: 1.5 }}>
-            <strong>Launch Offer</strong> · 50% off your first Signature Hotel Reset
+            <strong>Launch Offer</strong> · 50% off your first Signature Hotel Reset · Ends 1st June
           </div>
         </div>
       </div>

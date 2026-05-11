@@ -14,8 +14,10 @@ const ExpensesTab  = lazy(() => import('../features/admin/tabs/ExpensesTab'));
 const CustomersTab = lazy(() => import('../features/admin/tabs/CustomersTab'));
 const CalendarTab  = lazy(() => import('../features/admin/tabs/CalendarTab'));
 const BookingsTab    = lazy(() => import('../features/admin/tabs/BookingsTab'));
-const MarketingTab    = lazy(() => import('../features/admin/tabs/MarketingTab'));
-const PromotionsTab   = lazy(() => import('../features/admin/tabs/PromotionsTab'));
+const MarketingTab       = lazy(() => import('../features/admin/tabs/MarketingTab'));
+const PromotionsTab      = lazy(() => import('../features/admin/tabs/PromotionsTab'));
+const SignatureTouchTab  = lazy(() => import('../features/admin/tabs/SignatureTouchTab'));
+const TrashTab           = lazy(() => import('../features/admin/tabs/TrashTab'));
 
 
 // ── Themes ────────────────────────────────────────────────────
@@ -39,7 +41,7 @@ const THEMES = {
   look3: {
     bg: '#f1f5f9', sidebar: '#1e293b', card: '#ffffff', border: '#e2e8f0',
     text: '#0f172a', muted: '#64748b', faint: '#94a3b8',
-    accent: '#c8b89a', accentDark: '#a89578',
+    accent: '#2563eb', accentDark: '#1d4ed8',
     success: '#16a34a', danger: '#dc2626', warning: '#d97706',
     sidebarText: '#fff', sidebarMuted: '#94a3b8', sidebarBorder: 'rgba(255,255,255,0.08)',
     sidebarActive: 'rgba(200,184,154,0.12)', sidebarActiveBorder: '#c8b89a',
@@ -59,8 +61,10 @@ const NAV_ITEMS = [
   { id: 'supplies',  label: 'Supplies',  icon: '🧴' },
   { id: 'sop',       label: 'SOP',       icon: '📖' },
   { id: 'reports',   label: 'Reports',   icon: '📈' },
-  { id: 'marketing',  label: 'Marketing',  icon: '📣' },
-  { id: 'promotions', label: 'Promotions', icon: '🎁' },
+  { id: 'marketing',       label: 'Marketing',       icon: '📣' },
+  { id: 'promotions',     label: 'Promotions',     icon: '🎁' },
+  { id: 'signatureTouch', label: 'Signature Touch', icon: '✦'  },
+  { id: 'trash',          label: 'Trash',           icon: '🗑'  },
 ];
 
 const WELCOME_MESSAGES = [
@@ -126,6 +130,7 @@ export default function AdminPage() {
   const [fixedCosts,            setFixedCosts]            = useState([]);
   const [supplies,              setSupplies]              = useState([]);
   const [abandonmentStats,      setAbandonmentStats]      = useState([]);
+  const [stDistributions,       setStDistributions]       = useState([]);
   useEffect(() => onAuthStateChanged(auth, async u => {
     setUser(u);
     setAuthLoading(false);
@@ -184,6 +189,12 @@ export default function AdminPage() {
     if (!user) return;
     const q = query(collection(db, 'abandonmentStats'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => setAbandonmentStats(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'stDistributions'), orderBy('date', 'desc'));
+    return onSnapshot(q, snap => setStDistributions(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   }, [user]);
 
   useEffect(() => {
@@ -297,7 +308,7 @@ export default function AdminPage() {
                 {[
                   { key: 'look1', label: '1', bg: '#f5f0e8', dot: '#1a1410' },
                   { key: 'look2', label: '2', bg: '#2c2420', dot: '#c8b89a' },
-                  { key: 'look3', label: '3', bg: '#1e293b', dot: '#c8b89a' },
+                  { key: 'look3', label: '3', bg: '#1e293b', dot: '#2563eb' },
                 ].map(t => (
                   <button key={t.key} onClick={() => switchTheme(t.key)} title={`Look ${t.label}`} style={{
                     width: 32, height: 32, borderRadius: 6, background: t.bg,
@@ -342,7 +353,7 @@ export default function AdminPage() {
                 {[
                   { key: 'look1', label: '1', bg: '#f5f0e8', dot: '#1a1410' },
                   { key: 'look2', label: '2', bg: '#2c2420', dot: '#c8b89a' },
-                  { key: 'look3', label: '3', bg: '#1e293b', dot: '#c8b89a' },
+                  { key: 'look3', label: '3', bg: '#1e293b', dot: '#2563eb' },
                 ].map(t => (
                   <button key={t.key} onClick={() => switchTheme(t.key)} title={`Look ${t.label}`} style={{
                     width: 32, height: 32, borderRadius: 6, background: t.bg,
@@ -363,18 +374,25 @@ export default function AdminPage() {
         <div style={{ padding: isMobile ? '16px 12px' : '28px 28px' }}>
 
         <Suspense fallback={<div style={{ padding: 40, fontFamily: FONT, fontSize: 13, color: C.muted }}>Loading…</div>}>
-          {activeView === 'calendar'  && <CalendarTab bookings={bookings} isMobile={isMobile} C={C} />}
-          {activeView === 'dashboard' && <DashboardTab bookings={bookings} staff={staff} isMobile={isMobile} C={C} />}
-          {activeView === 'customers' && <CustomersTab bookings={bookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
-          {activeView === 'staff'     && <StaffTab staff={staff} bookings={bookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
-          {activeView === 'myJobs'    && <MyJobsTab staff={staff} bookings={bookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
-          {activeView === 'expenses'  && <ExpensesTab expenses={expenses} fixedCosts={fixedCosts} bookings={bookings} staff={staff} isMobile={isMobile} C={C} />}
-          {activeView === 'supplies'  && <SuppliesTab supplies={supplies} isMobile={isMobile} C={C} />}
-          {activeView === 'sop'       && <SOPTab isMobile={isMobile} C={C} />}
-          {activeView === 'reports'   && <ReportsTab bookings={bookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} isMobile={isMobile} C={C} />}
-          {activeView === 'bookings'  && <BookingsTab bookings={bookings} setBookings={setBookings} staff={staff} isMobile={isMobile} C={C} user={user} schedulerLogs={schedulerLogs} bannerVisible={bannerVisible} welcomeMsg={welcomeMsg} welcomeColor={welcomeColor} />}
-          {activeView === 'marketing'  && <MarketingTab abandonmentStats={abandonmentStats} bookings={bookings} isMobile={isMobile} C={C} />}
-          {activeView === 'promotions' && <PromotionsTab isMobile={isMobile} C={C} />}
+          {(() => {
+            const activeBookings = bookings.filter(b => !b.deleted);
+            return <>
+              {activeView === 'calendar'  && <CalendarTab bookings={activeBookings} isMobile={isMobile} C={C} />}
+              {activeView === 'dashboard' && <DashboardTab bookings={activeBookings} staff={staff} isMobile={isMobile} C={C} />}
+              {activeView === 'customers' && <CustomersTab bookings={activeBookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
+              {activeView === 'staff'     && <StaffTab staff={staff} bookings={activeBookings} setBookings={setBookings} stDistributions={stDistributions} isMobile={isMobile} C={C} />}
+              {activeView === 'myJobs'    && <MyJobsTab staff={staff} bookings={activeBookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
+              {activeView === 'expenses'  && <ExpensesTab expenses={expenses} fixedCosts={fixedCosts} bookings={activeBookings} staff={staff} isMobile={isMobile} C={C} />}
+              {activeView === 'supplies'  && <SuppliesTab supplies={supplies} isMobile={isMobile} C={C} />}
+              {activeView === 'sop'       && <SOPTab isMobile={isMobile} C={C} />}
+              {activeView === 'reports'   && <ReportsTab bookings={activeBookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} isMobile={isMobile} C={C} />}
+              {activeView === 'bookings'  && <BookingsTab bookings={activeBookings} setBookings={setBookings} staff={staff} isMobile={isMobile} C={C} user={user} schedulerLogs={schedulerLogs} bannerVisible={bannerVisible} welcomeMsg={welcomeMsg} welcomeColor={welcomeColor} />}
+              {activeView === 'marketing'       && <MarketingTab abandonmentStats={abandonmentStats} bookings={activeBookings} isMobile={isMobile} C={C} />}
+              {activeView === 'promotions'     && <PromotionsTab isMobile={isMobile} C={C} />}
+              {activeView === 'signatureTouch' && <SignatureTouchTab bookings={activeBookings} staff={staff} stDistributions={stDistributions} C={C} />}
+              {activeView === 'trash'          && <TrashTab bookings={bookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
+            </>;
+          })()}
         </Suspense>
 
         </div> {/* end main content column */}

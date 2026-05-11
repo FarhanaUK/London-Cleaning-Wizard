@@ -251,7 +251,7 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
                 { l: 'Email',       v: sel.email },
                 { l: 'Frequency',   v: sel.frequency || 'one-off' },
                 { l: 'Add-ons',     v: sel.addons?.length ? sel.addons.map(a => a.name).join(', ') : 'None' },
-                { l: 'Cleaner',     v: sel.assignedStaff || 'Unassigned' },
+                { l: 'Cleaner',     v: [sel.assignedStaff, sel.secondCleaner].filter(Boolean).join(' & ') || 'Unassigned' },
                 { l: 'Pets',        v: sel.hasPets ? `Yes — ${sel.petTypes || 'not specified'}` : 'No' },
                 (sel.package === 'standard' || sel.packageId === 'standard') && { l: 'Signature Touch', v: sel.signatureTouch !== false ? 'Opted in' : 'Opted out' },
                 { l: 'Total',       v: `£${parseFloat(sel.total || 0).toFixed(2)}` },

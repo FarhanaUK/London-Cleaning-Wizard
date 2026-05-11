@@ -418,7 +418,9 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
           if (!hrs) return 0;
           const member = staff.find(s => s.name === b.assignedStaff);
           const rate = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : 0;
-          return hrs * rate;
+          const member2 = b.secondCleaner ? staff.find(s => s.name === b.secondCleaner) : null;
+          const rate2 = member2 && member2.hourlyRate !== 'N/A' ? parseFloat(member2.hourlyRate) : 0;
+          return hrs * (rate + rate2);
         };
         const collectedAmt = b => {
           if (b.status === 'fully_paid')   return parseFloat(b.total)   || 0;
@@ -619,7 +621,9 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
             if (!hrs) return s;
             const member = staff.find(m => m.name === b.assignedStaff);
             const rate = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : 0;
-            return s + hrs * rate;
+            const member2 = b.secondCleaner ? staff.find(m => m.name === b.secondCleaner) : null;
+            const rate2 = member2 && member2.hourlyRate !== 'N/A' ? parseFloat(member2.hourlyRate) : 0;
+            return s + hrs * (rate + rate2);
           }, 0);
         const grandTotal = tyTotal + fixedAnnual + tyLabourHMRC;
         const tyStartYear = parseInt(taxYear.label.split('/')[0]);

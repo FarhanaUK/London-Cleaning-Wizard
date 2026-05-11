@@ -31,7 +31,7 @@ export default function AboutPage() {
     <>
       <Helmet>
         <title>About Us | London Cleaning Wizard</title>
-        <meta name="description" content="Learn the story behind London Cleaning Wizard — why we started, our values, and our mission to bring premium home & commercial cleaning to London." />
+        <meta name="description" content="London Cleaning Wizard was founded by Farhana with one goal: cleaning that makes you feel better, not just look better. Meet the team behind the magic." />
         <link rel="canonical" href="https://londoncleaningwizard.com/about" />
       </Helmet>
       <div style={{ background: "#faf9f7" }}>

@@ -25,7 +25,7 @@ export default function BookingExpandedPanel({
   generatingLink, depositLinks, linkErr, emailingLink, emailedLinks,
   handleGenerateLink, handleEmailDepositLink,
   stoppingRecurring, stoppedRecurring, handleStopRecurring,
-  staffAssignPending, handleAssignStaff,
+  staffAssignPending, handleAssignStaff, handleAssignSecondCleaner, handleApplyCleanersToAll,
   completeErr, cancelErr, stopRecurringErr,
 }) {
   const assignedMember = staff?.find(s => s.name === b.assignedStaff);
@@ -34,16 +34,17 @@ export default function BookingExpandedPanel({
   const [notifying, setNotifying] = useState(false);
   const [notifySent, setNotifySent] = useState(null); // { cleaner, at }
   const [sigTouchOptingOut, setSigTouchOptingOut] = useState(false);
-  const [sigTouchNote, setSigTouchNote] = useState('');
+  const [sigTouchNote,      setSigTouchNote]      = useState('');
+  const [sigTouchOtherNote, setSigTouchOtherNote] = useState('');
 
   const handleNotifyCleaner = async () => {
     setNotifying(true);
     try {
       const res = await fetch(import.meta.env.VITE_CF_NOTIFY_CLEANER, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: b.id, cleanerName: b.assignedStaff }),
+        body: JSON.stringify({ bookingId: b.id, cleanerName: b.assignedStaff, secondCleaner: b.secondCleaner || '' }),
       });
-      if (res.ok) setNotifySent({ cleaner: b.assignedStaff, at: new Date() });
+      if (res.ok) setNotifySent({ cleaner: [b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & '), at: new Date() });
     } catch (e) {}
     setNotifying(false);
   };
@@ -203,23 +204,42 @@ export default function BookingExpandedPanel({
           </div>
           {sigTouchOptingOut && (
             <div style={{ marginTop: 10 }}>
-              <input
+              <select
                 autoFocus
                 value={sigTouchNote}
                 onChange={e => setSigTouchNote(e.target.value)}
-                placeholder="Reason for opting out (optional)"
                 style={{ ...FIELD_STYLE(C), marginBottom: 8 }}
-              />
-              <div style={{ display: 'flex', gap: 8 }}>
+              >
+                <option value="">Reason for opting out (optional)</option>
+                <option value="Scent doesn't match my preference">Scent doesn't match my preference</option>
+                <option value="Fragrance allergy or sensitivity">Fragrance allergy or sensitivity</option>
+                <option value="Candles not suitable for my home">Candles not suitable for my home</option>
+                <option value="Don't use home fragrance products">Don't use home fragrance products</option>
+                <option value="Already have enough home fragrance">Already have enough home fragrance</option>
+                <option value="Prefer a tidy clean only">Prefer a tidy clean only</option>
+                <option value="Prefer to receive it occasionally">Prefer to receive it occasionally</option>
+                <option value="Other">Other</option>
+              </select>
+              {sigTouchNote === 'Other' && (
+                <textarea
+                  placeholder="Please tell us a bit more…"
+                  value={sigTouchOtherNote}
+                  onChange={e => setSigTouchOtherNote(e.target.value)}
+                  rows={3}
+                  style={{ ...FIELD_STYLE(C), marginTop: 8, marginBottom: 0, resize: 'vertical' }}
+                />
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button
                   onClick={() => {
+                    const finalNote = sigTouchNote === 'Other' ? sigTouchOtherNote.trim() || 'Other' : sigTouchNote;
                     fetch(import.meta.env.VITE_CF_SET_SIGNATURE_TOUCH, {
                       method: 'POST', headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ email: b.email, signatureTouch: false, signatureTouchNotes: sigTouchNote }),
+                      body: JSON.stringify({ email: b.email, signatureTouch: false, signatureTouchNotes: finalNote }),
                     }).catch(() => {});
                     setBookings(all => all.map(x =>
                       x.email?.toLowerCase() === b.email?.toLowerCase() && (x.package === 'standard' || x.packageId === 'standard')
-                        ? { ...x, signatureTouch: false, signatureTouchNotes: sigTouchNote } : x
+                        ? { ...x, signatureTouch: false, signatureTouchNotes: finalNote } : x
                     ));
                     setSigTouchOptingOut(false);
                   }}
@@ -245,37 +265,62 @@ export default function BookingExpandedPanel({
         onChange={saveDoNotContact}
       />
 
+      {/* Notify Customer — shown prominently before other action buttons */}
+      {b.assignedStaff && !isCancelled && (
+        <div style={{ marginBottom: 8 }}>
+          <button onClick={handleNotifyCleaner} disabled={notifying}
+            style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '9px 16px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer', touchAction: 'manipulation', width: isMobile ? '100%' : 'auto' }}>
+            {notifying ? 'Sending…' : '✉ Notify Customer'}
+          </button>
+          {lastNotified && (
+            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, lineHeight: 1.5, marginTop: 4 }}>
+              ✓ Sent for <strong>{lastNotified.cleaner}</strong><br />{fmtNotifyTime(lastNotified.at)}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
         {/* Edit */}
-        <button onClick={() => openEdit(b)} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
+        <button onClick={() => openEdit(b)} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer', touchAction: 'manipulation' }}>
           ✏️ Edit
         </button>
 
         {/* Staff assign — holiday-aware */}
         {staff?.length > 0 && (
-          <select
-            value={b.assignedStaff || ''}
-            onChange={e => handleAssignStaff(b, e.target.value)}
-            style={{ fontFamily: FONT, fontSize: 12, padding: '7px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}
-          >
-            <option value="">👤 Assign cleaner…</option>
-            {available.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-            {onHoliday.map(s => <option key={s.id} value={s.name} disabled>🏖 {s.name} (holiday)</option>)}
-          </select>
-        )}
-
-        {b.assignedStaff && !isCancelled && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <button onClick={handleNotifyCleaner} disabled={notifying}
-              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
-              {notifying ? 'Sending…' : '✉ Notify Customer'}
-            </button>
-            {lastNotified && (
-              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-                ✓ Sent for <strong>{lastNotified.cleaner}</strong><br />{fmtNotifyTime(lastNotified.at)}
-              </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              value={b.assignedStaff || ''}
+              onChange={e => handleAssignStaff(b, e.target.value, !!b.secondCleaner)}
+              style={{ fontFamily: FONT, fontSize: 12, padding: '7px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}
+            >
+              <option value="">👤 Assign cleaner…</option>
+              {available.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              {onHoliday.map(s => <option key={s.id} value={s.name} disabled>🏖 {s.name} (holiday)</option>)}
+            </select>
+            <select
+              value={b.secondCleaner || ''}
+              onChange={e => handleAssignSecondCleaner(b, e.target.value)}
+              style={{ fontFamily: FONT, fontSize: 12, padding: '7px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}
+            >
+              <option value="">+2nd cleaner (optional)</option>
+              {available.filter(s => s.name !== b.assignedStaff).map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              {onHoliday.filter(s => s.name !== b.assignedStaff).map(s => <option key={s.id} value={s.name} disabled>🏖 {s.name} (holiday)</option>)}
+            </select>
+            {b.assignedStaff && b.frequency && b.frequency !== 'one-off' && (
+              <button
+                onClick={() => {
+                  const who = [b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ');
+                  if (window.confirm(`Apply ${who} to all future bookings in this series?`)) {
+                    handleApplyCleanersToAll(b);
+                  }
+                }}
+                style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '6px 10px', background: 'none', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                Apply to all future
+              </button>
             )}
           </div>
         )}
@@ -389,7 +434,7 @@ export default function BookingExpandedPanel({
         {!isCancelled && b.status !== 'fully_paid' && (
           <button onClick={() => handleCancel(b)} disabled={cancelling === b.id}
             style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: C.danger, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
-            {cancelling === b.id ? 'Cancelling…' : '✕ Cancel'}
+            {cancelling === b.id ? 'Cancelling…' : '✕ Cancel Booking'}
           </button>
         )}
 

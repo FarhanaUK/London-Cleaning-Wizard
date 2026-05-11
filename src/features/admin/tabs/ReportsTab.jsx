@@ -90,7 +90,9 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     if (!hrs) return 0;
     const member = staff.find(m => m.name === b.assignedStaff);
     const rate = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : 0;
-    return hrs * rate;
+    const member2 = b.secondCleaner ? staff.find(m => m.name === b.secondCleaner) : null;
+    const rate2 = member2 && member2.hourlyRate !== 'N/A' ? parseFloat(member2.hourlyRate) : 0;
+    return hrs * (rate + rate2);
   };
 
   // ── KPIs ──
@@ -140,7 +142,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
 
   // ── Staff performance ──
   const staffPerf = staff.filter(s => s.status === 'Active').map(s => {
-    const sJobs  = periodBookings.filter(b => b.assignedStaff === s.name);
+    const sJobs  = periodBookings.filter(b => b.assignedStaff === s.name || b.secondCleaner === s.name);
     const sHours = sJobs.reduce((t, b) => { const h = calcHours(b.actualStart, b.actualFinish); return t + (h||0); }, 0);
     const sCost  = sJobs.reduce((t, b) => t + bookingLabour(b), 0);
     const sRev   = sJobs.reduce((t, b) => t + collectedAmt(b), 0);

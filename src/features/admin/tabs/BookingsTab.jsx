@@ -60,6 +60,8 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
     handleGenerateLink, handleEmailDepositLink, handleMarkDepositPaid,
     stoppingRecurring, stopRecurringErr, stoppedRecurring, handleStopRecurring,
     staffAssignPending, setStaffAssignPending, handleAssignStaff, handleConfirmAssignThis, handleConfirmAssignAll,
+    secondCleanerPending, setSecondCleanerPending, handleAssignSecondCleaner, handleConfirmSecondCleanerThis, handleConfirmSecondCleanerAll,
+    handleApplyCleanersToAll,
     editBooking, editData, setEditData, editScope, setEditScope, editSaving, editErr,
     openEdit, closeEdit, handleEditSave,
   } = useBookingActions({ bookings, setBookings, setExpanded });
@@ -527,7 +529,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#eff6ff', color: '#1d4ed8' }}>Phone</span>
                   )}
                   {b.assignedStaff && (
-                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#f5f3ff', color: '#6d28d9' }}>👤 {b.assignedStaff}</span>
+                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#f5f3ff', color: '#6d28d9' }}>👤 {[b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ')}</span>
                   )}
                   <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: sc.bg, color: sc.color }}>{sc.label}</span>
                   <span style={{ fontSize: 14, color: C.muted, padding: '0 4px' }}>{isOpen ? '▲' : '▼'}</span>
@@ -548,6 +550,8 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                   handleGenerateLink={handleGenerateLink} handleEmailDepositLink={handleEmailDepositLink}
                   stoppingRecurring={stoppingRecurring} stoppedRecurring={stoppedRecurring} handleStopRecurring={handleStopRecurring}
                   staffAssignPending={staffAssignPending} handleAssignStaff={handleAssignStaff}
+                  handleAssignSecondCleaner={handleAssignSecondCleaner}
+                  handleApplyCleanersToAll={handleApplyCleanersToAll}
                   completeErr={completeErr} cancelErr={cancelErr} stopRecurringErr={stopRecurringErr}
                 />
               )}
@@ -616,10 +620,39 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
               <button onClick={handleConfirmAssignAll} style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '12px 16px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ fontWeight: 600, fontSize: 13 }}>All future bookings in this series</div>
                 <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
-                  Updates {bookings.filter(x => x.email === staffAssignPending.booking.email && x.frequency === staffAssignPending.booking.frequency && x.isAutoRecurring && x.cleanDate >= new Date().toISOString().split('T')[0]).length} upcoming bookings
+                  Updates {bookings.filter(x => x.email === staffAssignPending.booking.email && x.frequency === staffAssignPending.booking.frequency && x.frequency !== 'one-off' && x.cleanDate >= new Date().toISOString().split('T')[0]).length} upcoming bookings
                 </div>
               </button>
               <button onClick={() => setStaffAssignPending(null)} style={{ fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '10px 16px', background: 'none', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2nd Cleaner Confirmation Modal */}
+      {secondCleanerPending && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.22)' }}>
+            <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 8 }}>
+              {secondCleanerPending.secondCleanerName ? `Add ${secondCleanerPending.secondCleanerName} as 2nd cleaner?` : 'Remove 2nd cleaner?'}
+            </div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, marginBottom: 22, lineHeight: 1.5 }}>
+              This is a recurring booking for <strong>{secondCleanerPending.booking.firstName} {secondCleanerPending.booking.lastName}</strong>. Apply this change to just this date, or to all future bookings in this series?
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button onClick={handleConfirmSecondCleanerThis} style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '12px 16px', background: C.accent, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>This booking only</div>
+                <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>Updates just {secondCleanerPending.booking.cleanDate}</div>
+              </button>
+              <button onClick={handleConfirmSecondCleanerAll} style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '12px 16px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>All future bookings in this series</div>
+                <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
+                  Updates {bookings.filter(x => x.email === secondCleanerPending.booking.email && x.frequency === secondCleanerPending.booking.frequency && x.frequency !== 'one-off' && x.cleanDate >= new Date().toISOString().split('T')[0]).length} upcoming bookings
+                </div>
+              </button>
+              <button onClick={() => setSecondCleanerPending(null)} style={{ fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '10px 16px', background: 'none', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer' }}>
                 Cancel
               </button>
             </div>

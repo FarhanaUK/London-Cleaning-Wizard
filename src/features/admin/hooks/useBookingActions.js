@@ -29,7 +29,8 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
   // Selection
   const [selected, setSelected] = useState(new Set());
   // Staff assignment
-  const [staffAssignPending, setStaffAssignPending] = useState(null);
+  const [staffAssignPending,        setStaffAssignPending]        = useState(null);
+  const [secondCleanerPending,      setSecondCleanerPending]      = useState(null);
   // Edit modal
   const [editBooking, setEditBooking] = useState(null);
   const [editData,    setEditData]    = useState({});
@@ -42,34 +43,34 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
   });
 
   const handleDelete = async (booking) => {
-    if (!window.confirm(`Delete booking for ${booking.firstName} ${booking.lastName} on ${fmtDate(booking.cleanDate)}? This cannot be undone.`)) return;
+    if (!window.confirm(`Move booking for ${booking.firstName} ${booking.lastName} on ${fmtDate(booking.cleanDate)} to Trash?`)) return;
     setDeleting(booking.id);
     try {
-      const res  = await fetch(import.meta.env.VITE_CF_DELETE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: booking.id }) });
+      const res  = await fetch(import.meta.env.VITE_CF_TRASH_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: booking.id }) });
       const data = await res.json();
-      if (!res.ok) { setCompleteErr(data.error || 'Failed to delete booking.'); }
+      if (!res.ok) { setCompleteErr(data.error || 'Failed to move booking to trash.'); }
       else {
         setExpanded(prev => prev === booking.id ? null : prev);
         setSelected(prev => { const s = new Set(prev); s.delete(booking.id); return s; });
       }
-    } catch { setCompleteErr('Failed to delete booking.'); }
+    } catch { setCompleteErr('Failed to move booking to trash.'); }
     finally { setDeleting(null); }
   };
 
   const handleDeleteSelected = async () => {
-    if (!window.confirm(`Delete ${selected.size} selected booking${selected.size > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    if (!window.confirm(`Move ${selected.size} selected booking${selected.size > 1 ? 's' : ''} to Trash?`)) return;
     setCompleteErr('');
     const ids = [...selected];
     setDeleteProgress({ done: 0, total: ids.length });
     let failed = 0;
     for (let i = 0; i < ids.length; i++) {
       try {
-        const res = await fetch(import.meta.env.VITE_CF_DELETE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: ids[i] }) });
+        const res = await fetch(import.meta.env.VITE_CF_TRASH_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: ids[i] }) });
         if (!res.ok) failed++;
       } catch { failed++; }
       setDeleteProgress({ done: i + 1, total: ids.length });
     }
-    if (failed > 0) setCompleteErr(`${failed} booking${failed > 1 ? 's' : ''} could not be deleted.`);
+    if (failed > 0) setCompleteErr(`${failed} booking${failed > 1 ? 's' : ''} could not be moved to trash.`);
     setSelected(new Set());
     setExpanded(null);
     setDeleteProgress(null);
@@ -174,26 +175,29 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
     finally { setCancelling(null); }
   };
 
-  const handleAssignStaff = (booking, staffName) => {
+  const handleAssignStaff = (booking, staffName, clearSecondCleaner = false) => {
     if (!staffName) return;
-    if (booking.isAutoRecurring) {
-      setStaffAssignPending({ booking, staffName });
+    const isRecurringSeries = booking.isAutoRecurring || (booking.frequency && booking.frequency !== 'one-off');
+    if (isRecurringSeries) {
+      setStaffAssignPending({ booking, staffName, clearSecondCleaner });
     } else {
-      assignStaff({ booking, staffName, scope: 'single' });
+      assignStaff({ booking, staffName, scope: 'single', clearSecondCleaner });
     }
   };
 
-  const assignStaff = ({ booking: b, staffName, scope }) => {
+  const assignStaff = ({ booking: b, staffName, scope, clearSecondCleaner = false }) => {
     const now = new Date();
     const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
     const targets  = scope === 'all'
-      ? bookings.filter(x => x.email === b.email && x.frequency === b.frequency && x.isAutoRecurring && x.cleanDate >= todayStr)
+      ? bookings.filter(x => x.email === b.email && x.frequency === b.frequency && x.frequency !== 'one-off' && x.cleanDate >= todayStr)
       : [b];
-    setBookings(prev => prev.map(x => targets.find(t => t.id === x.id) ? { ...x, assignedStaff: staffName } : x));
+    setBookings(prev => prev.map(x => targets.find(t => t.id === x.id)
+      ? { ...x, assignedStaff: staffName, ...(clearSecondCleaner ? { secondCleaner: '' } : {}) }
+      : x));
     for (const t of targets) {
       fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: t.id, assignedStaff: staffName }),
+        body: JSON.stringify({ bookingId: t.id, assignedStaff: staffName, ...(clearSecondCleaner ? { secondCleaner: '' } : {}) }),
       }).catch(() => {});
     }
     if (scope === 'all') {
@@ -210,6 +214,58 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
   const handleConfirmAssignAll = () => {
     if (!staffAssignPending) return;
     assignStaff({ ...staffAssignPending, scope: 'all' });
+  };
+
+  const handleAssignSecondCleaner = (booking, secondCleanerName) => {
+    const isRecurringSeries = booking.isAutoRecurring || (booking.frequency && booking.frequency !== 'one-off');
+    if (isRecurringSeries) {
+      setSecondCleanerPending({ booking, secondCleanerName });
+    } else {
+      applySecondCleaner({ booking, secondCleanerName, scope: 'single' });
+    }
+  };
+
+  const applySecondCleaner = ({ booking: b, secondCleanerName, scope }) => {
+    const now = new Date();
+    const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    const targets = scope === 'all'
+      ? bookings.filter(x => x.email === b.email && x.frequency === b.frequency && x.frequency !== 'one-off' && x.cleanDate >= todayStr)
+      : [b];
+    setBookings(prev => prev.map(x => targets.find(t => t.id === x.id) ? { ...x, secondCleaner: secondCleanerName } : x));
+    for (const t of targets) {
+      fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: t.id, secondCleaner: secondCleanerName }),
+      }).catch(() => {});
+    }
+    setSecondCleanerPending(null);
+  };
+
+  const handleConfirmSecondCleanerThis = () => {
+    if (!secondCleanerPending) return;
+    applySecondCleaner({ ...secondCleanerPending, scope: 'single' });
+  };
+
+  const handleConfirmSecondCleanerAll = () => {
+    if (!secondCleanerPending) return;
+    applySecondCleaner({ ...secondCleanerPending, scope: 'all' });
+  };
+
+  const handleApplyCleanersToAll = (b) => {
+    const now = new Date();
+    const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    const targets = bookings.filter(x =>
+      x.email === b.email && x.frequency === b.frequency && x.frequency !== 'one-off' && x.cleanDate >= todayStr
+    );
+    if (!targets.length) return;
+    const update = { assignedStaff: b.assignedStaff, secondCleaner: b.secondCleaner || '' };
+    setBookings(prev => prev.map(x => targets.find(t => t.id === x.id) ? { ...x, ...update } : x));
+    for (const t of targets) {
+      fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: t.id, ...update }),
+      }).catch(() => {});
+    }
   };
 
   const openEdit = (b) => {
@@ -304,6 +360,8 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
     stoppingRecurring, stopRecurringErr, stoppedRecurring, handleStopRecurring,
     // staff assignment
     staffAssignPending, setStaffAssignPending, handleAssignStaff, handleConfirmAssignThis, handleConfirmAssignAll,
+    secondCleanerPending, setSecondCleanerPending, handleAssignSecondCleaner, handleConfirmSecondCleanerThis, handleConfirmSecondCleanerAll,
+    handleApplyCleanersToAll,
     // edit modal
     editBooking, editData, setEditData, editScope, setEditScope, editSaving, editErr,
     openEdit, closeEdit, handleEditSave,

@@ -65,8 +65,8 @@ export default function AreasPage() {
   return (
     <>
       <Helmet>
-        <title>Areas We Cover | London Cleaning Services | London Cleaning Wizard</title>
-        <meta name="description" content="London Cleaning Wizard covers east, central and north London. Find out if we clean in your area — Hackney, Tower Hamlets, Bethnal Green, Canary Wharf, Stratford and more." />
+        <title>Areas We Cover | London Cleaning Wizard</title>
+        <meta name="description" content="Premium cleaning across Mayfair, Chelsea, Canary Wharf, Hampstead, Kensington and more. Serving Central and East London. Book online today." />
         <link rel="canonical" href="https://londoncleaningwizard.com/areas" />
       </Helmet>
       <div style={{ background: "#faf9f7" }}>
