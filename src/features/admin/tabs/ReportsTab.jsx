@@ -86,13 +86,15 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const periodBookings = activeBookings.filter(b => b.cleanDate >= periodStart && b.cleanDate <= periodEnd);
 
   const bookingLabour = b => {
-    const hrs = calcHours(b.actualStart, b.actualFinish);
-    if (!hrs) return 0;
-    const member = staff.find(m => m.name === b.assignedStaff);
-    const rate = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : 0;
-    const member2 = b.secondCleaner ? staff.find(m => m.name === b.secondCleaner) : null;
-    const rate2 = member2 && member2.hourlyRate !== 'N/A' ? parseFloat(member2.hourlyRate) : 0;
-    return hrs * (rate + rate2);
+    const m1 = staff.find(m => m.name === b.assignedStaff);
+    const r1 = m1 && m1.hourlyRate !== 'N/A' ? parseFloat(m1.hourlyRate) : 0;
+    const h1 = calcHours(b.actualStart, b.actualFinish) || 0;
+    const cost1 = h1 * r1;
+    if (!b.secondCleaner) return cost1;
+    const m2 = staff.find(m => m.name === b.secondCleaner);
+    const r2 = m2 && m2.hourlyRate !== 'N/A' ? parseFloat(m2.hourlyRate) : 0;
+    const h2 = calcHours(b.actualStart2, b.actualFinish2) || 0;
+    return cost1 + h2 * r2;
   };
 
   // ── KPIs ──
@@ -104,8 +106,9 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const periodRev    = periodBookings.reduce((s, b) => s + collectedAmt(b), 0);
   const periodLabour = periodBookings.reduce((s, b) => s + bookingLabour(b), 0);
   const periodExp    = expenses.filter(e => e.date >= periodStart && e.date <= periodEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+  const periodSupExp = supplies.filter(s => s.purchaseDate && s.purchaseDate >= periodStart && s.purchaseDate <= periodEnd).reduce((s, sup) => s + (parseFloat(sup.unitCost)||0) * (Number(sup.inStock)||0), 0);
   const periodFixed  = isMonthMode ? fixedMonthly : fixedMonthly * 12;
-  const periodProfit = periodRev - periodLabour - periodExp - periodFixed;
+  const periodProfit = periodRev - periodLabour - periodExp - periodSupExp - periodFixed;
   const periodMargin = periodRev > 0 ? (periodProfit / periodRev) * 100 : 0;
   const avgJobVal    = periodBookings.length > 0 ? periodRev / periodBookings.length : 0;
 
@@ -142,9 +145,14 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
 
   // ── Staff performance ──
   const staffPerf = staff.filter(s => s.status === 'Active').map(s => {
+    const sRate  = s.hourlyRate !== 'N/A' ? parseFloat(s.hourlyRate) : 0;
     const sJobs  = periodBookings.filter(b => b.assignedStaff === s.name || b.secondCleaner === s.name);
-    const sHours = sJobs.reduce((t, b) => { const h = calcHours(b.actualStart, b.actualFinish); return t + (h||0); }, 0);
-    const sCost  = sJobs.reduce((t, b) => t + bookingLabour(b), 0);
+    const sHours = sJobs.reduce((t, b) => {
+      const isPrimary = b.assignedStaff === s.name;
+      const h = isPrimary ? calcHours(b.actualStart, b.actualFinish) : calcHours(b.actualStart2, b.actualFinish2);
+      return t + (h || 0);
+    }, 0);
+    const sCost  = sHours * sRate;
     const sRev   = sJobs.reduce((t, b) => t + collectedAmt(b), 0);
     return { name: s.name, jobs: sJobs.length, hours: sHours, cost: sCost, rev: sRev };
   }).filter(s => s.jobs > 0).sort((a, b) => b.jobs - a.jobs);
@@ -197,7 +205,8 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const rev    = bkgs.reduce((s, b) => s + collectedAmt(b), 0);
     const lab    = bkgs.reduce((s, b) => s + bookingLabour(b), 0);
     const exp    = expenses.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
-    const costs  = lab + exp + fixedMonthlyForPeriod(mStart, mEnd);
+    const supExp = supplies.filter(s => s.purchaseDate && s.purchaseDate >= mStart && s.purchaseDate <= mEnd).reduce((s, sup) => s + (parseFloat(sup.unitCost)||0) * (Number(sup.inStock)||0), 0);
+    const costs  = lab + exp + supExp + fixedMonthlyForPeriod(mStart, mEnd);
     const isFuture = d > now;
     return { key, label, rev, costs, profit: rev - costs, jobs: bkgs.length, isFuture };
   }) : [];
@@ -211,19 +220,30 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     return { label: m.label, rev: m.rev, prevRev, growth };
   });
 
-  const suppliesTrend = !isMonthMode ? last12.map(m => {
-    const amt = expenses.filter(e => {
-      const mStart = m.key + '-01';
-      const nextD  = new Date(m.key + '-01'); nextD.setMonth(nextD.getMonth() + 1);
-      const mEnd   = `${nextD.getFullYear()}-${String(nextD.getMonth()+1).padStart(2,'0')}-01`;
-      return e.date >= mStart && e.date < mEnd && e.category === 'Supplies';
-    }).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+  const expensesTrend = !isMonthMode ? last12.map(m => {
+    const mStart = m.key + '-01';
+    const nextD  = new Date(m.key + '-01'); nextD.setMonth(nextD.getMonth() + 1);
+    const mEnd   = `${nextD.getFullYear()}-${String(nextD.getMonth()+1).padStart(2,'0')}-01`;
+    const amt = expenses.filter(e => e.date >= mStart && e.date < mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
     return { label: m.label, amt, isFuture: m.isFuture };
+  }) : [];
+  const maxExpense = expensesTrend.length ? Math.max(...expensesTrend.map(m => m.amt), 1) : 1;
+
+  const suppliesTrend = !isMonthMode ? last12.map(m => {
+    const mStart = m.key + '-01';
+    const nextD  = new Date(m.key + '-01'); nextD.setMonth(nextD.getMonth() + 1);
+    const mEnd   = `${nextD.getFullYear()}-${String(nextD.getMonth()+1).padStart(2,'0')}-01`;
+    const fromExp = expenses.filter(e => e.date >= mStart && e.date < mEnd && e.category === 'Supplies')
+      .reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+    const fromSup = supplies.filter(s => s.purchaseDate && s.purchaseDate >= mStart && s.purchaseDate < mEnd)
+      .reduce((s, sup) => s + (parseFloat(sup.unitCost)||0) * (Number(sup.inStock)||0), 0);
+    return { label: m.label, amt: fromExp + fromSup, isFuture: m.isFuture };
   }) : [];
   const maxSupply = suppliesTrend.length ? Math.max(...suppliesTrend.map(m => m.amt), 1) : 1;
 
   const monthSuppliesTotal = isMonthMode
     ? expenses.filter(e => e.date >= periodStart && e.date <= periodEnd && e.category === 'Supplies').reduce((s, e) => s + (parseFloat(e.amount)||0), 0)
+    + supplies.filter(s => s.purchaseDate && s.purchaseDate >= periodStart && s.purchaseDate <= periodEnd).reduce((s, sup) => s + (parseFloat(sup.unitCost)||0) * (Number(sup.inStock)||0), 0)
     : 0;
 
   const availableYears = [...new Set(allReportMonths.map(m => m.split('-')[0]))];
@@ -288,29 +308,73 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
         ))}
       </div>
 
-      {/* Revenue vs costs chart — tax year only */}
+      {/* Revenue vs costs bar chart + line graph — tax year only */}
       {!isMonthMode && (
-        <div style={{ ...RCARD, marginBottom: 16 }}>
-          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 2 }}>Revenue vs Total Costs — Tax Year {reportsTaxYear} (month by month)</div>
-          <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 12 }}>6 Apr {tyStartYear} – 5 Apr {tyStartYear + 1} · Apr = 6 Apr–5 May, Mar = 6 Mar–5 Apr</div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? 2 : 6, height: 100, marginBottom: 4 }}>
-            {last12.map(m => (
-              <div key={m.key} style={{ flex: 1, display: 'flex', gap: 2, alignItems: 'flex-end', justifyContent: 'center', opacity: m.isFuture ? 0.2 : 1 }}>
-                <div style={{ flex: 1, background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxRev)*90}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(2)}`} />
-                <div style={{ flex: 1, background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.costs/maxRev)*90}px`, minHeight: m.costs > 0 ? 2 : 0, opacity: 0.7 }} title={`Costs £${m.costs.toFixed(2)}`} />
-              </div>
-            ))}
+        <>
+          <div style={{ ...RCARD, marginBottom: 16 }}>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 2 }}>Revenue vs Total Costs — Tax Year {reportsTaxYear} (month by month)</div>
+            <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 12 }}>6 Apr {tyStartYear} – 5 Apr {tyStartYear + 1} · Apr = 6 Apr–5 May, Mar = 6 Mar–5 Apr</div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? 2 : 6, height: 100, marginBottom: 4 }}>
+              {last12.map(m => (
+                <div key={m.key} style={{ flex: 1, display: 'flex', gap: 2, alignItems: 'flex-end', justifyContent: 'center', opacity: m.isFuture ? 0.2 : 1 }}>
+                  <div style={{ flex: 1, background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxRev)*90}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(2)}`} />
+                  <div style={{ flex: 1, background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.costs/maxRev)*90}px`, minHeight: m.costs > 0 ? 2 : 0, opacity: 0.7 }} title={`Costs £${m.costs.toFixed(2)}`} />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: isMobile ? 2 : 6, marginBottom: 8 }}>
+              {last12.map(m => (
+                <div key={m.key} style={{ flex: 1, textAlign: 'center', fontFamily: FONT, fontSize: 9, color: C.muted, opacity: m.isFuture ? 0.4 : 1 }}>{m.label}</div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, background: '#16a34a', borderRadius: 2 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Revenue</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, background: '#dc2626', borderRadius: 2, opacity: 0.7 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Total costs</span></div>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: isMobile ? 2 : 6, marginBottom: 8 }}>
-            {last12.map(m => (
-              <div key={m.key} style={{ flex: 1, textAlign: 'center', fontFamily: FONT, fontSize: 9, color: C.muted, opacity: m.isFuture ? 0.4 : 1 }}>{m.label}</div>
-            ))}
+
+          <div style={{ ...RCARD, marginBottom: 16 }}>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 2 }}>Revenue vs Total Costs — {reportsTaxYear} (trend)</div>
+            <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 10 }}>Red = labour + expenses + supplies + fixed costs</div>
+            {(() => {
+              const PAD_L = 40, PAD_R = 8, PAD_T = 8, PAD_B = 20;
+              const W = 600, H = 90;
+              const chartW = W - PAD_L - PAD_R;
+              const chartH = H - PAD_T - PAD_B;
+              const xOf = i => PAD_L + (i / 11) * chartW;
+              const yOf = v => PAD_T + (1 - Math.min(v, maxRev) / maxRev) * chartH;
+              const revPts  = last12.map((m, i) => `${xOf(i)},${yOf(m.rev)}`).join(' ');
+              const costPts = last12.map((m, i) => `${xOf(i)},${yOf(m.costs)}`).join(' ');
+              return (
+                <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                  {[0, 0.25, 0.5, 0.75, 1].map(f => {
+                    const y = PAD_T + (1 - f) * chartH;
+                    const val = f * maxRev;
+                    return (
+                      <g key={f}>
+                        <line x1={PAD_L} x2={W - PAD_R} y1={y} y2={y} stroke={C.border} strokeWidth="0.8" />
+                        <text x={PAD_L - 4} y={y + 3} textAnchor="end" fontSize="4" fill={C.muted} fontFamily={FONT}>£{val >= 1000 ? `${(val/1000).toFixed(1)}k` : val.toFixed(0)}</text>
+                      </g>
+                    );
+                  })}
+                  <polyline points={costPts} fill="none" stroke="#dc2626" strokeWidth="0.8" strokeLinejoin="round" strokeLinecap="round" />
+                  <polyline points={revPts}  fill="none" stroke="#16a34a" strokeWidth="0.8" strokeLinejoin="round" strokeLinecap="round" />
+                  {last12.map((m, i) => (
+                    <g key={m.key} opacity={m.isFuture ? 0.2 : 1}>
+                      <circle cx={xOf(i)} cy={yOf(m.costs)} r="2" fill="#dc2626"><title>Costs {m.label}: £{m.costs.toFixed(2)}</title></circle>
+                      <circle cx={xOf(i)} cy={yOf(m.rev)}   r="2" fill="#16a34a"><title>Revenue {m.label}: £{m.rev.toFixed(2)}</title></circle>
+                      <text x={xOf(i)} y={H - 4} textAnchor="middle" fontSize="4" fill={C.muted} fontFamily={FONT}>{m.label}</text>
+                    </g>
+                  ))}
+                </svg>
+              );
+            })()}
+            <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 16, height: 2, background: '#16a34a', borderRadius: 1 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Revenue</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 16, height: 2, background: '#dc2626', borderRadius: 1 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Total costs</span></div>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, background: '#16a34a', borderRadius: 2 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Revenue</span></div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, background: '#dc2626', borderRadius: 2, opacity: 0.7 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Total costs</span></div>
-          </div>
-        </div>
+        </>
       )}
 
       {/* Staff performance */}
@@ -372,10 +436,11 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
             <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 16 }}>Cost Breakdown — {periodLabel}</div>
             {[
               { label: 'Revenue',                     value: periodRev,    color: '#16a34a' },
-              { label: 'Labour (subcontractors)',      value: periodLabour, color: '#7c3aed' },
-              { label: 'Variable expenses',            value: periodExp,    color: '#dc2626' },
-              { label: 'Fixed costs (monthly share)',  value: fixedMonthly, color: '#f97316' },
-              { label: 'Net Profit',                   value: periodProfit, color: periodProfit >= 0 ? '#16a34a' : '#dc2626', bold: true },
+              { label: 'Labour (subcontractors)',      value: periodLabour,  color: '#7c3aed' },
+              { label: 'Variable expenses',            value: periodExp,     color: '#dc2626' },
+              { label: 'Supplies',                     value: periodSupExp,  color: '#0ea5e9' },
+              { label: 'Fixed costs (monthly share)',  value: fixedMonthly,  color: '#f97316' },
+              { label: 'Net Profit',                   value: periodProfit,  color: periodProfit >= 0 ? '#16a34a' : '#dc2626', bold: true },
             ].map(({ label, value, color, bold }) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 10, marginBottom: 10, borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: bold ? 700 : 400 }}>{label}</span>
@@ -404,34 +469,47 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
         </div>
       </div>
 
-      {/* Supplies + Frequency */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
-        <div style={RCARD}>
-          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Supplies Spend — {periodLabel}</div>
-          {!isMonthMode ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 65, marginBottom: 4 }}>
-                {suppliesTrend.map(m => (
-                  <div key={m.label} style={{ flex: 1, background: '#7c3aed', borderRadius: '3px 3px 0 0', height: `${(m.amt/maxSupply)*60}px`, minHeight: m.amt > 0 ? 2 : 0, opacity: m.isFuture ? 0.15 : 0.75 }} title={`£${m.amt.toFixed(2)}`} />
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {suppliesTrend.map(m => (
-                  <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, opacity: m.isFuture ? 0.35 : 1 }}>
-                    <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{m.label}</div>
-                    <div style={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: C.text }}>{m.amt > 0 ? `£${m.amt.toFixed(2)}` : '—'}</div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div>
-              <div style={{ fontFamily: FONT, fontSize: 32, fontWeight: 700, color: '#7c3aed', marginBottom: 6 }}>£{monthSuppliesTotal.toFixed(2)}</div>
-              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>Total supplies purchased in {periodLabel}</div>
+      {/* Expenses + Supplies trend bars (tax year only) */}
+      {!isMonthMode && (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div style={RCARD}>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Expenses — {periodLabel}</div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 65, marginBottom: 4 }}>
+              {expensesTrend.map(m => (
+                <div key={m.label} style={{ flex: 1, background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.amt/maxExpense)*60}px`, minHeight: m.amt > 0 ? 2 : 0, opacity: m.isFuture ? 0.15 : 0.75 }} title={`£${m.amt.toFixed(2)}`} />
+              ))}
             </div>
-          )}
-        </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {expensesTrend.map(m => (
+                <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, opacity: m.isFuture ? 0.35 : 1 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{m.label}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: C.text }}>{m.amt > 0 ? `£${m.amt.toFixed(2)}` : '—'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
 
+          <div style={RCARD}>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Supplies Spend — {periodLabel}</div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 65, marginBottom: 4 }}>
+              {suppliesTrend.map(m => (
+                <div key={m.label} style={{ flex: 1, background: '#7c3aed', borderRadius: '3px 3px 0 0', height: `${(m.amt/maxSupply)*60}px`, minHeight: m.amt > 0 ? 2 : 0, opacity: m.isFuture ? 0.15 : 0.75 }} title={`£${m.amt.toFixed(2)}`} />
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {suppliesTrend.map(m => (
+                <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, opacity: m.isFuture ? 0.35 : 1 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{m.label}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: C.text }}>{m.amt > 0 ? `£${m.amt.toFixed(2)}` : '—'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Jobs by Frequency */}
+      <div style={{ marginBottom: 16 }}>
         <div style={RCARD}>
           <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Jobs by Frequency — {periodLabel}</div>
           {freqBreakdown.length === 0
@@ -539,6 +617,80 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
           }
         </div>
       </div>
+
+      {/* Booking breakdown pie charts */}
+      {(() => {
+        const PIE_COLS = ['#1e40af','#7c3aed','#0ea5e9','#16a34a','#f59e0b','#ec4899','#f97316','#14b8a6','#6366f1','#84cc16'];
+        const FREQ_COLS = { 'One-off':'#94a3b8','Weekly':'#16a34a','Fortnightly':'#0ea5e9','Monthly':'#7c3aed','Every 3 weeks':'#f59e0b','Every 2 weeks':'#0ea5e9' };
+        const makePie = (items, total) => {
+          if (items.length === 1) {
+            const [label, count] = items[0];
+            return [{ label, count, path: null, full: true, pct: '100' }];
+          }
+          let cum = -Math.PI / 2;
+          return items.map(([label, count]) => {
+            const angle = total > 0 ? (count / total) * 2 * Math.PI : 0;
+            const start = cum, end = cum + angle - 0.001; cum = cum + angle;
+            const OR = 52, IR = 30, cx = 60, cy = 60;
+            const x1 = cx + OR * Math.cos(start), y1 = cy + OR * Math.sin(start);
+            const x2 = cx + OR * Math.cos(end),   y2 = cy + OR * Math.sin(end);
+            const ix1 = cx + IR * Math.cos(start), iy1 = cy + IR * Math.sin(start);
+            const ix2 = cx + IR * Math.cos(end),   iy2 = cy + IR * Math.sin(end);
+            const large = angle > Math.PI ? 1 : 0;
+            const path = `M${x1},${y1} A${OR},${OR} 0 ${large} 1 ${x2},${y2} L${ix2},${iy2} A${IR},${IR} 0 ${large} 0 ${ix1},${iy1} Z`;
+            return { label, count, path, full: false, pct: total > 0 ? ((count/total)*100).toFixed(0) : 0 };
+          });
+        };
+        const ALL_FREQS = ['One-off', 'Weekly', 'Fortnightly', 'Every 2 weeks', 'Monthly', 'Every 3 weeks'];
+        const total = periodBookings.length;
+        const pkgSlices  = makePie(pkgBreakdown.map(([l,v]) => [l, v.count]), total);
+        const freqSlices = makePie(freqBreakdown.map(([l,v]) => [l, v.count]), total);
+        const pkgCountMap  = Object.fromEntries(pkgBreakdown.map(([l,v]) => [l, v.count]));
+        const freqCountMap = Object.fromEntries(freqBreakdown.map(([l,v]) => [l, v.count]));
+        const fullPkgLegend  = PACKAGES.map((p, i) => ({ label: p.name, count: pkgCountMap[p.name] || 0, pct: total > 0 ? (((pkgCountMap[p.name]||0)/total)*100).toFixed(0) : '0', color: PIE_COLS[i % PIE_COLS.length] }));
+        const fullFreqLegend = ALL_FREQS.map((f, i) => ({ label: f, count: freqCountMap[f] || 0, pct: total > 0 ? (((freqCountMap[f]||0)/total)*100).toFixed(0) : '0', color: FREQ_COLS[f] || PIE_COLS[i % PIE_COLS.length] }));
+        const DonutChart = ({ slices, getCol, center }) => (
+          <svg viewBox="0 0 120 120" style={{ width: '100%', maxWidth: 200, height: 'auto', display: 'block', margin: '0 auto' }}>
+            {slices.map((s, i) => s.full
+              ? <g key={s.label}><circle cx="60" cy="60" r="52" fill={getCol(s.label, i)} opacity={0.88} /><circle cx="60" cy="60" r="30" fill={C.card} /></g>
+              : <path key={s.label} d={s.path} fill={getCol(s.label, i)} opacity={0.88}><title>{s.label}: {s.count} ({s.pct}%)</title></path>
+            )}
+            <text x="60" y="55" textAnchor="middle" fontSize="16" fontWeight="700" fill={C.text} fontFamily={FONT}>{center}</text>
+            <text x="60" y="68" textAnchor="middle" fontSize="7" fill={C.muted} fontFamily={FONT}>bookings</text>
+          </svg>
+        );
+        const Legend = ({ items }) => (
+          <div style={{ marginTop: 14 }}>
+            {items.map(item => (
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, opacity: item.count === 0 ? 0.35 : 1 }}>
+                <div style={{ width: 12, height: 12, borderRadius: 3, background: item.color, flexShrink: 0 }} />
+                <span style={{ fontFamily: FONT, fontSize: 12, color: C.text, flex: 1 }}>{item.label}</span>
+                <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: item.count === 0 ? C.muted : C.text }}>{item.count} · {item.pct}%</span>
+              </div>
+            ))}
+          </div>
+        );
+        return (
+          <div style={{ ...RCARD, marginBottom: 16 }}>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 20 }}>Booking Breakdown — {periodLabel}</div>
+            {total === 0
+              ? <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No bookings yet.</div>
+              : <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 32 }}>
+                  <div>
+                    <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 12, textAlign: 'center' }}>By Package</div>
+                    <DonutChart slices={pkgSlices} getCol={(_, i) => PIE_COLS[i % PIE_COLS.length]} center={total} />
+                    <Legend items={fullPkgLegend} />
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 12, textAlign: 'center' }}>By Frequency</div>
+                    <DonutChart slices={freqSlices} getCol={(label, i) => FREQ_COLS[label] || PIE_COLS[i % PIE_COLS.length]} center={total} />
+                    <Legend items={fullFreqLegend} />
+                  </div>
+                </div>
+            }
+          </div>
+        );
+      })()}
     </div>
   );
 }

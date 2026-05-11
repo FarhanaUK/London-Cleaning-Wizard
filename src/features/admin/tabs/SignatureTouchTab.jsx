@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, collection, addDoc, onSnapshot, query, orderBy, de
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const PERIODS = ['Week', 'Month', 'Year', 'All time'];
+const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 const MAT_CATS = ['Essential Oil', 'Base / Carrier', 'Hardware', 'Packaging', 'Other'];
 const MAT_UNITS = ['ml', 'g', 'qty', 'cm'];
 
@@ -788,7 +789,7 @@ export default function SignatureTouchTab({ bookings, staff, stDistributions, C 
                   <tbody>
                     {periodBookings.map((b, i) => (
                       <tr key={b.id || i} style={{ borderTop: `1px solid ${C.border}`, background: i % 2 === 0 ? C.card : C.bg }}>
-                        <td style={{ ...TD, fontSize: 12 }}>{b.cleanDate}</td>
+                        <td style={{ ...TD, fontSize: 12 }}>{fmtDate(b.cleanDate)}</td>
                         <td style={{ ...TD, fontSize: 12 }}>{b.name || b.customerName || '—'}</td>
                         <td style={{ ...TD, fontSize: 12, color: C.accent, fontWeight: 600 }}>£{giftSetCostForDate(b.cleanDate).toFixed(2)}</td>
                       </tr>
@@ -848,7 +849,7 @@ export default function SignatureTouchTab({ bookings, staff, stDistributions, C 
                 <tbody>
                   {distributions.map((d, i) => (
                     <tr key={d.id} style={{ borderTop: `1px solid ${C.border}`, background: i % 2 === 0 ? C.card : C.bg }}>
-                      <td style={TD}>{d.date}</td>
+                      <td style={TD}>{fmtDate(d.date)}</td>
                       <td style={TD}>{d.cleaner}</td>
                       <td style={TD}>{d.qty}</td>
                       <td style={{ ...TD, color: C.accent, fontWeight: 600 }}>£{(d.cost != null ? d.cost : (d.qty || 0) * s100Total).toFixed(2)}</td>

@@ -13,6 +13,7 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
   const [sharing, setSharing] = useState(false);
   const [search, setSearch] = useState('');
   const cardRef = useRef(null);
+  const timeInputRefs = useRef({});
 
   const shareAsImage = async () => {
     if (!cardRef.current) return;
@@ -112,7 +113,11 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
     }
   }, [firstResultDate]);
 
-  const totalHours  = periodJobs.reduce((s, b) => { const h = calcHours(b.actualStart || b.cleanTime, b.actualFinish); return s + (h || 0); }, 0);
+  const totalHours  = periodJobs.reduce((s, b) => {
+    const sec = myJobsCleaner && b.secondCleaner && myJobsCleaner === b.secondCleaner && myJobsCleaner !== b.assignedStaff;
+    const h = calcHours((sec ? b.actualStart2 : b.actualStart) || b.cleanTime, sec ? b.actualFinish2 : b.actualFinish);
+    return s + (h || 0);
+  }, 0);
   const totalEarned = rate !== null ? totalHours * rate : null;
 
   const exportAll = () => {
@@ -123,9 +128,12 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
         .filter(b => (b.assignedStaff === s.name || b.secondCleaner === s.name) && b.cleanDate >= period.start && b.cleanDate <= period.end && !b.status?.startsWith('cancelled'))
         .sort((a, b) => a.cleanDate.localeCompare(b.cleanDate))
         .forEach(b => {
-          const hrs    = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
+          const isPrimary = b.assignedStaff === s.name;
+          const aStart  = isPrimary ? b.actualStart  : b.actualStart2;
+          const aFinish = isPrimary ? b.actualFinish : b.actualFinish2;
+          const hrs    = calcHours(aStart || b.cleanTime, aFinish);
           const earned = r !== null && hrs !== null ? (hrs * r).toFixed(2) : '';
-          rows.push([s.name, fmtDate(b.cleanDate), b.bookingRef || '', `"${(b.firstName||'')+' '+(b.lastName||'')}"`, b.package || '', b.cleanTime || '', b.actualStart || '', b.actualFinish || '', hrs !== null ? hrs.toFixed(2) : '', r !== null ? r.toFixed(2) : 'N/A', earned, fmtDate(period.payDay)]);
+          rows.push([s.name, fmtDate(b.cleanDate), b.bookingRef || '', `"${(b.firstName||'')+' '+(b.lastName||'')}"`, b.package || '', b.cleanTime || '', aStart || '', aFinish || '', hrs !== null ? hrs.toFixed(2) : '', r !== null ? r.toFixed(2) : 'N/A', earned, fmtDate(period.payDay)]);
         });
     });
     const a = document.createElement('a');
@@ -137,9 +145,12 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
   const exportOne = () => {
     const rows = [['Cleaner','Date','Booking Ref','Customer','Package','Scheduled Time','Actual Start','Actual Finish','Hours','Rate (£/hr)','Earned (£)','Payday']];
     periodJobs.forEach(b => {
-      const hrs    = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
+      const isPrimary = b.assignedStaff === myJobsCleaner;
+      const aStart  = isPrimary ? b.actualStart  : b.actualStart2;
+      const aFinish = isPrimary ? b.actualFinish : b.actualFinish2;
+      const hrs    = calcHours(aStart || b.cleanTime, aFinish);
       const earned = rate !== null && hrs !== null ? (hrs * rate).toFixed(2) : '';
-      rows.push([myJobsCleaner, fmtDate(b.cleanDate), b.bookingRef || '', `"${(b.firstName||'')+' '+(b.lastName||'')}"`, b.package || '', b.cleanTime || '', b.actualStart || '', b.actualFinish || '', hrs !== null ? hrs.toFixed(2) : '', rate !== null ? rate.toFixed(2) : 'N/A', earned, fmtDate(period.payDay)]);
+      rows.push([myJobsCleaner, fmtDate(b.cleanDate), b.bookingRef || '', `"${(b.firstName||'')+' '+(b.lastName||'')}"`, b.package || '', b.cleanTime || '', aStart || '', aFinish || '', hrs !== null ? hrs.toFixed(2) : '', rate !== null ? rate.toFixed(2) : 'N/A', earned, fmtDate(period.payDay)]);
     });
     const a = document.createElement('a');
     a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.map(r => r.join(',')).join('\n'));
@@ -219,10 +230,16 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={() => setMyJobsWeekOffset(o => o - 1)} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: isMobile ? '10px 18px' : '4px 10px', cursor: 'pointer', fontFamily: FONT, fontSize: isMobile ? 20 : 14, color: C.text, touchAction: 'manipulation', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{fmtDate(period.start)} → {fmtDate(period.end)}</div>
-            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Payday: {fmtDate(period.payDay)}{myJobsWeekOffset === 0 ? ' (this week)' : ''}</div>
+            <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>
+              {myJobsWeekOffset === 0 ? 'This Week' : myJobsWeekOffset === -1 ? 'Last Week' : myJobsWeekOffset === 1 ? 'Next Week' : myJobsWeekOffset < 0 ? `${Math.abs(myJobsWeekOffset)} weeks ago` : `In ${myJobsWeekOffset} weeks`}
+            </div>
+            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{fmtDate(period.start)} – {fmtDate(period.end)}</div>
+            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Payday: {fmtDate(period.payDay)}</div>
           </div>
           <button onClick={() => setMyJobsWeekOffset(o => o + 1)} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: isMobile ? '10px 18px' : '4px 10px', cursor: 'pointer', fontFamily: FONT, fontSize: isMobile ? 20 : 14, color: C.text, touchAction: 'manipulation', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+          {myJobsWeekOffset !== 0 && (
+            <button onClick={() => setMyJobsWeekOffset(0)} style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '4px 10px', background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer', color: C.muted }}>Today</button>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           <div style={{ textAlign: 'center' }}>
@@ -270,20 +287,51 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
       ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {displayJobs.map(b => {
-                const hrs    = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
+                const sec    = myJobsCleaner && b.secondCleaner && myJobsCleaner === b.secondCleaner && myJobsCleaner !== b.assignedStaff;
+                const hrs    = calcHours((sec ? b.actualStart2 : b.actualStart) || b.cleanTime, sec ? b.actualFinish2 : b.actualFinish);
                 const earned = rate !== null && hrs !== null ? hrs * rate : null;
 
                 const saveTime = async (field, val) => {
+                  if (!val) return;
                   const prev = b[field];
                   setBookings(all => all.map(x => x.id === b.id ? { ...x, [field]: val } : x));
                   try {
                     const res = await fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: b.id, [field]: val }) });
-                    if (!res.ok) throw new Error('Server error');
+                    if (!res.ok) throw new Error('err');
                   } catch {
                     setBookings(all => all.map(x => x.id === b.id ? { ...x, [field]: prev } : x));
-                    alert('Failed to save time — check your connection and try again.');
+                    alert('Failed to save time.');
                   }
                 };
+
+                const clearTimes = async (sf, ff) => {
+                  const prevS = b[sf], prevF = b[ff];
+                  const rSf = timeInputRefs.current[b.id + sf];
+                  const rFf = timeInputRefs.current[b.id + ff];
+                  if (rSf) rSf.value = '';
+                  if (rFf) rFf.value = '';
+                  setBookings(all => all.map(x => x.id === b.id ? { ...x, [sf]: '', [ff]: '' } : x));
+                  try {
+                    const res = await fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: b.id, [sf]: '', [ff]: '' }) });
+                    if (!res.ok) throw new Error('err');
+                  } catch {
+                    setBookings(all => all.map(x => x.id === b.id ? { ...x, [sf]: prevS, [ff]: prevF } : x));
+                    if (rSf) rSf.value = toInputTime(prevS);
+                    if (rFf) rFf.value = toInputTime(prevF);
+                    alert('Failed to clear times.');
+                  }
+                };
+
+                const timeInput = (field) => (
+                  <input
+                    key={b.id + field}
+                    ref={el => { timeInputRefs.current[b.id + field] = el; }}
+                    type="time"
+                    defaultValue={toInputTime(b[field])}
+                    onChange={e => saveTime(field, e.target.value)}
+                    style={{ ...INPUT, marginBottom: 0, width: 110, fontSize: 12 }}
+                  />
+                );
 
                 return (
                   <div key={b.id} style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
@@ -303,20 +351,36 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
                         {hasNARate && hrs !== null && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>N/A</div>}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-                      <div>
-                        <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Booked</div>
-                        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: 500 }}>{toDisplayTime(b.cleanTime)}</div>
+                    {b.secondCleaner ? (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 6 }}>Booked: {toDisplayTime(b.cleanTime)}</div>
+                        {[
+                          { name: b.assignedStaff, sf: 'actualStart',  ff: 'actualFinish'  },
+                          { name: b.secondCleaner,  sf: 'actualStart2', ff: 'actualFinish2' },
+                        ].map(({ name, sf, ff }) => (
+                          <div key={name} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 }}>
+                            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.text, minWidth: 80 }}>{name}</div>
+                            <div><div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Start</div>{timeInput(sf)}</div>
+                            <div><div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Finish</div>{timeInput(ff)}</div>
+                            {(b[sf] || b[ff]) && (
+                              <button onClick={() => clearTimes(sf, ff)} style={{ fontFamily: FONT, fontSize: 11, padding: '6px 10px', background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer', color: C.muted }}>Clear</button>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                      <div>
-                        <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Actual Start</div>
-                        <input type="time" value={toInputTime(b.actualStart)} onChange={e => saveTime('actualStart', e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 110, fontSize: 12 }} />
+                    ) : (
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Booked</div>
+                          <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: 500 }}>{toDisplayTime(b.cleanTime)}</div>
+                        </div>
+                        <div><div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Actual Start</div>{timeInput('actualStart')}</div>
+                        <div><div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Actual Finish</div>{timeInput('actualFinish')}</div>
+                        {(b.actualStart || b.actualFinish) && (
+                          <button onClick={() => clearTimes('actualStart', 'actualFinish')} style={{ fontFamily: FONT, fontSize: 11, padding: '6px 10px', background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer', color: C.muted }}>Clear</button>
+                        )}
                       </div>
-                      <div>
-                        <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Actual Finish</div>
-                        <input type="time" value={toInputTime(b.actualFinish)} onChange={e => saveTime('actualFinish', e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 110, fontSize: 12 }} />
-                      </div>
-                    </div>
+                    )}
                     <button onClick={() => setJobCard(b)} style={{ ...BTN, width: '100%', fontSize: 13, padding: '10px 14px', background: C.accent, color: '#fff', borderRadius: 6, touchAction: 'manipulation' }}>
                       Job Card
                     </button>

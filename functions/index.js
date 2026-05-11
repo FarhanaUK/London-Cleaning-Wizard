@@ -1122,6 +1122,9 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
   if (assignedStaff !== undefined) updates.assignedStaff = assignedStaff;
   if (actualStart   !== undefined) updates.actualStart   = actualStart;
   if (actualFinish  !== undefined) updates.actualFinish  = actualFinish;
+  const { actualStart2, actualFinish2 } = req.body;
+  if (actualStart2  !== undefined) updates.actualStart2  = actualStart2;
+  if (actualFinish2 !== undefined) updates.actualFinish2 = actualFinish2;
   const { secondCleaner } = req.body;
   if (secondCleaner !== undefined) updates.secondCleaner = secondCleaner || '';
 
