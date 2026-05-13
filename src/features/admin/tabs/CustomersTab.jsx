@@ -53,12 +53,21 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
   const [convertDate,      setConvertDate]      = useState('');
   const [convertTime,      setConvertTime]      = useState('9:00 AM');
   const [convertPkg,       setConvertPkg]       = useState('refresh');
-  const [convertSaving,    setConvertSaving]    = useState(false);
-  const [convertErr,       setConvertErr]       = useState('');
+  const [convertSaving,      setConvertSaving]      = useState(false);
+  const [convertErr,         setConvertErr]         = useState('');
+  const [convertBlockedDates, setConvertBlockedDates] = useState([]);
   const [sigTouchOptingOut, setSigTouchOptingOut] = useState(false);
   const [sigTouchNote,      setSigTouchNote]      = useState('');
 
   useEffect(() => { setSigTouchOptingOut(false); setSigTouchNote(''); }, [selectedCustomer]);
+
+  useEffect(() => {
+    if (!convertOpen) return;
+    fetch(BOOKING_API.getBlockedDates)
+      .then(r => r.json())
+      .then(d => setConvertBlockedDates(d.blockedDates || []))
+      .catch(() => {});
+  }, [convertOpen]);
 
   // Build customer map from bookings
   const customerMap = {};
@@ -144,11 +153,14 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
           )}
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '24px', marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             {(() => {
-              const thirtyDaysAgoStr = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
-              const qualifyingBooking = sc.bookings
-                .filter(b => b.status === 'fully_paid' && !b.isAutoRecurring && b.cleanDate >= thirtyDaysAgoStr)
+              const PACKAGE_ONLY = ['refresh', 'standard', 'deep', 'airbnb'];
+              const latestOneOff = sc.bookings
+                .filter(b => b.status === 'fully_paid' && !b.isAutoRecurring && PACKAGE_ONLY.includes(b.package))
                 .sort((a, b) => b.cleanDate.localeCompare(a.cleanDate))[0];
-              const canConvert = !sc.hasActive && qualifyingBooking;
+              const daysElapsed  = latestOneOff ? Math.floor((Date.now() - new Date(latestOneOff.cleanDate)) / 86400000) : null;
+              const daysLeft     = daysElapsed !== null ? Math.max(0, 30 - daysElapsed) : null;
+              const offerActive  = !sc.hasActive && daysLeft !== null && daysLeft > 0;
+              const offerExpired = !sc.hasActive && daysLeft === 0;
               return (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
                   <div>
@@ -156,7 +168,8 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f8fafc', color: C.muted, padding: '3px 10px', borderRadius: 20, border: `1px solid ${C.border}` }}>Residential</div>
                       {sc.hasActive && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f0fdf4', color: C.success, padding: '3px 10px', borderRadius: 20, border: `1px solid rgba(22,163,74,0.2)` }}>Active Recurring</div>}
-                      {canConvert && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#fffbeb', color: '#92400e', padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(146,64,14,0.2)' }}>Qualifies for Recurring</div>}
+                      {offerActive && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, background: '#fffbeb', color: '#92400e', padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(146,64,14,0.2)' }}>⏱ {daysLeft} day{daysLeft !== 1 ? 's' : ''} left on offer</div>}
+                      {offerExpired && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f1f5f9', color: C.muted, padding: '3px 10px', borderRadius: 20, border: `1px solid ${C.border}` }}>Offer expired</div>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -166,12 +179,12 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                     >
                       + New Booking
                     </button>
-                    {canConvert && (
+                    {latestOneOff && !sc.hasActive && (
                       <button
-                        onClick={() => { setConvertOpen(true); setConvertFreq('weekly'); setConvertDate(''); setConvertTime('9:00 AM'); setConvertErr(''); setConvertPkg(qualifyingBooking.package || 'refresh'); }}
-                        style={{ ...BTN, background: '#16a34a', color: '#fff', fontSize: 12 }}
+                        onClick={() => { if (!offerActive) return; setConvertOpen(true); setConvertFreq('weekly'); setConvertDate(''); setConvertTime('9:00 AM'); setConvertErr(''); setConvertPkg(latestOneOff.package || 'refresh'); }}
+                        style={{ ...BTN, fontSize: 12, ...(offerActive ? { background: '#16a34a', color: '#fff', cursor: 'pointer' } : { background: '#e2e8f0', color: '#94a3b8', cursor: 'not-allowed' }) }}
                       >
-                        Convert to Recurring
+                        {offerActive ? `🔄 Convert to Recurring — ${daysLeft}d left` : '🔄 Convert to Recurring — Out of time'}
                       </button>
                     )}
                     <button
@@ -324,14 +337,14 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
       {convertOpen && sc && (() => {
         const thirtyDaysAgoStr = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
         const qualifyingBooking = sc.bookings
-          .filter(b => b.status === 'fully_paid' && !b.isAutoRecurring && b.cleanDate >= thirtyDaysAgoStr)
+          .filter(b => b.status === 'fully_paid' && !b.isAutoRecurring && b.cleanDate >= thirtyDaysAgoStr && ['refresh', 'standard', 'deep', 'airbnb'].includes(b.package))
           .sort((a, b) => b.cleanDate.localeCompare(a.cleanDate))[0];
         if (!qualifyingBooking) return null;
         const saving      = FREQ_SAVINGS[convertFreq] || 0;
         const selectedPkg = RECURRING_PACKAGES.find(p => p.id === convertPkg) || RECURRING_PACKAGES[0];
         const sizeEntry   = selectedPkg?.sizes.find(s => s.id === qualifyingBooking.size);
         const propMulti   = PROPERTY_TYPES.find(t => t.id === qualifyingBooking.propertyType)?.multiplier || 1;
-        const basePrice   = sizeEntry ? sizeEntry.basePrice * propMulti : (parseFloat(qualifyingBooking.total) || 0);
+        const basePrice   = sizeEntry ? Math.round(sizeEntry.basePrice * propMulti) : (parseFloat(qualifyingBooking.total) || 0);
         const newPrice    = Math.max(0, basePrice - saving);
         const freqLabel   = FREQUENCIES.find(f => f.id === convertFreq)?.label || convertFreq;
         return (
@@ -371,17 +384,33 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                 </select>
               </div>
 
+              {!qualifyingBooking.stripeCustomerId && (
+                <div style={{ fontFamily: FONT, fontSize: 11, background: '#fffbeb', border: '1px solid rgba(146,64,14,0.25)', borderRadius: 6, padding: '8px 12px', marginBottom: 14, color: '#92400e' }}>
+                  No Stripe card on file for this customer. Make sure payment details are collected before completing any recurring job.
+                </div>
+              )}
+
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, marginBottom: 4 }}>First Recurring Clean Date</div>
                 <input
                   type="date"
                   value={convertDate}
                   min={new Date().toLocaleDateString('en-CA')}
-                  max={new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA')}
-                  onChange={e => setConvertDate(e.target.value)}
+                  onChange={e => {
+                    const picked = e.target.value;
+                    if (convertBlockedDates.includes(picked)) {
+                      setConvertErr('That date is blocked — please choose another date.');
+                      setConvertDate('');
+                    } else {
+                      setConvertErr('');
+                      setConvertDate(picked);
+                    }
+                  }}
                   style={{ ...INPUT, marginBottom: 0 }}
                 />
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 4 }}>Must be within the next 2 weeks</div>
+                {convertBlockedDates.length > 0 && (
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 4 }}>Blocked dates will be rejected when selected.</div>
+                )}
               </div>
 
               <div style={{ marginBottom: 20 }}>

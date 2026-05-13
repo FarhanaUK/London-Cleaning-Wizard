@@ -15,6 +15,7 @@ const CustomersTab = lazy(() => import('../features/admin/tabs/CustomersTab'));
 const CalendarTab  = lazy(() => import('../features/admin/tabs/CalendarTab'));
 const BookingsTab    = lazy(() => import('../features/admin/tabs/BookingsTab'));
 const MarketingTab       = lazy(() => import('../features/admin/tabs/MarketingTab'));
+const CampaignWorkflow   = lazy(() => import('../features/admin/tabs/marketing/WorkflowTab'));
 const PromotionsTab      = lazy(() => import('../features/admin/tabs/PromotionsTab'));
 const SignatureTouchTab  = lazy(() => import('../features/admin/tabs/SignatureTouchTab'));
 const TrashTab           = lazy(() => import('../features/admin/tabs/TrashTab'));
@@ -62,6 +63,7 @@ const NAV_ITEMS = [
   { id: 'sop',       label: 'SOP',       icon: '📖' },
   { id: 'reports',   label: 'Reports',   icon: '📈' },
   { id: 'marketing',       label: 'Marketing',       icon: '📣' },
+  { id: 'campaigns',      label: 'Marketing Workflow', icon: '🎯' },
   { id: 'promotions',     label: 'Promotions',     icon: '🎁' },
   { id: 'signatureTouch', label: 'Signature Touch', icon: '✦'  },
   { id: 'trash',          label: 'Trash',           icon: '🗑'  },
@@ -388,6 +390,7 @@ export default function AdminPage() {
               {activeView === 'reports'   && <ReportsTab bookings={activeBookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} isMobile={isMobile} C={C} />}
               {activeView === 'bookings'  && <BookingsTab bookings={activeBookings} setBookings={setBookings} staff={staff} isMobile={isMobile} C={C} user={user} schedulerLogs={schedulerLogs} bannerVisible={bannerVisible} welcomeMsg={welcomeMsg} welcomeColor={welcomeColor} />}
               {activeView === 'marketing'       && <MarketingTab abandonmentStats={abandonmentStats} bookings={activeBookings} isMobile={isMobile} C={C} />}
+              {activeView === 'campaigns'      && <CampaignWorkflow />}
               {activeView === 'promotions'     && <PromotionsTab isMobile={isMobile} C={C} />}
               {activeView === 'signatureTouch' && <SignatureTouchTab bookings={activeBookings} staff={staff} stDistributions={stDistributions} C={C} />}
               {activeView === 'trash'          && <TrashTab bookings={bookings} setBookings={setBookings} isMobile={isMobile} C={C} />}

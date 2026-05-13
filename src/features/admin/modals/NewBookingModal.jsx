@@ -8,7 +8,7 @@ const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const INPUT = { width: '100%', padding: '8px 12px', fontFamily: FONT, fontSize: 13, background: '#fff', border: '1px solid #d4c4ae', borderRadius: 6, color: '#1a1410', outline: 'none', marginBottom: 16, boxSizing: 'border-box' };
 
 const HOW_HEARD_OPTIONS = ['Google Search','Instagram','Facebook','TikTok','Word of Mouth','Leaflet','Nextdoor','Other'];
-const BLANK_BOOKING = { firstName:'', lastName:'', email:'', phone:'', addr1:'', postcode:'', propertyType:'flat', floor:'', parking:'', keys:'', notes:'', packageId:'refresh', sizeId:'', frequency:'one-off', cleanDate:'', cleanTime:'9:00 AM', addons:[], hasPets:null, petTypes:'', signatureTouch:true, signatureTouchNotes:'', hearAbout:'', supplies:'customer' };
+const BLANK_BOOKING = { firstName:'', lastName:'', email:'', phone:'', addr1:'', postcode:'', propertyType:'flat', floor:'', parking:'', keys:'', notes:'', packageId:'refresh', sizeId:'', frequency:'one-off', cleanDate:'', cleanTime:'9:00 AM', addons:[], hasPets:null, petTypes:'', signatureTouch:true, signatureTouchNotes:'', hearAbout:'', supplies:'customer', bathrooms: null };
 
 const isValidUKPhone    = p => /^(\+44\s?7\d{3}|\(?07\d{3}\)?)\s?\d{3}\s?\d{3}$/.test(p.trim()) || /^(\+44\s?[12]\d{2,4}|\(?0[12]\d{2,4}\)?)\s?\d{3,4}\s?\d{3,4}$/.test(p.trim());
 const isValidEmail      = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -50,21 +50,19 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
   const nbRawTotal = nbPkg?.sizes.find(s => s.id === nb.sizeId)
     ? calculateTotal({ sizePrice: nbPkg.sizes.find(s => s.id === nb.sizeId).basePrice, propertyType: nb.propertyType, frequency: null, addons: nb.addons, supplies: nb.supplies, suppliesFeeOverride: nb.suppliesFee })
     : null;
-  const nbLaunchMultiplier = nbPkg?.launchOffer;
-  const nbTotal = nbRawTotal && nbLaunchMultiplier ? {
-    ...nbRawTotal,
-    originalSubtotal: nbRawTotal.subtotal,
-    subtotal:         parseFloat((nbRawTotal.subtotal  * nbLaunchMultiplier).toFixed(2)),
-    deposit:          parseFloat((nbRawTotal.deposit   * nbLaunchMultiplier).toFixed(2)),
-    remaining:        parseFloat((nbRawTotal.remaining * nbLaunchMultiplier).toFixed(2)),
-    launchDiscount:   parseFloat((nbRawTotal.subtotal  * (1 - nbLaunchMultiplier)).toFixed(2)),
-  } : nbRawTotal;
+  const nbLaunchMultiplier = nbPkg?.launchOffer || null;
+  const nbTotal = nbRawTotal && nbLaunchMultiplier ? (() => {
+    const launchDiscount = parseFloat((nbRawTotal.base * (1 - nbLaunchMultiplier)).toFixed(2));
+    const newSubtotal    = parseFloat((nbRawTotal.subtotal - launchDiscount).toFixed(2));
+    const newDeposit     = Math.round(newSubtotal * 30) / 100;
+    return { ...nbRawTotal, originalSubtotal: nbRawTotal.subtotal, subtotal: newSubtotal, deposit: newDeposit, remaining: parseFloat((newSubtotal - newDeposit).toFixed(2)), launchDiscount };
+  })() : nbRawTotal;
 
   const closeNewBooking = () => { onClose(); setNb(BLANK_BOOKING); setNbErr(''); setNbSubmitted(false); setNbTouched({}); };
 
   const handleNewBooking = async () => {
     setNbSubmitted(true);
-    if (!nb.firstName || !nb.lastName || !nb.email || !nb.phone || !nb.addr1 || !nb.postcode || !nb.sizeId || !nb.cleanDate || !nb.cleanTime || (!initialCustomer && !nb.hearAbout) || nb.hasPets === null) {
+    if (!nb.firstName || !nb.lastName || !nb.email || !nb.phone || !nb.addr1 || !nb.postcode || !nb.sizeId || !nb.cleanDate || !nb.cleanTime || (!initialCustomer && !nb.hearAbout) || nb.hasPets === null || nb.bathrooms === null) {
       setNbErr('Please fill in all required fields.'); return;
     }
     if (!isValidEmail(nb.email))         { setNbErr('Email address is not valid — e.g. name@example.com'); return; }
@@ -78,6 +76,7 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...nb,
+          bathrooms: nb.bathrooms,
           signatureTouchNotes: nb.signatureTouchNotes === 'Other' ? nbStOtherNote.trim() || 'Other' : nb.signatureTouchNotes,
           package: nb.packageId, packageName: nbPkg?.name,
           size: nb.sizeId,
@@ -175,6 +174,20 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
             </select>
           </div>
         )}
+
+        {/* Bathrooms */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && nb.bathrooms === null ? C.danger : '#8b7355', marginBottom: 8 }}>Number of Bathrooms *</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {['1', '2', '3', '4', '5+'].map(n => (
+              <button key={n} type="button" onClick={() => setNb(p => ({ ...p, bathrooms: n }))}
+                style={{ fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '8px 18px', cursor: 'pointer', border: 'none', borderRadius: 4, background: nb.bathrooms === n ? '#2c2420' : 'rgba(200,184,154,0.2)', color: nb.bathrooms === n ? '#f5f0e8' : '#5a4e44', transition: 'all 0.15s' }}>
+                {n}
+              </button>
+            ))}
+          </div>
+          {nbSubmitted && nb.bathrooms === null && <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 6 }}>This field is required</div>}
+        </div>
 
         {/* Package */}
         <div style={{ fontFamily: FONT, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', margin: '20px 0 12px' }}>Service</div>

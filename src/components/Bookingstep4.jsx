@@ -43,7 +43,7 @@ function PaymentForm({ booking, onBack, T }) {
   const [policyChecked,  setPolicyChecked]  = useState(false);
   const [policyError,    setPolicyError]    = useState('');
   const [payError,       setPayError]       = useState('');
-  const [marketingOptOut, setMarketingOptOut] = useState(true);
+  const marketingOptOut = booking.marketingOptOut ?? true;
   const [mediaConsent,    setMediaConsent]    = useState(false);
   const [hasScrolled,   setHasScrolled]   = useState(false);
 
@@ -200,9 +200,9 @@ function PaymentForm({ booking, onBack, T }) {
         </div>
         {[
           { l: `${booking.pkg?.name} · ${booking.size?.label}`, v: `£${T.base}` },
+          T.launchDiscount > 0 && { l: 'Launch offer — 50% off first clean', v: `-£${T.launchDiscount.toFixed(2)}`, grn: true },
           T.freqSave > 0 && { l: `${booking.freq?.label} discount`, v: `-£${T.freqSave}`, grn: true },
           ...(booking.addons||[]).map(a => ({ l: a.name, v: `+£${a.price}` })),
-          T.launchDiscount > 0 && { l: 'Launch offer — 50% off first clean', v: `-£${T.launchDiscount.toFixed(2)}`, grn: true },
         ].filter(Boolean).map((row, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '0.5px solid rgba(200,184,154,0.15)', fontFamily: "'Jost',sans-serif" }}>
             <span style={{ color: row.grn ? '#16a34a' : '#6b5e56', fontWeight: row.grn ? 400 : 300 }}>{row.l}</span>
@@ -312,25 +312,6 @@ function PaymentForm({ booking, onBack, T }) {
       </div>
       {policyError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{policyError}</p>}
 
-      {/* Marketing opt-in */}
-      <div
-        onClick={() => setMarketingOptOut(c => !c)}
-        style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', marginBottom: 12, background: '#2c2420', border: `2px solid ${!marketingOptOut ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}
-      >
-        <div style={{
-          flexShrink: 0, marginTop: 1, width: 24, height: 24,
-          border: `2px solid ${!marketingOptOut ? '#2d6a4f' : '#8b7355'}`,
-          background: !marketingOptOut ? '#2d6a4f' : '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontSize: 14, fontWeight: 700,
-        }}>
-          {!marketingOptOut && '✓'}
-        </div>
-        <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
-          Keep me updated with reminders and occasional offers from London Cleaning Wizard. You can unsubscribe at any time.
-        </p>
-      </div>
-
       {/* Media consent */}
       <div
         onClick={() => setMediaConsent(c => !c)}
@@ -383,15 +364,13 @@ export default function BookingStep4({ booking, onSuccess, onBack }) {
     suppliesFeeOverride: booking.suppliesFee,
   });
 
-  const launchMultiplier = booking.pkg?.launchOffer;
-  const effectiveT = launchMultiplier ? {
-    ...T,
-    originalSubtotal: T.subtotal,
-    subtotal:         parseFloat((T.subtotal  * launchMultiplier).toFixed(2)),
-    deposit:          parseFloat((T.deposit   * launchMultiplier).toFixed(2)),
-    remaining:        parseFloat((T.remaining * launchMultiplier).toFixed(2)),
-    launchDiscount:   parseFloat((T.subtotal  * (1 - launchMultiplier)).toFixed(2)),
-  } : T;
+  const launchMultiplier = booking.pkg?.launchOffer || null;
+  const effectiveT = launchMultiplier ? (() => {
+    const launchDiscount = parseFloat((T.base * (1 - launchMultiplier)).toFixed(2));
+    const newSubtotal    = parseFloat((T.subtotal - launchDiscount).toFixed(2));
+    const newDeposit     = Math.round(newSubtotal * 30) / 100;
+    return { ...T, originalSubtotal: T.subtotal, subtotal: newSubtotal, deposit: newDeposit, remaining: parseFloat((newSubtotal - newDeposit).toFixed(2)), launchDiscount };
+  })() : T;
 
   return (
     <Elements stripe={stripePromise}>

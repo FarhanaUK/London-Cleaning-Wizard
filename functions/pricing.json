@@ -1,0 +1,15 @@
+{
+  "recurringPackages": {
+    "refresh":  { "studio": 115, "1bed": 125, "2bed": 145, "3bed": 170, "4bed": 200 },
+    "standard": { "studio": 145, "1bed": 165, "2bed": 185, "3bed": 210, "4bed": 250 }
+  },
+  "packages": {
+    "refresh":           { "studio": 115, "1bed": 125, "2bed": 145, "3bed": 170, "4bed": 200 },
+    "standard":          { "studio": 145, "1bed": 165, "2bed": 185, "3bed": 210, "4bed": 250 },
+    "deep":              { "studio": 225, "1bed": 265, "2bed": 330, "3bed": 395, "4bed": 460 },
+    "hourly":            { "3h": 90, "3.5h": 105 },
+    "office_cleaning":   { "3h": 105, "4h": 140, "5h": 175, "6h": 210, "7h": 245, "8h": 280 },
+    "airbnb":            { "studio": 135, "1bed": 150, "2bed": 175, "3bed": 205, "4bed": 240 }
+  },
+  "houseMultiplier": 1.10
+}

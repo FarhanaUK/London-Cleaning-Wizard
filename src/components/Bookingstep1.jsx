@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PACKAGES, PROPERTY_TYPES, FREQUENCIES, ADDONS } from '../data/siteData';
 import { DEEP_SUPPLIES_FEE } from '../utils/pricing';
@@ -143,21 +143,21 @@ const CARD = (selected) => ({
 });
 
 const HOURLY_PKG          = PACKAGES.find(p => p.id === 'hourly');
-const AIRBNB_COMMERCIAL   = PACKAGES.find(p => p.id === 'airbnb_commercial');
+const AIRBNB_PKG          = PACKAGES.find(p => p.id === 'airbnb');
 const OFFICE_CLEANING     = PACKAGES.find(p => p.id === 'office_cleaning');
 
 const COMMERCIAL_SERVICES = [
   {
-    pkg: AIRBNB_COMMERCIAL,
+    pkg: AIRBNB_PKG,
     headline: 'Airbnb checkout, guest-ready.',
-    subheadline: '£35/hr · min 2 hrs',
-    description: 'Your guests expect a hotel experience. We make sure they get one. From fresh linens to spotless surfaces, we turn your property around quickly and to the highest standard, so you will never miss a 5 star review.',
+    subheadline: 'By bedroom · linen incl.',
+    description: 'Your guests expect a hotel experience between every stay. We turn your property around to the highest standard — fresh linen, hotel-style towel folds, surfaces staged, and a photo report sent to you once we\'re done, so you never miss a 5-star review.',
     idealFor: [
       'Airbnb properties between guest checkouts',
-      'Serviced apartments and short let properties',
+      'Short let and serviced apartments',
     ],
     trustSignal: 'Same trusted cleaner every visit, so they know your property inside out.',
-    honestNote: 'Pricing is based on hourly rate. Final duration depends on property size and condition left by guests.',
+    honestNote: 'Priced by number of bedrooms. Houses are priced at 10% above flats to reflect the additional space.',
     upgradePrompt: 'Hosting regularly? Regular clients receive a dedicated cleaner and priority scheduling. Contact us for a tailored quote on a weekly or contract arrangement.',
   },
   {
@@ -180,12 +180,13 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
   const location = useLocation();
   const [error,      setError]      = useState('');
   const [expanded,   setExpanded]   = useState(null);
+  const propertyTypeRef = useRef(null);
   const [pkgTab,     setPkgTab]     = useState(() => {
     const saved = sessionStorage.getItem('pkgTab');
     if (saved) return saved;
     const id = booking.pkg?.id;
     if (id === 'hourly') return 'hourly';
-    if (id === 'airbnb_commercial' || id === 'office_cleaning') return 'commercial';
+    if (id === 'airbnb' || id === 'office_cleaning') return 'commercial';
     return 'signature';
   });
 
@@ -479,21 +480,24 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               {COMMERCIAL_SERVICES.map(({ pkg, headline, subheadline, description, idealFor, trustSignal, honestNote, upgradePrompt }) => (
                 <div
                   key={pkg.id}
-                  onClick={() => update({ pkg, size: null, sizePrice: 0, propertyType: pkg.id === 'office_cleaning' ? 'office' : 'airbnb' })}
+                  onClick={() => {
+                    update({ pkg, size: null, sizePrice: 0, propertyType: pkg.id === 'office_cleaning' ? 'office' : 'flat' });
+                    if (pkg.id === 'airbnb' && window.innerWidth < 768) {
+                      setTimeout(() => propertyTypeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+                    }
+                  }}
                   style={CARD(booking.pkg?.id === pkg.id)}
                 >
-                  {/* Header row - matches signature card layout */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 21, fontWeight: 400, color: '#1a1410' }}>
-                      {headline}
+                  {/* Header */}
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 21, fontWeight: 400, color: '#1a1410', marginBottom: 4 }}>
+                    {headline}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355' }}>
+                      {subheadline}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0, marginLeft: 12 }}>
-                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#5a4e44' }}>
-                        from £{pkg.sizes[0].basePrice}
-                      </div>
-                      <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355' }}>
-                        {subheadline}
-                      </div>
+                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#5a4e44', flexShrink: 0, marginLeft: 12 }}>
+                      from £{pkg.sizes[0].basePrice}
                     </div>
                   </div>
 
@@ -516,11 +520,6 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                     {trustSignal}
                   </div>
 
-                  {/* Honest note */}
-                  <div style={{ marginTop: 8, fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#8b7355', fontWeight: 300, lineHeight: 1.6 }}>
-                    <span style={{ fontWeight: 600, color: '#5a4e44' }}>Please note: </span>{honestNote}
-                  </div>
-
                   {/* Upgrade prompt */}
                   {upgradePrompt && (
                     <div style={{ marginTop: 12, padding: '12px 14px', background: '#2c2420', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.7 }}>
@@ -541,7 +540,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               ))}
             </div>
 
-            {booking.pkg && ['airbnb_commercial','office_cleaning'].includes(booking.pkg.id) && (
+            {booking.pkg && booking.pkg.id === 'office_cleaning' && (
               <>
                 <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> How many hours?</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(100px,1fr))', gap: 8, marginBottom: 24 }}>
@@ -577,7 +576,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
       {/* Property type - not shown for hourly */}
       {booking.pkg && !booking.pkg?.isHourly && (
         <>
-          <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Property Type</div>
+          <div ref={propertyTypeRef} style={LABEL}><Sparkle size={7} color="#c8b89a" /> Property Type</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
             {PROPERTY_TYPES.map(type => (
               <div

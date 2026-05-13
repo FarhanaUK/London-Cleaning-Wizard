@@ -108,8 +108,9 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '',
     addr1: '', postcode: '', floor: '', parking: '', keys: '', notes: booking.notes || '', source: '',
-    hasPets: null, petTypes: '',
+    bathrooms: null, hasPets: null, petTypes: '', airbnbListing: '',
     signatureTouch: true, signatureTouchNotes: '',
+    marketingOptOut: true,
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
@@ -178,6 +179,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
           email: retEmail, phone: p.phone || '',
           addr1: p.addr1 || '', postcode: p.postcode || '',
           floor: p.floor || '', parking: p.parking || '',
+          bathrooms: p.bathrooms ?? null,
           keys: p.keys || '', notes: booking.notes || p.notes || '', source: p.source || '',
           hasPets: p.hasPets ?? null, petTypes: p.petTypes || '',
           signatureTouch: p.signatureTouch ?? true, signatureTouchNotes: p.signatureTouchNotes || '',
@@ -202,10 +204,10 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
   const handleNext = async () => {
     const errors = validateForm(form);
     if (!form.source) errors.source = 'Please let us know how you heard about us.';
-    if (!booking.pkg?.isHourly) {
-      if (form.hasPets === null) errors.hasPets = 'Please let us know whether there are pets at the property.';
-      if (form.hasPets === true && !form.petTypes.trim()) errors.petTypes = 'Please describe your pets.';
-    }
+    if (form.bathrooms === null) errors.bathrooms = 'Please select the number of bathrooms.';
+    if (booking.pkg?.id === 'airbnb' && !form.airbnbListing.trim()) errors.airbnbListing = 'Please provide your Airbnb or short-let listing URL.';
+    if (form.hasPets === null) errors.hasPets = 'Please let us know whether there are pets at the property.';
+    if (form.hasPets === true && !form.petTypes.trim()) errors.petTypes = 'Please describe your pets.';
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       setSubmitError('Please fix the errors above.');
@@ -223,15 +225,31 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
       } catch { /* allow through on network error */ }
     }
     setSubmitError('');
+    // Fire-and-forget — track that they completed step 3 but haven't paid yet
+    fetch(import.meta.env.VITE_CF_TRACK_STEP3, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email:          form.email,
+        firstName:      form.firstName,
+        packageName:    booking.pkg?.name || '',
+        frequency:      booking.freq?.id  || 'one-off',
+        cleanDate:      booking.cleanDate || '',
+        marketingOptOut: form.marketingOptOut,
+      }),
+    }).catch(() => {});
     onUpdate({
       firstName: form.firstName, lastName: form.lastName,
       email: form.email, phone: form.phone,
       addr1: form.addr1, postcode: form.postcode.toUpperCase(),
       floor: form.floor, parking: form.parking,
+      bathrooms: form.bathrooms,
+      airbnbListing: form.airbnbListing,
       keys: form.keys, notes: form.notes, source: form.source,
       hasPets: form.hasPets, petTypes: form.petTypes,
       signatureTouch: form.signatureTouch, signatureTouchNotes: form.signatureTouchNotes === 'Other' ? stOtherNote.trim() || 'Other' : form.signatureTouchNotes,
       isReturning: custType === 'returning',
+      marketingOptOut: form.marketingOptOut,
     });
     onNext();
   };
@@ -266,10 +284,47 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
             onChange={v => setForm(f => ({ ...f, parking: v }))}
           />
         </div>
+
+        {/* Airbnb listing URL */}
+        {booking.pkg?.id === 'airbnb' && (
+          <div style={{ marginTop: 4, marginBottom: 4 }}>
+            <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Airbnb / Short-let Listing URL *</label>
+            <input
+              type="url"
+              placeholder="https://www.airbnb.co.uk/rooms/..."
+              value={form.airbnbListing}
+              onChange={e => { setForm(f => ({ ...f, airbnbListing: e.target.value })); setFieldErrors(er => ({ ...er, airbnbListing: null })); setSubmitError(''); }}
+              style={{ ...INPUT(!!fieldErrors.airbnbListing), marginBottom: fieldErrors.airbnbListing ? 4 : 16 }}
+            />
+            {fieldErrors.airbnbListing && <p style={ERR}>{fieldErrors.airbnbListing}</p>}
+          </div>
+        )}
+
+        {/* Bathrooms */}
+        <div style={{ marginTop: 4, marginBottom: 4 }}>
+          <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Number of Bathrooms *</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: fieldErrors.bathrooms ? 6 : 0 }}>
+            {['1', '2', '3', '4', '5+'].map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => { setForm(f => ({ ...f, bathrooms: n })); setFieldErrors(e => ({ ...e, bathrooms: null })); setSubmitError(''); }}
+                style={{
+                  fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500,
+                  padding: '10px 22px', cursor: 'pointer', border: 'none',
+                  background: form.bathrooms === n ? '#2c2420' : 'rgba(200,184,154,0.15)',
+                  color: form.bathrooms === n ? '#f5f0e8' : '#5a4e44',
+                  transition: 'all 0.15s',
+                }}
+              >{n}</button>
+            ))}
+          </div>
+          {fieldErrors.bathrooms && <p style={ERR}>{fieldErrors.bathrooms}</p>}
+        </div>
       </div>
 
-      {/* Pets — hidden for commercial and basic/hourly packages */}
-      {!booking.pkg?.isHourly && <div style={SECTION}>
+      {/* Pets */}
+      <div style={SECTION}>
         <div style={SECTION_TITLE}>Pets at the Property</div>
         <div style={{ marginBottom: 20 }}>
           <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Are there any pets at the property? *</label>
@@ -314,7 +369,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
             </div>
           </>
         )}
-      </div>}
+      </div>
 
       {/* Preferences */}
       <div style={SECTION}>
@@ -378,6 +433,25 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
           error={fieldErrors.source}
           onChange={v => { setForm(f => ({ ...f, source: v })); setFieldErrors(e => ({ ...e, source: null })); }}
         />
+
+        {/* Marketing opt-in — captured here so consent is recorded before payment */}
+        <div
+          onClick={() => setForm(f => ({ ...f, marketingOptOut: !f.marketingOptOut }))}
+          style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '14px 16px', marginBottom: 4, background: '#fdf8f3', border: `1px solid ${!form.marketingOptOut ? 'rgba(45,106,79,0.4)' : 'rgba(200,184,154,0.35)'}`, cursor: 'pointer' }}
+        >
+          <div style={{
+            flexShrink: 0, marginTop: 1, width: 20, height: 20,
+            border: `2px solid ${!form.marketingOptOut ? '#2d6a4f' : '#c8b89a'}`,
+            background: !form.marketingOptOut ? '#2d6a4f' : '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontSize: 13, fontWeight: 700,
+          }}>
+            {!form.marketingOptOut && '✓'}
+          </div>
+          <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
+            Keep me updated with reminders and occasional offers from London Cleaning Wizard. You can unsubscribe at any time.
+          </p>
+        </div>
       </div>
 
     </div>

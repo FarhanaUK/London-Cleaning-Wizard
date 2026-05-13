@@ -15,6 +15,8 @@ if (!admin.apps.length) { admin.initializeApp(); }
 
 const FREQ_SAVINGS = { weekly: 30, fortnightly: 15, monthly: 7 };
 
+const { recurringPackages: PACKAGE_BASE_PRICES, houseMultiplier: HOUSE_MULTIPLIER } = require('./pricing.json');
+
 const STRIPE_KEY            = defineSecret('STRIPE_SECRET_KEY');
 const EMAILJS_KEY           = defineSecret('EMAILJS_PRIVATE_KEY');
 const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
@@ -71,11 +73,13 @@ function buildBookingEmailData(b) {
     notes:           clean(b.notes||''),
     keys:            clean(b.keys||''),
     addons:          (b.addons||[]).map(a => a.name).join(', ') || 'None',
+    supplies:        b.supplies === 'cleaner' ? `Cleaner brings supplies (+£${b.suppliesFee || 8})` : 'Customer provides supplies',
     property_type:   `${b.propertyType} · ${b.size}`,
     frequency:       b.frequency || 'One-off',
     floor:           clean(b.floor||'—'),
     parking:         clean(b.parking||'—'),
-    pets:            ['hourly','airbnb_commercial','office_cleaning'].includes(b.package) ? '' : (b.hasPets ? `Yes — ${clean(b.petTypes||'not specified')}` : 'No'),
+    bathrooms:       b.bathrooms ? `${b.bathrooms}` : '—',
+    pets:            ['hourly','office_cleaning'].includes(b.package) ? '' : (b.hasPets ? `Yes — ${clean(b.petTypes||'not specified')}` : 'No'),
     signature_touch: b.package === 'standard' ? (b.signatureTouch !== false ? 'Opted in' : `Opted out${b.signatureTouchNotes ? ` — ${clean(b.signatureTouchNotes)}` : ''}`) : '',
     source:          clean(b.source||'—'),
     is_returning:    b.isReturning ? 'Returning customer' : 'New customer',
@@ -176,6 +180,45 @@ exports.verifyCode = onRequest(async (req, res) => {
   res.json({ success:true, profile: profileDoc.exists ? profileDoc.data() : null });
 });
 
+// ── 2b. Track step 3 abandonment (before payment intent exists) ──
+exports.trackStep3Abandonment = onRequest(async (req, res) => {
+  if (!guard(req, res)) return;
+  const { email, firstName, packageName, frequency, cleanDate, marketingOptOut } = req.body;
+  if (!email) { res.status(400).json({ error: 'Missing email' }); return; }
+
+  const db  = admin.firestore();
+  const now = new Date();
+  const key = 's3_' + Buffer.from(email.toLowerCase()).toString('base64url');
+  const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+  const week = Math.ceil((dayOfYear + new Date(now.getFullYear(), 0, 1).getDay()) / 7);
+
+  await db.collection('abandonmentStats').doc(key).set({
+    piId: null, createdAt: now,
+    date: now.toISOString().slice(0, 10),
+    week, month: now.getMonth() + 1, year: now.getFullYear(),
+    step: 3,
+    packageName: packageName || '',
+    depositAmount: 0, totalAmount: 0,
+    frequency: frequency || 'one-off',
+    email: email.toLowerCase(),
+    marketingOptOut: marketingOptOut === true,
+    emailSent: false, emailSentAt: null,
+    converted: false, convertedAt: null,
+  });
+
+  // Only queue for recovery email if they opted in
+  if (marketingOptOut !== true) {
+    await db.collection('pendingBookings').doc(key).set({
+      email: email.toLowerCase(), firstName: firstName || '',
+      packageName: packageName || '', cleanDate: cleanDate || '',
+      frequency: frequency || 'one-off',
+      createdAt: now, abandonedEmailSent: false, marketingOptOut: false, step: 3,
+    });
+  }
+
+  res.json({ success: true });
+});
+
 // ── 3. Create Stripe PaymentIntent ────────────────────────────
 exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
@@ -210,14 +253,25 @@ exports.createPaymentIntent = onRequest({ secrets:[STRIPE_KEY] }, async (req, re
         piId: intent.id, createdAt: now,
         date: now.toISOString().slice(0, 10),
         week, month: now.getMonth() + 1, year: now.getFullYear(),
+        step: 4,
         packageName: bookingData.packageName || '',
         depositAmount: amount / 100,
-        totalAmount: bookingData.total || 0,
+        totalAmount: (Number(bookingData.total) > 0 ? Number(bookingData.total) : Math.round((amount / 100) / 0.3 * 100) / 100),
         frequency: bookingData.frequency || 'one-off',
         email: (bookingData.email || '').toLowerCase(),
+        marketingOptOut: bookingData.marketingOptOut === true,
         emailSent: false, emailSentAt: null,
         converted: false, convertedAt: null,
       });
+
+      // Promote from step 3 — customer reached payment, delete partial records
+      if (bookingData.email) {
+        const s3Key = 's3_' + Buffer.from(bookingData.email.toLowerCase()).toString('base64url');
+        await Promise.all([
+          db.collection('abandonmentStats').doc(s3Key).delete().catch(() => {}),
+          db.collection('pendingBookings').doc(s3Key).delete().catch(() => {}),
+        ]);
+      }
     } catch (e) {
       console.error('Failed to save pendingBooking:', e.message);
       // Cancel the PI so the customer is never charged without a booking fallback
@@ -298,11 +352,14 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       email: d.email.toLowerCase(), firstName: clean(d.firstName), lastName: clean(d.lastName),
       phone: clean(d.phone), addr1: clean(d.addr1), postcode: clean(d.postcode).toUpperCase(),
       propertyType: d.propertyType, floor: clean(d.floor||''), parking: clean(d.parking||''),
+      bathrooms: d.bathrooms || null,
+      airbnbListing: clean(d.airbnbListing||''),
       keys: clean(d.keys||''), notes: clean(d.notes||''),
       hasPets: d.hasPets || false, petTypes: clean(d.petTypes||''),
       signatureTouch: d.signatureTouch !== false, signatureTouchNotes: clean(d.signatureTouchNotes||''),
       package: d.package, packageName: d.packageName, size: d.size,
       frequency: d.frequency || 'one-off', addons: d.addons || [], isAirbnb: d.isAirbnb || false,
+      supplies: d.supplies || 'customer', suppliesFee: d.suppliesFee || null,
       cleanDate: d.cleanDate, cleanTime: d.cleanTime,
       cleanDateUTC: toUTCISO(d.cleanDate, d.cleanTime),
       total: d.total, deposit: d.deposit, remaining: d.remaining,
@@ -320,6 +377,8 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       firstName: clean(d.firstName), lastName: clean(d.lastName), phone: clean(d.phone),
       addr1: clean(d.addr1), postcode: clean(d.postcode).toUpperCase(),
       floor: clean(d.floor||''), parking: clean(d.parking||''),
+      bathrooms: d.bathrooms || null,
+      airbnbListing: clean(d.airbnbListing||''),
       keys: clean(d.keys||''), notes: clean(d.notes||''),
       hasPets: d.hasPets || false, petTypes: clean(d.petTypes||''),
       signatureTouch: d.signatureTouch !== false, signatureTouchNotes: clean(d.signatureTouchNotes||''),
@@ -398,9 +457,11 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
             `Frequency: ${d.frequency || 'One-off'}`,
             `Floor / Lift: ${d.floor || '—'}`,
             `Parking: ${d.parking || '—'}`,
+            `Bathrooms: ${d.bathrooms || '—'}`,
             `Keys: ${d.keys || 'N/A'}`,
             `Add-ons: ${(d.addons||[]).map(a => a.name).join(', ') || 'None'}`,
-            ...(['hourly','airbnb_commercial','office_cleaning'].includes(d.package) ? [] : [`Pets: ${d.hasPets ? `Yes — ${d.petTypes || 'not specified'}` : 'No'}`]),
+            `Supplies: ${d.supplies === 'cleaner' ? `Cleaner brings (+£${d.suppliesFee || 8})` : 'Customer provides'}`,
+            ...(['hourly','office_cleaning'].includes(d.package) ? [] : [`Pets: ${d.hasPets ? `Yes — ${d.petTypes || 'not specified'}` : 'No'}`]),
             ...(d.package === 'standard' ? [`Signature Touch: ${d.signatureTouch !== false ? 'Opted in' : `Opted out${d.signatureTouchNotes ? ` — ${d.signatureTouchNotes}` : ''}`}`] : []),
             `Cleaner: ${d.assignedStaff || 'Unassigned'}`,
             `Notes: ${d.notes || 'None'}`,
@@ -493,10 +554,11 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
                   `Address: ${d.addr1}, ${d.postcode}`,
                   `Property: ${d.propertyType} · ${d.size}`,
                   `Frequency: ${d.frequency}`,
-                  `Floor / Lift: ${d.floor || '—'}`, `Parking: ${d.parking || '—'}`,
+                  `Floor / Lift: ${d.floor || '—'}`, `Parking: ${d.parking || '—'}`, `Bathrooms: ${d.bathrooms || '—'}`,
                   `Keys: ${d.keys || 'N/A'}`,
                   `Add-ons: ${(d.addons||[]).map(a => a.name).join(', ') || 'None'}`,
-                  ...(['hourly','airbnb_commercial','office_cleaning'].includes(d.package) ? [] : [`Pets: ${d.hasPets ? `Yes — ${d.petTypes || 'not specified'}` : 'No'}`]),
+                  `Supplies: ${d.supplies === 'cleaner' ? `Cleaner brings (+£${d.suppliesFee || 8})` : 'Customer provides'}`,
+                  ...(['hourly','office_cleaning'].includes(d.package) ? [] : [`Pets: ${d.hasPets ? `Yes — ${d.petTypes || 'not specified'}` : 'No'}`]),
                   ...(d.package === 'standard' ? [`Signature Touch: ${d.signatureTouch !== false ? 'Opted in' : `Opted out${d.signatureTouchNotes ? ` — ${d.signatureTouchNotes}` : ''}`}`] : []),
                   `Cleaner: ${d.assignedStaff || 'Unassigned'}`,
                   `Notes: ${d.notes || 'None'}`,
@@ -1241,9 +1303,10 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
             `Frequency: ${newFrequency || 'One-off'}`,
             `Floor / Lift: ${newFloor || '—'}`,
             `Parking: ${newParking || '—'}`,
+            `Bathrooms: ${updates.bathrooms !== undefined ? updates.bathrooms : current.bathrooms || '—'}`,
             `Keys: ${newKeys || 'N/A'}`,
             `Add-ons: ${(newAddons||[]).map(a => a.name).join(', ') || 'None'}`,
-            ...(['hourly','airbnb_commercial','office_cleaning'].includes(current.package) ? [] : [`Pets: ${(hasPets !== undefined ? hasPets : current.hasPets) ? `Yes — ${petTypes !== undefined ? clean(petTypes||'') : current.petTypes || 'not specified'}` : 'No'}`]),
+            ...(['hourly','office_cleaning'].includes(current.package) ? [] : [`Pets: ${(hasPets !== undefined ? hasPets : current.hasPets) ? `Yes — ${petTypes !== undefined ? clean(petTypes||'') : current.petTypes || 'not specified'}` : 'No'}`]),
             ...(current.package === 'standard' ? [`Signature Touch: ${(signatureTouch !== undefined ? signatureTouch : current.signatureTouch) !== false ? 'Opted in' : `Opted out${(signatureTouchNotes !== undefined ? signatureTouchNotes : current.signatureTouchNotes) ? ` — ${signatureTouchNotes !== undefined ? clean(signatureTouchNotes||'') : current.signatureTouchNotes}` : ''}`}`] : []),
             `Cleaner: ${assignedStaff !== undefined ? (assignedStaff || 'Unassigned') : (current.assignedStaff || 'Unassigned')}`,
             `Notes: ${newNotes || 'None'}`,
@@ -1350,9 +1413,10 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
                 `Frequency: ${newFrequency}`,
                 `Floor / Lift: ${floor !== undefined ? newFloor : fd.floor || '—'}`,
                 `Parking: ${parking !== undefined ? newParking : fd.parking || '—'}`,
+                `Bathrooms: ${fd.bathrooms || '—'}`,
                 `Keys: ${keys !== undefined ? newKeys : fd.keys || 'N/A'}`,
                 `Add-ons: ${((addons !== undefined ? newAddons : fd.addons) || []).map(a => a.name).join(', ') || 'None'}`,
-                ...(!['hourly','airbnb_commercial','office_cleaning'].includes(fd.package) ? [`Pets: ${(hasPets !== undefined ? hasPets : fd.hasPets) ? `Yes — ${petTypes !== undefined ? clean(petTypes||'') : fd.petTypes || 'not specified'}` : 'No'}`] : []),
+                ...(!['hourly','office_cleaning'].includes(fd.package) ? [`Pets: ${(hasPets !== undefined ? hasPets : fd.hasPets) ? `Yes — ${petTypes !== undefined ? clean(petTypes||'') : fd.petTypes || 'not specified'}` : 'No'}`] : []),
                 ...(fd.package === 'standard' ? [`Signature Touch: ${(signatureTouch !== undefined ? signatureTouch : fd.signatureTouch) !== false ? 'Opted in' : `Opted out${(signatureTouchNotes !== undefined ? signatureTouchNotes : fd.signatureTouchNotes) ? ` — ${signatureTouchNotes !== undefined ? clean(signatureTouchNotes||'') : fd.signatureTouchNotes}` : ''}`}`] : []),
                 `Cleaner: ${fd.assignedStaff || 'Unassigned'}`,
                 `Notes: ${notes !== undefined ? newNotes : fd.notes || 'None'}`,
@@ -1552,9 +1616,10 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
         `Frequency: ${b.frequency || 'One-off'}`,
         `Floor / Lift: ${b.floor || '—'}`,
         `Parking: ${b.parking || '—'}`,
+        `Bathrooms: ${b.bathrooms || '—'}`,
         `Keys: ${b.keys || 'N/A'}`,
         `Add-ons: ${(b.addons||[]).map(a => a.name).join(', ') || 'None'}`,
-        ...(['hourly','airbnb_commercial','office_cleaning'].includes(b.package) ? [] : [`Pets: ${b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No'}`]),
+        ...(['hourly','office_cleaning'].includes(b.package) ? [] : [`Pets: ${b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No'}`]),
         ...(b.package === 'standard' ? [`Signature Touch: ${b.signatureTouch !== false ? 'Opted in' : `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}`}`] : []),
         `Cleaner: ${b.assignedStaff || 'Unassigned'}`,
         `Notes: ${b.notes || 'None'}`,
@@ -1816,6 +1881,7 @@ exports.createRecurringBookings = onSchedule(
           addr1:      c.addr1      || '', postcode: c.postcode || '',
           propertyType: c.recurringPropertyType || 'flat',
           floor:   c.floor   || '', parking: c.parking || '',
+          bathrooms: c.bathrooms || null,
           keys:    c.keys    || '', notes:   c.notes   || '',
           hasPets: c.hasPets || false, petTypes: c.petTypes || '',
           signatureTouch: c.signatureTouch !== false,
@@ -1871,9 +1937,10 @@ exports.createRecurringBookings = onSchedule(
                 `Frequency: ${freq}`,
                 `Floor / Lift: ${c.floor || '—'}`,
                 `Parking: ${c.parking || '—'}`,
+                `Bathrooms: ${c.bathrooms || '—'}`,
                 `Keys: ${c.keys || 'N/A'}`,
                 `Add-ons: ${(c.recurringAddons||[]).map(a => a.name).join(', ') || 'None'}`,
-                ...(['hourly','airbnb_commercial','office_cleaning'].includes(c.recurringPackage) ? [] : [`Pets: ${c.hasPets ? `Yes — ${c.petTypes || 'not specified'}` : 'No'}`]),
+                ...(['hourly','office_cleaning'].includes(c.recurringPackage) ? [] : [`Pets: ${c.hasPets ? `Yes — ${c.petTypes || 'not specified'}` : 'No'}`]),
                 ...(c.recurringPackage === 'standard' ? [`Signature Touch: ${c.signatureTouch !== false ? 'Opted in' : `Opted out${c.signatureTouchNotes ? ` — ${c.signatureTouchNotes}` : ''}`}`] : []),
                 `Cleaner: ${c.assignedStaff || 'Unassigned'}`,
                 `Notes: ${c.notes || 'None'}`,
@@ -2002,6 +2069,7 @@ exports.triggerSchedulerNow = onRequest({ secrets: [EMAILJS_KEY] }, async (req, 
           phone: c.phone || '', addr1: c.addr1 || '', postcode: c.postcode || '',
           propertyType: c.recurringPropertyType || 'flat',
           floor: c.floor || '', parking: c.parking || '',
+          bathrooms: c.bathrooms || null,
           keys: c.keys || '', notes: c.notes || '',
           hasPets: c.hasPets || false, petTypes: c.petTypes || '',
           signatureTouch: c.signatureTouch !== false,
@@ -2271,6 +2339,7 @@ exports.stripeWebhook = onRequest(
         signatureTouch: pd.signatureTouch !== false, signatureTouchNotes: clean(pd.signatureTouchNotes||''),
         package: pd.package, packageName: pd.packageName, size: pd.size,
         frequency: pd.frequency || 'one-off', addons: pd.addons || [], isAirbnb: pd.isAirbnb || false,
+        supplies: pd.supplies || 'customer', suppliesFee: pd.suppliesFee || null,
         cleanDate: pd.cleanDate, cleanTime: pd.cleanTime,
         cleanDateUTC: toUTCISO(pd.cleanDate, pd.cleanTime),
         total: pd.total, deposit: pd.deposit, remaining: pd.remaining,
@@ -2335,9 +2404,11 @@ exports.stripeWebhook = onRequest(
             `Frequency: ${pd.frequency || 'One-off'}`,
             `Floor / Lift: ${pd.floor || '—'}`,
             `Parking: ${pd.parking || '—'}`,
+            `Bathrooms: ${pd.bathrooms || '—'}`,
             `Keys: ${pd.keys || 'N/A'}`,
             `Add-ons: ${(pd.addons||[]).map(a => a.name).join(', ') || 'None'}`,
-            ...(['hourly','airbnb_commercial','office_cleaning'].includes(pd.package) ? [] : [`Pets: ${pd.hasPets ? `Yes — ${pd.petTypes || 'not specified'}` : 'No'}`]),
+            `Supplies: ${pd.supplies === 'cleaner' ? `Cleaner brings (+£${pd.suppliesFee || 8})` : 'Customer provides'}`,
+            ...(['hourly','office_cleaning'].includes(pd.package) ? [] : [`Pets: ${pd.hasPets ? `Yes — ${pd.petTypes || 'not specified'}` : 'No'}`]),
             ...(pd.package === 'standard' ? [`Signature Touch: ${pd.signatureTouch !== false ? 'Opted in' : `Opted out${pd.signatureTouchNotes ? ` — ${pd.signatureTouchNotes}` : ''}`}`] : []),
             `Cleaner: ${pd.assignedStaff || 'Unassigned'}`,
             `Notes: ${pd.notes || 'None'}`,
@@ -2415,6 +2486,9 @@ exports.convertToRecurring = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
     package: pkgId, packageName: pkgName,
     size: lb.size, frequency,
     addons: lb.addons || [],
+    supplies: lb.supplies || '',
+    suppliesFee: lb.suppliesFee || 0,
+    bathrooms: lb.bathrooms || null,
     isAirbnb: false,
     cleanDate, cleanTime,
     cleanDateUTC: toUTCISO(cleanDate, cleanTime),
@@ -2439,8 +2513,8 @@ exports.convertToRecurring = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
     recurringPackage: pkgId,
     recurringPackageName: pkgName,
     recurringSize: lb.size,
-    recurringTotal: parseFloat(lb.recurringTotal || lb.originalTotal || lb.total) || 0,
-    recurringAddons: lb.addons || [],
+    recurringTotal: total + freqSave,
+    recurringAddons: [],
     recurringPropertyType: lb.propertyType || 'flat',
     lastDate: cleanDate,
     lastPrice: total,
@@ -2473,9 +2547,11 @@ exports.convertToRecurring = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
           `Frequency: ${frequency}`,
           `Floor / Lift: ${lb.floor || '—'}`,
           `Parking: ${lb.parking || '—'}`,
+          `Bathrooms: ${lb.bathrooms || '—'}`,
           `Keys: ${lb.keys || 'N/A'}`,
           `Add-ons: ${(lb.addons||[]).map(a => a.name).join(', ') || 'None'}`,
-          ...(['hourly','airbnb_commercial','office_cleaning'].includes(pkgId) ? [] : [`Pets: ${lb.hasPets ? `Yes — ${lb.petTypes || 'not specified'}` : 'No'}`]),
+          `Supplies: ${lb.supplies === 'cleaner' ? `Cleaner brings (+£${lb.suppliesFee || 8})` : 'Customer provides'}`,
+          ...(['hourly','office_cleaning'].includes(pkgId) ? [] : [`Pets: ${lb.hasPets ? `Yes — ${lb.petTypes || 'not specified'}` : 'No'}`]),
           ...(pkgId === 'standard' ? [`Signature Touch: ${lb.signatureTouch !== false ? 'Opted in' : `Opted out${lb.signatureTouchNotes ? ` — ${lb.signatureTouchNotes}` : ''}`}`] : []),
           `Cleaner: ${c.assignedStaff || lb.assignedStaff || 'Unassigned'}`,
           `Notes: ${lb.notes || 'None'}`,
@@ -2499,12 +2575,13 @@ exports.convertToRecurring = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
       to_name:      lb.firstName,
       to_email:     email,
       booking_ref:  ref,
-      package_name: lb.packageName,
+      package_name: pkgName,
       date:         cleanDate.split('-').reverse().join('/'),
       time:         cleanTime,
       address:      `${lb.addr1}, ${lb.postcode}`,
       frequency,
       total:        `£${total.toFixed(2)}`,
+      supplies:     lb.supplies === 'cleaner' ? `Cleaner brings supplies (+£${lb.suppliesFee || 8})` : 'Customer provides supplies',
       booking_type: 'Recurring Booking',
       recurring_note: `You are now on a ${frequency} recurring service. You are saving £${freqSave} per clean. No deposit is required — the full amount will be charged automatically once your clean is marked as complete.`,
     }, EMAILJS_KEY.value()).catch(e => console.error('Confirm email failed:', e.message));
@@ -2533,6 +2610,10 @@ exports.sendRecurringUpgradeEmails = onSchedule(
     const unsubSnap = await db.collection('unsubscribed').get();
     const unsubbed  = new Set(unsubSnap.docs.map(d => d.id));
 
+    const hourlyTemplate     = process.env.EMAILJS_RECURRING_UPGRADE_HOURLY_TEMPLATE;
+    const commercialTemplate = process.env.EMAILJS_RECURRING_UPGRADE_COMMERCIAL_TEMPLATE;
+    const COMMERCIAL_PACKAGES = ['office_cleaning'];
+
     for (const doc of snap.docs) {
       const b = doc.data();
       if (b.isAutoRecurring || b.recurringUpgradeEmailSent || b.marketingOptOut || b.doNotContact) continue;
@@ -2542,22 +2623,51 @@ exports.sendRecurringUpgradeEmails = onSchedule(
       const custDoc = await db.collection('customers').doc(b.email.toLowerCase()).get();
       if (custDoc.data()?.recurringActive) continue;
 
-      const base              = parseFloat(b.total) || 0;
-      const weeklyPrice       = `£${Math.max(0, base - 30).toFixed(2)}`;
-      const fortnightlyPrice  = `£${Math.max(0, base - 15).toFixed(2)}`;
-      const monthlyPrice      = `£${Math.max(0, base - 7).toFixed(2)}`;
+      const isHourly     = b.package === 'hourly';
+      const isCommercial = COMMERCIAL_PACKAGES.includes(b.package);
 
-      await sendEmail(template, {
-        to_name:            b.firstName,
-        to_email:           b.email,
-        package_name:       b.packageName,
-        days_remaining:     25,
-        weekly_price:       weeklyPrice,
-        fortnightly_price:  fortnightlyPrice,
-        monthly_price:      monthlyPrice,
-        booking_url:        'https://londoncleaningwizard.com',
-        unsubscribe_url:    `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(b.email)}`,
-      }, EMAILJS_KEY.value()).catch(e => console.error('Upgrade email failed:', b.bookingRef, e.message));
+      if (isHourly) {
+        if (!hourlyTemplate) continue;
+        await sendEmail(hourlyTemplate, {
+          to_name:         b.firstName,
+          to_email:        b.email,
+          package_name:    b.packageName,
+          days_remaining:  25,
+          unsubscribe_url: `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(b.email)}`,
+        }, EMAILJS_KEY.value()).catch(e => console.error('Hourly upgrade email failed:', b.bookingRef, e.message));
+      } else if (isCommercial) {
+        if (!commercialTemplate) continue;
+        await sendEmail(commercialTemplate, {
+          to_name:         b.firstName,
+          to_email:        b.email,
+          package_name:    b.packageName,
+          booking_url:     'https://londoncleaningwizard.com',
+          unsubscribe_url: `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(b.email)}`,
+        }, EMAILJS_KEY.value()).catch(e => console.error('Commercial upgrade email failed:', b.bookingRef, e.message));
+      } else {
+        // Look up current live price for this package + size + property type
+        const pkgPrices  = PACKAGE_BASE_PRICES[b.package];
+        const sizePrice  = pkgPrices?.[b.size];
+        if (!sizePrice) continue; // unknown package/size — skip
+        const multiplier = b.propertyType === 'house' ? HOUSE_MULTIPLIER : 1;
+        const basePrice  = Math.round(sizePrice * multiplier);
+
+        const weeklyPrice      = `£${(basePrice - 30).toFixed(2)}`;
+        const fortnightlyPrice = `£${(basePrice - 15).toFixed(2)}`;
+        const monthlyPrice     = `£${(basePrice - 7).toFixed(2)}`;
+
+        await sendEmail(template, {
+          to_name:            b.firstName,
+          to_email:           b.email,
+          package_name:       b.packageName,
+          days_remaining:     25,
+          weekly_price:       weeklyPrice,
+          fortnightly_price:  fortnightlyPrice,
+          monthly_price:      monthlyPrice,
+          booking_url:        'https://londoncleaningwizard.com',
+          unsubscribe_url:    `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(b.email)}`,
+        }, EMAILJS_KEY.value()).catch(e => console.error('Upgrade email failed:', b.bookingRef, e.message));
+      }
 
       await doc.ref.update({ recurringUpgradeEmailSent: true });
     }
@@ -2605,7 +2715,7 @@ exports.sendAbandonedBookingEmails = onSchedule({ schedule: 'every 30 minutes', 
   const batch = db.batch();
   await Promise.allSettled(snap.docs.map(async doc => {
     const d = doc.data();
-    if (!d.email || !d.firstName || d.abandonedEmailSent || unsubbed.has(d.email.toLowerCase())) return;
+    if (!d.email || !d.firstName || d.abandonedEmailSent || d.marketingOptOut || unsubbed.has(d.email.toLowerCase())) return;
     await sendEmail(template, {
       to_name:         d.firstName,
       to_email:        d.email,
@@ -2709,6 +2819,7 @@ exports.setSignatureTouch = onRequest({ cors: ['https://londoncleaningwizard.com
             `Frequency: ${b.frequency || 'One-off'}`,
             `Floor / Lift: ${b.floor || '—'}`,
             `Parking: ${b.parking || '—'}`,
+            `Bathrooms: ${b.bathrooms || '—'}`,
             `Keys: ${b.keys || 'N/A'}`,
             `Add-ons: ${(b.addons||[]).map(a => a.name).join(', ') || 'None'}`,
             `Pets: ${b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No'}`,

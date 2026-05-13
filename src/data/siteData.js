@@ -1,4 +1,7 @@
-﻿export const PHOTOS = {
+﻿import PRICING from '../../functions/pricing.json';
+const P = PRICING.packages;
+
+export const PHOTOS = {
   hero:     "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1600&q=85&fit=crop",
   kitchen:  "https://images.unsplash.com/photo-1556909172-54557c7e4fb7?w=900&q=80&fit=crop",
   living:   "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=900&q=80&fit=crop",
@@ -158,7 +161,7 @@ export const NAV_LINKS = [
 
 export const PROPERTY_TYPES = [
   { id: 'flat',  label: 'Flat / Apartment / Studio', multiplier: 1.00, note: '' },
-  { id: 'house', label: 'House', multiplier: 1.10, note: '+10% on all packages' },
+  { id: 'house', label: 'House', multiplier: PRICING.houseMultiplier, note: `+${Math.round((PRICING.houseMultiplier - 1) * 100)}% on all packages` },
 ];
 
 export const PACKAGES = [
@@ -168,11 +171,11 @@ export const PACKAGES = [
     tags: ['Whole home', 'Photos sent'],
     showFreq: true, showAddons: true,
     sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 115  },
-      { id: '1bed',   label: '1 Bedroom', basePrice: 125 },
-      { id: '2bed',   label: '2 Bedroom', basePrice: 145 },
-      { id: '3bed',   label: '3 Bedroom', basePrice: 170 },
-      { id: '4bed',   label: '4 Bedroom', basePrice: 200 },
+      { id: 'studio', label: 'Studio',    basePrice: P.refresh.studio },
+      { id: '1bed',   label: '1 Bedroom', basePrice: P.refresh['1bed'] },
+      { id: '2bed',   label: '2 Bedroom', basePrice: P.refresh['2bed'] },
+      { id: '3bed',   label: '3 Bedroom', basePrice: P.refresh['3bed'] },
+      { id: '4bed',   label: '4 Bedroom', basePrice: P.refresh['4bed'] },
     ],
   },
   {
@@ -181,11 +184,11 @@ export const PACKAGES = [
     tags: ['Whole home', 'Same cleaner', 'Linen change', 'Hotel finish'],
     showFreq: true, showAddons: true,
     sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 145 },
-      { id: '1bed',   label: '1 Bedroom', basePrice: 165 },
-      { id: '2bed',   label: '2 Bedroom', basePrice: 185 },
-      { id: '3bed',   label: '3 Bedroom', basePrice: 210 },
-      { id: '4bed',   label: '4 Bedroom', basePrice: 250 },
+      { id: 'studio', label: 'Studio',    basePrice: P.standard.studio },
+      { id: '1bed',   label: '1 Bedroom', basePrice: P.standard['1bed'] },
+      { id: '2bed',   label: '2 Bedroom', basePrice: P.standard['2bed'] },
+      { id: '3bed',   label: '3 Bedroom', basePrice: P.standard['3bed'] },
+      { id: '4bed',   label: '4 Bedroom', basePrice: P.standard['4bed'] },
     ],
   },
   
@@ -196,11 +199,11 @@ export const PACKAGES = [
     tags: ['Oven included', 'Inside fridge', 'Behind appliances', 'Photo report'],
     showFreq: false, showAddons: false,
     sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 225 },
-      { id: '1bed',   label: '1 Bedroom', basePrice: 265 },
-      { id: '2bed',   label: '2 Bedroom', basePrice: 330 },
-      { id: '3bed',   label: '3 Bedroom', basePrice: 395 },
-      { id: '4bed',   label: '4 Bedroom', basePrice: 460 },
+      { id: 'studio', label: 'Studio',    basePrice: P.deep.studio },
+      { id: '1bed',   label: '1 Bedroom', basePrice: P.deep['1bed'] },
+      { id: '2bed',   label: '2 Bedroom', basePrice: P.deep['2bed'] },
+      { id: '3bed',   label: '3 Bedroom', basePrice: P.deep['3bed'] },
+      { id: '4bed',   label: '4 Bedroom', basePrice: P.deep['4bed'] },
     ],
   },
   {
@@ -209,23 +212,8 @@ export const PACKAGES = [
     tags: ['£30/hr', 'Min. 3 Hours', 'One-off'],
     showFreq: false, showAddons: false,
     sizes: [
-      { id: '3h',   label: '3 hours',   basePrice: 90  },
-      { id: '3.5h', label: '3.5 hours', basePrice: 105 },
-    ],
-  },
-  {
-    id: 'airbnb_commercial', name: 'Airbnb & Serviced Apartments', isHourly: true,
-    desc: 'Your guests expect a hotel experience. We make sure they get one. From fresh linens to spotless surfaces, we turn your property around quickly and to the highest standard.',
-    tags: ['£35/hr', 'Min. 2 Hours', 'One-off'],
-    showFreq: false, showAddons: false,
-    sizes: [
-      { id: '2h', label: '2 hours', basePrice: 70  },
-      { id: '3h', label: '3 hours', basePrice: 105 },
-      { id: '4h', label: '4 hours', basePrice: 140 },
-      { id: '5h', label: '5 hours', basePrice: 175 },
-      { id: '6h', label: '6 hours', basePrice: 210 },
-      { id: '7h', label: '7 hours', basePrice: 245 },
-      { id: '8h', label: '8 hours', basePrice: 280 },
+      { id: '3h',   label: '3 hours',   basePrice: P.hourly['3h']   },
+      { id: '3.5h', label: '3.5 hours', basePrice: P.hourly['3.5h'] },
     ],
   },
   {
@@ -234,25 +222,25 @@ export const PACKAGES = [
     tags: ['£35/hr', 'Min. 3 Hours', 'One-off'],
     showFreq: false, showAddons: false,
     sizes: [
-      { id: '3h', label: '3 hours', basePrice: 105 },
-      { id: '4h', label: '4 hours', basePrice: 140 },
-      { id: '5h', label: '5 hours', basePrice: 175 },
-      { id: '6h', label: '6 hours', basePrice: 210 },
-      { id: '7h', label: '7 hours', basePrice: 245 },
-      { id: '8h', label: '8 hours', basePrice: 280 },
+      { id: '3h', label: '3 hours', basePrice: P.office_cleaning['3h'] },
+      { id: '4h', label: '4 hours', basePrice: P.office_cleaning['4h'] },
+      { id: '5h', label: '5 hours', basePrice: P.office_cleaning['5h'] },
+      { id: '6h', label: '6 hours', basePrice: P.office_cleaning['6h'] },
+      { id: '7h', label: '7 hours', basePrice: P.office_cleaning['7h'] },
+      { id: '8h', label: '8 hours', basePrice: P.office_cleaning['8h'] },
     ],
   },
   {
     id: 'airbnb', name: 'Airbnb Turnaround', popular: false,
-    desc: 'Guest-ready between every booking. Completion photo sent to you.',
-    tags: ['Guest-ready', 'Photo report', 'Same-day available'],
+    desc: 'Your guests expect a hotel experience between every stay. We turn your property around to the highest standard — fresh linen, hotel-style towel folds, surfaces staged, and a photo report sent to you once we\'re done.',
+    tags: ['Linen change included', 'Photo report', 'Guest-ready finish'],
     showFreq: false, showAddons: false,
     sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: 95  },
-      { id: '1bed',   label: '1 Bedroom', basePrice: 120 },
-      { id: '2bed',   label: '2 Bedroom', basePrice: 155 },
-      { id: '3bed',   label: '3 Bedroom', basePrice: 195 },
-      { id: '4bed',   label: '4 Bedroom', basePrice: 250 },
+      { id: 'studio', label: 'Studio',    basePrice: P.airbnb.studio   },
+      { id: '1bed',   label: '1 Bedroom', basePrice: P.airbnb['1bed']  },
+      { id: '2bed',   label: '2 Bedroom', basePrice: P.airbnb['2bed']  },
+      { id: '3bed',   label: '3 Bedroom', basePrice: P.airbnb['3bed']  },
+      { id: '4bed',   label: '4 Bedroom', basePrice: P.airbnb['4bed']  },
     ],
   },
 ];

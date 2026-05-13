@@ -201,25 +201,23 @@ export default function BookingInvoice({ booking, isMobile }) {
     suppliesFeeOverride: booking.suppliesFee,
   }) : null;
 
-  const launchMultiplier = booking.pkg?.launchOffer;
-  const T = rawT && launchMultiplier ? {
-    ...rawT,
-    originalSubtotal: rawT.subtotal,
-    subtotal:         parseFloat((rawT.subtotal  * launchMultiplier).toFixed(2)),
-    deposit:          parseFloat((rawT.deposit   * launchMultiplier).toFixed(2)),
-    remaining:        parseFloat((rawT.remaining * launchMultiplier).toFixed(2)),
-    launchDiscount:   parseFloat((rawT.subtotal  * (1 - launchMultiplier)).toFixed(2)),
-  } : rawT;
+  const launchMultiplier = booking.pkg?.launchOffer || null;
+  const T = rawT && launchMultiplier ? (() => {
+    const launchDiscount = parseFloat((rawT.base * (1 - launchMultiplier)).toFixed(2));
+    const newSubtotal    = parseFloat((rawT.subtotal - launchDiscount).toFixed(2));
+    const newDeposit     = Math.round(newSubtotal * 30) / 100;
+    return { ...rawT, originalSubtotal: rawT.subtotal, subtotal: newSubtotal, deposit: newDeposit, remaining: parseFloat((newSubtotal - newDeposit).toFixed(2)), launchDiscount };
+  })() : rawT;
   const TOneOff = null;
 
   const lines = T ? [
+    booking.cleanDateDisplay && { label: 'Date', val: booking.cleanDateDisplay },
+    booking.cleanTime        && { label: 'Time', val: booking.cleanTime },
     { label: `${booking.pkg?.name} · ${booking.size?.label}`, val: `£${rawT.base}` },
+    T.launchDiscount > 0 && { label: 'Launch offer: 50% off first clean', val: `-£${T.launchDiscount.toFixed(2)}`, grn: true },
     ...(booking.addons || []).map(a => ({ label: a.name, val: `+£${a.price}` })),
     rawT.suppliesFee > 0 && { label: 'Cleaning supplies', val: `+£${rawT.suppliesFee}` },
     rawT.surcharge > 0   && { label: 'Surcharge', val: `+£${rawT.surcharge}` },
-    T.launchDiscount > 0 && { label: 'Launch offer: 50% off first clean', val: `-£${T.launchDiscount.toFixed(2)}`, grn: true },
-    booking.cleanDateDisplay && { label: 'Date', val: booking.cleanDateDisplay },
-    booking.cleanTime        && { label: 'Time', val: booking.cleanTime },
   ].filter(Boolean) : [];
 
   if (isMobile) {

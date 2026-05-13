@@ -13,6 +13,7 @@ const fmtDeletedAt = ts => {
 export default function TrashTab({ bookings, setBookings, isMobile, C }) {
   const [restoring,      setRestoring]      = useState(null);
   const [deleting,       setDeleting]       = useState(null);
+  const [deletingAll,    setDeletingAll]    = useState(false);
   const [err,            setErr]            = useState('');
 
   const trashedBookings = bookings
@@ -37,6 +38,24 @@ export default function TrashTab({ bookings, setBookings, isMobile, C }) {
     finally { setRestoring(null); }
   };
 
+  const handleDeleteAll = async () => {
+    if (!window.confirm(
+      `Permanently delete all ${trashedBookings.length} booking${trashedBookings.length > 1 ? 's' : ''} in trash?\n\nThis CANNOT be undone.`
+    )) return;
+    setErr('');
+    setDeletingAll(true);
+    try {
+      await Promise.all(trashedBookings.map(b =>
+        fetch(import.meta.env.VITE_CF_DELETE_BOOKING, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId: b.id }),
+        })
+      ));
+      setBookings(prev => prev.filter(b => !b.deleted));
+    } catch { setErr('Failed to delete all bookings.'); }
+    finally { setDeletingAll(false); }
+  };
+
   const handlePermanentDelete = async (booking) => {
     if (!window.confirm(
       `Permanently delete booking for ${booking.firstName} ${booking.lastName} on ${fmtDate(booking.cleanDate)}?\n\nThis CANNOT be undone.`
@@ -56,13 +75,24 @@ export default function TrashTab({ bookings, setBookings, isMobile, C }) {
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 4 }}>🗑 Trash</div>
-        <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>
-          {trashedBookings.length === 0
-            ? 'Trash is empty.'
-            : `${trashedBookings.length} deleted booking${trashedBookings.length > 1 ? 's' : ''}. Restore to bring them back, or permanently delete to remove from Firestore.`}
+      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <div style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 4 }}>🗑 Trash</div>
+          <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>
+            {trashedBookings.length === 0
+              ? 'Trash is empty.'
+              : `${trashedBookings.length} deleted booking${trashedBookings.length > 1 ? 's' : ''}. Restore to bring them back, or permanently delete to remove from Firestore.`}
+          </div>
         </div>
+        {trashedBookings.length > 0 && (
+          <button
+            onClick={handleDeleteAll}
+            disabled={deletingAll || deleting !== null || restoring !== null}
+            style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '8px 16px', background: C.danger, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            {deletingAll ? 'Deleting all…' : '✕ Delete all forever'}
+          </button>
+        )}
       </div>
 
       {err && (
