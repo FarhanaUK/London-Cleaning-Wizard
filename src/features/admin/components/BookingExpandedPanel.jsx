@@ -99,7 +99,7 @@ export default function BookingExpandedPanel({
           { l: 'Keys',             v: b.keys || '—' },
           { l: 'Frequency',        v: b.frequency || 'one-off' },
           { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : 'None' },
-          { l: 'Supplies',         v: b.supplies === 'cleaner' ? `Cleaner brings (+£${b.suppliesFee || 8})` : 'Customer provides' },
+          // supplies row disabled
           !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
           (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
           { l: 'Marketing Opt-in', v: b.marketingOptOut ? '✕ Opted out at booking' : '✓ Opted in at booking' },

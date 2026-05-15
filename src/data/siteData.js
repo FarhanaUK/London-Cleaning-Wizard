@@ -166,19 +166,6 @@ export const PROPERTY_TYPES = [
 
 export const PACKAGES = [
   {
-    id: 'refresh', name: 'Regular Clean - The Essential Reset', popular: false,
-    desc: 'This service focuses on visible cleanliness and overall reset. Heavier buildup or stubborn marks may require a Deep Clean. Typically 3–4 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
-    tags: ['Whole home', 'Photos sent'],
-    showFreq: true, showAddons: true,
-    sizes: [
-      { id: 'studio', label: 'Studio',    basePrice: P.refresh.studio },
-      { id: '1bed',   label: '1 Bedroom', basePrice: P.refresh['1bed'] },
-      { id: '2bed',   label: '2 Bedroom', basePrice: P.refresh['2bed'] },
-      { id: '3bed',   label: '3 Bedroom', basePrice: P.refresh['3bed'] },
-      { id: '4bed',   label: '4 Bedroom', basePrice: P.refresh['4bed'] },
-    ],
-  },
-  {
     id: 'standard', name: 'Signature Hotel Reset', popular: true, launchOffer: 0.5,
     desc: 'Designed to create a calm, refined, hotel-like finish in your home. Typically 3.5–4.5 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
     tags: ['Whole home', 'Same cleaner', 'Linen change', 'Hotel finish'],
@@ -189,6 +176,19 @@ export const PACKAGES = [
       { id: '2bed',   label: '2 Bedroom', basePrice: P.standard['2bed'] },
       { id: '3bed',   label: '3 Bedroom', basePrice: P.standard['3bed'] },
       { id: '4bed',   label: '4 Bedroom', basePrice: P.standard['4bed'] },
+    ],
+  },
+  {
+    id: 'refresh', name: 'Regular Clean - The Essential Reset', popular: false,
+    desc: 'This service focuses on visible cleanliness and overall reset. Heavier buildup or stubborn marks may require a Deep Clean. Typically 3–4 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
+    tags: ['Whole home'],
+    showFreq: true, showAddons: true,
+    sizes: [
+      { id: 'studio', label: 'Studio',    basePrice: P.refresh.studio },
+      { id: '1bed',   label: '1 Bedroom', basePrice: P.refresh['1bed'] },
+      { id: '2bed',   label: '2 Bedroom', basePrice: P.refresh['2bed'] },
+      { id: '3bed',   label: '3 Bedroom', basePrice: P.refresh['3bed'] },
+      { id: '4bed',   label: '4 Bedroom', basePrice: P.refresh['4bed'] },
     ],
   },
   

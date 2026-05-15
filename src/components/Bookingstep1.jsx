@@ -204,6 +204,19 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
     if (pkgTab === 'hourly' && !booking.pkg) {
       update({ pkg: HOURLY_PKG, size: null, sizePrice: 0, propertyType: 'flat', freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false });
     }
+    if (pkgTab === 'signature') {
+      const sigPkgs = PACKAGES.filter(p => !['airbnb','hourly','airbnb_commercial','office_cleaning'].includes(p.id));
+      const alreadySelected = booking.pkg && sigPkgs.find(p => p.id === booking.pkg.id);
+      if (!alreadySelected) handlePackageSelect(sigPkgs[0]);
+    }
+    if (pkgTab === 'commercial') {
+      const commercialIds = COMMERCIAL_SERVICES.map(s => s.pkg.id);
+      const alreadySelected = booking.pkg && commercialIds.includes(booking.pkg.id);
+      if (!alreadySelected) {
+        const first = COMMERCIAL_SERVICES[0].pkg;
+        update({ pkg: first, size: null, sizePrice: 0, propertyType: 'flat' });
+      }
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (partial) => { onUpdate(partial); setError(''); };
@@ -308,82 +321,72 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
           ))}
         </div>
 
-        {/* Signature packages tab */}
-        {pkgTab === 'signature' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
-            {PACKAGES.filter(p => !['airbnb','hourly','airbnb_commercial','office_cleaning'].includes(p.id)).map(pkg => (
-              <div key={pkg.id}>
-                <div style={CARD(booking.pkg?.id === pkg.id)} onClick={() => handlePackageSelect(pkg)}>
-                  <div className="card-header">
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 21, fontWeight: 400, color: '#1a1410', display: 'flex', alignItems: 'center' }}>
-                      {pkg.id === 'standard' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                          {pkg.name}
-                          <span style={{ position: 'relative', display: 'inline-block', width: 30, height: 26, marginLeft: 8, flexShrink: 0 }}>
-                            <span style={{ position: 'absolute', top: 0, right: 0, animation: 'twinkle2 1.8s ease-in-out infinite' }}>
-                              <Sparkle size={9} color="#f5c842" />
-                            </span>
-                            <span style={{ position: 'absolute', bottom: 0, left: 0, animation: 'twinkle1 2.3s ease-in-out infinite' }}>
-                              <Sparkle size={16} color="#f5c842" />
-                            </span>
-                            <span style={{ position: 'absolute', top: 8, right: 4, animation: 'twinkle3 2s ease-in-out infinite', animationDelay: '0.5s' }}>
-                              <Sparkle size={12} color="#f5c842" />
-                            </span>
-                          </span>
-                        </span>
-                      ) : pkg.name}
-                    </div>
-                    <div className="card-price-col">
-                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#5a4e44' }}>
-                        {pkg.launchOffer
-                          ? <><span style={{ textDecoration: 'line-through', color: '#a09080', fontSize: 13, marginRight: 4 }}>£{pkg.sizes[0].basePrice}</span>from £{(pkg.sizes[0].basePrice * pkg.launchOffer).toFixed(2)}</>
+        {/* Signature packages tab — horizontal tabs + detail panel */}
+        {pkgTab === 'signature' && (() => {
+          const sigPkgs = PACKAGES.filter(p => !['airbnb','hourly','airbnb_commercial','office_cleaning'].includes(p.id));
+          const activePkg = booking.pkg && sigPkgs.find(p => p.id === booking.pkg.id)
+            ? booking.pkg
+            : null;
+          return (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 10 }}>
+                Select a package to continue
+              </div>
+              {/* 3 horizontal tabs */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                {sigPkgs.map(pkg => {
+                  const sel = activePkg?.id === pkg.id;
+                  const offerPrice = pkg.launchOffer ? (pkg.sizes[0].basePrice * pkg.launchOffer).toFixed(0) : null;
+                  return (
+                    <button
+                      key={pkg.id}
+                      onClick={() => handlePackageSelect(pkg)}
+                      style={{ flex: 1, padding: '12px 10px', border: sel ? '1.5px solid #2c2420' : '1px solid rgba(200,184,154,0.4)', borderRadius: 6, background: sel ? '#2c2420' : 'transparent', color: sel ? '#f5f0e8' : '#5a4e44', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', outline: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start' }}
+                    >
+                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, fontWeight: 500, marginBottom: 4, lineHeight: 1.3 }}>{pkg.name.split(' - ')[0]}</div>
+                      <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: sel ? '#c8b89a' : '#8b7355' }}>
+                        {offerPrice
+                          ? <><span style={{ textDecoration: 'line-through', marginRight: 4, opacity: 0.6 }}>£{pkg.sizes[0].basePrice}</span>from £{offerPrice}</>
                           : <>from £{pkg.sizes[0].basePrice}</>
                         }
                       </div>
-                      {pkg.launchOffer && (
-                        <div style={{ background: '#8b2020', color: '#fff', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 10px' }}>
-                          50% off first clean
-                        </div>
-                      )}
-                      {pkg.popular && !pkg.launchOffer && (
-                        <div style={{ background: '#b8860b', color: '#fff', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 10px' }}>Most Popular</div>
-                      )}
-                      {pkg.showFreq && !pkg.launchOffer && (
-                        <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#2d6a4f', fontWeight: 600, letterSpacing: '0.03em', textAlign: 'right', background: '#f0fdf4', padding: '3px 8px', border: '1px solid #bbf7d0' }}>
-                          from £{pkg.sizes[0].basePrice - 30}/clean · weekly
-                        </div>
-                      )}
+                      {pkg.launchOffer && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: sel ? '#f5c842' : '#8b2020', marginTop: 4 }}>50% off first clean</div>}
+                      {pkg.showFreq && !pkg.launchOffer && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: sel ? 'rgba(245,240,232,0.5)' : '#2d6a4f', marginTop: 4 }}>from £{pkg.sizes[0].basePrice - 30}/wk</div>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Detail panel for selected package */}
+              {activePkg && (
+                <div style={CARD(true)}>
+                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#6b5e56', fontWeight: 300, marginBottom: 12, lineHeight: 1.6 }}>
+                    {activePkg.desc}
+                  </div>
+                  {activePkg.tags?.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                      {activePkg.tags.map((tag, i) => (
+                        <span key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355', border: '1px solid rgba(200,184,154,0.4)', padding: '3px 8px', borderRadius: 3 }}>{tag}</span>
+                      ))}
                     </div>
-                  </div>
-                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#6b5e56', fontWeight: 300, marginBottom: 10, lineHeight: 1.6 }}>
-                    {pkg.desc}
-                  </div>
-
-                  {/* What's included toggle */}
+                  )}
                   <div
-                    onClick={(e) => toggleExpand(e, pkg.id)}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      fontFamily: "'Jost',sans-serif", fontSize: 10,
-                      letterSpacing: '0.1em', textTransform: 'uppercase',
-                      color: '#c8b89a', cursor: 'pointer', userSelect: 'none',
-                    }}
+                    onClick={(e) => toggleExpand(e, activePkg.id)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c8b89a', cursor: 'pointer', userSelect: 'none' }}
                   >
-                    {expanded === pkg.id ? '▲' : '▼'} What's included
+                    {expanded === activePkg.id ? '▲' : '▼'} What's included
                   </div>
-
-                  {/* Expandable checklist */}
-                  {expanded === pkg.id && (
+                  {expanded === activePkg.id && (
                     <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(200,184,154,0.2)' }}>
-                      {Array.isArray(PACKAGE_DETAIL[pkg.id]) ? (
-                        (PACKAGE_DETAIL[pkg.id] || []).map((item, i) => (
+                      {Array.isArray(PACKAGE_DETAIL[activePkg.id]) ? (
+                        (PACKAGE_DETAIL[activePkg.id] || []).map((item, i) => (
                           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
                             <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
                             <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
                           </div>
                         ))
                       ) : (() => {
-                        const d = PACKAGE_DETAIL[pkg.id];
+                        const d = PACKAGE_DETAIL[activePkg.id];
                         return <>
                           {d.intro.map((p, i) => (
                             <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#2c2420', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.6, margin: '0 0 8px' }}>{p}</p>
@@ -407,10 +410,10 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                     </div>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              )}
+            </div>
+          );
+        })()}
 
         {/* Hourly tab */}
         {pkgTab === 'hourly' && (
@@ -476,37 +479,41 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
         {/* Commercial & Airbnb tab */}
         {pkgTab === 'commercial' && (
           <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-              {COMMERCIAL_SERVICES.map(({ pkg, headline, subheadline, description, idealFor, trustSignal, honestNote, upgradePrompt }) => (
-                <div
-                  key={pkg.id}
-                  onClick={() => {
-                    update({ pkg, size: null, sizePrice: 0, propertyType: pkg.id === 'office_cleaning' ? 'office' : 'flat' });
-                    if (pkg.id === 'airbnb' && window.innerWidth < 768) {
-                      setTimeout(() => propertyTypeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
-                    }
-                  }}
-                  style={CARD(booking.pkg?.id === pkg.id)}
-                >
-                  {/* Header */}
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 21, fontWeight: 400, color: '#1a1410', marginBottom: 4 }}>
-                    {headline}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355' }}>
-                      {subheadline}
-                    </div>
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#5a4e44', flexShrink: 0, marginLeft: 12 }}>
-                      from £{pkg.sizes[0].basePrice}
-                    </div>
-                  </div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 10 }}>
+              Select a service to continue
+            </div>
+            {/* Horizontal tabs */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {COMMERCIAL_SERVICES.map(({ pkg, headline, subheadline }) => {
+                const sel = booking.pkg?.id === pkg.id;
+                return (
+                  <button
+                    key={pkg.id}
+                    onClick={() => {
+                      update({ pkg, size: null, sizePrice: 0, propertyType: pkg.id === 'office_cleaning' ? 'office' : 'flat' });
+                      if (pkg.id === 'airbnb' && window.innerWidth < 768) {
+                        setTimeout(() => propertyTypeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+                      }
+                    }}
+                    style={{ flex: 1, padding: '12px 10px', border: sel ? '1.5px solid #2c2420' : '1px solid rgba(200,184,154,0.4)', borderRadius: 6, background: sel ? '#2c2420' : 'transparent', color: sel ? '#f5f0e8' : '#5a4e44', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', outline: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start' }}
+                  >
+                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, fontWeight: 500, marginBottom: 4, lineHeight: 1.3 }}>{headline}</div>
+                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: sel ? '#c8b89a' : '#8b7355' }}>{subheadline}</div>
+                  </button>
+                );
+              })}
+            </div>
 
-                  {/* Description - matches signature card */}
-                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#6b5e56', fontWeight: 300, marginBottom: 10, lineHeight: 1.6 }}>
+            {/* Detail panel for selected service */}
+            {(() => {
+              const active = COMMERCIAL_SERVICES.find(s => s.pkg.id === booking.pkg?.id);
+              if (!active) return null;
+              const { pkg, description, idealFor, trustSignal, upgradePrompt } = active;
+              return (
+                <div style={CARD(true)}>
+                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#6b5e56', fontWeight: 300, marginBottom: 12, lineHeight: 1.6 }}>
                     {description}
                   </div>
-
-                  {/* Ideal For */}
                   <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5a4e44', fontWeight: 600, marginBottom: 7 }}>Ideal For</div>
                   {idealFor.map((item, i) => (
                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
@@ -514,31 +521,22 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                       <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
                     </div>
                   ))}
-
-                  {/* Trust signal */}
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(200,184,154,0.2)', fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 400, lineHeight: 1.6, fontStyle: 'italic' }}>
                     {trustSignal}
                   </div>
-
-                  {/* Upgrade prompt */}
                   {upgradePrompt && (
                     <div style={{ marginTop: 12, padding: '12px 14px', background: '#2c2420', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.7 }}>
                       <span style={{ color: '#c8b89a', fontWeight: 600, marginRight: 6 }}>✦</span>{upgradePrompt}
                       <div style={{ marginTop: 10 }}>
-                        <a
-                          href="/quote"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ display: 'inline-block', fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, padding: '9px 18px', background: '#c8b89a', color: '#1a1410', textDecoration: 'none', cursor: 'pointer' }}
-                        >
+                        <a href="/quote" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, padding: '9px 18px', background: '#c8b89a', color: '#1a1410', textDecoration: 'none', cursor: 'pointer' }}>
                           Get a tailored quote
                         </a>
                       </div>
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
 
             {booking.pkg && booking.pkg.id === 'office_cleaning' && (
               <>
@@ -716,41 +714,9 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
         </>
       )}
 
-      {/* Supplies */}
+      {/* Mop & vacuum acknowledgment */}
       {booking.pkg && (
         <>
-          <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Cleaning Supplies</div>
-          {booking.pkg?.id === 'deep' ? (
-            <div style={{ ...CARD(true), display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410' }}>Specialist supplies included</div>
-                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontWeight: 300, marginTop: 2 }}>Our cleaner will bring all specialist cleaning products required for a deep clean</div>
-              </div>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#2c2420', flexShrink: 0, marginLeft: 12 }}>+£{DEEP_SUPPLIES_FEE}</div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-              {[
-                { id: 'customer', title: 'I will provide supplies', sub: 'You supply all cleaning products for the cleaner to use', price: null },
-                { id: 'cleaner',  title: 'Please bring supplies',   sub: 'Our cleaner will arrive with all cleaning products',      price: '+£8' },
-              ].map(opt => (
-                <div
-                  key={opt.id}
-                  onClick={() => update({ supplies: opt.id })}
-                  style={{ ...CARD(booking.supplies === opt.id), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                  <div>
-                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410' }}>{opt.title}</div>
-                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontWeight: 300, marginTop: 2 }}>{opt.sub}</div>
-                  </div>
-                  {opt.price && (
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#2c2420', flexShrink: 0, marginLeft: 12 }}>{opt.price}</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Mop & vacuum acknowledgment - always required */}
           <div
             onClick={() => update({ mopAck: !booking.mopAck })}

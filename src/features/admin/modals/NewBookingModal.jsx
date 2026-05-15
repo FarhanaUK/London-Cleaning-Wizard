@@ -350,27 +350,8 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
           </>
         )}
 
-        {/* Supplies */}
-        <div style={{ fontFamily: FONT, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', margin: '20px 0 12px' }}>Cleaning Supplies</div>
-        {nb.packageId === 'deep' ? (
-          <div style={{ fontFamily: FONT, fontSize: 13, color: '#1a1410', marginBottom: 8 }}>
-            Specialist supplies included <span style={{ color: '#8b7355', fontSize: 11, fontWeight: 300 }}>— +£{DEEP_SUPPLIES_FEE} (automatically applied)</span>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
-            {[
-              { id: 'customer', label: 'Customer provides supplies', note: 'No extra charge' },
-              { id: 'cleaner',  label: 'Cleaner brings supplies',    note: '+£8' },
-            ].map(opt => (
-              <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontFamily: FONT, fontSize: 13, color: '#1a1410' }}>
-                <input type="radio" name="supplies" value={opt.id} checked={nb.supplies === opt.id} onChange={() => setNb(p => ({ ...p, supplies: opt.id }))} style={{ accentColor: '#c8b89a' }} />
-                {opt.label} <span style={{ color: '#8b7355', fontSize: 11, fontWeight: 300 }}>— {opt.note}</span>
-              </label>
-            ))}
-          </div>
-        )}
         <div style={{ background: '#fffbeb', border: '1px solid #d97706', borderLeft: '3px solid #d97706', borderRadius: 6, padding: '10px 12px', marginBottom: 14, fontFamily: FONT, fontSize: 11, color: '#92400e', lineHeight: 1.6 }}>
-          Remind the customer: our cleaners do not bring mops or vacuums. The customer must have a working mop and vacuum available at the property.
+          Remind the customer: our cleaners bring their own supplies but do not bring mops or vacuums. The customer must have a working mop and vacuum available at the property.
         </div>
 
         {/* Live price summary */}
@@ -390,11 +371,6 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
             {nbTotal.addnSum > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT, fontSize: 11, color: 'rgba(245,240,232,0.6)', marginBottom: 3 }}>
                 <span>Add-ons</span><span>+£{nbTotal.addnSum.toFixed(2)}</span>
-              </div>
-            )}
-            {nbTotal.suppliesFee > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT, fontSize: 11, color: 'rgba(245,240,232,0.6)', marginBottom: 3 }}>
-                <span>Cleaning supplies</span><span>+£{nbTotal.suppliesFee.toFixed(2)}</span>
               </div>
             )}
             {nbTotal.launchDiscount > 0 && (

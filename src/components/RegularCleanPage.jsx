@@ -80,7 +80,7 @@ export default function RegularCleanPage() {
             Same trusted cleaner, same high standard, every visit.
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px 20px', maxWidth: 600, margin: '0 auto' }}>
-            {['Vetted Cleaners', 'Fully Insured', 'Same Cleaner', 'Completion Photos'].map(b => (
+            {['Vetted Cleaners', 'Fully Insured', 'Same Cleaner'].map(b => (
               <div key={b} style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: 'rgba(200,184,154,0.6)', display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ color: '#c8b89a' }}>✓</span> {b}
               </div>

@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     question: "Do you bring your own equipment and products?",
-    answer: "By default, we ask that you provide your own cleaning products and supplies. During the booking process you can add our cleaning supplies for a small fee, and we'll bring everything needed to get the job done.\n\nPlease note that we do not bring mops or vacuums regardless of the supplies option, so a working mop and vacuum must be available at the property. You will also need to provide access to electricity and water.",
+    answer: "We bring our own cleaning products and supplies to every clean — you do not need to provide anything.\n\nPlease note that we do not bring mops or vacuums, so a working mop and vacuum must be available at the property. You will also need to provide access to electricity and water.",
   },
   {
     question: "Do I need to be home during the clean?",
