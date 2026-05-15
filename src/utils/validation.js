@@ -38,7 +38,6 @@ export function validateStep1(booking) {
   if (!booking.size)         return booking.pkg?.isHourly ? 'Please select how many hours.' : 'Please select your property size.';
   if (booking.pkg?.isHourly && !booking.notes?.trim()) return 'Please tell us what you need done so we can prepare your cleaner.';
   if (booking.pkg?.showFreq && !booking.freq) return 'Please select how often you would like us to clean.';
-  if (!booking.supplies)     return 'Please select your supplies preference.';
   if (!booking.mopAck)       return 'Please confirm you have a working mop and vacuum at the property.';
   return null;
 }
