@@ -336,7 +336,8 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 {sigPkgs.map(pkg => {
                   const sel = activePkg?.id === pkg.id;
-                  const offerPrice = pkg.launchOffer ? (pkg.sizes[0].basePrice * pkg.launchOffer).toFixed(0) : null;
+                  const offerRaw   = pkg.launchOffer ? pkg.sizes[0].basePrice * pkg.launchOffer : null;
+                  const offerPrice = offerRaw !== null ? (offerRaw % 1 === 0 ? String(offerRaw) : offerRaw.toFixed(2)) : null;
                   return (
                     <button
                       key={pkg.id}
@@ -372,7 +373,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                   )}
                   <div
                     onClick={(e) => toggleExpand(e, activePkg.id)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c8b89a', cursor: 'pointer', userSelect: 'none' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2c2420', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}
                   >
                     {expanded === activePkg.id ? '▲' : '▼'} What's included
                   </div>

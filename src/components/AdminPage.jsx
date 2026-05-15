@@ -215,6 +215,12 @@ export default function AdminPage() {
   }, [user]);
 
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [activeView]);
+
   const handleLogin = async () => {
     setLoginErr('');
     try {
