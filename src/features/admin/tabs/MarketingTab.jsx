@@ -10,7 +10,7 @@ const tabs = [
   { id: 'audience',  label: 'Audience' },
 ];
 
-export default function MarketingTab({ abandonmentStats, bookings, isMobile, C }) {
+export default function MarketingTab({ abandonmentStats, funnelData, bookings, isMobile, C }) {
   const [subTab, setSubTab] = useState('abandoned');
 
   return (
@@ -34,7 +34,7 @@ export default function MarketingTab({ abandonmentStats, bookings, isMobile, C }
         ))}
       </div>
 
-      {subTab === 'abandoned' && <AbandonedTab abandonmentStats={abandonmentStats} bookings={bookings} C={C} />}
+      {subTab === 'abandoned' && <AbandonedTab abandonmentStats={abandonmentStats} funnelData={funnelData} bookings={bookings} C={C} />}
       {subTab === 'lapsed'    && <LapsedTab bookings={bookings} C={C} />}
       {subTab === 'audience'  && <AudienceTab bookings={bookings} C={C} />}
     </div>

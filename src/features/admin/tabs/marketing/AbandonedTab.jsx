@@ -16,7 +16,7 @@ function monthlyValue(total, frequency) {
   return null;
 }
 
-export default function AbandonedTab({ abandonmentStats, bookings, C }) {
+export default function AbandonedTab({ abandonmentStats, funnelData = [], bookings, C }) {
   const now   = new Date();
   const today = now.toISOString().slice(0, 10);
   const weekN = (() => {
@@ -81,8 +81,67 @@ export default function AbandonedTab({ abandonmentStats, bookings, C }) {
     return Object.entries(map).sort((a, b) => b[1].total - a[1].total);
   }, [yearStats]);
 
+  // Funnel — per session, only count the highest step reached; exclude converted
+  const funnelMonth = funnelData.filter(s => s.month === month && s.year === year);
+  const STEP_LABELS = ['', 'Service', 'Schedule', 'Details', 'Payment'];
+  const funnelRows = useMemo(() => {
+    const total = funnelMonth.length;
+    if (!total) return [];
+    return [1, 2, 3, 4].map(s => {
+      const reached    = funnelMonth.filter(d => d.maxStep >= s).length;
+      const abandoned  = funnelMonth.filter(d => d.maxStep === s && !d.converted).length;
+      const pctReached = Math.round((reached / total) * 100);
+      const pctDrop    = reached > 0 ? Math.round((abandoned / reached) * 100) : 0;
+      return { step: s, label: STEP_LABELS[s], reached, abandoned, pctReached, pctDrop };
+    });
+  }, [funnelMonth]);
+  const funnelConverted = funnelMonth.filter(d => d.converted).length;
+
   return (
     <>
+      {/* Booking Funnel */}
+      <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 10 }}>Booking funnel — {month}/{year}</div>
+      <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 14 }}>Each session counted once at the furthest step reached. Abandoned = left at that step without going further.</div>
+      {funnelRows.length === 0 ? (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '24px 20px', fontFamily: FONT, fontSize: 13, color: C.muted, textAlign: 'center', marginBottom: 24 }}>
+          No funnel data yet this month. Data will appear as visitors use the booking page.
+        </div>
+      ) : (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', marginBottom: 24 }}>
+          {funnelRows.map((row, i) => (
+            <div key={row.step} style={{ padding: '14px 18px', borderBottom: i < funnelRows.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: C.accent, background: `${C.accent}22`, borderRadius: 4, padding: '2px 7px' }}>Step {row.step}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: 500 }}>{row.label}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{row.reached} reached</span>
+                  {row.abandoned > 0 && (
+                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: '#dc2626', background: '#fef2f2', borderRadius: 4, padding: '2px 8px' }}>
+                      {row.abandoned} dropped ({row.pctDrop}%)
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ background: C.bg, borderRadius: 4, height: 8, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${row.pctReached}%`, background: row.pctReached > 60 ? '#16a34a' : row.pctReached > 30 ? C.accent : '#dc2626', borderRadius: 4, transition: 'width 0.4s ease' }} />
+              </div>
+              <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginTop: 4 }}>{row.pctReached}% of all sessions reached this step</div>
+            </div>
+          ))}
+          <div style={{ padding: '14px 18px', background: '#f0fdf4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#16a34a', background: '#dcfce7', borderRadius: 4, padding: '2px 7px' }}>Completed</span>
+              <span style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: 500 }}>Booking confirmed</span>
+            </div>
+            <span style={{ fontFamily: FONT, fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
+              {funnelConverted} booked ({funnelMonth.length > 0 ? Math.round((funnelConverted / funnelMonth.length) * 100) : 0}% overall)
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Volume cards */}
       <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 10 }}>Abandonment events — how many customers started a booking but didn't complete payment</div>
       <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 14 }}>Conversion rate = % of emailed customers who then booked</div>

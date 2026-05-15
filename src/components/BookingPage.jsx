@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import BookingInvoice  from './BookingInvoice';
 import BookingStep1    from './Bookingstep1';
@@ -6,6 +6,8 @@ import BookingStep2    from './Bookingstep2';
 import BookingStep3    from './Bookingstep3';
 import BookingStep4    from './Bookingstep4';
 import BookingConfirm  from './Bookingconfirm';
+import { db } from '../firebase/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const INIT = {
   isAirbnb: false, pkg: null, propertyType: null, size: null,
@@ -37,6 +39,14 @@ export default function BookingPage() {
   const [result,    setResult]    = useState(null);
   const [isMobile,  setIsMobile]  = useState(window.innerWidth < 768);
 
+  // Funnel tracking — one Firestore doc per browser session, records the highest step reached
+  const funnelId = useRef((() => {
+    let id = sessionStorage.getItem('bkFunnelId');
+    if (!id) { id = `f${Date.now()}${Math.random().toString(36).slice(2, 7)}`; sessionStorage.setItem('bkFunnelId', id); }
+    return id;
+  })()).current;
+  const maxStepTracked = useRef(0);
+
   const goToStep = (n) => setStep(n);
 
   useEffect(() => {
@@ -63,6 +73,22 @@ export default function BookingPage() {
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);
+
+  // Write to Firestore only when user advances to a new step (never go backwards)
+  useEffect(() => {
+    if (step <= maxStepTracked.current) return;
+    maxStepTracked.current = step;
+    const now = new Date();
+    setDoc(doc(db, 'bookingFunnel', funnelId), {
+      maxStep: step,
+      converted: false,
+      date: now.toISOString().slice(0, 10),
+      month: now.getMonth() + 1,
+      year: now.getFullYear(),
+      updatedAt: serverTimestamp(),
+      ...(step === 1 && { startedAt: serverTimestamp() }),
+    }, { merge: true }).catch(() => {});
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (partial) => setBooking(b => ({ ...b, ...partial }));
 
@@ -162,7 +188,11 @@ export default function BookingPage() {
           {step === 1 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => goToStep(2)} />}
           {step === 2 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(3)} onBack={() => goToStep(1)} />}
           {step === 3 && <BookingStep3 booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} isMobile={isMobile} />}
-          {step === 4 && <BookingStep4 booking={booking} onUpdate={update} onSuccess={(res) => { setResult(res); setStep(5); setConfirmed(true); sessionStorage.removeItem(SESSION_KEY); }} onBack={() => goToStep(3)} />}
+          {step === 4 && <BookingStep4 booking={booking} onUpdate={update} onSuccess={(res) => {
+            setDoc(doc(db, 'bookingFunnel', funnelId), { converted: true, maxStep: 5, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+            sessionStorage.removeItem('bkFunnelId');
+            setResult(res); setStep(5); setConfirmed(true); sessionStorage.removeItem(SESSION_KEY);
+          }} onBack={() => goToStep(3)} />}
         </div>
 
         {/* Desktop invoice sidebar */}

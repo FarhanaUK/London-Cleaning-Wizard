@@ -132,6 +132,7 @@ export default function AdminPage() {
   const [fixedCosts,            setFixedCosts]            = useState([]);
   const [supplies,              setSupplies]              = useState([]);
   const [abandonmentStats,      setAbandonmentStats]      = useState([]);
+  const [funnelData,            setFunnelData]            = useState([]);
   const [stDistributions,       setStDistributions]       = useState([]);
   useEffect(() => onAuthStateChanged(auth, async u => {
     setUser(u);
@@ -191,6 +192,12 @@ export default function AdminPage() {
     if (!user) return;
     const q = query(collection(db, 'abandonmentStats'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => setAbandonmentStats(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'bookingFunnel'), orderBy('updatedAt', 'desc'), limit(5000));
+    return onSnapshot(q, snap => setFunnelData(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   }, [user]);
 
   useEffect(() => {
@@ -389,7 +396,7 @@ export default function AdminPage() {
               {activeView === 'sop'       && <SOPTab isMobile={isMobile} C={C} />}
               {activeView === 'reports'   && <ReportsTab bookings={activeBookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} isMobile={isMobile} C={C} />}
               {activeView === 'bookings'  && <BookingsTab bookings={activeBookings} setBookings={setBookings} staff={staff} isMobile={isMobile} C={C} user={user} schedulerLogs={schedulerLogs} bannerVisible={bannerVisible} welcomeMsg={welcomeMsg} welcomeColor={welcomeColor} />}
-              {activeView === 'marketing'       && <MarketingTab abandonmentStats={abandonmentStats} bookings={activeBookings} isMobile={isMobile} C={C} />}
+              {activeView === 'marketing'       && <MarketingTab abandonmentStats={abandonmentStats} funnelData={funnelData} bookings={activeBookings} isMobile={isMobile} C={C} />}
               {activeView === 'campaigns'      && <CampaignWorkflow />}
               {activeView === 'promotions'     && <PromotionsTab isMobile={isMobile} C={C} />}
               {activeView === 'signatureTouch' && <SignatureTouchTab bookings={activeBookings} staff={staff} stDistributions={stDistributions} C={C} />}
