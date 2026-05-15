@@ -1,5 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { FONT, statCard } from './shared.jsx';
+import { db } from '../../../../firebase/firebase';
+import { doc, deleteDoc, writeBatch } from 'firebase/firestore';
 
 const FREQ_LABELS = {
   'one-off':   'One-off',
@@ -81,6 +83,22 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
     return Object.entries(map).sort((a, b) => b[1].total - a[1].total);
   }, [yearStats]);
 
+  const [showSessions, setShowSessions] = useState(false);
+  const [deletingAll,  setDeletingAll]  = useState(false);
+
+  const deleteSessions = async (ids) => {
+    const batch = writeBatch(db);
+    ids.forEach(id => batch.delete(doc(db, 'bookingFunnel', id)));
+    await batch.commit();
+  };
+
+  const handleDeleteAll = async () => {
+    if (!window.confirm(`Delete all ${funnelMonth.length} funnel sessions for this month?`)) return;
+    setDeletingAll(true);
+    await deleteSessions(funnelMonth.map(s => s.id)).catch(() => {});
+    setDeletingAll(false);
+  };
+
   // Funnel — per session, only count the highest step reached; exclude converted
   const funnelMonth = funnelData.filter(s => s.month === month && s.year === year);
   const STEP_LABELS = ['', 'Service', 'Schedule', 'Details', 'Payment'];
@@ -139,6 +157,48 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
               {funnelConverted} booked ({funnelMonth.length > 0 ? Math.round((funnelConverted / funnelMonth.length) * 100) : 0}% overall)
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Session log */}
+      {funnelMonth.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <button onClick={() => setShowSessions(s => !s)} style={{ background: 'none', border: 'none', fontFamily: FONT, fontSize: 12, color: C.muted, cursor: 'pointer', padding: 0 }}>
+              {showSessions ? '▲' : '▼'} {showSessions ? 'Hide' : 'Show'} session log ({funnelMonth.length} sessions)
+            </button>
+            <button onClick={handleDeleteAll} disabled={deletingAll} style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, fontFamily: FONT, fontSize: 11, color: '#dc2626', cursor: 'pointer', padding: '4px 12px' }}>
+              {deletingAll ? 'Deleting…' : 'Clear all this month'}
+            </button>
+          </div>
+          {showSessions && (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px 32px', gap: 0 }}>
+                {['Date', 'Step', 'Status', 'Time', ''].map((h, i) => (
+                  <div key={i} style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: C.bg }}>{h}</div>
+                ))}
+                {[...funnelMonth].sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)).map((s, i) => {
+                  const stepLabel = s.converted ? 'Completed' : ['', 'Service', 'Schedule', 'Details', 'Payment'][s.maxStep] || `Step ${s.maxStep}`;
+                  const ts = s.updatedAt?.toDate ? s.updatedAt.toDate() : null;
+                  const time = ts ? ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—';
+                  const rowBg = i % 2 === 0 ? C.card : C.bg;
+                  return [
+                    <div key={`d${s.id}`} style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: rowBg }}>{s.date || '—'}</div>,
+                    <div key={`s${s.id}`} style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: rowBg }}>{stepLabel}</div>,
+                    <div key={`st${s.id}`} style={{ padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: rowBg }}>
+                      <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: s.converted ? '#dcfce7' : '#fef2f2', color: s.converted ? '#16a34a' : '#dc2626' }}>
+                        {s.converted ? 'Booked' : 'Dropped'}
+                      </span>
+                    </div>,
+                    <div key={`t${s.id}`} style={{ fontFamily: FONT, fontSize: 11, color: C.muted, padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: rowBg }}>{time}</div>,
+                    <div key={`x${s.id}`} style={{ padding: '4px 8px', borderBottom: `1px solid ${C.border}`, background: rowBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <button onClick={() => deleteSessions([s.id])} style={{ background: 'none', border: 'none', color: C.muted, fontSize: 15, cursor: 'pointer', lineHeight: 1, padding: 2 }}>×</button>
+                    </div>,
+                  ];
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
