@@ -19,6 +19,7 @@ function monthlyValue(total, frequency) {
 }
 
 export default function AbandonedTab({ abandonmentStats, funnelData = [], bookings, C }) {
+  const [selected, setSelected] = useState(new Set());
   const now   = new Date();
   const today = now.toISOString().slice(0, 10);
   const weekN = (() => {
@@ -248,8 +249,22 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
         <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>Abandonment Events — {year}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{yearStats.length} total · {emailPct(yearStats)}</span>
+            {selected.size > 0 && (
+              <button
+                onClick={async () => {
+                  if (!window.confirm(`Delete ${selected.size} selected event${selected.size !== 1 ? 's' : ''}?`)) return;
+                  const batch = writeBatch(db);
+                  selected.forEach(id => batch.delete(doc(db, 'abandonmentStats', id)));
+                  await batch.commit().catch(() => {});
+                  setSelected(new Set());
+                }}
+                style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, fontFamily: FONT, fontSize: 11, color: '#dc2626', cursor: 'pointer', padding: '4px 12px' }}
+              >
+                Delete selected ({selected.size})
+              </button>
+            )}
             {yearStats.length > 0 && (
               <button
                 onClick={async () => {
@@ -257,6 +272,7 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
                   const batch = writeBatch(db);
                   yearStats.forEach(s => batch.delete(doc(db, 'abandonmentStats', s.id)));
                   await batch.commit().catch(() => {});
+                  setSelected(new Set());
                 }}
                 style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, fontFamily: FONT, fontSize: 11, color: '#dc2626', cursor: 'pointer', padding: '4px 12px' }}
               >
@@ -272,6 +288,13 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: C.bg }}>
+                  <th style={{ padding: '10px 14px' }}>
+                    <input type="checkbox"
+                      checked={yearStats.length > 0 && selected.size === yearStats.length}
+                      onChange={e => setSelected(e.target.checked ? new Set(yearStats.map(s => s.id)) : new Set())}
+                      style={{ accentColor: C.accent, cursor: 'pointer' }}
+                    />
+                  </th>
                   {['Date', 'Step', 'Package', 'Frequency', 'First Clean', 'Monthly Value', 'Email Sent', 'Outcome', ''].map(h => (
                     <th key={h} style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, textAlign: 'left', padding: '10px 14px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
@@ -281,7 +304,13 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
                 {yearStats.map((s, i) => {
                   const mv = monthlyValue(s.totalAmount, s.frequency);
                   return (
-                    <tr key={s.id} style={{ borderTop: `1px solid ${C.border}`, background: i % 2 === 0 ? C.card : C.bg }}>
+                    <tr key={s.id} style={{ borderTop: `1px solid ${C.border}`, background: selected.has(s.id) ? `${C.accent}11` : i % 2 === 0 ? C.card : C.bg }}>
+                      <td style={{ padding: '10px 14px' }}>
+                        <input type="checkbox" checked={selected.has(s.id)}
+                          onChange={e => setSelected(prev => { const n = new Set(prev); e.target.checked ? n.add(s.id) : n.delete(s.id); return n; })}
+                          style={{ accentColor: C.accent, cursor: 'pointer' }}
+                        />
+                      </td>
                       <td style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '10px 14px', whiteSpace: 'nowrap' }}>{s.date}</td>
                       <td style={{ padding: '10px 14px' }}>
                         <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: s.step === 3 ? '#fef9c3' : '#e0f2fe', color: s.step === 3 ? '#854d0e' : '#0369a1' }}>
