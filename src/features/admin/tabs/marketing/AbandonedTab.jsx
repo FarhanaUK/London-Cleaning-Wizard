@@ -288,15 +288,19 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: C.bg }}>
-                  <th style={{ padding: '10px 14px' }}>
-                    <input type="checkbox"
-                      checked={yearStats.length > 0 && selected.size === yearStats.length}
-                      onChange={e => setSelected(e.target.checked ? new Set(yearStats.map(s => s.id)) : new Set())}
-                      style={{ accentColor: C.accent, cursor: 'pointer' }}
-                    />
-                  </th>
-                  {['Date', 'Step', 'Package', 'Frequency', 'First Clean', 'Monthly Value', 'Email Sent', 'Outcome', ''].map(h => (
-                    <th key={h} style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, textAlign: 'left', padding: '10px 14px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                  {['Date', 'Step', 'Package', 'Frequency', 'First Clean', 'Monthly Value', 'Email Sent', 'Outcome', ''].map((h, i) => (
+                    <th key={i} style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, textAlign: 'left', padding: '10px 14px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+                      {i === 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input type="checkbox"
+                            checked={yearStats.length > 0 && selected.size === yearStats.length}
+                            onChange={e => setSelected(e.target.checked ? new Set(yearStats.map(s => s.id)) : new Set())}
+                            style={{ accentColor: C.accent, cursor: 'pointer' }}
+                          />
+                          {h}
+                        </div>
+                      ) : h}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -305,13 +309,15 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
                   const mv = monthlyValue(s.totalAmount, s.frequency);
                   return (
                     <tr key={s.id} style={{ borderTop: `1px solid ${C.border}`, background: selected.has(s.id) ? `${C.accent}11` : i % 2 === 0 ? C.card : C.bg }}>
-                      <td style={{ padding: '10px 14px' }}>
-                        <input type="checkbox" checked={selected.has(s.id)}
-                          onChange={e => setSelected(prev => { const n = new Set(prev); e.target.checked ? n.add(s.id) : n.delete(s.id); return n; })}
-                          style={{ accentColor: C.accent, cursor: 'pointer' }}
-                        />
+                      <td style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input type="checkbox" checked={selected.has(s.id)}
+                            onChange={e => setSelected(prev => { const n = new Set(prev); e.target.checked ? n.add(s.id) : n.delete(s.id); return n; })}
+                            style={{ accentColor: C.accent, cursor: 'pointer', flexShrink: 0 }}
+                          />
+                          {s.date}
+                        </div>
                       </td>
-                      <td style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '10px 14px', whiteSpace: 'nowrap' }}>{s.date}</td>
                       <td style={{ padding: '10px 14px' }}>
                         <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: s.step === 3 ? '#fef9c3' : '#e0f2fe', color: s.step === 3 ? '#854d0e' : '#0369a1' }}>
                           {s.step === 3 ? 'Details' : 'Payment'}
@@ -337,7 +343,7 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
                         }
                       </td>
                       <td style={{ padding: '6px 10px' }}>
-                        <button onClick={() => { if (window.confirm('Delete this event?')) deleteDoc(doc(db, 'abandonmentStats', s.id)).catch(() => {}); }} style={{ background: 'none', border: 'none', color: C.muted, fontSize: 16, cursor: 'pointer', lineHeight: 1, padding: 2 }}>×</button>
+                        <button onClick={() => deleteDoc(doc(db, 'abandonmentStats', s.id)).catch(() => {})} style={{ background: 'none', border: 'none', color: C.muted, fontSize: 16, cursor: 'pointer', lineHeight: 1, padding: 2 }}>×</button>
                       </td>
                     </tr>
                   );
