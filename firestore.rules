@@ -40,10 +40,10 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
-    // Abandonment stats — admin read only (writes via cloud functions)
+    // Abandonment stats — admin read + delete; writes via cloud functions only
     match /abandonmentStats/{id} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow read, delete: if request.auth != null;
+      allow create, update: if false;
     }
 
     // Booking funnel — public write (unauthenticated visitors), admin read + delete

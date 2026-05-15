@@ -246,9 +246,24 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
 
       {/* Events table */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>Abandonment Events — {year}</span>
-          <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{yearStats.length} total · {emailPct(yearStats)}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{yearStats.length} total · {emailPct(yearStats)}</span>
+            {yearStats.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (!window.confirm(`Delete all ${yearStats.length} abandonment events for ${year}?`)) return;
+                  const batch = writeBatch(db);
+                  yearStats.forEach(s => batch.delete(doc(db, 'abandonmentStats', s.id)));
+                  await batch.commit().catch(() => {});
+                }}
+                style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, fontFamily: FONT, fontSize: 11, color: '#dc2626', cursor: 'pointer', padding: '4px 12px' }}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
         </div>
         {yearStats.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', fontFamily: FONT, fontSize: 13, color: C.muted }}>No abandonment events yet this year.</div>
@@ -257,7 +272,7 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: C.bg }}>
-                  {['Date', 'Step', 'Package', 'Frequency', 'First Clean', 'Monthly Value', 'Email Sent', 'Outcome'].map(h => (
+                  {['Date', 'Step', 'Package', 'Frequency', 'First Clean', 'Monthly Value', 'Email Sent', 'Outcome', ''].map(h => (
                     <th key={h} style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, textAlign: 'left', padding: '10px 14px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -291,6 +306,9 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
                           ? <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: '#f1f5f9', color: C.muted }}>Booked (no email)</span>
                           : <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: '#f1f5f9', color: C.muted }}>—</span>
                         }
+                      </td>
+                      <td style={{ padding: '6px 10px' }}>
+                        <button onClick={() => { if (window.confirm('Delete this event?')) deleteDoc(doc(db, 'abandonmentStats', s.id)).catch(() => {}); }} style={{ background: 'none', border: 'none', color: C.muted, fontSize: 16, cursor: 'pointer', lineHeight: 1, padding: 2 }}>×</button>
                       </td>
                     </tr>
                   );
