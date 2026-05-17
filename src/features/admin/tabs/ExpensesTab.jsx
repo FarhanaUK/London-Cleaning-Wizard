@@ -31,6 +31,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
   const [pnlView,            setPnlView]            = useState('month');
   const [pnlTaxYearLabel,   setPnlTaxYearLabel]   = useState(() => currentTaxYear().label.replace(' tax year',''));
   const [pnlTyOpen,         setPnlTyOpen]         = useState(false);
+  const [pnlCalYear,        setPnlCalYear]        = useState(() => String(new Date().getFullYear()));
   const [hmrcTaxYearLabel,  setHmrcTaxYearLabel]  = useState(() => currentTaxYear().label.replace(' tax year',''));
   const [hmrcTyOpen,        setHmrcTyOpen]        = useState(false);
 
@@ -253,7 +254,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button style={TAB_S(expenseTab==='variable')} onClick={() => { setExpenseTab('variable'); localStorage.setItem('expenseTab','variable'); }}>Variable</button>
           <button style={TAB_S(expenseTab==='fixed')} onClick={() => { setExpenseTab('fixed'); localStorage.setItem('expenseTab','fixed'); }}>
-            Fixed {fixedCosts.length > 0 && <span style={{ fontSize: 11, opacity: 0.8 }}>· £{fixedMonthly.toFixed(2)}/mo</span>}
+            Direct Debits
           </button>
           <button style={TAB_S(expenseTab==='pnl')} onClick={() => { setExpenseTab('pnl'); localStorage.setItem('expenseTab','pnl'); }}>P&amp;L</button>
           <button style={TAB_S(expenseTab==='hmrc')} onClick={() => { setExpenseTab('hmrc'); localStorage.setItem('expenseTab','hmrc'); }}>HMRC</button>
@@ -414,9 +415,22 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         <div>
           <div style={{ background: C.card, borderRadius: 10, padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: 16, display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Monthly Overhead · {now.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}</div>
-              <div style={{ fontFamily: FONT, fontSize: 32, fontWeight: 700, color: C.text }}>£{fixedMonthly.toFixed(2)}</div>
-              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 2 }}>£{(fixedMonthly * 12).toFixed(2)}/year · {fixedCosts.filter(f => f.active && fixedInPeriod(f) && !(f.startDate && f.startDate.slice(0,7) > thisMonthStr) && !(f.endDate && f.endDate < today)).length} active costs</div>
+              {(() => {
+                const { start, end } = fixedPeriodBounds;
+                const periodLabel = fixedMonthFilter === 'all' ? 'All Time'
+                  : fixedMonthFilter.startsWith('ty:') ? `Tax Year ${fixedMonthFilter.slice(3)}`
+                  : new Date(fixedMonthFilter + '-01').toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+                const periodTotal = fixedCosts.filter(f => f.active && (!start || (!(f.startDate && f.startDate > end) && !(f.endDate && f.endDate < start))) && !(f.startDate && f.startDate > today)).reduce((s, f) => {
+                  const amt = parseFloat(f.amount) || 0;
+                  return s + (f.frequency === 'yearly' ? amt / 12 : amt);
+                }, 0);
+                const activeCount = fixedCosts.filter(f => f.active && fixedInPeriod(f)).length;
+                return (<>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Direct Debits · {periodLabel}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 32, fontWeight: 700, color: C.text }}>£{periodTotal.toFixed(2)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 2 }}>{activeCount} active direct debits</div>
+                </>);
+              })()}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               <select value={fixedMonthFilter} onChange={e => setFixedMonthFilter(e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 'auto', fontSize: 13 }}>
@@ -433,7 +447,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                 fixedCosts.forEach(f => rows.push([`"${f.name||''}"`, parseFloat(f.amount||0).toFixed(2), f.frequency||'', (f.frequency==='yearly'?parseFloat(f.amount||0):parseFloat(f.amount||0)*12).toFixed(2), f.account||'', f.active?'Yes':'No', `"${(f.notes||'').replace(/"/g,'""')}"`]));
                 const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')); a.download = 'fixed-costs.csv'; a.click();
               }} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}>⬇ CSV</button>}
-              <button onClick={() => setFixedModal({ mode: 'add', data: { active: true, frequency: 'monthly', account: 'Monzo' } })} style={{ ...BTN, background: '#1e40af', color: '#fff' }}>+ Add Fixed Cost</button>
+              <button onClick={() => setFixedModal({ mode: 'add', data: { active: true, frequency: 'monthly', account: 'Monzo' } })} style={{ ...BTN, background: '#1e40af', color: '#fff' }}>+ Add Direct Debit</button>
             </div>
           </div>
           {fixedCosts.length === 0 ? (
@@ -665,13 +679,38 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         const moBkgs    = bookings.filter(b => b.cleanDate >= moStart && b.cleanDate <= moEnd && !b.status?.startsWith('cancelled'));
         const moRevenue = moBkgs.reduce((s, b) => s + collectedAmt(b), 0);
         const moLabour  = labourInRange(moStart, moEnd);
-        const moVarExp  = expenses.filter(e => e.date >= moStart && e.date <= moEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+        const moVarExp  = expenses.filter(e => e.date >= moStart && e.date <= moEnd && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
         const moSupExp  = supplies.filter(s => s.purchaseDate >= moStart && s.purchaseDate <= moEnd).reduce((s, sup) => s + supCost(sup), 0);
         const moAdSpend = marketingSpend.filter(e => e.date >= moStart && e.date <= moEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
         const moTotal   = moLabour + moVarExp + moSupExp + moAdSpend + fixedMonthly;
         const moProfit  = moRevenue - moTotal;
         const moMargin  = moRevenue > 0 ? (moProfit / moRevenue) * 100 : 0;
         const moLabourPct = moRevenue > 0 ? (moLabour / moRevenue) * 100 : 0;
+
+        const fixedForMonth = (mS, mE) =>
+          fixedCosts.filter(f => f.active && !(f.startDate && f.startDate > mE) && !(f.endDate && f.endDate < mS) && !(f.startDate && f.startDate > today)).reduce((s, f) => {
+            const amt = parseFloat(f.amount) || 0;
+            return s + (f.frequency === 'yearly' ? amt / 12 : amt);
+          }, 0);
+
+        const threeMonths = [2, 1, 0].map(offset => {
+          const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          const mS = `${key}-01`;
+          const mE = `${key}-${String(new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
+          const label = d.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+          const bkgs = bookings.filter(b => b.cleanDate >= mS && b.cleanDate <= mE && !b.status?.startsWith('cancelled'));
+          const rev = bkgs.reduce((s, b) => s + collectedAmt(b), 0);
+          const lab = labourInRange(mS, mE);
+          const vExp = expenses.filter(e => e.date >= mS && e.date <= mE && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+          const sup = supplies.filter(s => s.purchaseDate >= mS && s.purchaseDate <= mE).reduce((s, su) => s + supCost(su), 0);
+          const ads = marketingSpend.filter(e => e.date >= mS && e.date <= mE).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+          const fixed = fixedForMonth(mS, mE);
+          const total = lab + vExp + sup + ads + fixed;
+          const profit = rev - total;
+          const margin = rev > 0 ? (profit / rev) * 100 : 0;
+          return { key, label, bkgCount: bkgs.length, rev, lab, vExp, sup, ads, fixed, total, profit, margin, isCurrent: offset === 0 };
+        });
 
         const selectedTY = taxYears.find(t => t.label.replace(' tax year','') === pnlTaxYearLabel) || taxYear;
         const isCurrentTY = pnlTaxYearLabel === taxYear.label;
@@ -683,7 +722,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         const tyBkgs    = bookings.filter(b => b.cleanDate >= selectedTY.start && b.cleanDate <= selectedTY.end && !b.status?.startsWith('cancelled'));
         const tyRevenue = tyBkgs.reduce((s, b) => s + collectedAmt(b), 0);
         const tyLabour  = labourInRange(selectedTY.start, selectedTY.end);
-        const tyVarExp  = expenses.filter(e => e.date >= selectedTY.start && e.date <= selectedTY.end).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+        const tyVarExp  = expenses.filter(e => e.date >= selectedTY.start && e.date <= selectedTY.end && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
         const tySupExp  = supplies.filter(s => s.purchaseDate >= selectedTY.start && s.purchaseDate <= selectedTY.end).reduce((s, sup) => s + supCost(sup), 0);
         const tyAdSpend = marketingSpend.filter(e => e.date >= selectedTY.start && e.date <= selectedTY.end).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
         const pnlTyMonths = f => {
@@ -747,7 +786,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
           const exp    = expenses.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
           const sup    = supplies.filter(s => s.purchaseDate >= mStart && s.purchaseDate <= mEnd).reduce((s, sup) => s + supCost(sup), 0);
           const ads    = marketingSpend.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
-          const total  = lab + exp + sup + ads + fixedMonthly;
+          const total  = lab + exp + sup + ads + fixedForMonth(mStart, mEnd);
           const isFuture = d > now;
           return { label, rev, total, profit: rev - total, isFuture };
         });
@@ -767,18 +806,24 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
               <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>
                 {isTY
                   ? <>Tax Year <strong style={{ color: C.text }}>{selectedTY.label.replace(' tax year','')}</strong> · 6 Apr – 5 Apr</>
-                  : <>Month: <strong style={{ color: C.text }}>{new Date(now.getFullYear(), now.getMonth(), 1).toLocaleString('en-GB',{month:'long',year:'numeric'})}</strong></>
+                  : <>3-month view · <strong style={{ color: C.text }}>{threeMonths[0].label} – {threeMonths[2].label}</strong> · Calendar months (1st–last day, not tax-year aligned)</>
                 }
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <button onClick={() => {
-                  const period = isTY ? `tax-year-${selectedTY.label.replace(' tax year','').replace('/','_')}` : new Date().toISOString().slice(0,7);
-                  const rows = [['Period','Revenue','Cleaner pay','Variable Costs','Supplies','Ad Spend','Fixed Costs','Total Costs','Net Profit','Margin %']];
-                  rows.push([period, revenue.toFixed(2), labour.toFixed(2), varExp.toFixed(2), supExp.toFixed(2), adSpend.toFixed(2), fixed.toFixed(2), totalCosts.toFixed(2), profit.toFixed(2), netMargin.toFixed(1)+'%']);
-                  if (isTY) tyMonths.forEach(m => rows.push([m.label, m.rev.toFixed(2), '', '', '', m.total.toFixed(2), m.profit.toFixed(2), '']));
-                  const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')); a.download = `pnl-${period}.csv`; a.click();
+                  if (isTY) {
+                    const period = `tax-year-${selectedTY.label.replace(' tax year','').replace('/','_')}`;
+                    const rows = [['Period','Revenue','Cleaner pay','Variable Costs','Supplies','Ad Spend','Direct Debits','Total Costs','Net Profit','Margin %']];
+                    rows.push([period, revenue.toFixed(2), labour.toFixed(2), varExp.toFixed(2), supExp.toFixed(2), adSpend.toFixed(2), fixed.toFixed(2), totalCosts.toFixed(2), profit.toFixed(2), netMargin.toFixed(1)+'%']);
+                    tyMonths.forEach(m => rows.push([m.label, m.rev.toFixed(2), '', '', '', m.total.toFixed(2), m.profit.toFixed(2), '']));
+                    const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')); a.download = `pnl-${period}.csv`; a.click();
+                  } else {
+                    const rows = [['Month','Revenue','Cleaner pay','Variable Costs','Supplies','Ad Spend','Direct Debits','Total Costs','Net Profit','Margin %']];
+                    threeMonths.forEach(m => rows.push([m.label, m.rev.toFixed(2), m.lab.toFixed(2), m.vExp.toFixed(2), m.sup.toFixed(2), m.ads.toFixed(2), m.fixed.toFixed(2), m.total.toFixed(2), m.profit.toFixed(2), m.margin.toFixed(1)+'%']));
+                    const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')); a.download = 'pnl-3months.csv'; a.click();
+                  }
                 }} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}>⬇ CSV</button>
-                <button style={PTAB(!isTY)} onClick={() => setPnlView('month')}>This Month</button>
+                <button style={PTAB(!isTY)} onClick={() => setPnlView('month')}>Monthly</button>
                 <div style={{ position: 'relative' }}>
                   <button
                     style={{ ...PTAB(isTY), display: 'flex', alignItems: 'center', gap: 6 }}
@@ -809,56 +854,99 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(7,1fr)', gap: 12, marginBottom: 20 }}>
-              <div style={{ ...PCARD, borderTop: '3px solid #16a34a' }}>
-                <div style={KLABEL2}>Revenue</div>
-                <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#16a34a' }}>£{revenue.toFixed(2)}</div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{bkgCount} jobs</div>
+            {isTY && (
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(7,1fr)', gap: 12, marginBottom: 20 }}>
+                <div style={{ ...PCARD, borderTop: '3px solid #16a34a' }}>
+                  <div style={KLABEL2}>Revenue</div>
+                  <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#16a34a' }}>£{revenue.toFixed(2)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{bkgCount} jobs</div>
+                </div>
+                <div style={{ ...PCARD, borderTop: '3px solid #7c3aed' }}>
+                  <div style={KLABEL2}>Cleaner pay</div>
+                  <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#7c3aed' }}>£{labour.toFixed(2)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{labourPct.toFixed(1)}% of revenue</div>
+                </div>
+                <div style={{ ...PCARD, borderTop: '3px solid #dc2626' }}>
+                  <div style={KLABEL2}>Variable costs</div>
+                  <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#dc2626' }}>£{varExp.toFixed(2)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>variable expenses</div>
+                </div>
+                <div style={{ ...PCARD, borderTop: '3px solid #0ea5e9' }}>
+                  <div style={KLABEL2}>Supplies</div>
+                  <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#0ea5e9' }}>£{supExp.toFixed(2)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>purchased this period</div>
+                </div>
+                <div style={{ ...PCARD, borderTop: '3px solid #ec4899' }}>
+                  <div style={KLABEL2}>Ad spend</div>
+                  <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#ec4899' }}>£{adSpend.toFixed(2)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>marketing</div>
+                </div>
+                <div style={{ ...PCARD, borderTop: '3px solid #f97316' }}>
+                  <div style={KLABEL2}>Direct Debits</div>
+                  <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#f97316' }}>£{fixed.toFixed(2)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>recurring payments</div>
+                </div>
+                <div style={{ ...PCARD, borderTop: `3px solid ${profit >= 0 ? '#16a34a' : '#dc2626'}`, gridColumn: isMobile ? '1/-1' : 'auto' }}>
+                  <div style={KLABEL2}>Net Profit</div>
+                  <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: profit >= 0 ? '#16a34a' : '#dc2626' }}>£{profit.toFixed(2)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{netMargin.toFixed(1)}% margin</div>
+                </div>
               </div>
-              <div style={{ ...PCARD, borderTop: '3px solid #7c3aed' }}>
-                <div style={KLABEL2}>Cleaner pay</div>
-                <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#7c3aed' }}>£{labour.toFixed(2)}</div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{labourPct.toFixed(1)}% of revenue</div>
+            )}
+            {!isTY && (
+              <div style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: 20, overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, padding: '0 12px 12px 0', width: '34%' }} />
+                      {threeMonths.map(m => (
+                        <th key={m.key} style={{ textAlign: 'right', fontSize: 11, fontWeight: m.isCurrent ? 700 : 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: m.isCurrent ? BIZ : C.muted, padding: '0 0 12px 12px', whiteSpace: 'nowrap' }}>{m.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label: 'Revenue',        key: 'rev',    color: '#16a34a', bold: true  },
+                      { label: 'Cleaner Pay',    key: 'lab',    color: '#7c3aed', bold: false },
+                      { label: 'Variable Costs', key: 'vExp',   color: '#dc2626', bold: false },
+                      { label: 'Supplies',       key: 'sup',    color: '#0ea5e9', bold: false },
+                      { label: 'Ad Spend',       key: 'ads',    color: '#ec4899', bold: false },
+                      { label: 'Direct Debits',  key: 'fixed',  color: '#f97316', bold: false, sep: true },
+                      { label: 'Total Costs',    key: 'total',  color: C.text,    bold: true,  sep: true },
+                      { label: 'Net Profit',     key: 'profit', color: null,      bold: true  },
+                      { label: 'Margin',         key: 'margin', color: null,      bold: false, sep: true, isMargin: true },
+                    ].map(({ label, key, color, bold, sep, isMargin }) => (
+                      <tr key={label}>
+                        <td style={{ fontSize: 13, color: C.text, fontWeight: bold ? 600 : 400, padding: '9px 12px 9px 0', borderTop: sep ? `2px solid ${C.border}` : `1px solid ${C.border}` }}>{label}</td>
+                        {threeMonths.map(m => {
+                          const val = m[key];
+                          const col = key === 'profit' ? (val >= 0 ? '#16a34a' : '#dc2626')
+                                    : key === 'margin' ? (val >= 20 ? '#16a34a' : val >= 0 ? '#f97316' : '#dc2626')
+                                    : color;
+                          return (
+                            <td key={m.key} style={{ textAlign: 'right', fontSize: 13, fontWeight: bold ? 700 : 400, color: col, padding: `9px 0 9px 12px`, borderTop: sep ? `2px solid ${C.border}` : `1px solid ${C.border}` }}>
+                              {isMargin ? `${val.toFixed(1)}%` : `£${Math.abs(val).toFixed(2)}`}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div style={{ ...PCARD, borderTop: '3px solid #dc2626' }}>
-                <div style={KLABEL2}>Variable costs</div>
-                <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#dc2626' }}>£{varExp.toFixed(2)}</div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>variable expenses</div>
-              </div>
-              <div style={{ ...PCARD, borderTop: '3px solid #0ea5e9' }}>
-                <div style={KLABEL2}>Supplies</div>
-                <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#0ea5e9' }}>£{supExp.toFixed(2)}</div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>purchased this period</div>
-              </div>
-              <div style={{ ...PCARD, borderTop: '3px solid #ec4899' }}>
-                <div style={KLABEL2}>Ad spend</div>
-                <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#ec4899' }}>£{adSpend.toFixed(2)}</div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>marketing</div>
-              </div>
-              <div style={{ ...PCARD, borderTop: '3px solid #f97316' }}>
-                <div style={KLABEL2}>Fixed</div>
-                <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: '#f97316' }}>£{fixed.toFixed(2)}</div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{isTY ? 'annual overhead' : 'monthly overhead'}</div>
-              </div>
-              <div style={{ ...PCARD, borderTop: `3px solid ${profit >= 0 ? '#16a34a' : '#dc2626'}`, gridColumn: isMobile ? '1/-1' : 'auto' }}>
-                <div style={KLABEL2}>Net Profit</div>
-                <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: profit >= 0 ? '#16a34a' : '#dc2626' }}>£{profit.toFixed(2)}</div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{netMargin.toFixed(1)}% margin</div>
-              </div>
-            </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
               <div style={{ background: C.card, borderRadius: 10, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>{isTY ? `Tax Year ${taxYear.label} Breakdown` : 'This Month Breakdown'}</div>
-                {[
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>{isTY ? `Tax Year ${taxYear.label} Breakdown` : `${threeMonths[2].label} — Margin Analysis`}</div>
+                {isTY && [
                   ['Revenue',         revenue,     '#16a34a', true],
                   ['Cleaner pay',          -labour,     '#7c3aed', false],
                   ['Variable costs',  -varExp,     '#dc2626', false],
                   ['Supplies',        -supExp,     '#0ea5e9', false],
                   ['Ad spend',        -adSpend,    '#ec4899', false],
-                  ['Fixed overhead',  -fixed,      '#f97316', false],
+                  ['Direct Debits',   -fixed,      '#f97316', false],
                   ['Total costs',     -totalCosts, C.muted,   false],
-                  ['Net profit',      profit,      profit >= 0 ? '#16a34a' : '#dc2626', true],
                 ].map(([label, val, col, bold], i, arr) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: label === 'Total costs' ? `2px solid ${C.border}` : i < arr.length-1 ? `1px solid ${C.border}` : 'none', fontFamily: FONT }}>
                     <span style={{ fontSize: 13, color: C.text, fontWeight: bold ? 700 : 400 }}>{label}</span>
@@ -895,18 +983,66 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
               </div>
 
               <div style={{ background: C.card, borderRadius: 10, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>P&L — Tax Year {taxYear.label}</div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? 3 : 5, height: 100 }}>
-                  {tyMonths.map((m, idx) => (
-                    <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: m.isFuture ? 0.2 : 1 }}>
-                      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1, justifyContent: 'flex-end', height: 80 }}>
-                        <div style={{ background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxPnl)*70}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(2)}`} />
-                        <div style={{ background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.total/maxPnl)*70}px`, minHeight: m.total > 0 ? 2 : 0, opacity: 0.7 }} title={`Total costs £${m.total.toFixed(2)}`} />
+                {isTY ? (<>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 2 }}>P&L — Tax Year {selectedTY.label.replace(' tax year','')}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 10 }}>Each bar covers the 6th to the 5th (e.g. Apr = 6 Apr–5 May, Mar = 6 Mar–5 Apr)</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? 3 : 5, height: 100 }}>
+                    {tyMonths.map((m, idx) => (
+                      <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: m.isFuture ? 0.2 : 1 }}>
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1, justifyContent: 'flex-end', height: 80 }}>
+                          <div style={{ background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxPnl)*70}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(2)}`} />
+                          <div style={{ background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.total/maxPnl)*70}px`, minHeight: m.total > 0 ? 2 : 0, opacity: 0.7 }} title={`Total costs £${m.total.toFixed(2)}`} />
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{m.label}</div>
                       </div>
-                      <div style={{ fontFamily: FONT, fontSize: 9, color: C.muted }}>{m.label}</div>
+                    ))}
+                  </div>
+                </>) : (() => {
+                  const calYearInt = parseInt(pnlCalYear);
+                  const availableYears = Array.from({ length: now.getFullYear() - 2024 }, (_, i) => String(2025 + i));
+                  const calMonths = Array.from({ length: 12 }, (_, i) => {
+                    const mS = `${calYearInt}-${String(i+1).padStart(2,'0')}-01`;
+                    const lastDay = new Date(calYearInt, i+1, 0).getDate();
+                    const mE = `${calYearInt}-${String(i+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+                    const label = new Date(calYearInt, i, 1).toLocaleString('en-GB', { month: 'short' });
+                    const isFuture = new Date(calYearInt, i, 1) > now;
+                    const bkgs = bookings.filter(b => b.cleanDate >= mS && b.cleanDate <= mE && !b.status?.startsWith('cancelled'));
+                    const rev = bkgs.reduce((s, b) => s + collectedAmt(b), 0);
+                    const lab = labourInRange(mS, mE);
+                    const vExp = expenses.filter(e => e.date >= mS && e.date <= mE && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+                    const sup = supplies.filter(s => s.purchaseDate >= mS && s.purchaseDate <= mE).reduce((s, su) => s + supCost(su), 0);
+                    const ads = marketingSpend.filter(e => e.date >= mS && e.date <= mE).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+                    const fixed = fixedForMonth(mS, mE);
+                    const total = lab + vExp + sup + ads + fixed;
+                    return { label, rev, total, isFuture };
+                  });
+                  const pastMonths = calMonths.filter(m => !m.isFuture);
+                  const ytdRev = pastMonths.reduce((s, m) => s + m.rev, 0);
+                  const ytdCosts = pastMonths.reduce((s, m) => s + m.total, 0);
+                  const ytdProfit = ytdRev - ytdCosts;
+                  const maxCal = Math.max(...calMonths.map(m => Math.max(m.rev, m.total)), 1);
+                  const curCalMonth = `${String(now.getMonth()+1).padStart(2,'0')}`;
+                  return (<>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Revenue vs Costs — {pnlCalYear}</div>
+                      <select value={pnlCalYear} onChange={e => setPnlCalYear(e.target.value)} style={{ fontFamily: FONT, fontSize: 11, padding: '2px 6px', borderRadius: 5, border: `1px solid ${C.border}`, background: C.card, color: C.text, cursor: 'pointer' }}>
+                        {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
                     </div>
-                  ))}
-                </div>
+                    <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 6 }}>Calendar months · YTD profit: <strong style={{ color: ytdProfit >= 0 ? '#16a34a' : '#dc2626' }}>£{ytdProfit.toFixed(2)}</strong></div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? 2 : 4, height: 90 }}>
+                      {calMonths.map((m, i) => (
+                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, opacity: m.isFuture ? 0.2 : 1 }}>
+                          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1, justifyContent: 'flex-end', height: 72 }}>
+                            <div style={{ background: '#16a34a', borderRadius: '3px 3px 0 0', height: `${(m.rev/maxCal)*65}px`, minHeight: m.rev > 0 ? 2 : 0, opacity: 0.85 }} title={`Revenue £${m.rev.toFixed(2)}`} />
+                            <div style={{ background: '#dc2626', borderRadius: '3px 3px 0 0', height: `${(m.total/maxCal)*65}px`, minHeight: m.total > 0 ? 2 : 0, opacity: 0.7 }} title={`Total costs £${m.total.toFixed(2)}`} />
+                          </div>
+                          <div style={{ fontFamily: FONT, fontSize: 8, color: String(i+1).padStart(2,'0') === curCalMonth && calYearInt === now.getFullYear() ? BIZ : C.muted, fontWeight: String(i+1).padStart(2,'0') === curCalMonth && calYearInt === now.getFullYear() ? 700 : 400 }}>{m.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>);
+                })()}
                 <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, background: '#16a34a', borderRadius: 2 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Revenue</span></div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, background: '#dc2626', borderRadius: 2, opacity: 0.7 }} /><span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Total costs</span></div>
@@ -951,8 +1087,8 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
             let d = new Date(f.startDate);
             const psd = new Date(selectedHmrcTY.start);
             while (d < psd) d.setFullYear(d.getFullYear() + 1);
-            const payStr = d.toISOString().split('T')[0];
-            return payStr <= hmrcEndOfCap ? amt : 0;
+            const payStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            return payStr >= selectedHmrcTY.start && payStr <= hmrcEndOfCap ? amt : 0;
           }
           const pnlTyStart = selectedHmrcTY.start;
           const effStart = f.startDate && f.startDate > pnlTyStart ? f.startDate : pnlTyStart;
@@ -1000,7 +1136,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
           });
           if (tySuppliesHMRC > 0) rows.push(['Box 18', 'Supplies purchased', tySuppliesHMRC.toFixed(2)]);
           if (tyAdSpendHMRC > 0) rows.push(['Box 25', 'Ad spend / marketing', tyAdSpendHMRC.toFixed(2)]);
-          activeFixed.forEach(f => { if (hmrcFixedItem(f) > 0) rows.push(['Fixed', f.name, hmrcFixedItem(f).toFixed(2)]); });
+          activeFixed.forEach(f => { if (hmrcFixedItem(f) > 0) rows.push(['Direct Debit', f.name, hmrcFixedItem(f).toFixed(2)]); });
           if (tyLabourHMRC > 0) rows.push(['Box 30', 'Cleaner pay (from job times)', tyLabourHMRC.toFixed(2)]);
           rows.push(['Box 31 TOTAL', `Total Allowable Expenses - Tax Year ${hmrcTaxYearLabel}${isCurrentTaxYear ? ' (actual to date)' : ''}`, grandTotal.toFixed(2)]);
           const csv = '﻿' + rows.map(r => r.map(csvField).join(',')).join('\n');
@@ -1101,7 +1237,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
 
             <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 16 }}>
               <div style={{ padding: '12px 20px', background: C.bg, borderBottom: `2px solid ${C.border}`, display: 'flex', justifyContent: 'space-between' }}>
-                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Fixed Costs {isCurrentTaxYear ? '(actual payments to date)' : '(full tax year)'}</div>
+                <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Direct Debits {isCurrentTaxYear ? '(actual payments to date)' : '(full tax year)'}</div>
                 <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Amount</div>
               </div>
               {activeFixed.length === 0
@@ -1111,7 +1247,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                   if (actual === 0) return null;
                   return (
                     <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 20px', borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
-                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#1e40af', background: '#eff6ff', borderRadius: 4, padding: '2px 7px', flexShrink: 0 }}>Fixed</div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#1e40af', background: '#eff6ff', borderRadius: 4, padding: '2px 7px', flexShrink: 0 }}>Direct Debit</div>
                       <div style={{ flex: 1, fontFamily: FONT, fontSize: 13, color: C.text }}>{f.name}</div>
                       <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{actual.toFixed(2)}</div>
                     </div>
@@ -1150,7 +1286,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
             </div>
 
             <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 12, lineHeight: 1.5 }}>
-              * This uses the SA103F (Self-Employment Full) supplementary page. Boxes 18–30 are individual expense categories; Box 31 is the total. Fixed costs are annualised (×12 for monthly). If your annual turnover is under £90,000 you can use the simpler SA103S (Short) form — the Box 31 total above works for both.
+              * This uses the SA103F (Self-Employment Full) supplementary page. Boxes 18–30 are individual expense categories; Box 31 is the total. Direct debits are counted by actual payment dates. If your annual turnover is under £90,000 you can use the simpler SA103S (Short) form — the Box 31 total above works for both.
             </div>
           </div>
         );
@@ -1276,7 +1412,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text }}>{fixedModal.mode === 'add' ? 'Add Fixed Cost' : 'Edit Fixed Cost'}</div>
+                <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text }}>{fixedModal.mode === 'add' ? 'Add Direct Debit' : 'Edit Direct Debit'}</div>
                 <button onClick={() => setFixedModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>✕</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1325,7 +1461,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: FONT, fontSize: 13, color: C.text }}>
                   <input type="checkbox" checked={!!d.active} onChange={e => setFixedModal(m => ({ ...m, data: { ...m.data, active: e.target.checked } }))} />
-                  Active (included in monthly overhead total)
+                  Active (included in monthly direct debits total)
                 </label>
               </div>
               {fixedErr && <div style={{ fontFamily: FONT, fontSize: 12, color: '#dc2626', marginTop: 10 }}>{fixedErr}</div>}

@@ -54,9 +54,7 @@ export const getTaxYears = () => {
   const now = new Date();
   const years = [];
   for (let y = now.getFullYear(); y >= 2025; y--) {
-    const start = new Date(y, 3, 6);
-    const end   = new Date(y + 1, 3, 5);
-    years.push({ label: `${y}/${String(y+1).slice(2)} tax year`, start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] });
+    years.push({ label: `${y}/${String(y+1).slice(2)} tax year`, start: `${y}-04-06`, end: `${y+1}-04-05` });
   }
   return years;
 };

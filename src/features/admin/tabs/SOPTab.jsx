@@ -60,8 +60,8 @@ export default function SOPTab({ isMobile, C }) {
           </div>
         ))}
 
-        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 8px' }}>Fixed Costs tab: recurring monthly/yearly overheads</div>
-        {['Things like insurance, phone bill, software subscriptions.', 'Mark them monthly or yearly. Yearly ones are divided by 12 so you see a true monthly overhead figure.', 'Shows your total fixed overhead per month at a glance.'].map((item, i) => (
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 8px' }}>Direct Debits tab: recurring monthly/yearly payments</div>
+        {['Things like insurance, phone bill, software subscriptions.', 'Mark them monthly or yearly. Shows what was actually paid each month.', 'Shows your total recurring payments per month at a glance.'].map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
             <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
             <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
@@ -80,16 +80,16 @@ export default function SOPTab({ isMobile, C }) {
           <strong style={{ color: C.text }}>Note:</strong> Don't log individual supplies here. Just log the total purchase amount (e.g. "£45 at Costco"). Use the <strong style={{ color: C.text }}>Supplies tab</strong> to track stock levels and reorder points.
         </div>
 
-        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Why separate fixed and variable?</div>
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Why separate direct debits and variable costs?</div>
         <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 10 }}>
-          <strong>Fixed costs</strong> are the same every month regardless of how busy you are: insurance, phone bill, software subscriptions. You set them once and forget them. They tell you your minimum monthly outgoing before you've done a single job.
+          <strong>Direct debits</strong> are the same every month regardless of how busy you are: insurance, phone bill, software subscriptions. You set them once and forget them. They tell you your minimum monthly outgoing before you've done a single job.
         </div>
         <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
           <strong>Variable costs</strong> change month to month depending on activity: supplies, fuel, equipment. Some months you spend £20, others £200.
         </div>
         <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, marginBottom: 8 }}>The reason to separate them is so you can answer questions like:</div>
         {[
-          '"Even if I do zero jobs this month, I need to cover £X" → that\'s your fixed costs.',
+          '"Even if I do zero jobs this month, I need to cover £X" → that\'s your direct debits.',
           '"The more jobs I do, the more I spend on X" → that\'s your variable costs.',
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
@@ -110,7 +110,7 @@ export default function SOPTab({ isMobile, C }) {
           { label: 'Revenue',               desc: 'Money coming in from bookings in that period.' },
           { label: 'Subcontractor costs',   desc: 'Payments to self-employed cleaners, calculated from actual job start/finish times times their agreed rate. They are not employees; they handle their own tax and NI.' },
           { label: 'Variable costs',        desc: 'What you logged in the Variable tab for that period: supplies, fuel, equipment etc.' },
-          { label: 'Fixed costs',           desc: 'Your monthly overhead (insurance, software etc). Same every month regardless of jobs.' },
+          { label: 'Direct debits',          desc: 'Your recurring payments (insurance, software etc). What was actually paid in that period.' },
           { label: 'Net profit',            desc: 'Revenue minus all costs. This is what you actually made.' },
           { label: 'Profit margin',         desc: 'Net profit as a percentage of revenue. Higher is better.' },
         ].map(({ label, desc }) => (

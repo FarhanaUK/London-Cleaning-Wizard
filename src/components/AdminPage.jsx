@@ -241,7 +241,7 @@ export default function AdminPage() {
           id: `expense_end_${fc.id}_${monthKey}`,
           type: 'expense_ending',
           title: `${fc.name} ending soon`,
-          message: `Fixed cost "${fc.name}" ends on ${new Date(fc.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}. Review or renew it in Expenses.`,
+          message: `Direct debit "${fc.name}" ends on ${new Date(fc.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}. Review or renew it in Expenses.`,
           link: 'expenses',
           icon: '📅',
         });
