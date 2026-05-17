@@ -132,12 +132,6 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
   const reimbursableItems = supplies.filter(s => s.paidBy === 'Personal — Reimbursable' && !s.repaid);
   const reimbursable      = reimbursableItems.reduce((s, x) => s + itemCost(x), 0);
 
-  const catBreakdown = SUPPLY_CATS.map(cat => ({
-    cat,
-    value: supplies.filter(s => s.category === cat).reduce((s, x) => s + itemCost(x), 0),
-    budget: parseFloat(budgets?.[cat]) || 0,
-  })).filter(c => c.budget > 0).sort((a, b) => b.value - a.value);
-  const maxCatValue = Math.max(...catBreakdown.map(c => c.value), 1);
 
   const allMonths = [];
   const cursor = new Date(2026, 0, 1);
@@ -155,6 +149,13 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
            s.whereToBuy?.toLowerCase().includes(search.toLowerCase());
   });
   const totalFiltered = filteredInv.reduce((s, x) => s + itemCost(x), 0);
+
+  const catBreakdown = SUPPLY_CATS.map(cat => ({
+    cat,
+    value: filteredInv.filter(s => s.category === cat).reduce((s, x) => s + itemCost(x), 0),
+    budget: parseFloat(budgets?.[cat]) || 0,
+  })).filter(c => c.value > 0 || c.budget > 0).sort((a, b) => b.value - a.value);
+  const maxCatValue = Math.max(...catBreakdown.map(c => Math.max(c.value, c.budget)), 1);
 
   const exportCSV = () => {
     const rows = [['Name', 'Category', 'Purchase Date', 'In Stock', 'Unit Cost', 'Total Value', 'Reorder At', 'Paid By', 'Where to Buy', 'Notes']];
@@ -343,35 +344,41 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
           </div>
 
           {/* By Category sidebar */}
-          <div style={{ background: C.card, borderRadius: 10, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>By Category</div>
-              <button onClick={openBudget} style={{ fontFamily: FONT, fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>Set budgets</button>
+          <div style={{ background: C.card, borderRadius: 10, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: `1px solid ${C.border}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>By Category</div>
+              <button onClick={openBudget} style={{ fontFamily: FONT, fontSize: 11, color: BIZ, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontWeight: 600 }}>Set budgets</button>
             </div>
-            {catBreakdown.length === 0 ? <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>Set budgets to track spending by category.</div> : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {catBreakdown.length === 0 ? (
+              <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>No items in this view.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {catBreakdown.map(c => {
+                  const col  = CAT_COLOURS[c.cat] || BIZ;
                   const bgt  = c.budget;
-                  const pct  = Math.min((c.value / bgt) * 100, 100);
-                  const over = c.value > bgt;
+                  const pct  = bgt > 0 ? Math.min((c.value / bgt) * 100, 100) : 100;
+                  const over = bgt > 0 && c.value > bgt;
                   return (
                     <div key={c.cat}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                        <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{c.cat}</span>
-                        <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: over ? '#dc2626' : C.text }}>
-                          £{c.value.toFixed(2)}{bgt > 0 ? ` / £${bgt.toFixed(2)}` : ''}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: col, flexShrink: 0 }} />
+                          <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text }}>{c.cat}</span>
+                        </div>
+                        <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: over ? '#dc2626' : col }}>
+                          £{c.value.toFixed(2)}{bgt > 0 ? <span style={{ fontWeight: 400, color: C.muted, fontSize: 11 }}> / £{bgt.toFixed(2)}</span> : ''}
                         </span>
                       </div>
-                      <div style={{ height: 6, background: C.bg, borderRadius: 99, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: over ? '#dc2626' : CAT_COLOURS[c.cat] || BIZ, borderRadius: 99 }} />
+                      <div style={{ height: 7, background: C.bg, borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${bgt > 0 ? pct : 0}%`, background: over ? '#dc2626' : col, borderRadius: 99 }} />
                       </div>
-                      {over && <div style={{ fontFamily: FONT, fontSize: 10, color: '#dc2626', marginTop: 2 }}>Over budget by £{(c.value - bgt).toFixed(2)}</div>}
+                      {over && <div style={{ fontFamily: FONT, fontSize: 10, color: '#dc2626', marginTop: 2 }}>Over by £{(c.value - bgt).toFixed(2)}</div>}
                     </div>
                   );
                 })}
-                <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ borderTop: `2px solid ${C.border}`, paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted }}>Total</span>
-                  <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>£{catBreakdown.reduce((s, c) => s + c.value, 0).toFixed(2)}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.text }}>£{totalFiltered.toFixed(2)}</span>
                 </div>
               </div>
             )}
