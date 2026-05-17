@@ -76,6 +76,7 @@ export default function BookingPage() {
 
   // Write to Firestore only when user advances to a new step (never go backwards)
   useEffect(() => {
+    if (localStorage.getItem('lcw_test_mode') === '1') return;
     if (step <= maxStepTracked.current) return;
     maxStepTracked.current = step;
     const now = new Date();
@@ -189,7 +190,9 @@ export default function BookingPage() {
           {step === 2 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(3)} onBack={() => goToStep(1)} />}
           {step === 3 && <BookingStep3 booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} isMobile={isMobile} />}
           {step === 4 && <BookingStep4 booking={booking} onUpdate={update} onSuccess={(res) => {
-            setDoc(doc(db, 'bookingFunnel', funnelId), { converted: true, maxStep: 5, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+            if (localStorage.getItem('lcw_test_mode') !== '1') {
+              setDoc(doc(db, 'bookingFunnel', funnelId), { converted: true, maxStep: 5, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+            }
             sessionStorage.removeItem('bkFunnelId');
             setResult(res); setStep(5); setConfirmed(true); sessionStorage.removeItem(SESSION_KEY);
           }} onBack={() => goToStep(3)} />}

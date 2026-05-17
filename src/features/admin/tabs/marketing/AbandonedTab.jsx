@@ -87,6 +87,15 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
   const [showSessions, setShowSessions] = useState(false);
   const [deletingAll,  setDeletingAll]  = useState(false);
 
+  const [funnelPeriod, setFunnelPeriod] = useState({ month: now.getMonth() + 1, year: now.getFullYear() });
+  const FUNNEL_START = { month: 5, year: 2026 };
+  const isFirstPeriod = funnelPeriod.month === FUNNEL_START.month && funnelPeriod.year === FUNNEL_START.year;
+  const goBack = () => { if (isFirstPeriod) return; setFunnelPeriod(p => p.month === 1 ? { month: 12, year: p.year - 1 } : { month: p.month - 1, year: p.year }); };
+  const goForward = () => setFunnelPeriod(p => p.month === 12 ? { month: 1, year: p.year + 1 } : { month: p.month + 1, year: p.year });
+  const isCurrentPeriod = funnelPeriod.month === month && funnelPeriod.year === year;
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const periodLabel = `${MONTH_NAMES[funnelPeriod.month - 1]} ${funnelPeriod.year}`;
+
   const deleteSessions = async (ids) => {
     const batch = writeBatch(db);
     ids.forEach(id => batch.delete(doc(db, 'bookingFunnel', id)));
@@ -94,14 +103,14 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
   };
 
   const handleDeleteAll = async () => {
-    if (!window.confirm(`Delete all ${funnelMonth.length} funnel sessions for this month?`)) return;
+    if (!window.confirm(`Delete all ${funnelMonth.length} funnel sessions for ${periodLabel}?`)) return;
     setDeletingAll(true);
     await deleteSessions(funnelMonth.map(s => s.id)).catch(() => {});
     setDeletingAll(false);
   };
 
   // Funnel — per session, only count the highest step reached; exclude converted
-  const funnelMonth = funnelData.filter(s => s.month === month && s.year === year);
+  const funnelMonth = funnelData.filter(s => s.month === funnelPeriod.month && s.year === funnelPeriod.year);
   const STEP_LABELS = ['', 'Service', 'Schedule', 'Details', 'Payment'];
   const funnelRows = useMemo(() => {
     const total = funnelMonth.length;
@@ -119,7 +128,14 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
   return (
     <>
       {/* Booking Funnel */}
-      <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 10 }}>Booking funnel — {month}/{year}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>Booking funnel</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={goBack} disabled={isFirstPeriod} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: FONT, fontSize: 14, color: isFirstPeriod ? C.muted : C.text, cursor: isFirstPeriod ? 'default' : 'pointer', padding: '2px 10px', lineHeight: 1.4, opacity: isFirstPeriod ? 0.4 : 1 }}>&#8592;</button>
+          <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, minWidth: 110, textAlign: 'center' }}>{periodLabel}</span>
+          <button onClick={goForward} disabled={isCurrentPeriod} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: FONT, fontSize: 14, color: isCurrentPeriod ? C.muted : C.text, cursor: isCurrentPeriod ? 'default' : 'pointer', padding: '2px 10px', lineHeight: 1.4, opacity: isCurrentPeriod ? 0.4 : 1 }}>&#8594;</button>
+        </div>
+      </div>
       <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 14 }}>Each session counted once at the furthest step reached. Abandoned = left at that step without going further.</div>
       {funnelRows.length === 0 ? (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '24px 20px', fontFamily: FONT, fontSize: 13, color: C.muted, textAlign: 'center', marginBottom: 24 }}>
@@ -169,7 +185,7 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
               {showSessions ? '▲' : '▼'} {showSessions ? 'Hide' : 'Show'} session log ({funnelMonth.length} sessions)
             </button>
             <button onClick={handleDeleteAll} disabled={deletingAll} style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, fontFamily: FONT, fontSize: 11, color: '#dc2626', cursor: 'pointer', padding: '4px 12px' }}>
-              {deletingAll ? 'Deleting…' : 'Clear all this month'}
+              {deletingAll ? 'Deleting…' : `Clear all (${periodLabel})`}
             </button>
           </div>
           {showSessions && (

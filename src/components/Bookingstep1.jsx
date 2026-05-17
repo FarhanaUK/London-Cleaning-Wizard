@@ -24,12 +24,22 @@ const PACKAGE_DETAIL = {
     ],
     sections: [
       {
-        heading: 'Everything in Regular Clean, plus:',
+        heading: 'Everything in Regular Clean (Essential Reset), plus:',
+        baseItems: [
+          'Full home clean across all rooms',
+          'All surfaces wiped and reset',
+          'Floors vacuumed and mopped throughout',
+          'Kitchen cleaned (worktops, backsplash, cupboard doors and handles, sink, all appliance exteriors)',
+          'Bathroom cleaned (toilet, sink, shower, mirrors)',
+          'Doors and door frames lightly cleaned and spot-wiped',
+          'High-touch areas sanitised (e.g. light switches, door handles)',
+          'Bins emptied and relined',
+        ],
         items: [
           'Linen change',
           'Hotel-style bed presentation (tight, smooth, and styled)',
           'Cushions and soft furnishings neatly arranged',
-          'Light decluttering and surface organisation',
+          'Items tidied in place — nothing moved or relocated',
           'Surfaces left minimal, aligned, and intentional',
           'A complete "reset" of how your home feels',
           'Microwave deep clean',
@@ -305,8 +315,8 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
         </div>
         <div className="pkg-tab-bar">
           {[
-            { id: 'signature',  label: 'Signature Packages' },
-            { id: 'hourly',     label: 'Hourly Clean' },
+            { id: 'signature',  label: 'Home Cleans' },
+            { id: 'hourly',     label: 'Hourly Cleans' },
             { id: 'commercial', label: 'Commercial & Airbnb' },
           ].map(t => (
             <button
@@ -344,7 +354,8 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                       onClick={() => handlePackageSelect(pkg)}
                       style={{ flex: 1, padding: '12px 10px', border: sel ? '1.5px solid #2c2420' : '1px solid rgba(200,184,154,0.4)', borderRadius: 6, background: sel ? '#2c2420' : 'transparent', color: sel ? '#f5f0e8' : '#5a4e44', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', outline: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start' }}
                     >
-                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, fontWeight: 500, marginBottom: 4, lineHeight: 1.3 }}>{pkg.name.split(' - ')[0]}</div>
+                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, fontWeight: 500, marginBottom: 2, lineHeight: 1.3 }}>{pkg.name.split(' - ')[0]}</div>
+                      {pkg.name.includes(' - ') && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: sel ? 'rgba(245,240,232,0.5)' : '#a89070', letterSpacing: '0.04em', marginBottom: 2 }}>({pkg.name.split(' - ')[1]})</div>}
                       <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: sel ? '#c8b89a' : '#8b7355' }}>
                         {offerPrice
                           ? <><span style={{ textDecoration: 'line-through', marginRight: 4, opacity: 0.6 }}>£{pkg.sizes[0].basePrice}</span>from £{offerPrice}</>
@@ -395,6 +406,16 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                           {d.sections.map((sec, si) => (
                             <div key={si} style={{ marginBottom: 10 }}>
                               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#2c2420', fontWeight: 600, marginBottom: 6, letterSpacing: '0.04em' }}>{sec.heading}</div>
+                              {sec.baseItems && (
+                                <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(200,184,154,0.2)' }}>
+                                  {sec.baseItems.map((item, i) => (
+                                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 4 }}>
+                                      <span style={{ color: '#c8b89a', fontSize: 10, flexShrink: 0, marginTop: 2 }}>✓</span>
+                                      <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#8b7355', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                               {sec.items.map((item, i) => (
                                 <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
                                   <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>

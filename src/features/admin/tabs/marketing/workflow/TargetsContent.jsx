@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { SLabel, MktMetric, MktAlert, Divider, AddBtn, DragHandle, useDragSort, MKT, FONT, SERIF, EDIT_INPUT, DEL_BTN, genId, usePersisted } from './MktShared';
 
 const DEFAULT_MONTHLY = [
@@ -16,7 +17,7 @@ const DEFAULT_CARDS = [
 
 const DEFAULT_ROADMAP = [
   { id: 'cr1', text: 'Campaign 1 (live) — LCW Premium Areas Residential · Farhana · premium London postcodes', tag: 'Now', green: true },
-  { id: 'cr2', text: "Campaign 2 — LCW General Residential · Steven · fix urgently · broader London keywords", tag: 'Month 2', green: false },
+  { id: 'cr2', text: "Campaign 2 (live) — LCW General Residential · Steven · broader London keywords", tag: 'Now', green: true },
   { id: 'cr3', text: 'Campaign 3 — LCW Airbnb London · Shoreditch, City, Canary Wharf · £75/month', tag: 'Month 3', green: false },
   { id: 'cr4', text: 'Campaign 4 — LCW Deep Clean London · all London within 8 miles · £75/month', tag: 'Month 3', green: false },
   { id: 'cr5', text: 'Campaign 5 — LCW Office London · business districts · £50/month', tag: 'Month 4+', green: false },
@@ -63,7 +64,21 @@ export default function TargetsContent({ editMode }) {
   const [monthly,  setMonthly]  = usePersisted('mkt_targets_monthly',  DEFAULT_MONTHLY);
   const [cards,    setCards]    = usePersisted('mkt_targets_cards',    DEFAULT_CARDS);
   const [roadmap,  setRoadmap]  = usePersisted('mkt_campaigns',        DEFAULT_ROADMAP);
-  const { dragHandlers: rmDrag, isOver: rmOver } = useDragSort(roadmap, setRoadmap);
+  const { dragHandlers: rmDrag, isOver: rmOver, isAfter: rmAfter } = useDragSort(roadmap, setRoadmap);
+
+  // Migration: mark Campaign 2 live + restore any accidentally deleted default entries
+  useEffect(() => {
+    setRoadmap(prev => {
+      let next = prev.map(r => r.id === 'cr2' && !r.green
+        ? { ...r, text: 'Campaign 2 (live) — LCW General Residential · Steven · broader London keywords', tag: 'Now', green: true }
+        : r
+      );
+      DEFAULT_ROADMAP.forEach(def => {
+        if (!next.find(r => r.id === def.id)) next = [...next, def];
+      });
+      return next;
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -97,13 +112,21 @@ export default function TargetsContent({ editMode }) {
       <SLabel>Google Ads campaigns roadmap</SLabel>
       <div style={{ background: MKT.card, border: `0.5px solid ${MKT.border}`, borderRadius: 10, padding: '1.25rem' }}>
         {roadmap.map((item, i) => (
-          <div key={item.id} {...rmDrag(i)} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderBottom: i < roadmap.length - 1 ? '0.5px solid rgba(255,255,255,0.04)' : 'none', outline: rmOver(i) ? `1px dashed rgba(201,169,110,0.4)` : 'none' }}>
+          <div key={item.id} {...rmDrag(i)} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderTop: rmOver(i) && !rmAfter(i) ? '2px solid rgba(201,169,110,0.6)' : '0.5px solid transparent', borderBottom: rmOver(i) && rmAfter(i) ? '2px solid rgba(201,169,110,0.6)' : i < roadmap.length - 1 ? '0.5px solid rgba(255,255,255,0.04)' : '0.5px solid transparent' }}>
             <DragHandle style={{ marginTop: 2 }} />
             <span style={{ color: MKT.gold, fontSize: 12, flexShrink: 0, marginTop: editMode ? 6 : 2 }}>→</span>
             {editMode ? (
               <>
                 <input value={item.text} onChange={e => setRoadmap(rs => rs.map(r => r.id === item.id ? { ...r, text: e.target.value } : r))} style={{ ...EDIT_INPUT, flex: 1, fontSize: 13 }} />
-                <input value={item.tag || ''} onChange={e => setRoadmap(rs => rs.map(r => r.id === item.id ? { ...r, tag: e.target.value } : r))} style={{ ...EDIT_INPUT, width: 70, fontSize: 10, flexShrink: 0 }} placeholder="tag" />
+                <select
+                  value={item.tag || ''}
+                  onChange={e => setRoadmap(rs => rs.map(r => r.id === item.id ? { ...r, tag: e.target.value, green: e.target.value === 'Now' } : r))}
+                  style={{ ...EDIT_INPUT, width: 80, fontSize: 10, flexShrink: 0, color: item.tag === 'Now' ? MKT.green : MKT.muted, cursor: 'pointer' }}
+                >
+                  {['Now', 'Month 2', 'Month 3', 'Month 4+', 'Month 5+'].map(o => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
                 <button onClick={() => setRoadmap(rs => rs.filter(r => r.id !== item.id))} style={DEL_BTN}>×</button>
               </>
             ) : (

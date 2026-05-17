@@ -8,8 +8,8 @@ const INPUT = { fontFamily: FONT, fontSize: 14, padding: '8px 12px', borderRadiu
 const BTN  = { fontFamily: FONT, fontSize: 14, fontWeight: 600, padding: '9px 18px', borderRadius: 7, border: 'none', cursor: 'pointer', transition: 'opacity 0.15s' };
 const BIZ  = '#1e40af';
 
-const CATS = ['Supplies', 'Fuel & Mileage', 'Public Transport', 'Equipment', 'Marketing', 'Insurance', 'Staff Costs', 'Rent & Utilities', 'Software & Tools', 'Other'];
-const CAT_COLOURS = { 'Supplies':'#0ea5e9','Fuel & Mileage':'#f97316','Public Transport':'#fb923c','Equipment':'#8b5cf6','Marketing':'#ec4899','Insurance':'#14b8a6','Staff Costs':'#16a34a','Rent & Utilities':'#6366f1','Software & Tools':'#f59e0b','Other':'#94a3b8' };
+const CATS = ['Supplies', 'Fuel & Mileage', 'Public Transport', 'Equipment', 'Insurance', 'Staff Costs', 'Rent & Utilities', 'Software & Tools', 'Other'];
+const CAT_COLOURS = { 'Supplies':'#0ea5e9','Fuel & Mileage':'#f97316','Public Transport':'#fb923c','Equipment':'#8b5cf6','Insurance':'#14b8a6','Staff Costs':'#16a34a','Rent & Utilities':'#6366f1','Software & Tools':'#f59e0b','Other':'#94a3b8' };
 const PAID_BY = ['Company Card', 'Cash', 'Personal — Reimbursable', 'Direct Debit'];
 const PAID_BY_COLOURS = { 'Company Card':'#6366f1','Cash':'#16a34a','Personal — Reimbursable':'#dc2626','Direct Debit':'#0ea5e9' };
 const HMRC_RATE = 0.45;
@@ -53,8 +53,12 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
     return unsub;
   }, []);
 
+  const today = now.toISOString().slice(0, 10);
+  const thisMonthStr = today.slice(0, 7);
   const fixedMonthly = fixedCosts.reduce((s, f) => {
     if (!f.active) return s;
+    if (f.startDate && f.startDate.slice(0, 7) > thisMonthStr) return s;
+    if (f.endDate && f.endDate < today) return s;
     const amt = parseFloat(f.amount) || 0;
     return s + (f.frequency === 'yearly' ? amt / 12 : amt);
   }, 0);
@@ -170,7 +174,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
     if (!d.startDate) { setFixedErr('Start date is required.'); return; }
     setFixedSaving(true); setFixedErr('');
     try {
-      const payload = { name: d.name.trim(), amount: parseFloat(d.amount), frequency: d.frequency || 'monthly', dueDayOfMonth: d.dueDayOfMonth || '', account: d.account || 'Monzo', accountHolder: d.accountHolder?.trim() || '', active: !!d.active, notes: d.notes?.trim() || '', startDate: d.startDate, endDate: d.endDate || '' };
+      const payload = { name: d.name.trim(), amount: parseFloat(d.amount), category: d.category || 'Other', frequency: d.frequency || 'monthly', dueDayOfMonth: d.dueDayOfMonth || '', account: d.account || 'Monzo', accountHolder: d.accountHolder?.trim() || '', active: !!d.active, notes: d.notes?.trim() || '', startDate: d.startDate, endDate: d.endDate || '' };
       if (fixedModal.mode === 'add') await addDoc(collection(db, 'fixedCosts'), { ...payload, createdAt: new Date().toISOString() });
       else await updateDoc(doc(db, 'fixedCosts', d.id), payload);
       setFixedModal(null);
@@ -383,31 +387,78 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
             <div style={{ background: C.card, borderRadius: 8, padding: 48, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
               <div style={{ fontFamily: FONT, fontSize: 14, color: C.muted }}>No fixed costs added yet — add your subscriptions, insurance, phone bill etc.</div>
             </div>
-          ) : (
-            <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 80px 80px 36px', gap: 12, padding: '10px 20px', borderBottom: `2px solid ${C.border}`, background: C.bg }}>
-                {['Name','Amount','Frequency','Due','Account',''].map(h => <div key={h} style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>{h}</div>)}
-              </div>
-              {[...fixedCosts].sort((a,b) => (a.name||'').localeCompare(b.name||'')).map((f, i, arr) => (
-                <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 80px 80px 36px', gap: 12, padding: '12px 20px', borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none', alignItems: 'center', opacity: f.active ? 1 : 0.45, background: !f.active ? C.bg : 'transparent' }}>
-                  <div>
-                    <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{f.name}</div>
-                    {f.notes && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, fontStyle: 'italic' }}>{f.notes}</div>}
-                    {f.accountHolder && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{f.accountHolder}</div>}
+          ) : (() => {
+            const fixedCatTotals = CATS.map(cat => {
+              const total = fixedCosts.filter(f => f.active && f.category === cat).reduce((s, f) => {
+                const amt = parseFloat(f.amount) || 0;
+                return s + (f.frequency === 'yearly' ? amt / 12 : amt);
+              }, 0);
+              return { cat, total };
+            }).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
+            const maxFixedCat = Math.max(...fixedCatTotals.map(c => c.total), 1);
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 260px', gap: 16, alignItems: 'start' }}>
+                <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 80px 80px 36px', gap: 12, padding: '10px 20px', borderBottom: `2px solid ${C.border}`, background: C.bg }}>
+                    {['Name','Amount','Frequency','Due','Account',''].map(h => <div key={h} style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>{h}</div>)}
                   </div>
-                  <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>£{parseFloat(f.amount||0).toFixed(2)}</div>
-                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{f.frequency === 'yearly' ? `Yearly (£${(parseFloat(f.amount||0)/12).toFixed(2)}/mo)` : 'Monthly'}</div>
-                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{f.dueDayOfMonth ? `${f.dueDayOfMonth}${['th','st','nd','rd'][Math.min(parseInt(f.dueDayOfMonth)%10,3)]||'th'} of mo` : '—'}</div>
-                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{f.account||'—'}</div>
-                  <button onClick={() => setFixedModal({ mode: 'edit', data: { ...f } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 13 }}>✏️</button>
+                  {[...fixedCosts].sort((a,b) => (a.name||'').localeCompare(b.name||'')).map((f, i, arr) => {
+                    const notStarted = f.active && f.startDate && f.startDate.slice(0, 7) > thisMonthStr;
+                    const hasEnded   = f.active && f.endDate && f.endDate < today;
+                    const excluded   = notStarted || hasEnded || !f.active;
+                    return (
+                    <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 80px 80px 36px', gap: 12, padding: '12px 20px', borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none', alignItems: 'center', background: excluded ? C.bg : 'transparent' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: excluded ? C.muted : C.text }}>{f.name}</div>
+                          {f.category && <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 10, background: (CAT_COLOURS[f.category] || '#94a3b8') + '22', color: excluded ? C.muted : (CAT_COLOURS[f.category] || '#94a3b8') }}>{f.category}</span>}
+                          {notStarted && <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 10, background: '#fef9c3', color: '#854d0e' }}>Not started · {new Date(f.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}
+                          {hasEnded   && <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 10, background: '#fef2f2', color: '#dc2626' }}>Ended · {new Date(f.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}
+                          {!f.active  && <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 10, background: C.border, color: C.muted }}>Inactive</span>}
+                        </div>
+                        {f.notes && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, fontStyle: 'italic' }}>{f.notes}</div>}
+                        {f.accountHolder && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{f.accountHolder}</div>}
+                      </div>
+                      <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: excluded ? C.muted : C.text }}>£{parseFloat(f.amount||0).toFixed(2)}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{f.frequency === 'yearly' ? `Yearly (£${(parseFloat(f.amount||0)/12).toFixed(2)}/mo)` : 'Monthly'}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{f.dueDayOfMonth ? `${f.dueDayOfMonth}${['th','st','nd','rd'][Math.min(parseInt(f.dueDayOfMonth)%10,3)]||'th'} of mo` : '—'}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{f.account||'—'}</div>
+                      <button onClick={() => setFixedModal({ mode: 'edit', data: { ...f } })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 13 }}>✏️</button>
+                    </div>
+                    );
+                  })}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 80px 80px 36px', gap: 12, padding: '12px 20px', background: C.bg, borderTop: `2px solid ${C.border}` }}>
+                    <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: C.muted }}>TOTAL (active)</div>
+                    <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{fixedMonthly.toFixed(2)}/mo</div>
+                  </div>
                 </div>
-              ))}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 80px 80px 36px', gap: 12, padding: '12px 20px', background: C.bg, borderTop: `2px solid ${C.border}` }}>
-                <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: C.muted }}>TOTAL (active)</div>
-                <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{fixedMonthly.toFixed(2)}/mo</div>
+                <div style={{ background: C.card, borderRadius: 10, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>By Category</div>
+                  {fixedCatTotals.length === 0 ? (
+                    <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>Add categories to your fixed costs to see breakdown</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {fixedCatTotals.map(({ cat, total }) => (
+                        <div key={cat}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                            <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{cat}</span>
+                            <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: C.text }}>£{total.toFixed(2)}/mo</span>
+                          </div>
+                          <div style={{ height: 6, background: C.bg, borderRadius: 99, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${(total / maxFixedCat) * 100}%`, background: CAT_COLOURS[cat] || '#94a3b8', borderRadius: 99 }} />
+                          </div>
+                        </div>
+                      ))}
+                      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted }}>Total</span>
+                        <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>£{fixedMonthly.toFixed(2)}/mo</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
@@ -876,6 +927,12 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, isM
                     <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>End Date <span style={{ fontWeight: 400 }}>(leave blank if ongoing)</span></div>
                     <input type="date" value={d.endDate || ''} onChange={e => setFixedModal(m => ({ ...m, data: { ...m.data, endDate: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
                   </div>
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Category</div>
+                  <select value={d.category || 'Other'} onChange={e => setFixedModal(m => ({ ...m, data: { ...m.data, category: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }}>
+                    {CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
                 <div>
                   <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Frequency</div>

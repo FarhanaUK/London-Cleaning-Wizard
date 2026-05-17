@@ -167,8 +167,8 @@ export const PROPERTY_TYPES = [
 export const PACKAGES = [
   {
     id: 'standard', name: 'Signature Hotel Reset', popular: true, launchOffer: 0.5,
-    desc: 'Designed to create a calm, refined, hotel-like finish in your home. Typically 3.5–4.5 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
-    tags: ['Whole home', 'Same cleaner', 'Linen change', 'Hotel finish'],
+    desc: 'Your home cleaned, styled, and reset to a standard that actually feels different when you walk in. Typically 3.5–4.5 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
+    tags: ['Whole home', 'Same cleaner', 'Linen change', 'Attention to detail'],
     showFreq: true, showAddons: true,
     sizes: [
       { id: 'studio', label: 'Studio',    basePrice: P.standard.studio },
@@ -179,7 +179,7 @@ export const PACKAGES = [
     ],
   },
   {
-    id: 'refresh', name: 'Regular Clean - The Essential Reset', popular: false,
+    id: 'refresh', name: 'Essential Reset - Regular Clean', popular: false,
     desc: 'This service focuses on visible cleanliness and overall reset. Heavier buildup or stubborn marks may require a Deep Clean. Typically 3–4 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
     tags: ['Whole home'],
     showFreq: true, showAddons: true,
@@ -194,7 +194,7 @@ export const PACKAGES = [
   
 
   {
-    id: 'deep', name: 'Deep Clean - Deep Reset', popular: false,
+    id: 'deep', name: 'Deep Reset - Deep Clean', popular: false,
     desc: 'A full transformation clean for heavily used or move-in ready homes. 2 cleaners · estimated 4–10 hrs depending on property size.',
     tags: ['Oven included', 'Inside fridge', 'Behind appliances', 'Photo report'],
     showFreq: false, showAddons: false,

@@ -1,47 +1,110 @@
 import { useState, useEffect, useRef } from 'react';
+import { db } from '../../../../../firebase/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-export const FONT  = "'Jost', sans-serif";
-export const SERIF = "'Cormorant Garamond', serif";
+// ── Firestore sync ────────────────────────────────────────────────────────────
+
+const MKT_DOC = doc(db, 'mkt_data', 'lcw');
+
+// Keys that must never leave the device
+const LOCAL_ONLY = new Set(['mkt_analytics_current', 'lcw_anthropic_key']);
+
+// Keys worth tracking in the change log (so AI knows when settings were last updated)
+const TRACKED_CHANGES = {
+  'mkt_budget_rows':          'Marketing budget',
+  'mkt_campaigns':            'Campaign roadmap',
+  'mkt_targets_monthly':      'Booking targets',
+  'mkt_investment_channels':  'Investment channels',
+  'mkt_budget_cut':           'Budget cut order',
+  'mkt_budget_scale':         'Scale-up rules',
+  'mkt_priority_actions':     'Priority actions',
+};
+
+export function recordChange(label) {
+  try {
+    const log  = JSON.parse(localStorage.getItem('mkt_change_log')) || [];
+    const next = [{ label, date: new Date().toISOString() }, ...log.filter(e => e.label !== label)].slice(0, 30);
+    localStorage.setItem('mkt_change_log', JSON.stringify(next));
+  } catch {}
+}
+
+// Shared one-time Firestore load — all usePersisted instances share one read
+let _fsPromise = null;
+let _fsCache   = null;
+
+export function loadFirestoreData() {
+  if (_fsCache  !== null) return Promise.resolve(_fsCache);
+  if (_fsPromise)          return _fsPromise;
+  _fsPromise = getDoc(MKT_DOC)
+    .then(s  => { _fsCache = s.exists() ? s.data() : {}; return _fsCache; })
+    .catch(() => { _fsCache = {};                          return _fsCache; });
+  return _fsPromise;
+}
+
+export const FONT  = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+export const SERIF = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
 export const MKT = {
-  bg:           '#1a1410',
-  card:         '#242018',
-  dark3:        '#2e2a24',
-  dark4:        '#3a3530',
-  text:         '#f0ebe0',
-  muted:        '#9a9080',
-  dim:          '#6a6258',
-  gold:         '#c8b89a',
-  green:        '#7fb069',
-  amber:        '#d4a03a',
-  red:          '#c05b5b',
-  blue:         '#6a9bc4',
-  border:       'rgba(201,169,110,0.15)',
-  borderStrong: 'rgba(201,169,110,0.3)',
+  bg:           '#f1f5f9',
+  card:         '#ffffff',
+  dark3:        '#f8fafc',
+  dark4:        '#f1f5f9',
+  text:         '#0f172a',
+  muted:        '#64748b',
+  dim:          '#94a3b8',
+  gold:         '#2563eb',
+  green:        '#16a34a',
+  amber:        '#d97706',
+  red:          '#dc2626',
+  blue:         '#2563eb',
+  border:       '#e2e8f0',
+  borderStrong: '#cbd5e1',
 };
 
 export function genId() {
-  return Math.random().toString(36).slice(2, 9);
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-export function usePersisted(key, defaults) {
+export function usePersisted(key, defaults, onChange) {
   const [data, setData] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(key)) || defaults; }
+    try { return JSON.parse(localStorage.getItem(key)) ?? defaults; }
     catch { return defaults; }
   });
-  const isMounted = useRef(false);
+  const isMounted  = useRef(false);
+  const skipWrite  = useRef(false); // true when a change came FROM Firestore (don't write back)
+
+  // On mount: pull from Firestore once and override localStorage if cloud data exists
+  useEffect(() => {
+    if (LOCAL_ONLY.has(key)) return;
+    loadFirestoreData().then(fsData => {
+      if (fsData[key] !== undefined) {
+        skipWrite.current = true;
+        setData(fsData[key]);
+        localStorage.setItem(key, JSON.stringify(fsData[key]));
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Write to localStorage + Firestore on every user-driven change
   useEffect(() => {
     if (!isMounted.current) { isMounted.current = true; return; }
+    if (skipWrite.current)  { skipWrite.current = false; return; }
     localStorage.setItem(key, JSON.stringify(data));
-  }, [key, data]);
+    if (!LOCAL_ONLY.has(key)) {
+      setDoc(MKT_DOC, { [key]: data }, { merge: true }).catch(() => {});
+    }
+    if (TRACKED_CHANGES[key]) recordChange(TRACKED_CHANGES[key]);
+    onChange?.();
+  }, [key, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return [data, setData];
 }
 
 export const EDIT_INPUT = {
   background: 'transparent',
   border: 'none',
-  borderBottom: '1px solid rgba(201,169,110,0.35)',
-  color: '#f0ebe0',
+  borderBottom: '1px solid #cbd5e1',
+  color: '#0f172a',
   fontFamily: "'Jost', sans-serif",
   fontSize: 13,
   outline: 'none',
@@ -52,7 +115,7 @@ export const EDIT_INPUT = {
 export const DEL_BTN = {
   background: 'transparent',
   border: 'none',
-  color: '#c05b5b',
+  color: '#dc2626',
   cursor: 'pointer',
   fontSize: 18,
   lineHeight: 1,
@@ -69,23 +132,40 @@ export function reorder(list, from, to) {
 }
 
 export function useDragSort(list, setList) {
-  const dragIdx = useRef(null);
-  const [overIdx, setOverIdx] = useState(null);
+  const dragIdx  = useRef(null);
+  const [drop, setDrop] = useState(null); // { idx, after }
 
   function dragHandlers(i) {
     return {
       draggable: true,
       onDragStart: (e) => { dragIdx.current = i; e.dataTransfer.effectAllowed = 'move'; },
-      onDragOver:  (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (overIdx !== i) setOverIdx(i); },
-      onDragLeave: ()  => setOverIdx(null),
-      onDrop:      (e) => { e.preventDefault(); if (dragIdx.current !== null && dragIdx.current !== i) setList(l => reorder(l, dragIdx.current, i)); dragIdx.current = null; setOverIdx(null); },
-      onDragEnd:   ()  => { dragIdx.current = null; setOverIdx(null); },
+      onDragOver: (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const rect  = e.currentTarget.getBoundingClientRect();
+        const after = e.clientY > rect.top + rect.height / 2;
+        setDrop(prev => (prev?.idx === i && prev?.after === after ? prev : { idx: i, after }));
+      },
+      onDragLeave: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDrop(null); },
+      onDrop: (e) => {
+        e.preventDefault();
+        if (dragIdx.current !== null && drop !== null) {
+          const from = dragIdx.current;
+          let to = drop.after ? drop.idx + 1 : drop.idx;
+          if (from < to) to -= 1;
+          if (from !== to) setList(l => reorder(l, from, to));
+        }
+        dragIdx.current = null;
+        setDrop(null);
+      },
+      onDragEnd: () => { dragIdx.current = null; setDrop(null); },
     };
   }
 
-  function isOver(i) { return overIdx === i && dragIdx.current !== null && dragIdx.current !== i; }
+  const isOver  = (i) => drop !== null && drop.idx === i && dragIdx.current !== null && dragIdx.current !== i;
+  const isAfter = (i) => isOver(i) && drop.after;
 
-  return { dragHandlers, isOver };
+  return { dragHandlers, isOver, isAfter };
 }
 
 export function DragHandle({ style }) {
@@ -246,4 +326,219 @@ export function ActionList({ items, editMode, onAdd, onDelete, onUpdate }) {
 
 export function Divider() {
   return <div style={{ height: '0.5px', background: MKT.border, margin: '1.5rem 0' }} />;
+}
+
+const TOOL_KEYS = [
+  { key: 'lcw_ai_debrief',  label: 'Weekly debrief'        },
+  { key: 'lcw_ai_budget',   label: 'Budget recommendations' },
+  { key: 'lcw_ai_adcopy',   label: 'Ad copy review'         },
+  { key: 'lcw_ai_content',  label: 'Content plan'           },
+  { key: 'lcw_ai_diagnose', label: 'Performance diagnosis'  },
+  { key: 'lcw_ai_monthly',  label: 'Monthly review'         },
+];
+
+export function addNotification(message) {
+  try {
+    const existing = JSON.parse(localStorage.getItem('mkt_notifications')) || [];
+    const n = { id: Math.random().toString(36).slice(2, 9), message, date: new Date().toISOString(), read: false };
+    localStorage.setItem('mkt_notifications', JSON.stringify([n, ...existing].slice(0, 50)));
+    window.dispatchEvent(new CustomEvent('mkt-notification-added'));
+  } catch {}
+}
+
+// Field IDs available as auto-triggers — shared with BudgetContent
+export const TRIGGER_FIELDS = [
+  { id: '',       label: 'No auto-trigger' },
+  { id: 'lsa1',   label: 'LSA leads/week' },
+  { id: 'lsa3',   label: 'LSA bookings/week' },
+  { id: 'f6',     label: "Farhana's Ads bookings/week" },
+  { id: 'f6_cum', label: "Farhana's Ads total conversions (all time)" },
+  { id: 'g4',     label: "Steven's Ads bookings/week" },
+  { id: 'h6',     label: 'Instagram bookings/week' },
+  { id: 'i3',     label: 'Facebook bookings/week' },
+  { id: 'j3',     label: 'Nextdoor bookings/week' },
+  { id: 'bk2',    label: 'Bark bookings/week' },
+  { id: 'l1',     label: 'Total bookings/week' },
+  { id: 'l1_cum',   label: 'Total bookings all time' },
+  { id: 'l1_month', label: 'Total bookings this month' },
+];
+
+export function checkScaleNotifications(weekAll) {
+  try {
+    const items = JSON.parse(localStorage.getItem('mkt_budget_scale')) || [];
+    let changed = false;
+    const updated = items.map(item => {
+      if (!item.triggerField || item.notified) return item;
+      let val = 0;
+      if (item.triggerField === 'f6_cum') {
+        const history = JSON.parse(localStorage.getItem('mkt_weekly_history')) || [];
+        val = history.reduce((s, w) => s + (parseFloat(w.all?.f6) || 0), 0);
+      } else if (item.triggerField === 'l1_cum') {
+        const history = JSON.parse(localStorage.getItem('mkt_weekly_history')) || [];
+        val = history.reduce((s, w) => s + (parseFloat(w.all?.l1) || parseFloat(w.bookings) || 0), 0);
+      } else if (item.triggerField === 'l1_month') {
+        const history = JSON.parse(localStorage.getItem('mkt_weekly_history')) || [];
+        const thisMonth = new Date().toISOString().slice(0, 7);
+        val = history.filter(w => w.date && w.date.slice(0, 7) === thisMonth)
+                     .reduce((s, w) => s + (parseFloat(w.all?.l1) || parseFloat(w.bookings) || 0), 0);
+      } else {
+        val = parseFloat(weekAll[item.triggerField]) || 0;
+      }
+      const threshold = parseFloat(item.triggerValue);
+      if (!isNaN(threshold) && threshold > 0 && val >= threshold) {
+        addNotification(`Scale-up milestone reached — ${item.text}`);
+        changed = true;
+        return { ...item, notified: true };
+      }
+      return item;
+    });
+    if (changed) localStorage.setItem('mkt_budget_scale', JSON.stringify(updated));
+  } catch {}
+}
+
+export function buildContext() {
+  const now = new Date();
+  const CAMPAIGN_WEEK1_SUN = '2026-05-17';
+  const sun = new Date(now); sun.setDate(now.getDate() - now.getDay());
+  const thisSun = sun.toISOString().slice(0, 10);
+  const elapsed = Math.floor((new Date(thisSun).getTime() - new Date(CAMPAIGN_WEEK1_SUN).getTime()) / (7 * 24 * 60 * 60 * 1000));
+  const campaignWeek = Math.max(1, elapsed + 1);
+
+  let history = [], channels = [], invHistory = [], budgetRows = [], budgetCut = [], budgetScale = [], roadmap = [], actions = [], targets = [], changeLog = [], weeklyReviews = [];
+  try { history       = JSON.parse(localStorage.getItem('mkt_weekly_history'))      || []; } catch {}
+  try { channels      = JSON.parse(localStorage.getItem('mkt_investment_channels')) || []; } catch {}
+  try { invHistory    = JSON.parse(localStorage.getItem('mkt_investment_history'))  || []; } catch {}
+  try { budgetRows    = JSON.parse(localStorage.getItem('mkt_budget_rows'))         || []; } catch {}
+  try { budgetCut     = JSON.parse(localStorage.getItem('mkt_budget_cut'))          || []; } catch {}
+  try { budgetScale   = JSON.parse(localStorage.getItem('mkt_budget_scale'))        || []; } catch {}
+  try { roadmap       = JSON.parse(localStorage.getItem('mkt_campaigns'))           || []; } catch {}
+  try { actions       = JSON.parse(localStorage.getItem('mkt_priority_actions'))    || []; } catch {}
+  try { targets       = JSON.parse(localStorage.getItem('mkt_targets_monthly'))     || []; } catch {}
+  try { changeLog     = JSON.parse(localStorage.getItem('mkt_change_log'))          || []; } catch {}
+  try { weeklyReviews = JSON.parse(localStorage.getItem('lcw_weekly_reviews'))      || []; } catch {}
+
+  let sections = [];
+  try { sections = JSON.parse(localStorage.getItem('mkt_analytics_sections')) || []; } catch {}
+
+  const lines = [
+    `[LIVE DATA — ${now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}]`,
+    `Campaign week: ${campaignWeek} (W1 starts Sun 17 May · weeks run Sun–Sat · this week commencing ${thisSun})`,
+    '',
+  ];
+
+  if (budgetRows.length) {
+    const total = budgetRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    lines.push(`Marketing budget — £${total}/month total:`);
+    budgetRows.forEach(r => lines.push(`  ${r.name}: £${r.amount}/month (${r.owner}) — ${r.note || ''}`));
+    lines.push('');
+  }
+
+  const liveCampaigns = roadmap.filter(r => r.green);
+  if (liveCampaigns.length) {
+    lines.push('Active campaigns:');
+    liveCampaigns.forEach(r => lines.push(`  → ${r.text}`));
+    lines.push('');
+  }
+
+  const activeActions = actions.filter(a => a && a.trim());
+  if (activeActions.length) {
+    lines.push('Current priority actions:');
+    activeActions.forEach((a, i) => lines.push(`  ${i + 1}. ${a}`));
+    lines.push('');
+  }
+
+  if (history.length) {
+    lines.push('Weekly history (all channels):');
+    [...history].sort((a, b) => a.date.localeCompare(b.date)).forEach((w, i) => {
+      lines.push(`  W${i + 1} (${w.date}) — ${w.bookings || '0'} bookings total:`);
+      if (w.all && sections.length) {
+        for (const s of sections) {
+          const rows = s.fields
+            .filter(f => w.all[f.id] !== undefined && w.all[f.id] !== '')
+            .map(f => `      ${f.label}: ${w.all[f.id]}`);
+          if (rows.length) { lines.push(`    ${s.title}:`); lines.push(...rows); }
+        }
+      } else {
+        const p = [];
+        if (w.impressions) p.push(`imp: ${w.impressions}`);
+        if (w.ctr)         p.push(`CTR: ${w.ctr}%`);
+        if (w.spend)       p.push(`spend: £${w.spend}`);
+        if (w.reviews)     p.push(`reviews: ${w.reviews}`);
+        if (p.length) lines.push('    ' + p.join(' | '));
+      }
+    });
+    lines.push('');
+  } else {
+    lines.push('No weekly history saved yet.', '');
+  }
+
+  const active = channels.filter(c => c.spend || c.bookings);
+  if (active.length) {
+    lines.push('Monthly investment data (current month):');
+    active.forEach(c => {
+      const s = parseFloat(c.spend) || 0, b = parseFloat(c.bookings) || 0;
+      lines.push(`  ${c.label}: £${s} spend | ${b} bookings | CPB: ${b > 0 ? `£${(s / b).toFixed(0)}` : 'no bookings'}`);
+    });
+    lines.push('');
+  }
+
+  const pastMonths = [...invHistory].sort((a, b) => a.month.localeCompare(b.month));
+  if (pastMonths.length > 1) {
+    lines.push('Monthly investment history:');
+    pastMonths.forEach(entry => {
+      lines.push(`  ${entry.month}:`);
+      entry.channels.filter(c => c.spend !== '' || c.bookings !== '').forEach(c => {
+        const s = parseFloat(c.spend) || 0, b = parseFloat(c.bookings) || 0;
+        lines.push(`    ${c.label}: £${s} | ${b} bookings | CPB: ${b > 0 ? `£${(s / b).toFixed(0)}` : 'no bookings'}`);
+      });
+    });
+    lines.push('');
+  }
+
+  const toolOutputs = TOOL_KEYS.map(({ key, label }) => {
+    try {
+      const hist = JSON.parse(localStorage.getItem(key)) || [];
+      if (!hist.length) return null;
+      const latest = hist[0];
+      const snippet = latest.text.slice(0, 400).replace(/\n+/g, ' ').trim();
+      const date = new Date(latest.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      return `  [${label} — ${date}]: ${snippet}${latest.text.length > 400 ? '…' : ''}`;
+    } catch { return null; }
+  }).filter(Boolean);
+  if (toolOutputs.length) {
+    lines.push('Recent AI tool outputs:');
+    toolOutputs.forEach(t => lines.push(t));
+    lines.push('');
+  }
+
+  if (targets.length) {
+    lines.push('Booking targets by phase:');
+    targets.forEach(t => lines.push(`  ${t.label}: ${t.value} bookings`));
+    lines.push('');
+  }
+
+  if (changeLog.length) {
+    lines.push('Recent changes (do not recommend reversing within 2 weeks):');
+    changeLog.forEach(c => {
+      const days = Math.floor((Date.now() - new Date(c.date).getTime()) / (1000 * 60 * 60 * 24));
+      const when = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+      lines.push(`  ${c.label}: last updated ${when}`);
+    });
+    lines.push('');
+  }
+
+  if (weeklyReviews.length) {
+    lines.push('Past weekly reviews:');
+    weeklyReviews.forEach(r => {
+      lines.push(`--- ${r.date} ---`);
+      if (r.messages) {
+        r.messages.filter(m => m.role === 'assistant' && m.content).forEach(m => lines.push(m.content));
+      } else if (r.analysis) {
+        lines.push(r.analysis);
+      }
+      lines.push('');
+    });
+  }
+
+  return lines.join('\n');
 }
