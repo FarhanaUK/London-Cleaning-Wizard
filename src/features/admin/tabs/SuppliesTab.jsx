@@ -24,6 +24,7 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
   const [monthFilter, setMonthFilter] = useState('all');
   const [catFilter,   setCatFilter]   = useState('all');
   const [search,      setSearch]      = useState('');
+  const [checkedItems, setCheckedItems] = useState(new Set());
 
   const [suppliesModal,  setSuppliesModal]  = useState(null);
   const [suppliesSaving, setSuppliesSaving] = useState(false);
@@ -46,10 +47,14 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
     if (!d.name?.trim()) { setSuppliesErr('Name is required.'); return; }
     setSuppliesSaving(true); setSuppliesErr('');
     try {
+      const listPrice = parseFloat(d.unitCost) || 0;
+      const qty       = parseInt(d.inStock) || 1;
+      const discount  = parseFloat(d.discount) || 0;
+      const netUnit   = discount > 0 && qty > 0 ? Math.max(0, (listPrice * qty - discount) / qty) : listPrice;
       const payload = {
         name: d.name.trim(), category: d.category || 'Other', unit: d.unit || 'each',
         inStock: parseInt(d.inStock) || 0, reorderAt: parseInt(d.reorderAt) || 0,
-        unitCost: parseFloat(d.unitCost) || 0, purchaseDate: d.purchaseDate || '',
+        unitCost: parseFloat(netUnit.toFixed(4)), purchaseDate: d.purchaseDate || '',
         paidBy: d.paidBy || 'Company Card', whereToBuy: d.whereToBuy?.trim() || '',
         notes: d.notes?.trim() || '',
       };
@@ -149,6 +154,10 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
            s.whereToBuy?.toLowerCase().includes(search.toLowerCase());
   });
   const totalFiltered = filteredInv.reduce((s, x) => s + itemCost(x), 0);
+  const toggleCheck = id => setCheckedItems(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const checkedTotal = supplies.filter(s => checkedItems.has(s.id)).reduce((sum, s) => sum + itemCost(s), 0);
+  const allChecked = filteredInv.length > 0 && filteredInv.every(s => checkedItems.has(s.id));
+  const toggleAll = () => setCheckedItems(prev => { const next = new Set(prev); if (allChecked) filteredInv.forEach(s => next.delete(s.id)); else filteredInv.forEach(s => next.add(s.id)); return next; });
 
   const catBreakdown = SUPPLY_CATS.map(cat => ({
     cat,
@@ -181,7 +190,7 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
   };
 
   const openAdd = () => {
-    setSuppliesModal({ mode: 'add', data: { name: '', category: 'Cleaning Products', unit: 'each', qtyNeeded: '', inStock: '', reorderAt: '', unitCost: '', purchaseDate: new Date().toISOString().split('T')[0], paidBy: 'Company Card', whereToBuy: '', notes: '' } });
+    setSuppliesModal({ mode: 'add', data: { name: '', category: 'Cleaning Products', unit: 'each', qtyNeeded: '', inStock: '', reorderAt: '', unitCost: '', discount: '', purchaseDate: new Date().toISOString().split('T')[0], paidBy: 'Company Card', whereToBuy: '', notes: '' } });
     setSuppliesErr('');
   };
 
@@ -193,6 +202,18 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
   const openBudget = () => {
     setBudgetDraft({ ...budgets });
     setBudgetEdit(true);
+  };
+
+  const [deleting, setDeleting] = useState(false);
+  const deleteChecked = async () => {
+    if (checkedItems.size === 0) return;
+    if (!window.confirm(`Delete ${checkedItems.size} selected item${checkedItems.size !== 1 ? 's' : ''}?`)) return;
+    setDeleting(true);
+    try {
+      for (const id of checkedItems) await deleteDoc(doc(db, 'supplies', id));
+      setCheckedItems(new Set());
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { setDeleting(false); }
   };
 
   return (
@@ -278,8 +299,8 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
 
       {/* Filters + actions */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" style={{ ...INPUT, marginBottom: 0, width: 130, fontSize: 13 }} />
-        <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 'auto', fontSize: 13 }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" style={{ ...INPUT, marginBottom: 0, width: isMobile ? '100%' : 130, fontSize: 13 }} />
+        <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} style={{ ...INPUT, marginBottom: 0, width: isMobile ? '100%' : 'auto', fontSize: 13 }}>
           <option value="all">All time</option>
           <optgroup label="Tax Year">
             {taxYears.map(ty => { const label = ty.label.replace(' tax year', ''); return <option key={label} value={`ty:${label}`}>{label} tax year (6 Apr–5 Apr)</option>; })}
@@ -288,16 +309,28 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
             {allMonths.map(m => <option key={m} value={m}>{new Date(m + '-01').toLocaleString('en-GB', { month: 'long', year: 'numeric' })}</option>)}
           </optgroup>
         </select>
-        <select value={catFilter} onChange={e => setCatFilter(e.target.value)} style={{ ...INPUT, marginBottom: 0, width: 'auto', fontSize: 13 }}>
+        <select value={catFilter} onChange={e => setCatFilter(e.target.value)} style={{ ...INPUT, marginBottom: 0, width: isMobile ? '100%' : 'auto', fontSize: 13 }}>
           <option value="all">All categories</option>
           {SUPPLY_CATS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>{filteredInv.length} items · £{totalFiltered.toFixed(2)}</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto', marginLeft: isMobile ? 0 : 'auto' }}>
+          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text, flex: isMobile ? 1 : 'unset' }}>{filteredInv.length} items · £{totalFiltered.toFixed(2)}</span>
           {filteredInv.length > 0 && <button onClick={exportCSV} style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}>⬇ CSV</button>}
           <button onClick={openAdd} style={{ ...BTN, background: C.accent, color: '#fff', fontSize: 13 }}>+ Add Item</button>
         </div>
       </div>
+
+      {/* Selection total bar */}
+      {checkedItems.size > 0 && (
+        <div style={{ background: BIZ, borderRadius: 8, padding: '10px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#fff' }}>{checkedItems.size} item{checkedItems.size !== 1 ? 's' : ''} selected</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: '#fff' }}>£{checkedTotal.toFixed(2)}</span>
+            <button onClick={() => setCheckedItems(new Set())} style={{ background: 'rgba(255,255,255,0.25)', border: 'none', borderRadius: 5, padding: '4px 10px', fontFamily: FONT, fontSize: 12, color: '#fff', cursor: 'pointer', fontWeight: 600 }}>Clear</button>
+            <button onClick={deleteChecked} disabled={deleting} style={{ background: '#dc2626', border: 'none', borderRadius: 5, padding: '4px 12px', fontFamily: FONT, fontSize: 12, color: '#fff', cursor: 'pointer', fontWeight: 600, opacity: deleting ? 0.6 : 1 }}>{deleting ? 'Deleting…' : 'Delete'}</button>
+          </div>
+        </div>
+      )}
 
       {/* Item list + By Category sidebar */}
       {supplies.length === 0 ? (
@@ -311,36 +344,47 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
           <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
             {filteredInv.length === 0 ? (
               <div style={{ padding: 32, textAlign: 'center', fontFamily: FONT, fontSize: 13, color: C.muted }}>No items match the selected filter.</div>
-            ) : filteredInv.map((s, i) => {
+            ) : <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 20px', borderBottom: `1px solid ${C.border}`, background: C.bg }}>
+                <input type="checkbox" checked={allChecked} onChange={toggleAll} style={{ cursor: 'pointer', width: 15, height: 15, accentColor: BIZ }} />
+                <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Select all ({filteredInv.length})</span>
+              </div>
+              {filteredInv.map((s, i) => {
               const st      = statusInfo(s);
               const dotCol  = CAT_COLOURS[s.category] || '#94a3b8';
               const cost    = itemCost(s);
               return (
-                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: i < filteredInv.length - 1 ? `1px solid ${C.border}` : 'none', background: s.paidBy === 'Personal — Reimbursable' && !s.repaid ? '#fff5f5' : 'transparent' }}>
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: dotCol, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{s.name}</div>
-                    <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {s.purchaseDate && <span>{fmtDate(s.purchaseDate)}</span>}
-                      <span style={{ color: dotCol }}>{s.category}</span>
-                      {s.whereToBuy && <span>{s.whereToBuy}</span>}
-                      {s.paidBy && s.paidBy !== 'Company Card' && <span style={{ color: '#dc2626', fontWeight: 500 }}>{s.paidBy}{s.repaid ? ' ✓ repaid' : ''}</span>}
-                      {s.notes && <span style={{ fontStyle: 'italic' }}>{s.notes}</span>}
+                <div key={s.id} style={{ padding: isMobile ? '12px 14px' : '12px 20px', borderBottom: i < filteredInv.length - 1 ? `1px solid ${C.border}` : 'none', background: checkedItems.has(s.id) ? 'rgba(14,165,233,0.06)' : s.paidBy === 'Personal — Reimbursable' && !s.repaid ? '#fff5f5' : 'transparent' }}>
+                  {/* Top row: checkbox + dot + name + edit */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="checkbox" checked={checkedItems.has(s.id)} onChange={() => toggleCheck(s.id)} style={{ cursor: 'pointer', flexShrink: 0, width: 15, height: 15, accentColor: BIZ }} />
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: dotCol, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{s.name}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {s.purchaseDate && <span>{fmtDate(s.purchaseDate)}</span>}
+                        <span style={{ color: dotCol }}>{s.category}</span>
+                        {s.whereToBuy && <span>{s.whereToBuy}</span>}
+                        {s.paidBy && s.paidBy !== 'Company Card' && <span style={{ color: '#dc2626', fontWeight: 500 }}>{s.paidBy}{s.repaid ? ' ✓ repaid' : ''}</span>}
+                        {s.notes && <span style={{ fontStyle: 'italic' }}>{s.notes}</span>}
+                      </div>
                     </div>
+                    <button onClick={() => openEdit(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16, flexShrink: 0, padding: '0 2px' }}>✏️</button>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: 80, justifyContent: 'center' }}>
-                      <button onClick={() => updateStock(s.id, -1)} style={{ width: 24, height: 24, borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                      <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: st.color, width: 22, textAlign: 'center' }}>{s.inStock ?? '—'}</span>
-                      <button onClick={() => updateStock(s.id, 1)} style={{ width: 24, height: 24, borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                  {/* Bottom row: stock controls + status + cost */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10, marginTop: 8, paddingLeft: isMobile ? 25 : 0, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <button onClick={() => updateStock(s.id, -1)} style={{ width: 28, height: 28, borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, cursor: 'pointer', fontFamily: FONT, fontSize: 16, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                      <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: st.color, width: 26, textAlign: 'center' }}>{s.inStock ?? '—'}</span>
+                      <button onClick={() => updateStock(s.id, 1)} style={{ width: 28, height: 28, borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, cursor: 'pointer', fontFamily: FONT, fontSize: 16, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                     </div>
-                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: st.bg, color: st.color, whiteSpace: 'nowrap', width: 76, textAlign: 'center', display: 'inline-block' }}>{st.label}</span>
-                    <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text, width: 58, textAlign: 'right' }}>{cost > 0 ? `£${cost.toFixed(2)}` : '—'}</span>
-                    <button onClick={() => openEdit(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 13, width: 24 }}>✏️</button>
+                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: st.bg, color: st.color, whiteSpace: 'nowrap' }}>{st.label}</span>
+                    <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text, marginLeft: 'auto' }}>{cost > 0 ? `£${cost.toFixed(2)}` : '—'}</span>
                   </div>
                 </div>
               );
             })}
+            </>}
           </div>
 
           {/* By Category sidebar */}
@@ -415,8 +459,20 @@ export default function SuppliesTab({ supplies, isMobile, C }) {
                   <input type="number" min="0" value={suppliesModal.data.reorderAt || ''} placeholder="1" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, reorderAt: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Unit Cost (£)</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>List Price per unit (£)</div>
                   <input type="number" step="0.01" min="0" value={suppliesModal.data.unitCost || ''} placeholder="0.00" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, unitCost: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Total Discount (£)</div>
+                  <input type="number" step="0.01" min="0" value={suppliesModal.data.discount || ''} placeholder="0.00" onChange={e => setSuppliesModal(m => ({ ...m, data: { ...m.data, discount: e.target.value } }))} style={{ ...INPUT, marginBottom: 0 }} />
+                  {(() => {
+                    const listPrice = parseFloat(suppliesModal.data.unitCost) || 0;
+                    const qty = parseInt(suppliesModal.data.inStock) || 1;
+                    const discount = parseFloat(suppliesModal.data.discount) || 0;
+                    if (!discount || !listPrice) return null;
+                    const netUnit = Math.max(0, (listPrice * qty - discount) / qty);
+                    return <div style={{ fontFamily: FONT, fontSize: 11, color: '#16a34a', marginTop: 4 }}>Net unit cost: £{netUnit.toFixed(2)} · Total: £{(netUnit * qty).toFixed(2)}</div>;
+                  })()}
                 </div>
                 <div>
                   <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Unit</div>

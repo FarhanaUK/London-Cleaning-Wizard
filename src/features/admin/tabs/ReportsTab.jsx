@@ -273,7 +273,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   }) : [];
   const maxRev = last12.length ? Math.max(...last12.map(m => Math.max(m.rev, m.costs)), 1) : 1;
 
-  const calYear = isMonthMode ? parseInt(reportsMonth.split('-')[0]) : null;
+  const calYear = isMonthMode ? parseInt(reportsYear) : null;
   const calMonths12 = isMonthMode ? Array.from({ length: 12 }, (_, i) => {
     const mS = `${calYear}-${String(i+1).padStart(2,'0')}-01`;
     const lastDay = new Date(calYear, i+1, 0).getDate();
@@ -290,7 +290,16 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const costs = lab + varExp + supExp + mktExp + fixed;
     return { label, mS, mE, rev, lab, varExp, supExp, mktExp, fixed, costs, isFuture };
   }) : [];
-  const maxCalRev = calMonths12.length ? Math.max(...calMonths12.map(m => Math.max(m.rev, m.costs)), 1) : 1;
+  const maxCalRev  = calMonths12.length ? Math.max(...calMonths12.map(m => Math.max(m.rev, m.costs)), 1) : 1;
+  const ytdMonths  = calMonths12.filter(m => !m.isFuture);
+  const ytdRev     = ytdMonths.reduce((s, m) => s + m.rev, 0);
+  const ytdFixed   = ytdMonths.reduce((s, m) => s + m.fixed, 0);
+  const ytdVarExp  = ytdMonths.reduce((s, m) => s + m.varExp, 0);
+  const ytdSupExp  = ytdMonths.reduce((s, m) => s + m.supExp, 0);
+  const ytdMktExp  = ytdMonths.reduce((s, m) => s + m.mktExp, 0);
+  const ytdLab     = ytdMonths.reduce((s, m) => s + m.lab, 0);
+  const ytdCosts   = ytdMonths.reduce((s, m) => s + m.costs, 0);
+  const ytdProfit  = ytdRev - ytdCosts;
 
   const momData = last12.filter(m => !m.isFuture).map(m => {
     const d       = new Date(m.key + '-01');
@@ -351,6 +360,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
               );
             })}
           </div>
+          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 8 }}>Calendar months (1st – last day) · Year overview charts show Jan–Dec</div>
         </div>
       )}
 
@@ -398,12 +408,12 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
         </div>
       </div>
 
-      {/* Revenue vs costs bar chart + line graph — monthly calendar view */}
+      {/* Calendar year bar chart + trend — month mode only */}
       {isMonthMode && (
         <>
           <div style={{ ...RCARD, marginBottom: 16 }}>
             <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 2 }}>Revenue vs Costs — {calYear} (month by month)</div>
-            <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 12 }}>Calendar months (1st–last day)</div>
+            <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 12 }}>Calendar months (1st–last day of each month)</div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? 1 : 4, height: 100, marginBottom: 4 }}>
               {calMonths12.map(m => (
                 <div key={m.mS} style={{ flex: 1, display: 'flex', gap: 1, alignItems: 'flex-end', justifyContent: 'center', opacity: m.isFuture ? 0.2 : 1 }}>
@@ -436,11 +446,17 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
                 </div>
               ))}
             </div>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}`, display: 'flex', gap: isMobile ? 12 : 24, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted }}>Year to date ({ytdMonths.length} months)</span>
+              <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#16a34a' }}>Revenue £{ytdRev.toFixed(2)}</span>
+              <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>Costs £{ytdCosts.toFixed(2)}</span>
+              <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: ytdProfit >= 0 ? '#16a34a' : '#dc2626' }}>Profit {ytdProfit >= 0 ? '' : '-'}£{Math.abs(ytdProfit).toFixed(2)}</span>
+            </div>
           </div>
 
           <div style={{ ...RCARD, marginBottom: 16 }}>
             <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 2 }}>Revenue vs Total Costs — {calYear} (trend)</div>
-            <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 10 }}>Calendar months · Red = direct debits + variables + supplies + cleaner pay combined</div>
+            <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 10 }}>Calendar months (1st–last day) · Red = all costs combined</div>
             {(() => {
               const PAD_L = 40, PAD_R = 8, PAD_T = 8, PAD_B = 20;
               const W = 600, H = 90;
@@ -475,7 +491,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
             })()}
             <div style={{ display: 'flex', gap: isMobile ? 1 : 4, marginTop: 4 }}>
               {calMonths12.map(m => {
-                const fmtV = v => v > 0 ? (v >= 1000 ? `£${(v/1000).toFixed(1)}k` : `£${v.toFixed(0)}`) : '—';
+                const fmtV = v => v > 0 ? `£${v.toFixed(2)}` : '—';
                 return (
                   <div key={m.mS} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, opacity: m.isFuture ? 0.3 : 1 }}>
                     <span style={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: '#16a34a' }}>{fmtV(m.rev)}</span>
@@ -570,7 +586,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
             })()}
             <div style={{ display: 'flex', gap: isMobile ? 1 : 4, marginTop: 4 }}>
               {last12.map(m => {
-                const fmtV = v => v > 0 ? (v >= 1000 ? `£${(v/1000).toFixed(1)}k` : `£${v.toFixed(0)}`) : '—';
+                const fmtV = v => v > 0 ? `£${v.toFixed(2)}` : '—';
                 return (
                   <div key={m.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, opacity: m.isFuture ? 0.3 : 1 }}>
                     <span style={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: '#16a34a' }}>{fmtV(m.rev)}</span>

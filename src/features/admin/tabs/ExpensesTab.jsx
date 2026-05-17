@@ -151,6 +151,9 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
   const lastMonthTotal = lastMonthExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
   const taxYearExp     = expenses.filter(e => e.date >= activeTaxYear.start && e.date <= activeTaxYear.end);
   const taxYearTotal   = taxYearExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+  const calYearStart   = `${now.getFullYear()}-01-01`;
+  const calYearEnd     = `${now.getFullYear()}-12-31`;
+  const calYearTotal   = expenses.filter(e => e.date >= calYearStart && e.date <= calYearEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
   const reimbursableExp = expenses.filter(e => e.paidBy === 'Personal — Reimbursable' && !e.repaid);
   const reimbursable   = reimbursableExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
   const allMonths      = [...new Set(expenses.map(e => e.date?.slice(0,7)).filter(Boolean))].sort().reverse();
@@ -264,7 +267,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
       {/* ── VARIABLE TAB ── */}
       {expenseTab === 'variable' && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5,1fr)', gap: 12, marginBottom: 16 }}>
             <div style={{ ...KCARD, background: '#f0fdf4', borderTop: '3px solid #16a34a' }}>
               <div style={{ ...KLABEL, color: '#16a34a' }}>{activeMonthLabel}</div>
               <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{thisMonthTotal.toFixed(2)}</div>
@@ -281,6 +284,11 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
               <div style={KLABEL}>Tax Year {activeTaxYear.label}</div>
               <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{taxYearTotal.toFixed(2)}</div>
               <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{fmtDate(activeTaxYear.start)} – {fmtDate(activeTaxYear.end)}</div>
+            </div>
+            <div style={{ ...KCARD, borderTop: '3px solid #f59e0b' }}>
+              <div style={KLABEL}>Cal Year {now.getFullYear()}</div>
+              <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: C.text }}>£{calYearTotal.toFixed(2)}</div>
+              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>Jan – Dec {now.getFullYear()}</div>
             </div>
             <div style={{ ...KCARD, borderTop: reimbursable > 0 ? '3px solid #dc2626' : `3px solid ${C.accent}` }}>
               <div style={KLABEL}>Reimbursable Owed</div>
@@ -327,7 +335,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
               <optgroup label="Tax Year">
                 {taxYears.map(ty => { const label = ty.label.replace(' tax year', ''); return <option key={label} value={`ty:${label}`}>{label} tax year (6 Apr–5 Apr)</option>; })}
               </optgroup>
-              <optgroup label="By Month">
+              <optgroup label="By Month (1st–last day)">
                 {allMonths.map(m => <option key={m} value={m}>{new Date(m+'-01').toLocaleString('en-GB',{month:'long',year:'numeric'})}</option>)}
                 {!allMonths.includes(expenseMonthFilter) && expenseMonthFilter !== 'all' && !expenseMonthFilter.startsWith('ty:') && <option value={expenseMonthFilter}>{new Date(expenseMonthFilter+'-01').toLocaleString('en-GB',{month:'long',year:'numeric'})}</option>}
               </optgroup>
@@ -438,7 +446,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                 <optgroup label="Tax Year">
                   {taxYears.map(ty => { const label = ty.label.replace(' tax year', ''); return <option key={label} value={`ty:${label}`}>{label} tax year (6 Apr–5 Apr)</option>; })}
                 </optgroup>
-                <optgroup label="By Month">
+                <optgroup label="By Month (1st–last day)">
                   {allFixedMonths.map(m => <option key={m} value={m}>{new Date(m+'-01').toLocaleString('en-GB',{month:'long',year:'numeric'})}</option>)}
                 </optgroup>
               </select>
