@@ -86,15 +86,12 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
 
   const [showSessions, setShowSessions] = useState(false);
   const [deletingAll,  setDeletingAll]  = useState(false);
+  const [eventsView,      setEventsView]      = useState('day');
+  const [eventsDay,       setEventsDay]       = useState(today);
+  const [eventsMonthView, setEventsMonthView] = useState({ month, year });
+  const [eventsYearView,  setEventsYearView]  = useState(year);
 
-  const [funnelPeriod, setFunnelPeriod] = useState({ month: now.getMonth() + 1, year: now.getFullYear() });
-  const FUNNEL_START = { month: 5, year: 2026 };
-  const isFirstPeriod = funnelPeriod.month === FUNNEL_START.month && funnelPeriod.year === FUNNEL_START.year;
-  const goBack = () => { if (isFirstPeriod) return; setFunnelPeriod(p => p.month === 1 ? { month: 12, year: p.year - 1 } : { month: p.month - 1, year: p.year }); };
-  const goForward = () => setFunnelPeriod(p => p.month === 12 ? { month: 1, year: p.year + 1 } : { month: p.month + 1, year: p.year });
-  const isCurrentPeriod = funnelPeriod.month === month && funnelPeriod.year === year;
   const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const periodLabel = `${MONTH_NAMES[funnelPeriod.month - 1]} ${funnelPeriod.year}`;
 
   const deleteSessions = async (ids) => {
     const batch = writeBatch(db);
@@ -103,14 +100,18 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
   };
 
   const handleDeleteAll = async () => {
-    if (!window.confirm(`Delete all ${funnelMonth.length} funnel sessions for ${periodLabel}?`)) return;
+    if (!window.confirm(`Delete all ${funnelMonth.length} funnel sessions for ${eventsLabel}?`)) return;
     setDeletingAll(true);
     await deleteSessions(funnelMonth.map(s => s.id)).catch(() => {});
     setDeletingAll(false);
   };
 
   // Funnel — per session, only count the highest step reached; exclude converted
-  const funnelMonth = funnelData.filter(s => s.month === funnelPeriod.month && s.year === funnelPeriod.year);
+  const funnelMonth = useMemo(() => {
+    if (eventsView === 'day')   return funnelData.filter(s => s.date === eventsDay);
+    if (eventsView === 'month') return funnelData.filter(s => s.month === eventsMonthView.month && s.year === eventsMonthView.year);
+    return funnelData.filter(s => s.year === eventsYearView);
+  }, [funnelData, eventsView, eventsDay, eventsMonthView, eventsYearView]);
   const STEP_LABELS = ['', 'Service', 'Schedule', 'Details', 'Payment'];
   const funnelRows = useMemo(() => {
     const total = funnelMonth.length;
@@ -125,17 +126,71 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
   }, [funnelMonth]);
   const funnelConverted = funnelMonth.filter(d => d.converted).length;
 
+  const availableYears = useMemo(() => {
+    const yrs = new Set([year]);
+    abandonmentStats.forEach(s => { if (s.year) yrs.add(s.year); });
+    funnelData.forEach(s => { if (s.year) yrs.add(s.year); });
+    return [...yrs].sort();
+  }, [abandonmentStats, funnelData, year]);
+
+  const viewStats = useMemo(() => {
+    const base = abandonmentStats.filter(isAbandonment);
+    if (eventsView === 'day')   return base.filter(s => s.date === eventsDay);
+    if (eventsView === 'month') return base.filter(s => s.month === eventsMonthView.month && s.year === eventsMonthView.year);
+    return base.filter(s => s.year === eventsYearView);
+  }, [abandonmentStats, eventsView, eventsDay, eventsMonthView, eventsYearView]);
+
+  const eventsLabel = eventsView === 'day'
+    ? new Date(eventsDay + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    : eventsView === 'month'
+    ? `${MONTH_NAMES[eventsMonthView.month - 1]} ${eventsMonthView.year}`
+    : String(eventsYearView);
+
   return (
     <>
+      {/* Shared Day / Month / Year control */}
+      {(() => {
+        const BTN_Y = (active) => ({ fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '6px 16px', borderRadius: 6, border: `1px solid ${C.border}`, background: active ? C.text : C.card, color: active ? C.bg : C.text, cursor: 'pointer' });
+        const BTN_M = (active) => ({ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 4px', borderRadius: 6, border: `1px solid ${active ? C.text : C.border}`, background: active ? C.text : C.card, color: active ? C.bg : C.text, cursor: 'pointer' });
+        const dayYear  = eventsDay.slice(0, 4);
+        const dayMonth = parseInt(eventsDay.slice(5, 7));
+        const daysInMonth = new Date(parseInt(dayYear), dayMonth, 0).getDate();
+        return (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden', marginBottom: 12, width: 'fit-content' }}>
+              {[['day','Day'],['month','Month'],['year','Year']].map(([v, l]) => (
+                <button key={v} onClick={() => { setEventsView(v); setSelected(new Set()); }} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '5px 14px', border: 'none', borderRight: v !== 'year' ? `1px solid ${C.border}` : 'none', background: eventsView === v ? C.accent : 'transparent', color: eventsView === v ? '#fff' : C.muted, cursor: 'pointer' }}>{l}</button>
+              ))}
+            </div>
+
+            {eventsView === 'year' && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {availableYears.map(y => <button key={y} onClick={() => { setEventsYearView(y); setSelected(new Set()); }} style={BTN_Y(eventsYearView === y)}>{y}</button>)}
+              </div>
+            )}
+
+            {eventsView === 'month' && (
+              <>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                  {availableYears.map(y => <button key={y} onClick={() => { setEventsMonthView(p => ({ ...p, year: y })); setSelected(new Set()); }} style={BTN_Y(eventsMonthView.year === y)}>{y}</button>)}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6, maxWidth: 360 }}>
+                  {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((name, i) => (
+                    <button key={i} onClick={() => { setEventsMonthView(p => ({ ...p, month: i+1 })); setSelected(new Set()); }} style={BTN_M(eventsMonthView.month === i+1)}>{name}</button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {eventsView === 'day' && (
+              <input type="date" value={eventsDay} max={today} onChange={e => { if (e.target.value) { setEventsDay(e.target.value); setSelected(new Set()); } }} style={{ fontFamily: FONT, fontSize: 13, padding: '6px 10px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, color: C.text, cursor: 'pointer' }} />
+            )}
+          </div>
+        );
+      })()}
+
       {/* Booking Funnel */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>Booking funnel</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button onClick={goBack} disabled={isFirstPeriod} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: FONT, fontSize: 14, color: isFirstPeriod ? C.muted : C.text, cursor: isFirstPeriod ? 'default' : 'pointer', padding: '2px 10px', lineHeight: 1.4, opacity: isFirstPeriod ? 0.4 : 1 }}>&#8592;</button>
-          <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, minWidth: 110, textAlign: 'center' }}>{periodLabel}</span>
-          <button onClick={goForward} disabled={isCurrentPeriod} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: FONT, fontSize: 14, color: isCurrentPeriod ? C.muted : C.text, cursor: isCurrentPeriod ? 'default' : 'pointer', padding: '2px 10px', lineHeight: 1.4, opacity: isCurrentPeriod ? 0.4 : 1 }}>&#8594;</button>
-        </div>
-      </div>
+      <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>Booking funnel — {eventsLabel}</div>
       <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 14 }}>Each session counted once at the furthest step reached. Abandoned = left at that step without going further.</div>
       {funnelRows.length === 0 ? (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '24px 20px', fontFamily: FONT, fontSize: 13, color: C.muted, textAlign: 'center', marginBottom: 24 }}>
@@ -185,12 +240,12 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
               {showSessions ? '▲' : '▼'} {showSessions ? 'Hide' : 'Show'} session log ({funnelMonth.length} sessions)
             </button>
             <button onClick={handleDeleteAll} disabled={deletingAll} style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, fontFamily: FONT, fontSize: 11, color: '#dc2626', cursor: 'pointer', padding: '4px 12px' }}>
-              {deletingAll ? 'Deleting…' : `Clear all (${periodLabel})`}
+              {deletingAll ? 'Deleting…' : `Clear all (${eventsLabel})`}
             </button>
           </div>
           {showSessions && (
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px 32px', gap: 0 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px 32px', gap: 0, maxHeight: 1140, overflowY: 'auto' }}>
                 {['Date', 'Step', 'Status', 'Time', ''].map((h, i) => (
                   <div key={i} style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: C.bg }}>{h}</div>
                 ))}
@@ -264,9 +319,9 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
       {/* Events table */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
         <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>Abandonment Events — {year}</span>
+          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>Abandonment Events — {eventsLabel}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{yearStats.length} total · {emailPct(yearStats)}</span>
+            <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{viewStats.length} total · {emailPct(viewStats)}</span>
             {selected.size > 0 && (
               <button
                 onClick={async () => {
@@ -277,28 +332,24 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
                   setSelected(new Set());
                 }}
                 style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, fontFamily: FONT, fontSize: 11, color: '#dc2626', cursor: 'pointer', padding: '4px 12px' }}
-              >
-                Delete selected ({selected.size})
-              </button>
+              >Delete selected ({selected.size})</button>
             )}
-            {yearStats.length > 0 && (
+            {viewStats.length > 0 && (
               <button
                 onClick={async () => {
-                  if (!window.confirm(`Delete all ${yearStats.length} abandonment events for ${year}?`)) return;
+                  if (!window.confirm(`Delete all ${viewStats.length} abandonment events for ${eventsLabel}?`)) return;
                   const batch = writeBatch(db);
-                  yearStats.forEach(s => batch.delete(doc(db, 'abandonmentStats', s.id)));
+                  viewStats.forEach(s => batch.delete(doc(db, 'abandonmentStats', s.id)));
                   await batch.commit().catch(() => {});
                   setSelected(new Set());
                 }}
                 style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, fontFamily: FONT, fontSize: 11, color: '#dc2626', cursor: 'pointer', padding: '4px 12px' }}
-              >
-                Clear all
-              </button>
+              >Clear all</button>
             )}
           </div>
         </div>
-        {yearStats.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', fontFamily: FONT, fontSize: 13, color: C.muted }}>No abandonment events yet this year.</div>
+        {viewStats.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', fontFamily: FONT, fontSize: 13, color: C.muted }}>No abandonment events for {eventsLabel}.</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -309,8 +360,8 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
                       {i === 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <input type="checkbox"
-                            checked={yearStats.length > 0 && selected.size === yearStats.length}
-                            onChange={e => setSelected(e.target.checked ? new Set(yearStats.map(s => s.id)) : new Set())}
+                            checked={viewStats.length > 0 && selected.size === viewStats.length}
+                            onChange={e => setSelected(e.target.checked ? new Set(viewStats.map(s => s.id)) : new Set())}
                             style={{ accentColor: C.accent, cursor: 'pointer' }}
                           />
                           {h}
@@ -321,7 +372,7 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
                 </tr>
               </thead>
               <tbody>
-                {yearStats.map((s, i) => {
+                {viewStats.map((s, i) => {
                   const mv = monthlyValue(s.totalAmount, s.frequency);
                   return (
                     <tr key={s.id} style={{ borderTop: `1px solid ${C.border}`, background: selected.has(s.id) ? `${C.accent}11` : i % 2 === 0 ? C.card : C.bg }}>

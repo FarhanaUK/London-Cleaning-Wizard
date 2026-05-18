@@ -307,28 +307,20 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
 
                 const clearTimes = async (sf, ff) => {
                   const prevS = b[sf], prevF = b[ff];
-                  const rSf = timeInputRefs.current[b.id + sf];
-                  const rFf = timeInputRefs.current[b.id + ff];
-                  if (rSf) rSf.value = '';
-                  if (rFf) rFf.value = '';
                   setBookings(all => all.map(x => x.id === b.id ? { ...x, [sf]: '', [ff]: '' } : x));
                   try {
                     const res = await fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: b.id, [sf]: '', [ff]: '' }) });
                     if (!res.ok) throw new Error('err');
                   } catch {
                     setBookings(all => all.map(x => x.id === b.id ? { ...x, [sf]: prevS, [ff]: prevF } : x));
-                    if (rSf) rSf.value = toInputTime(prevS);
-                    if (rFf) rFf.value = toInputTime(prevF);
                     alert('Failed to clear times.');
                   }
                 };
 
                 const timeInput = (field) => (
                   <input
-                    key={b.id + field}
-                    ref={el => { timeInputRefs.current[b.id + field] = el; }}
                     type="time"
-                    defaultValue={toInputTime(b[field])}
+                    value={toInputTime(b[field])}
                     onChange={e => saveTime(field, e.target.value)}
                     style={{ ...INPUT, marginBottom: 0, width: 110, fontSize: 12 }}
                   />
