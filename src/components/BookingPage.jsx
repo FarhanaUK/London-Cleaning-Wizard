@@ -1,17 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
-import BookingInvoice  from './BookingInvoice';
-import BookingStep1    from './Bookingstep1';
-import BookingStep2    from './Bookingstep2';
-import BookingStep3    from './Bookingstep3';
-import BookingStep4    from './Bookingstep4';
-import BookingConfirm  from './Bookingconfirm';
+import BookingInvoice    from './BookingInvoice';
+import BookingStepPicker from './BookingStepPicker';
+import BookingStep1      from './Bookingstep1';
+import BookingStep1b     from './BookingStep1b';
+import BookingStep2      from './Bookingstep2';
+import BookingStep5      from './BookingStep5';
+import BookingConfirm    from './Bookingconfirm';
 import { db } from '../firebase/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const INIT = {
   isAirbnb: false, pkg: null, propertyType: null, size: null,
-  freq: null, addons: [], surcharge: 0, supplies: null,
+  freq: null, addons: [], surcharge: 0, supplies: null, mopAck: false,
   cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null,
   firstName: '', lastName: '', email: '', phone: '',
   addr1: '', postcode: '', floor: '', parking: '', keys: '',
@@ -19,7 +20,7 @@ const INIT = {
   stripeDepositIntentId: null, bookingRef: null,
 };
 
-const STEPS = ['Service', 'Schedule', 'Details', 'Payment'];
+const STEPS = ['Service', 'Property', 'Schedule', 'Checkout'];
 
 const SESSION_KEY = 'bookingSession';
 
@@ -33,8 +34,10 @@ function loadSession() {
 
 export default function BookingPage() {
   const saved = loadSession();
+  // If session has no package selected yet, always start at step 1 (the picker)
+  const savedStep = saved?.step && saved?.booking?.pkg ? saved.step : 1;
   const [booking,   setBooking]   = useState(saved?.booking || INIT);
-  const [step,      setStep]      = useState(saved?.step || 1);
+  const [step,      setStep]      = useState(savedStep);
   const [confirmed, setConfirmed] = useState(false);
   const [result,    setResult]    = useState(null);
   const [isMobile,  setIsMobile]  = useState(window.innerWidth < 768);
@@ -74,6 +77,7 @@ export default function BookingPage() {
     return () => window.removeEventListener('resize', h);
   }, []);
 
+
   // Write to Firestore only when user advances to a new step (never go backwards)
   useEffect(() => {
     if (localStorage.getItem('lcw_test_mode') === '1') return;
@@ -112,8 +116,8 @@ export default function BookingPage() {
     }
   }, []);
 
-  // navbar(60) + progressBar(~72) + breathing room(16)
-  const SIDEBAR_TOP = 148;
+  // navbar(60) + progressBar(~95) + breathing room(20)
+  const SIDEBAR_TOP = 175;
 
   return (
     <>
@@ -122,80 +126,86 @@ export default function BookingPage() {
         <meta name="description" content="Book residential cleaning, hourly cleans, Airbnb turnarounds and office cleaning across London. Packages from £115 or from £30/hour. Book online today." />
         <link rel="canonical" href="https://londoncleaningwizard.com/book" />
       </Helmet>
-      {/* Progress bar */}
-      <div style={{
-        position: 'sticky',
-        top: 60,
-        zIndex: 30,
-        background: '#1a1410',
-        paddingTop: 16,
-        paddingBottom: 16,
-        paddingLeft: 28,
-        paddingRight: 28,
-        borderBottom: '1px solid rgba(200,184,154,0.1)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', maxWidth: 560 }}>
-          {STEPS.map((label, i) => {
-            const n = i + 1, done = step > n, active = step === n;
-            return (
-              <div key={n} style={{ display: 'flex', alignItems: 'center', flex: n < 4 ? 1 : 0 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                  <div style={{
-                    width: 28, height: 28, borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 11, fontFamily: "'Jost',sans-serif",
-                    border: done ? 'none' : active ? '1.5px solid #c8b89a' : '1.5px solid rgba(200,184,154,0.2)',
-                    background: done ? '#2d6a4f' : 'transparent',
-                    color: done ? 'white' : active ? '#c8b89a' : 'rgba(200,184,154,0.3)',
-                  }}>
-                    {done ? '✓' : n}
-                  </div>
-                  <div style={{
-                    fontFamily: "'Jost',sans-serif", fontSize: 10,
-                    letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap',
-                    color: active ? '#c8b89a' : done ? 'rgba(200,184,154,0.4)' : 'rgba(200,184,154,0.2)',
-                  }}>
-                    {label}
-                  </div>
-                </div>
-                {n < 4 && (
-                  <div style={{
-                    flex: 1, height: 1,
-                    background: done ? 'rgba(45,106,79,0.5)' : 'rgba(200,184,154,0.1)',
-                    margin: '0 8px', marginBottom: 22,
-                  }} />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
-      {isMobile && <BookingInvoice booking={booking} isMobile />}
+      {/* Progress bar — always visible on desktop; hidden on mobile step 1 only */}
+      {(step > 1 || !isMobile) && (
+        <div style={{
+          position: 'sticky',
+          top: 60,
+          zIndex: 30,
+          background: '#1a1410',
+          paddingTop: 16,
+          paddingBottom: 16,
+          paddingLeft: 28,
+          paddingRight: 28,
+          borderBottom: '1px solid rgba(200,184,154,0.1)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', maxWidth: 560 }}>
+            {STEPS.map((label, i) => {
+              const n = i + 1, displayStep = step - 1, done = displayStep > n, active = displayStep === n;
+              return (
+                <div key={n} style={{ display: 'flex', alignItems: 'center', flex: n < 4 ? 1 : 0 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: '50%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontFamily: "'Jost',sans-serif",
+                      border: done ? 'none' : active ? '1.5px solid #c8b89a' : '1.5px solid rgba(200,184,154,0.2)',
+                      background: done ? '#2d6a4f' : 'transparent',
+                      color: done ? 'white' : active ? '#c8b89a' : 'rgba(200,184,154,0.3)',
+                    }}>
+                      {done ? '✓' : n}
+                    </div>
+                    <div style={{
+                      fontFamily: "'Jost',sans-serif", fontSize: 10,
+                      letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap',
+                      color: active ? '#c8b89a' : done ? 'rgba(200,184,154,0.4)' : 'rgba(200,184,154,0.2)',
+                    }}>
+                      {label}
+                    </div>
+                  </div>
+                  {n < 4 && (
+                    <div style={{
+                      flex: 1, height: 1,
+                      background: done ? 'rgba(45,106,79,0.5)' : 'rgba(200,184,154,0.1)',
+                      margin: '0 8px', marginBottom: 22,
+                    }} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile invoice — only shown once a package is being selected (step 2+) */}
+      {isMobile && step > 1 && <BookingInvoice booking={booking} isMobile />}
 
       {/* Grid wrapper */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr' : '1fr 300px',
-        alignItems: 'start',
+        alignItems: isMobile ? 'start' : 'stretch',
         maxWidth: 1100,
         margin: '0 auto',
-        padding: isMobile ? '28px 16px' : '40px 28px 40px',
+        padding: isMobile ? (step === 1 ? '72px 16px 28px' : '28px 16px') : '40px 28px 40px',
         gap: 0,
       }}>
 
         {/* Steps column */}
-        <div style={{ paddingRight: isMobile ? 0 : 40, paddingTop: isMobile ? 16 : 80 }}>
-          {step === 1 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => goToStep(2)} />}
-          {step === 2 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(3)} onBack={() => goToStep(1)} />}
-          {step === 3 && <BookingStep3 booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} isMobile={isMobile} />}
-          {step === 4 && <BookingStep4 booking={booking} onUpdate={update} onSuccess={(res) => {
+        <div style={{ paddingRight: isMobile ? 0 : 40, paddingTop: isMobile ? (step === 1 ? 0 : 16) : 80, display: isMobile ? 'block' : 'flex', flexDirection: 'column' }}>
+          {step === 1 && <BookingStepPicker onNext={() => goToStep(2)} />}
+          {step === 2 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => goToStep(booking.pkg?.isHourly || booking.pkg?.id === 'office_cleaning' ? 4 : 3)} onBack={() => goToStep(1)} />}
+          {step === 3 && <BookingStep1b booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} />}
+          {step === 4 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(5)} onBack={() => goToStep(booking.pkg?.isHourly || booking.pkg?.id === 'office_cleaning' ? 2 : 3)} />}
+          {step === 5 && <BookingStep5 booking={booking} onUpdate={update} onSuccess={(res) => {
             if (localStorage.getItem('lcw_test_mode') !== '1') {
-              setDoc(doc(db, 'bookingFunnel', funnelId), { converted: true, maxStep: 5, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+              setDoc(doc(db, 'bookingFunnel', funnelId), { converted: true, maxStep: 6, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
             }
             sessionStorage.removeItem('bkFunnelId');
-            setResult(res); setStep(5); setConfirmed(true); sessionStorage.removeItem(SESSION_KEY);
-          }} onBack={() => goToStep(3)} />}
+            sessionStorage.removeItem(SESSION_KEY);
+            window.location.href = '/booking-success';
+          }} onBack={() => goToStep(4)} />}
         </div>
 
         {/* Desktop invoice sidebar */}
@@ -206,7 +216,7 @@ export default function BookingPage() {
             alignSelf: 'start',
             maxHeight: `calc(100vh - ${SIDEBAR_TOP + 20}px)`,
             overflowY: 'auto',
-            marginTop: 20,
+            marginTop: step === 1 ? 51 : 40,
           }}>
             <BookingInvoice booking={booking} />
           </div>
@@ -215,7 +225,7 @@ export default function BookingPage() {
       </div>
 
       {confirmed && (
-        <BookingConfirm booking={booking} result={result} onClose={() => { setConfirmed(false); setBooking(INIT); setStep(1); sessionStorage.removeItem(SESSION_KEY); }} />
+        <BookingConfirm booking={booking} result={result} onClose={() => { setConfirmed(false); setBooking(INIT); setStep(1); sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem('pkgTab'); }} />
       )}
     </>
   );

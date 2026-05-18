@@ -185,6 +185,7 @@ function PaymentForm({ details, bookingId }) {
             { heading: '6. Service Standards', body: 'If you are not satisfied with any aspect of your clean, you must notify us within 24 hours and we will arrange a complimentary re-clean of the affected areas. We do not offer refunds after a clean has been completed.' },
             { heading: '7. Cleaner Allocation', body: 'While we always strive to send the same dedicated cleaner for recurring bookings, this cannot be guaranteed. In the event that your usual cleaner is unavailable, we will contact you in advance and arrange an equally skilled replacement.' },
             { heading: '8. Privacy', body: 'Your personal data is processed in accordance with our Privacy Policy. We use your contact details to manage your booking and send confirmations only. We do not sell or share your data with third parties.' },
+            { heading: '9. Photo Documentation', body: 'To maintain our service standards and ensure consistent quality, our cleaning team may take before and after photos of completed work. These images are used strictly for internal quality control, training, and verification purposes. They are not used for marketing or social media unless explicit separate consent has been given. All images are stored securely and are deleted within 48 hours after quality review, unless required for resolving a customer query or complaint.' },
           ].map(({ heading, body }) => (
             <div key={heading} style={{ marginBottom: 14 }}>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, fontWeight: 600, color: '#2c2420', marginBottom: 4 }}>{heading}</div>
@@ -255,9 +256,13 @@ function PaymentForm({ details, bookingId }) {
         }}>
           {mediaConsent && '✓'}
         </div>
-        <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
-          I consent to London Cleaning Wizard taking before and after photos or short videos of the clean for use on social media. This is entirely optional.
-        </p>
+        <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6 }}>
+          <p style={{ margin: '0 0 8px', fontWeight: 500 }}>Help us showcase real transformations</p>
+          <p style={{ margin: '0 0 6px' }}>We're a new premium cleaning brand, and your home helps us demonstrate the standard we deliver.</p>
+          <p style={{ margin: '0 0 6px' }}>With your permission, we may share before &amp; after photos of your clean on our social media.</p>
+          <p style={{ margin: '0 0 6px' }}>Your privacy is fully protected. No personal details or identifiable information will ever be shown.</p>
+          <p style={{ margin: 0 }}>You can change or withdraw your consent at any time.</p>
+        </div>
       </div>
 
       {payError && (

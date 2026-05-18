@@ -33,16 +33,24 @@ export function validateField(field, value) {
 }
 
 export function validateStep1(booking) {
-  if (!booking.pkg)          return 'Please select a package.';
-  if (!booking.propertyType) return 'Please select flat or house.';
-  if (!booking.size)         return booking.pkg?.isHourly ? 'Please select how many hours.' : 'Please select your property size.';
+  if (!booking.pkg) return 'Please select a package.';
+  if (booking.pkg?.isHourly && !booking.size) return 'Please select how many hours.';
   if (booking.pkg?.isHourly && !booking.notes?.trim()) return 'Please tell us what you need done so we can prepare your cleaner.';
-  if (booking.pkg?.showFreq && !booking.freq) return 'Please select how often you would like us to clean.';
-  if (!booking.mopAck)       return 'Please confirm you have a working mop and vacuum at the property.';
+  if (booking.pkg?.id === 'office_cleaning' && !booking.size) return 'Please select how many hours.';
+  if (booking.pkg?.id === 'office_cleaning' && !booking.notes?.trim()) return 'Please tell us what you need done so we can prepare your cleaner.';
+  return null;
+}
+
+export function validateStep1b(booking) {
+  const isHourly = booking.pkg?.isHourly;
+  const isOffice = booking.pkg?.id === 'office_cleaning';
+  if (!isHourly && !isOffice && !booking.propertyType) return 'Please select flat or house.';
+  if (!isHourly && !isOffice && !booking.size) return 'Please select your property size.';
   return null;
 }
 
 export function validateStep2(booking) {
+  if (booking.pkg?.showFreq && !booking.freq) return 'Please select how often you would like us to clean.';
   if (!booking.cleanDate) return 'Please select a date.';
   if (!booking.cleanTime) return 'Please select a time slot.';
   const sel   = new Date(booking.cleanDate);

@@ -6,7 +6,7 @@ import { Sparkle, WandIcon } from './Icons';
 const LABEL = {
   fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.08em',
   textTransform: 'uppercase', color: '#5a4e44', marginBottom: 8,
-  display: 'flex', alignItems: 'center', gap: 7,
+  display: 'flex', alignItems: 'flex-start', gap: 7,
 };
 
 const INPUT = (hasError) => ({
@@ -46,10 +46,10 @@ const SECTION_TITLE = {
 const HOW_HEARD = ['Google Search','Instagram','Facebook','TikTok','Word of Mouth','Leaflet','Nextdoor','Other'];
 const PARKING   = ['Free street parking nearby','Permit zone — I will arrange','Private driveway / bay','No parking available'];
 
-function SelectField({ label, value, options, onChange, placeholder = 'Select…', error }) {
+function SelectField({ label, value, options, onChange, placeholder = 'Select…', error, style }) {
   return (
-    <div style={{ marginBottom: 20 }}>
-      <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> {label}</label>
+    <div style={{ marginBottom: 20, ...style }}>
+      <label style={{ ...LABEL, minHeight: 36 }}><Sparkle size={7} color="#c8b89a" /> {label}</label>
       <div style={{ position: 'relative' }}>
         <select
           value={value}
@@ -73,7 +73,7 @@ function SelectField({ label, value, options, onChange, placeholder = 'Select…
 function Field({ name, label, type = 'text', placeholder, readOnly, value, error, onChange, onBlur }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> {label}</label>
+      <label style={{ ...LABEL, minHeight: 36 }}><Sparkle size={7} color="#c8b89a" /> {label}</label>
       <input
         type={type}
         name={name}
@@ -261,7 +261,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
       {/* Personal details */}
       <div style={SECTION}>
         <div style={SECTION_TITLE}>Your Details</div>
-        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px', alignItems: 'end' }}>
           <Field key="firstName" name="firstName" label="First Name *"    placeholder="Sophie"          value={form.firstName} error={fieldErrors.firstName} onChange={updateField} />
           <Field key="lastName"  name="lastName"  label="Last Name *"     placeholder="Lewis"           value={form.lastName}  error={fieldErrors.lastName}  onChange={updateField} />
           <Field key="email"     name="email"     label="Email Address *" placeholder="you@example.com" value={form.email}     error={fieldErrors.email}     onChange={updateField} type="email" readOnly={custType === 'returning'} />
@@ -273,7 +273,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
       {/* Property details */}
       <div style={SECTION}>
         <div style={SECTION_TITLE}>Property Details</div>
-        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 20px', alignItems: 'end' }}>
           <Field key="addr1"    name="addr1"    label="Address Line 1 *"    placeholder="Flat 3, 42 Mare Street" value={form.addr1}    error={fieldErrors.addr1}    onChange={updateField} />
           <Field key="postcode" name="postcode" label="Postcode *"           placeholder="E8 1HL"                 value={form.postcode} error={fieldErrors.postcode} onChange={updateField} onBlur={blurField} />
           <Field key="floor"    name="floor"    label="Floor / Access Notes" placeholder="2nd floor, no lift"     value={form.floor}    error={fieldErrors.floor}    onChange={updateField} />
@@ -282,6 +282,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
             value={form.parking}
             options={PARKING}
             onChange={v => setForm(f => ({ ...f, parking: v }))}
+            style={{ paddingTop: 20 }}
           />
         </div>
 
@@ -302,7 +303,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
         {/* Bathrooms */}
         <div style={{ marginTop: 4, marginBottom: 4 }}>
-          <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Number of Bathrooms *</label>
+          <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Number of Bathrooms *</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: fieldErrors.bathrooms ? 6 : 0 }}>
             {['1', '2', '3', '4', '5+'].map(n => (
               <button

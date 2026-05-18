@@ -141,7 +141,16 @@ export default function TermsAndConditions() {
             ),
           },
           {
-            title: "6. Access & Responsibilities",
+            title: "6. Recurring Clean Policy",
+            content: (
+              <>
+                <p>If a recurring booking is selected, the first clean is charged at the standard first-clean rate. Any discounts apply from the second visit onwards.</p>
+                <p style={{ marginTop: 16 }}>If two consecutive cleans are missed or cancelled, the recurring arrangement and any associated discount will be cancelled. Future bookings will revert to standard pricing.</p>
+              </>
+            ),
+          },
+          {
+            title: "7. Access & Responsibilities",
             content: (
               <>
                 <p>Customers must provide clear access instructions, ensure safe working conditions, provide electricity and water, inform us of any pets in advance, and provide parking details where needed.</p>
@@ -151,7 +160,7 @@ export default function TermsAndConditions() {
             ),
           },
           {
-            title: "7. Right to Refuse or Stop Service",
+            title: "8. Right to Refuse or Stop Service",
             content: (
               <>
                 <p>We may refuse or stop a job if the environment is unsafe, there are health risks such as mould or hazardous waste not disclosed, the customer behaves inappropriately, the property condition differs significantly from what was described, or utilities are unavailable.</p>
@@ -160,29 +169,29 @@ export default function TermsAndConditions() {
             ),
           },
           {
-            title: "8. Photography & Video",
+            title: "9. Photography & Video",
             content: (
               <>
-                <p>Our cleaners take before and after photos and videos for quality control, training, and dispute protection. This content is for internal use only and will never be shared publicly without your explicit consent.</p>
+                <p>To maintain our service standards and ensure consistent quality, our cleaning team may take before and after photos of completed work. These images are used strictly for internal quality control, training, and verification purposes. They are not used for marketing or social media unless explicit separate consent has been given. All images are stored securely and are deleted within 48 hours after quality review, unless required for resolving a customer query or complaint.</p>
                 <p style={{ marginTop: 16 }}><strong>Social media consent:</strong> During the booking process you may choose to give permission for before/after photos and videos of your clean to be shared on London Cleaning Wizard's social media channels. This is entirely optional. Your personal details and address will never be shown. You may withdraw consent at any time by contacting us at bookings@londoncleaningwizard.com. We will only share content from bookings where consent was given at the time of booking.</p>
                 <p style={{ marginTop: 16 }}><strong>Pre-booking photos:</strong> We may ask customers to send photos or videos of the property before confirming a booking, particularly for commercial, Airbnb, or deep cleans. If the property differs significantly from what was shown, the price may increase or the service may be refused.</p>
               </>
             ),
           },
           {
-            title: "9. Cleaner Allocation",
+            title: "10. Cleaner Allocation",
             content: (
               <p>While we always strive to send the same dedicated cleaner for recurring bookings, this cannot be guaranteed. In the event that your usual cleaner is unavailable, we will contact you in advance and arrange an equally skilled replacement.</p>
             ),
           },
           {
-            title: "10. Satisfaction Guarantee",
+            title: "11. Satisfaction Guarantee",
             content: (
               <p>Issues must be reported within 24 hours. We offer a free re-clean where appropriate. Refunds are not provided if a re-clean is offered and declined.</p>
             ),
           },
           {
-            title: "11. Complaints",
+            title: "12. Complaints",
             content: (
               <>
                 <p>Email: bookings@londoncleaningwizard.com</p>
@@ -191,33 +200,33 @@ export default function TermsAndConditions() {
             ),
           },
           {
-            title: "12. Liability",
+            title: "13. Liability",
             content: (
               <p>We take reasonable care in all services. We are not liable for pre-existing damage, normal wear and tear, or undisclosed fragile or valuable items. Customers should secure valuable items before cleaning. We maintain appropriate public liability insurance.</p>
             ),
           },
           {
-            title: "13. Website & Platform Use",
+            title: "14. Website & Platform Use",
             content: (
               <p>You agree not to misuse our website or social media, submit false information, or copy content without permission.</p>
             ),
           },
           {
-            title: "14. Data Protection",
+            title: "15. Data Protection",
             content: (
               <p>We comply with UK GDPR. We may collect your name, contact details, address, and booking information. We use your data to provide services, communicate with you, and send marketing communications. We do not sell your data. You may opt out of marketing at any time.</p>
             ),
           },
           {
-            title: "15. Complimentary Gifts",
+            title: "16. Complimentary Gifts",
             content: <p>From time to time we may include a complimentary gift with certain services as a gesture of appreciation. This is entirely at our discretion and is not a guaranteed part of any service. We reserve the right to change, substitute, or discontinue the gift at any time without notice.</p>,
           },
           {
-            title: "16. Changes to Terms",
+            title: "17. Changes to Terms",
             content: <p>We may update these terms at any time. Continued use of our services following any changes constitutes acceptance of the updated terms.</p>,
           },
           {
-            title: "17. Governing Law",
+            title: "18. Governing Law",
             content: <p>These terms are governed by the laws of England and Wales.</p>,
           },
           {

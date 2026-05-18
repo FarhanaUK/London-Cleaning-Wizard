@@ -167,8 +167,14 @@ export const PROPERTY_TYPES = [
 export const PACKAGES = [
   {
     id: 'standard', name: 'Signature Hotel Reset', popular: true, launchOffer: 0.5,
-    desc: 'Your home cleaned, styled, and reset to a standard that actually feels different when you walk in. Typically 3.5–4.5 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
-    tags: ['Whole home', 'Same cleaner', 'Linen change', 'Attention to detail'],
+    cardFromPrice: '72.50',
+    cardDesc: 'Luxury-style home reset with detailed finishing touches',
+    cardBullets: ['Full home clean', 'Linen change', 'Hotel-style presentation', 'Weekly / fortnightly / monthly available'],
+    cardBottomLine: 'Best for a full home refresh with a premium finish',
+    desc: 'A full home reset designed to leave your space feeling clean, styled, and refreshed with a consistent hotel-style finish. Ideal for homes that want a higher standard of presentation after cleaning.',
+    mobileDesc: 'A full home reset designed to leave your space clean, styled, and refreshed with a consistent hotel-style finish.',
+    mobileDescNote: 'Typically 3.5–4.5 hours (2-bed guide)',
+    tags: [],
     showFreq: true, showAddons: true,
     sizes: [
       { id: 'studio', label: 'Studio',    basePrice: P.standard.studio },
@@ -180,8 +186,15 @@ export const PACKAGES = [
   },
   {
     id: 'refresh', name: 'Essential Reset - Regular Clean', popular: false,
+    cardFromPrice: '85 / weekly clean',
+    mobileDesc: 'A regular maintenance clean to keep your home consistently tidy, fresh, and under control.',
+    mobileDescSub: 'Ideal for ongoing weekly or monthly upkeep.',
+    mobileDescNote: 'Typically 2.5–3.5 hours (2-bed guide)',
+    cardDesc: 'Reliable maintenance clean for a fresh, tidy home',
+    cardBullets: ['Full home clean', 'Weekly / monthly options', 'Standard checklist clean'],
+    cardBottomLine: 'Best for keeping your home clean and maintained',
     desc: 'This service focuses on visible cleanliness and overall reset. Heavier buildup or stubborn marks may require a Deep Clean. Typically 3–4 hours for a 2-bedroom home. Smaller homes may take less time, larger homes may take slightly longer.',
-    tags: ['Whole home'],
+    tags: [],
     showFreq: true, showAddons: true,
     sizes: [
       { id: 'studio', label: 'Studio',    basePrice: P.refresh.studio },
@@ -195,8 +208,14 @@ export const PACKAGES = [
 
   {
     id: 'deep', name: 'Deep Reset - Deep Clean', popular: false,
+    cardFromPrice: '225',
+    mobileDesc: 'A full top-to-bottom deep clean designed to restore your home beyond a standard clean, reaching areas not covered in regular maintenance cleaning.',
+    mobileDescNote: 'Typically 4–10 hours (2 cleaners may attend depending on size)',
+    cardDesc: 'Intensive deep clean for heavily used or reset-ready homes',
+    cardBullets: ['Full deep clean', 'Heavy buildup removal', 'Extra time allocated'],
+    cardBottomLine: 'Best for heavily used or overdue deep cleaning',
     desc: 'A full transformation clean for heavily used or move-in ready homes. 2 cleaners · estimated 4–10 hrs depending on property size.',
-    tags: ['Oven included', 'Inside fridge', 'Behind appliances', 'Photo report'],
+    tags: [],
     showFreq: false, showAddons: false,
     sizes: [
       { id: 'studio', label: 'Studio',    basePrice: P.deep.studio },

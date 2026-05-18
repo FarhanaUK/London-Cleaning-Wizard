@@ -1,31 +1,31 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { PACKAGES, PROPERTY_TYPES, FREQUENCIES, ADDONS } from '../data/siteData';
+import { PACKAGES } from '../data/siteData';
 import { DEEP_SUPPLIES_FEE } from '../utils/pricing';
 import { validateStep1 } from '../utils/validation';
 import { Sparkle, WandIcon } from './Icons';
 
 // What each package includes - shown in expandable checklist
 const PACKAGE_DETAIL = {
-  refresh: [
-    'Full home clean across all rooms',
-    'All surfaces wiped and reset',
-    'Floors vacuumed and mopped throughout',
-    'Kitchen cleaned (worktops, backsplash, cupboard doors and handles, sink, all appliance exteriors)',
-    'Bathroom cleaned (toilet, sink, shower, mirrors)',
-    'Doors and door frames lightly cleaned and spot-wiped',
-    'High-touch areas sanitised (e.g. light switches, door handles)',
-    'Bins emptied and relined',
-  ],
+  refresh: {
+    mobileSections: [
+      { heading: 'Core cleaning', items: ['Full home clean across all rooms', 'All surfaces wiped and reset', 'Floors vacuumed and mopped throughout', 'High-touch areas sanitised (e.g. light switches, door handles)', 'Bins emptied and relined'] },
+      { heading: 'Kitchen & bathroom', items: ['Kitchen cleaned (worktops, backsplash, cupboard doors and handles, sink, all appliance exteriors)', 'Bathroom cleaned (toilet, sink, shower, mirrors)', 'Doors and door frames lightly cleaned and spot-wiped'] },
+    ],
+  },
   
   standard: {
-    intro: [
-      'For homes that are already maintained and need a refined, hotel-style finish. The Signature Hotel Reset goes beyond cleaning. It transforms your home into a calm, beautifully presented space that feels like a premium hotel. You walk in, and everything just feels lighter, calmer, and easier.',
+    mobileSections: [
+      { heading: 'Core cleaning', items: ['Full home clean across all rooms', 'Floors vacuumed and mopped throughout', 'High-touch areas sanitised', 'Bins emptied and relined'] },
+      { heading: 'Kitchen & bathroom', items: ['Kitchen cleaned (surfaces, cupboards, appliances exterior)', 'Bathroom cleaned (toilet, sink, shower, mirrors)', 'Microwave deep clean'] },
+      { heading: 'Finishing touches', items: ['Linen change', 'Hotel-style bed presentation', 'Cushions and soft furnishings neatly arranged', 'Items tidied in place', 'Surfaces left minimal and aligned', 'Doors and frames spot cleaned'] },
+      { heading: 'Signature finish', items: ['Light signature scent (optional opt-out)', 'Complimentary gift (when available)'] },
     ],
+    intro: [],
     sections: [
       {
-        heading: 'Everything in Regular Clean (Essential Reset), plus:',
-        baseItems: [
+        heading: null,
+        items: [
           'Full home clean across all rooms',
           'All surfaces wiped and reset',
           'Floors vacuumed and mopped throughout',
@@ -34,40 +34,36 @@ const PACKAGE_DETAIL = {
           'Doors and door frames lightly cleaned and spot-wiped',
           'High-touch areas sanitised (e.g. light switches, door handles)',
           'Bins emptied and relined',
-        ],
-        items: [
           'Linen change',
           'Hotel-style bed presentation (tight, smooth, and styled)',
           'Cushions and soft furnishings neatly arranged',
-          'Items tidied in place — nothing moved or relocated',
+          'Items tidied in place, nothing moved or relocated',
           'Surfaces left minimal, aligned, and intentional',
           'A complete "reset" of how your home feels',
           'Microwave deep clean',
         ],
       },
       {
-        heading: 'The Signature Finish:',
+        heading: 'The Signature Finish',
         items: [
-          'Your home is finished with a light mist of our exclusive signature scent, so you walk in to something that feels unmistakably luxurious. Like stepping into a five-star hotel.',
-          'Opt in and we will leave you a complimentary gift: a bottle of our signature fragrance and a hand-poured signature candle, crafted exclusively for our clients',
-          'Prefer to skip the scent? No problem. You can opt out in the next step',
+          'Light mist of our exclusive signature scent (optional opt-out)',
+          'Complimentary gift: bottle of signature fragrance + hand-poured candle (when available)',
           'Rooms left calm, balanced, and visually refined',
-          'Completion photos provided',
         ],
       },
     ],
-    footer: [
-      'Feels like stepping into a calm, hotel-like space without leaving home.',
-      'This is our most popular service and recommended for most homes.',
-    ],
+    footer: [],
   },
   deep: {
-    intro: [
-      'The Deep Clean is our most intensive service. A full top-to-bottom restoration for homes that need more than a standard clean.',
+    mobileSections: [
+      { heading: 'Everything in Signature & Essential, plus:', items: ['Walls wiped down (spot marks and scuffs removed)', 'Skirting boards, blinds, and light fittings cleaned', 'Vacuuming under and behind all furniture', 'Inside wardrobes and drawers cleaned', 'Behind the toilet fully cleaned', 'Storage rooms and utility cupboards cleaned throughout', 'All interior windows cleaned throughout'] },
+      { heading: 'Premium deep-clean inclusions', items: ['Oven fully cleaned (racks, door, casing & cavity)', 'Fridge & freezer fully cleaned', 'All kitchen cupboards fully cleaned', 'Behind and under all appliances', 'Extractor fan filters and housing degreased', 'Microwave fully cleaned'] },
+      { heading: 'Full bathroom restoration', items: ['Heavy limescale removal throughout', 'Grout scrubbing', 'Deep sanitisation of all surfaces'] },
     ],
+    intro: [],
     sections: [
       {
-        heading: 'Everything in Regular Clean & Signature Hotel Reset, plus:',
+        heading: 'Includes everything in Signature Hotel Reset and Essential Reset, plus deeper restorative cleaning:',
         items: [
           'Walls wiped down (spot marks and scuffs removed)',
           'Skirting boards, blinds, and light fittings cleaned',
@@ -79,7 +75,7 @@ const PACKAGE_DETAIL = {
         ],
       },
       {
-        heading: 'All add-ons included as standard:',
+        heading: 'Premium deep-clean inclusions (normally add-ons, included here)',
         items: [
           'Oven fully cleaned (racks, door, casing & cavity)',
           'Fridge & freezer fully cleaned',
@@ -90,7 +86,7 @@ const PACKAGE_DETAIL = {
         ],
       },
       {
-        heading: 'Full bathroom restoration:',
+        heading: 'Full bathroom restoration',
         items: [
           'Heavy limescale removal throughout',
           'Grout scrubbing',
@@ -100,7 +96,7 @@ const PACKAGE_DETAIL = {
     ],
     footer: [
       'Your home is fully restored, deeply cleaned, and reset from top to bottom.',
-      'Ideal for neglected homes, move-in preparation, or a full seasonal reset.',
+      'Ideal for move-in preparation or a full seasonal reset.',
     ],
   },
   eot: [
@@ -186,11 +182,11 @@ const COMMERCIAL_SERVICES = [
   },
 ];
 
-export default function BookingStep1({ booking, onUpdate, onNext }) {
+export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
   const location = useLocation();
   const [error,      setError]      = useState('');
   const [expanded,   setExpanded]   = useState(null);
-  const propertyTypeRef = useRef(null);
+  const [openSections, setOpenSections] = useState(new Set());
   const [pkgTab,     setPkgTab]     = useState(() => {
     const saved = sessionStorage.getItem('pkgTab');
     if (saved) return saved;
@@ -217,7 +213,7 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
     if (pkgTab === 'signature') {
       const sigPkgs = PACKAGES.filter(p => !['airbnb','hourly','airbnb_commercial','office_cleaning'].includes(p.id));
       const alreadySelected = booking.pkg && sigPkgs.find(p => p.id === booking.pkg.id);
-      if (!alreadySelected) handlePackageSelect(sigPkgs[0]);
+      // no auto-select
     }
     if (pkgTab === 'commercial') {
       const commercialIds = COMMERCIAL_SERVICES.map(s => s.pkg.id);
@@ -263,25 +259,13 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
     setExpanded(prev => prev === pkgId ? null : pkgId);
   };
 
-  const allSizes = booking.pkg?.sizes || [];
-  const sizes = booking.propertyType === 'house'
-    ? allSizes.filter(s => s.id !== 'studio')
-    : allSizes;
-
   return (
     <div>
       <style>{`
         @keyframes twinkle1 { 0%,100% { opacity:0.5; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }
         @keyframes twinkle2 { 0%,100% { opacity:1; transform:scale(1.2); } 50% { opacity:0.4; transform:scale(0.9); } }
         @keyframes twinkle3 { 0%,100% { opacity:0.6; transform:scale(1); } 60% { opacity:1; transform:scale(1.4); } }
-        .pkg-tab-bar { display:flex; gap:6px; margin-bottom:24px; }
-        .pkg-tab-bar button { flex:1; padding:11px 10px; border:1px solid rgba(200,184,154,0.4); border-radius:6px; cursor:pointer; font-family:'Jost',sans-serif; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; transition:all 0.15s; }
-        @media (max-width:640px) {
-          .pkg-tab-bar { flex-wrap:wrap; }
-          .pkg-tab-bar button { flex:1 1 calc(50% - 3px); font-size:10px; padding:10px 6px; }
-          .pkg-tab-bar button:last-child { flex:1 1 100%; }
-        }
-        .book-next-btn { font-family:'Jost',sans-serif; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; font-weight:500; padding:14px 32px; background:#2c2420; color:#f5f0e8; border:none; cursor:pointer; display:flex; align-items:center; gap:10px; }
+.book-next-btn { font-family:'Jost',sans-serif; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; font-weight:500; padding:14px 32px; background:#2c2420; color:#f5f0e8; border:none; cursor:pointer; display:flex; align-items:center; gap:10px; }
         @media (max-width:640px) {
           .book-next-btn { width:100%; justify-content:center; padding:16px 24px; }
         }
@@ -290,45 +274,47 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
         }
         .card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
         .card-price-col { display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0; margin-left:12px; }
+        .pkg-card-desc { font-size: 13px; }
+        .pkg-card-bullet { font-size: 13px; }
+        .pkg-card-bottomline { font-size: 13px; }
+        .pkg-card-price { font-size: 13px; }
+        .pkg-card-offer { font-size: 13px; }
+        .pkg-card-extras { display: block; }
+        .pkg-detail-extras { display: none; }
+        .pkg-desc-mobile { display: none; }
+        .pkg-wi-mobile { display: none; }
+        .pkg-wi-desktop { display: block; }
+        .sig-pkg-grid { display: flex; gap: 8px; align-items: stretch; }
         @media (max-width:640px) {
           .card-header { flex-wrap:wrap; gap:6px 0; }
           .card-price-col { align-items:flex-start; margin-left:0; }
+          .pkg-card-desc { font-size: 10px; }
+          .pkg-card-title { font-size: 8px; letter-spacing: 0.02em; min-height: 36px; }
+          .pkg-card-subtitle { font-size: 8px; }
+          .pkg-detail-text { font-size: 11px; }
+          .pkg-desc-desktop { display: none; }
+          .pkg-desc-mobile { display: block; }
+          .pkg-detail-extras { display: none; }
+          .pkg-card-extras { display: none; }
+          .pkg-wi-mobile { display: block; }
+          .pkg-wi-desktop { display: none; }
+          .pkg-wi-item { font-size: 11px; }
+          .pkg-card-spacer { display: flex; flex: 1; }
+          .pkg-card-bullet { font-size: 11px; }
+          .pkg-card-bottomline { font-size: 11px; }
+          .pkg-card-price { font-size: 11px; }
+          .pkg-card-offer { font-size: 11px; }
+          .step-heading { margin-top: 24px; }
         }
       `}</style>
-      {/* Hero strip */}
-      <div className="hero-strip" style={{ marginBottom: 28, paddingBottom: 24, borderBottom: '1px solid rgba(200,184,154,0.2)' }}>
-        <div style={{ padding: '10px 16px', background: '#8b2020', display: 'flex', alignItems: 'flex-start', gap: 10, margin: '0 -16px' }}>
-          <span style={{ fontSize: 14, flexShrink: 0 }}>🎁</span>
-          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', flex: 1, lineHeight: 1.5 }}>
-            <strong>Launch Offer</strong> · 50% off your first Signature Hotel Reset · Ends 1st June
-          </div>
-        </div>
-      </div>
 
-      {/* Package tab switcher */}
+      {/* Package content */}
       <>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 300, color: '#1a1410', marginBottom: 4 }}>
-          Choose your perfect clean
+        <div className="step-heading" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: '#1a1410', marginBottom: 4 }}>
+          Choose your clean
         </div>
         <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b7355', fontWeight: 300, marginBottom: 14 }}>
-          Three packages, one promise: a home that feels reset.
-        </div>
-        <div className="pkg-tab-bar">
-          {[
-            { id: 'signature',  label: 'Home Cleans' },
-            { id: 'hourly',     label: 'Hourly Cleans' },
-            { id: 'commercial', label: 'Commercial & Airbnb' },
-          ].map(t => (
-            <button
-              key={t.id}
-              onClick={() => t.id === 'hourly' ? switchToHourly() : t.id === 'commercial' ? switchToCommercial() : switchToSignature()}
-              style={{
-                fontWeight: pkgTab === t.id ? 600 : 400,
-                background: pkgTab === t.id ? '#2c2420' : 'transparent',
-                color: pkgTab === t.id ? '#f5f0e8' : '#5a4e44',
-              }}
-            >{t.label}</button>
-          ))}
+          Select the level of service for your home
         </div>
 
         {/* Signature packages tab — horizontal tabs + detail panel */}
@@ -342,29 +328,47 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 10 }}>
                 Select a package to continue
               </div>
-              {/* 3 horizontal tabs */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {/* 3 package cards */}
+              <div className="sig-pkg-grid" style={{ marginBottom: 16 }}>
                 {sigPkgs.map(pkg => {
                   const sel = activePkg?.id === pkg.id;
-                  const offerRaw   = pkg.launchOffer ? pkg.sizes[0].basePrice * pkg.launchOffer : null;
-                  const offerPrice = offerRaw !== null ? (offerRaw % 1 === 0 ? String(offerRaw) : offerRaw.toFixed(2)) : null;
+                  const subtitle = pkg.popular ? 'Most Popular' : pkg.name.split(' - ')[1];
+                  const fromPrice = pkg.cardFromPrice || pkg.sizes[0].basePrice;
                   return (
-                    <button
+                    <div
                       key={pkg.id}
                       onClick={() => handlePackageSelect(pkg)}
-                      style={{ flex: 1, padding: '12px 10px', border: sel ? '1.5px solid #2c2420' : '1px solid rgba(200,184,154,0.4)', borderRadius: 6, background: sel ? '#2c2420' : 'transparent', color: sel ? '#f5f0e8' : '#5a4e44', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', outline: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start' }}
+                      role="button"
+                      style={{ flex: 1, padding: '12px 10px', border: sel ? '2px solid #c8b89a' : '2px solid rgba(200,184,154,0.2)', borderRadius: 6, background: sel ? 'rgba(200,184,154,0.22)' : '#fdf8f3', boxShadow: sel ? '0 2px 10px rgba(200,184,154,0.25)' : 'none', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start' }}
                     >
-                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, fontWeight: 500, marginBottom: 2, lineHeight: 1.3 }}>{pkg.name.split(' - ')[0]}</div>
-                      {pkg.name.includes(' - ') && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: sel ? 'rgba(245,240,232,0.5)' : '#a89070', letterSpacing: '0.04em', marginBottom: 2 }}>({pkg.name.split(' - ')[1]})</div>}
-                      <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: sel ? '#c8b89a' : '#8b7355' }}>
-                        {offerPrice
-                          ? <><span style={{ textDecoration: 'line-through', marginRight: 4, opacity: 0.6 }}>£{pkg.sizes[0].basePrice}</span>from £{offerPrice}</>
-                          : <>from £{pkg.sizes[0].basePrice}</>
-                        }
+                      <div className="pkg-card-title" style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4, color: '#1a1410' }}>
+                        {pkg.name.split(' - ')[0]}
                       </div>
-                      {pkg.launchOffer && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: sel ? '#f5c842' : '#8b2020', marginTop: 4 }}>50% off first clean</div>}
-                      {pkg.showFreq && !pkg.launchOffer && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: sel ? 'rgba(245,240,232,0.5)' : '#2d6a4f', marginTop: 4 }}>from £{pkg.sizes[0].basePrice - 30}/wk</div>}
-                    </button>
+                      {subtitle && <div className="pkg-card-subtitle" style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#a89070', letterSpacing: '0.04em', marginBottom: 4 }}>({subtitle})</div>}
+                      <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', marginBottom: pkg.launchOffer ? 2 : 6 }}>
+                        from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
+                      </div>
+                      {pkg.launchOffer && (
+                        <div className="pkg-card-offer" style={{ fontFamily: "'Jost',sans-serif", color: '#8b2020', marginBottom: 6 }}>
+                          50% off first clean
+                        </div>
+                      )}
+                      <div className="pkg-card-extras" style={{ width: '100%' }}>
+                        {pkg.cardDesc && <div className="pkg-card-desc" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#6b5e56', lineHeight: 1.4, marginBottom: 6 }}>{pkg.cardDesc}</div>}
+                        {(pkg.cardBullets || []).map((b, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 5, alignItems: 'flex-start', marginBottom: 3 }}>
+                            <span className="pkg-card-bullet" style={{ color: '#2d6a4f', flexShrink: 0 }}>✔</span>
+                            <span className="pkg-card-bullet" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#5a4e44', lineHeight: 1.4 }}>{b}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="pkg-card-spacer" style={{ flex: 1 }} />
+                      {pkg.cardBottomLine && (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(200,184,154,0.3)', width: '100%' }}>
+                          <div className="pkg-card-bottomline" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#5a4e44', lineHeight: 1.4 }}>{pkg.cardBottomLine}</div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -372,8 +376,35 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
               {/* Detail panel for selected package */}
               {activePkg && (
                 <div style={CARD(true)}>
-                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#6b5e56', fontWeight: 300, marginBottom: 12, lineHeight: 1.6 }}>
-                    {activePkg.desc}
+                  {activePkg.mobileDesc ? (
+                    <>
+                      <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#6b5e56', fontWeight: 300, marginBottom: 4, lineHeight: 1.6 }}>
+                        {activePkg.mobileDesc}
+                      </div>
+                      {activePkg.mobileDescSub && (
+                        <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#6b5e56', fontWeight: 300, marginBottom: 4, lineHeight: 1.5 }}>
+                          {activePkg.mobileDescSub}
+                        </div>
+                      )}
+                      {activePkg.mobileDescNote && (
+                        <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', fontWeight: 300, marginBottom: 8, lineHeight: 1.5 }}>
+                          ⏱ {activePkg.mobileDescNote}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#6b5e56', fontWeight: 300, marginBottom: 8, lineHeight: 1.6 }}>
+                      {activePkg.desc}
+                    </div>
+                  )}
+                  <div className="pkg-detail-extras">
+                    {activePkg.cardDesc && <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#6b5e56', lineHeight: 1.4, marginBottom: 8 }}>{activePkg.cardDesc}</div>}
+                    {(activePkg.cardBullets || []).map((b, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
+                        <span className="pkg-detail-text" style={{ color: '#2d6a4f', flexShrink: 0 }}>✔</span>
+                        <span className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#5a4e44', lineHeight: 1.5 }}>{b}</span>
+                      </div>
+                    ))}
                   </div>
                   {activePkg.tags?.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
@@ -390,45 +421,71 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                   </div>
                   {expanded === activePkg.id && (
                     <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(200,184,154,0.2)' }}>
-                      {Array.isArray(PACKAGE_DETAIL[activePkg.id]) ? (
-                        (PACKAGE_DETAIL[activePkg.id] || []).map((item, i) => (
-                          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
-                            <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
-                            <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                      {PACKAGE_DETAIL[activePkg.id]?.mobileSections ? (
+                        PACKAGE_DETAIL[activePkg.id].mobileSections.map((sec, si) => (
+                          <div key={si} style={{ borderBottom: '1px solid rgba(200,184,154,0.12)' }}>
+                            <div
+                              onClick={() => setOpenSections(prev => { const n = new Set(prev); n.has(si) ? n.delete(si) : n.add(si); return n; })}
+                              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', cursor: 'pointer', userSelect: 'none' }}
+                            >
+                              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#2c2420', fontWeight: 600, letterSpacing: '0.04em' }}>{sec.heading}</div>
+                              <span style={{ fontSize: 9, color: '#8b7355', marginLeft: 8, flexShrink: 0 }}>{openSections.has(si) ? '▲' : '▶'}</span>
+                            </div>
+                            {openSections.has(si) && (
+                              <div style={{ paddingBottom: 10 }}>
+                                {sec.items.map((item, i) => (
+                                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
+                                    <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
+                                    <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))
-                      ) : (() => {
-                        const d = PACKAGE_DETAIL[activePkg.id];
-                        return <>
-                          {d.intro.map((p, i) => (
-                            <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#2c2420', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.6, margin: '0 0 8px' }}>{p}</p>
-                          ))}
-                          {d.sections.map((sec, si) => (
-                            <div key={si} style={{ marginBottom: 10 }}>
-                              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#2c2420', fontWeight: 600, marginBottom: 6, letterSpacing: '0.04em' }}>{sec.heading}</div>
-                              {sec.baseItems && (
-                                <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(200,184,154,0.2)' }}>
-                                  {sec.baseItems.map((item, i) => (
-                                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 4 }}>
-                                      <span style={{ color: '#c8b89a', fontSize: 10, flexShrink: 0, marginTop: 2 }}>✓</span>
-                                      <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#8b7355', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                      ) : (
+                        <div>
+                          {Array.isArray(PACKAGE_DETAIL[activePkg.id]) ? (
+                            (PACKAGE_DETAIL[activePkg.id] || []).map((item, i) => (
+                              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
+                                <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
+                                <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                              </div>
+                            ))
+                          ) : (() => {
+                            const d = PACKAGE_DETAIL[activePkg.id];
+                            return <>
+                              {d.intro.map((p, i) => (
+                                <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#2c2420', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.6, margin: '0 0 8px' }}>{p}</p>
+                              ))}
+                              {d.sections.map((sec, si) => (
+                                <div key={si} style={{ marginBottom: 10 }}>
+                                  {sec.heading && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#2c2420', fontWeight: 600, marginBottom: 6, letterSpacing: '0.04em' }}>{sec.heading}</div>}
+                                  {sec.baseItems && (
+                                    <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(200,184,154,0.2)' }}>
+                                      {sec.baseItems.map((item, i) => (
+                                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 4 }}>
+                                          <span style={{ color: '#c8b89a', fontSize: 10, flexShrink: 0, marginTop: 2 }}>✓</span>
+                                          <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {sec.items.map((item, i) => (
+                                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
+                                      <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
+                                      <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
                                     </div>
                                   ))}
                                 </div>
-                              )}
-                              {sec.items.map((item, i) => (
-                                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
-                                  <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
-                                  <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
-                                </div>
                               ))}
-                            </div>
-                          ))}
-                          {d.footer.map((f, i) => (
-                            <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: i === 0 ? '#2c2420' : '#8b7355', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.5, margin: '8px 0 4px' }}>{f}</p>
-                          ))}
-                        </>;
-                      })()}
+                              {d.footer.map((f, i) => (
+                                <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: i === 0 ? '#2c2420' : '#8b7355', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.5, margin: '8px 0 4px' }}>{f}</p>
+                              ))}
+                            </>;
+                          })()}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -513,9 +570,6 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
                     key={pkg.id}
                     onClick={() => {
                       update({ pkg, size: null, sizePrice: 0, propertyType: pkg.id === 'office_cleaning' ? 'office' : 'flat' });
-                      if (pkg.id === 'airbnb' && window.innerWidth < 768) {
-                        setTimeout(() => propertyTypeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
-                      }
                     }}
                     style={{ flex: 1, padding: '12px 10px', border: sel ? '1.5px solid #2c2420' : '1px solid rgba(200,184,154,0.4)', borderRadius: 6, background: sel ? '#2c2420' : 'transparent', color: sel ? '#f5f0e8' : '#5a4e44', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', outline: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start' }}
                   >
@@ -593,183 +647,22 @@ export default function BookingStep1({ booking, onUpdate, onNext }) {
         )}
       </>
 
-      {/* Property type - not shown for hourly */}
-      {booking.pkg && !booking.pkg?.isHourly && (
-        <>
-          <div ref={propertyTypeRef} style={LABEL}><Sparkle size={7} color="#c8b89a" /> Property Type</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
-            {PROPERTY_TYPES.map(type => (
-              <div
-                key={type.id}
-                onClick={() => {
-                  const partial = { propertyType: type.id };
-                  if (type.id === 'house' && booking.size?.id === 'studio') partial.size = null;
-                  update(partial);
-                }}
-                style={CARD(booking.propertyType === type.id)}
-              >
-                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#1a1410' }}>
-                  {type.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Size grid - not shown for hourly */}
-      {sizes.length > 0 && !booking.pkg?.isHourly && (
-        <>
-          <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Property Size</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: 8, marginBottom: 24 }}>
-            {sizes.map(size => {
-              const displayPrice = booking.propertyType === 'house'
-                ? Math.round(size.basePrice * 1.10)
-                : size.basePrice;
-              const launchPrice = booking.pkg?.launchOffer
-                ? (displayPrice * booking.pkg.launchOffer).toFixed(2)
-                : null;
-              return (
-                <div
-                  key={size.id}
-                  onClick={() => update({ size, sizePrice: size.basePrice })}
-                  style={CARD(booking.size?.id === size.id)}
-                >
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, color: '#1a1410', marginBottom: 4 }}>
-                    {size.label}
-                  </div>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: '#2c2420' }}>
-                    {launchPrice !== null ? (
-                      <>
-                        <span style={{ textDecoration: 'line-through', fontSize: 14, color: '#a09080', marginRight: 4 }}>£{displayPrice}</span>
-                        £{launchPrice}
-                      </>
-                    ) : `£${displayPrice}`}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {/* Frequency */}
-      {booking.pkg?.showFreq && (
-        <>
-          <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Frequency</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: 8, marginBottom: 12 }}>
-            {FREQUENCIES.map(freq => (
-              <div
-                key={freq.id}
-                onClick={() => update({ freq })}
-                style={CARD(booking.freq?.id === freq.id)}
-              >
-                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410', marginBottom: 3 }}>
-                  {freq.label}
-                </div>
-                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 300, color: freq.saving > 0 ? '#2d6a4f' : '#8b7355' }}>
-                  {freq.note}
-                </div>
-              </div>
-            ))}
-          </div>
-          {booking.freq && booking.freq.id !== 'one-off' && (
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '3px solid #16a34a', padding: '10px 14px', marginBottom: 24, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
-              Your first clean is at the full price. The <strong>£{booking.freq.saving} discount</strong> applies from your second clean onwards.
-              <div style={{ marginTop: 6, color: '#4b5563', fontWeight: 300 }}>
-                Missing two consecutive cleans cancels the recurring arrangement and the discount. Rebooking starts at the standard first-clean rate.
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Add-ons */}
-      {booking.pkg?.showAddons && (
-        <>
-          <div style={LABEL}>
-            <Sparkle size={7} color="#c8b89a" /> Add-ons
-            <span style={{ textTransform: 'none', letterSpacing: 0, fontSize: 11, color: '#8b7355', fontWeight: 300 }}>(optional)</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-            {ADDONS.filter(addon => !(addon.id === 'microwave' && booking.pkg?.id === 'standard')).map(addon => {
-              const selected = (booking.addons || []).some(a => a.id === addon.id);
-              const allSizesSmall = (booking.pkg?.sizes || []).every(s => ['studio', '1bed'].includes(s.id));
-              const isSmall  = ['studio', '1bed'].includes(booking.size?.id) || allSizesSmall;
-              const price    = addon.id === 'windows' ? (isSmall ? 35 : 55) : addon.price;
-              return (
-                <div
-                  key={addon.id}
-                  onClick={() => {
-                    const current = booking.addons || [];
-                    const next = selected
-                      ? current.filter(a => a.id !== addon.id)
-                      : [...current, { ...addon, price }];
-                    update({ addons: next });
-                  }}
-                  style={{ ...CARD(selected), display: 'flex', alignItems: 'center', gap: 12 }}
-                >
-                  <div style={{
-                    width: 20, height: 20,
-                    border: selected ? 'none' : '1px solid rgba(200,184,154,0.4)',
-                    background: selected ? '#c8b89a' : 'transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0, color: '#1a1410', fontSize: 11, fontWeight: 500,
-                  }}>
-                    {selected && '✓'}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410' }}>
-                      {addon.name}
-                    </div>
-                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontWeight: 300 }}>
-                      {addon.note}
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: '#2c2420', flexShrink: 0 }}>
-                    +£{price}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {/* Mop & vacuum acknowledgment */}
-      {booking.pkg && (
-        <>
-          {/* Mop & vacuum acknowledgment - always required */}
-          <div
-            onClick={() => update({ mopAck: !booking.mopAck })}
-            style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: '#fdf8f3', border: '1px solid rgba(200,184,154,0.3)', cursor: 'pointer', marginBottom: 24 }}
-          >
-            <div style={{
-              width: 18, height: 18, flexShrink: 0, marginTop: 1,
-              border: booking.mopAck ? 'none' : '1px solid rgba(200,184,154,0.5)',
-              background: booking.mopAck ? '#c8b89a' : 'transparent',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#1a1410', fontSize: 11,
-            }}>
-              {booking.mopAck && '✓'}
-            </div>
-            <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
-              I understand that our cleaners do not bring mops or vacuums. I confirm there is a working mop and vacuum available at the property for the cleaner to use.
-            </p>
-          </div>
-        </>
-      )}
-
-
       {error && (
         <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>
           {error}
         </p>
       )}
 
-      <button className="book-next-btn" onClick={handleNext}>
-        <WandIcon size={14} color="#c8b89a" /> Continue to Schedule
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        {onBack && (
+          <button onClick={onBack} style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', color: '#8b7355', padding: 0 }}>
+            ← Back
+          </button>
+        )}
+        <button className="book-next-btn" onClick={handleNext}>
+          <WandIcon size={14} color="#c8b89a" /> Continue booking
+        </button>
+      </div>
     </div>
   );
 }

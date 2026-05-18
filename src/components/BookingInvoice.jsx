@@ -38,6 +38,11 @@ function MobilePriceBar({ booking, T, TOneOff }) {
         )}
         {T && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 14px', marginTop: 2 }}>
+            {T.launchDiscount > 0 && (
+              <div style={{ width: '100%', fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#ff6b6b', fontWeight: 500 }}>
+                50% off first clean only
+              </div>
+            )}
             {booking.freq && booking.freq.id !== 'one-off' && (
               <div style={{ width: '100%', fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#6fcf97', fontWeight: 400 }}>
                 From 2nd clean ({booking.freq.label}): £{((T.originalSubtotal || T.subtotal) - booking.freq.saving).toFixed(2)} / visit · saves £{booking.freq.saving}
@@ -87,7 +92,7 @@ function DesktopInvoice({ booking, T, lines }) {
   return (
     <div style={{ background: '#1a1410', padding: 28 }}>
       <div style={{
-        fontFamily: "'Cormorant Garamond',serif", fontSize: 12,
+        fontFamily: "'Cormorant Garamond',serif", fontSize: 14,
         letterSpacing: '0.18em', color: '#c8b89a', textTransform: 'uppercase',
         marginBottom: 18, paddingBottom: 14,
         borderBottom: '1px solid rgba(200,184,154,0.1)',
@@ -95,23 +100,23 @@ function DesktopInvoice({ booking, T, lines }) {
 
       {!booking.size ? (
         <>
-          <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontStyle: 'italic', color: 'rgba(255,255,255,0.4)', fontWeight: 300, margin: '0 0 20px' }}>
+          <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, fontStyle: 'italic', color: 'rgba(255,255,255,0.4)', fontWeight: 300, margin: '0 0 20px' }}>
             Select a package to see your quote
           </p>
           <div style={{ borderTop: '1px solid rgba(200,184,154,0.1)', paddingTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
               { text: 'Fully insured & vetted cleaners',    tag: null },
-              { text: 'Same trusted cleaner every visit',   tag: null },
-              { text: '100% satisfaction or we re-clean',   tag: null },
+              { text: 'Same cleaner whenever possible',      tag: null },
+              { text: 'Satisfaction guarantee',              tag: null },
               { text: 'Hotel-standard finish, every clean', tag: 'Signature Hotel Reset only' },
               { text: 'Signature scent + handmade gift',    tag: 'Signature Hotel Reset only' },
             ].map((item, i) => (
-              <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 300, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5 }}>
-                <span style={{ color: '#c8b89a', flexShrink: 0, marginTop: 1 }}>✓</span>
+              <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 300, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5 }}>
+                <span style={{ color: '#16a34a', flexShrink: 0, marginTop: 1 }}>✓</span>
                 <span>
                   {item.text}
                   {item.tag && (
-                    <span style={{ display: 'block', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(200,184,154,0.45)', fontWeight: 400, marginTop: 2 }}>
+                    <span style={{ display: 'block', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(200,184,154,0.45)', fontWeight: 400, marginTop: 2 }}>
                       {item.tag}
                     </span>
                   )}
@@ -120,7 +125,7 @@ function DesktopInvoice({ booking, T, lines }) {
             ))}
           </div>
           <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px solid rgba(200,184,154,0.07)' }}>
-            <a href="tel:02081370026" style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#c8b89a', textDecoration: 'none', fontWeight: 400, letterSpacing: '0.04em' }}>
+            <a href="tel:02081370026" style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#c8b89a', textDecoration: 'none', fontWeight: 400, letterSpacing: '0.04em' }}>
               📞 Need help? 020 8137 0026
             </a>
           </div>

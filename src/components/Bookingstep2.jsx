@@ -3,6 +3,7 @@ import { validateStep2 } from '../utils/validation';
 import { toUTCISO, showDate, todayUK } from '../utils/time';
 import { Sparkle, WandIcon } from './Icons';
 import { TIMES } from '../constants/timeOptions';
+import { FREQUENCIES } from '../data/siteData';
 
 const LABEL = {
   fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.08em',
@@ -23,6 +24,17 @@ const BTN_GHOST = {
   border: '1px solid rgba(200,184,154,0.4)',
 };
 
+const STEP_WRAP_STYLE = {
+  display: 'flex', flexDirection: 'column', flex: 1,
+};
+
+const CARD = (selected) => ({
+  border: selected ? '2px solid #c8b89a' : '2px solid rgba(200,184,154,0.2)',
+  background: selected ? 'rgba(200,184,154,0.22)' : '#fdf8f3',
+  boxShadow: selected ? '0 2px 10px rgba(200,184,154,0.25)' : 'none',
+  padding: '18px 20px', cursor: 'pointer', transition: 'all 0.2s',
+});
+
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
@@ -33,8 +45,42 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   const [blockedDates, setBlockedDates] = useState([]);
   const [error,        setError]        = useState('');
 
-  const bookingRef = useRef(booking);
+  const [calendarRevealed, setCalendarRevealed] = useState(false);
+
+  const bookingRef    = useRef(booking);
+  const calendarRef   = useRef(null);
+  const timeRef       = useRef(null);
   useEffect(() => { bookingRef.current = booking; }, [booking]);
+
+  // Reset calendar when user changes frequency so they re-read the banner
+  useEffect(() => {
+    setCalendarRevealed(false);
+    onUpdate({ cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null });
+  }, [booking.freq?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const scrollTo = (ref) => {
+    if (!ref.current) return;
+    const offset = window.innerWidth < 768 ? 260 : 180;
+    const top = ref.current.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top, behavior: 'smooth' });
+  };
+
+  const revealCalendar = () => {
+    setCalendarRevealed(true);
+    setTimeout(() => scrollTo(calendarRef), 200);
+  };
+
+  const prevCleanDate = useRef(booking.cleanDate);
+  useEffect(() => {
+    if (booking.cleanDate && booking.cleanDate !== prevCleanDate.current && timeRef.current) {
+      setTimeout(() => scrollTo(timeRef), 50);
+    }
+    prevCleanDate.current = booking.cleanDate;
+  }, [booking.cleanDate]);
+
+  useEffect(() => {
+    if (booking.pkg?.showFreq) onUpdate({ freq: null, cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchBlocked = (y, m) =>
     fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${y}&month=${m + 1}`)
@@ -118,9 +164,48 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   }
 
   return (
-    <div>
-      {/* Calendar */}
-      <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Select Date</div>
+    <div style={STEP_WRAP_STYLE}>
+      <style>{`
+        @media (max-width:640px) {
+          .step-heading { margin-top: 24px; }
+          .step2-btn { padding: 11px 20px !important; font-size: 11px; }
+        }
+      `}</style>
+      {/* Frequency - only for packages that support it */}
+      {booking.pkg?.showFreq && (
+        <>
+          <div className="step-heading" style={LABEL}><Sparkle size={7} color="#c8b89a" /> How often?</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: 8, marginBottom: 12 }}>
+            {FREQUENCIES.map(freq => (
+              <div
+                key={freq.id}
+                onClick={() => onUpdate({ freq })}
+                style={CARD(booking.freq?.id === freq.id)}
+              >
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410', marginBottom: 3 }}>
+                  {freq.label}
+                </div>
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 300, color: freq.saving > 0 ? '#2d6a4f' : '#8b7355' }}>
+                  {freq.note}
+                </div>
+              </div>
+            ))}
+          </div>
+          {booking.freq && !calendarRevealed && booking.freq.id !== 'one-off' && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '3px solid #16a34a', padding: '10px 14px', marginBottom: 12, fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
+              Your first clean is at the full price. The <strong>£{booking.freq.saving} discount</strong> applies from your second clean onwards.
+              <div style={{ marginTop: 6, color: '#4b5563', fontWeight: 300 }}>
+                <a href="/terms-and-conditions" target="_blank" rel="noopener noreferrer" style={{ color: '#4b5563', fontWeight: 400, textDecoration: 'underline' }}>T&Cs apply</a>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Calendar — shown immediately for non-frequency packages, or after user clicks Continue to Date */}
+      {(!booking.pkg?.showFreq || calendarRevealed) && (
+      <div ref={calendarRef}>
+      <div className={!booking.pkg?.showFreq ? 'step-heading' : ''} style={LABEL}><Sparkle size={7} color="#c8b89a" /> Select Date</div>
       <div style={{ border: '1px solid rgba(200,184,154,0.35)', background: 'white', padding: 20, marginBottom: 24 }}>
 
         {/* Month navigation */}
@@ -187,34 +272,36 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
           })}
         </div>
       </div>
+      </div>
+      )}
 
-      {/* Time selection */}
+      {/* Time selection — grouped Morning / Afternoon / Evening */}
       {booking.cleanDate && (
-        <>
+        <div ref={timeRef}>
           <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Select Time</div>
-          <div style={{ maxHeight: 240, overflowY: 'auto', marginBottom: 24 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-            {TIMES.map(time => (
-              <div
-                key={time}
-                onClick={() => handleTimeSelect(time)}
-                style={{
-                  padding: '13px 8px', textAlign: 'center',
-                  fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 300,
-                  border: booking.cleanTime === time ? '1.5px solid #c8b89a' : '1px solid rgba(200,184,154,0.35)',
-                  background: booking.cleanTime === time ? '#c8b89a' : '#fdf8f3',
-                  color: booking.cleanTime === time ? '#1a1410' : '#2c2420',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={e => { if (booking.cleanTime !== time) e.currentTarget.style.border = '1px solid #c8b89a'; }}
-                onMouseLeave={e => { if (booking.cleanTime !== time) e.currentTarget.style.border = '1px solid rgba(200,184,154,0.35)'; }}
-              >
-                {time}
-              </div>
-            ))}
+          <div style={{ maxHeight: 190, overflowY: 'auto', marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5 }}>
+              {TIMES.map(time => (
+                <div
+                  key={time}
+                  onClick={() => handleTimeSelect(time)}
+                  style={{
+                    padding: '10px 8px', textAlign: 'center',
+                    fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 300,
+                    border: booking.cleanTime === time ? '1.5px solid #c8b89a' : '1px solid rgba(200,184,154,0.25)',
+                    background: booking.cleanTime === time ? '#c8b89a' : '#fdf8f3',
+                    color: booking.cleanTime === time ? '#1a1410' : '#2c2420',
+                    cursor: 'pointer', transition: 'border 0.12s',
+                  }}
+                  onMouseEnter={e => { if (booking.cleanTime !== time) e.currentTarget.style.border = '1px solid #c8b89a'; }}
+                  onMouseLeave={e => { if (booking.cleanTime !== time) e.currentTarget.style.border = '1px solid rgba(200,184,154,0.25)'; }}
+                >
+                  {time}
+                </div>
+              ))}
+            </div>
           </div>
-          </div>
-        </>
+        </div>
       )}
 
       {error && (
@@ -223,11 +310,26 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
         </p>
       )}
 
-      <div style={{ display: 'flex', gap: 12 }}>
-        <button onClick={onBack} style={BTN_GHOST}>← Back</button>
-        <button onClick={handleNext} style={BTN_DARK}>
-          <WandIcon size={14} color="#c8b89a" /> Continue to Details
-        </button>
+      <div style={{ display: 'flex', gap: 12, marginTop: 'auto', paddingTop: 32 }}>
+        <button onClick={onBack} className="step2-btn" style={BTN_GHOST}>← Back</button>
+        {booking.pkg?.showFreq && !calendarRevealed ? (
+          <button
+            onClick={booking.freq ? revealCalendar : undefined}
+            className="step2-btn"
+            style={{
+              ...BTN_DARK,
+              background: booking.freq ? '#2c2420' : 'rgba(44,36,32,0.25)',
+              color: '#f5f0e8',
+              cursor: booking.freq ? 'pointer' : 'default',
+            }}
+          >
+            <WandIcon size={14} color={booking.freq ? '#c8b89a' : 'rgba(200,184,154,0.3)'} /> Continue to Date
+          </button>
+        ) : booking.cleanDate && booking.cleanTime ? (
+          <button onClick={handleNext} className="step2-btn" style={BTN_DARK}>
+            <WandIcon size={14} color="#c8b89a" /> Continue to Checkout
+          </button>
+        ) : null}
       </div>
     </div>
   );
