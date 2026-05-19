@@ -594,13 +594,17 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
   // Phone bookings: skip emails until deposit is actually paid
   if (!d.isPhoneBooking) {
     const eData = buildBookingEmailData({ ...d, bookingRef: ref });
-    await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE,
-      { ...eData, to_name: d.firstName, to_email: d.email }, EMAILJS_KEY.value());
-    await sendEmail(process.env.EMAILJS_ADMIN_TEMPLATE,
-      { ...eData, to_email: 'bookings@londoncleaningwizard.com',
-        customer_name: `${d.firstName} ${d.lastName}`,
-        customer_phone: d.phone, customer_email: d.email },
-      EMAILJS_KEY.value());
+    try {
+      await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE,
+        { ...eData, to_name: d.firstName, to_email: d.email }, EMAILJS_KEY.value());
+      await sendEmail(process.env.EMAILJS_ADMIN_TEMPLATE,
+        { ...eData, to_email: 'bookings@londoncleaningwizard.com',
+          customer_name: `${d.firstName} ${d.lastName}`,
+          customer_phone: d.phone, customer_email: d.email },
+        EMAILJS_KEY.value());
+    } catch (emailErr) {
+      console.error('saveBooking: email send failed:', emailErr.message);
+    }
   }
 
   res.json({ success: true, bookingRef: ref, bookingId: id });
@@ -2334,6 +2338,7 @@ exports.stripeWebhook = onRequest(
         email: pd.email.toLowerCase(), firstName: clean(pd.firstName), lastName: clean(pd.lastName),
         phone: clean(pd.phone), addr1: clean(pd.addr1), postcode: clean(pd.postcode).toUpperCase(),
         propertyType: pd.propertyType, floor: clean(pd.floor||''), parking: clean(pd.parking||''),
+        bathrooms: pd.bathrooms || null,
         keys: clean(pd.keys||''), notes: clean(pd.notes||''),
         hasPets: pd.hasPets || false, petTypes: clean(pd.petTypes||''),
         signatureTouch: pd.signatureTouch !== false, signatureTouchNotes: clean(pd.signatureTouchNotes||''),
@@ -2354,6 +2359,7 @@ exports.stripeWebhook = onRequest(
         firstName: clean(pd.firstName), lastName: clean(pd.lastName), phone: clean(pd.phone),
         addr1: clean(pd.addr1), postcode: clean(pd.postcode).toUpperCase(),
         floor: clean(pd.floor||''), parking: clean(pd.parking||''),
+        bathrooms: pd.bathrooms || null,
         keys: clean(pd.keys||''), notes: clean(pd.notes||''),
         hasPets: pd.hasPets || false, petTypes: clean(pd.petTypes||''),
         signatureTouch: pd.signatureTouch !== false, signatureTouchNotes: clean(pd.signatureTouchNotes||''),

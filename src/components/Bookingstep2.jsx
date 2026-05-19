@@ -52,8 +52,9 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   const timeRef       = useRef(null);
   useEffect(() => { bookingRef.current = booking; }, [booking]);
 
-  // Reset calendar when user changes frequency so they re-read the banner
+  // Reset calendar when user changes frequency so they re-read the banner (showFreq packages only)
   useEffect(() => {
+    if (!booking.pkg?.showFreq) return;
     setCalendarRevealed(false);
     onUpdate({ cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null });
   }, [booking.freq?.id]); // eslint-disable-line react-hooks/exhaustive-deps

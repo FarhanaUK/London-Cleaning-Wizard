@@ -95,7 +95,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
     const hasActive   = c.bookings.some(b => b.isAutoRecurring && !b.status?.startsWith('cancelled'));
     const activeBooking   = sorted.find(b => !b.status?.startsWith('cancelled')) || sorted[0];
     const doNotContact    = activeBooking?.doNotContact ?? activeBooking?.marketingOptOut ?? false;
-    const latestNotes     = activeBooking?.notes || '';
+    const latestNotes     = sorted.find(b => b.notes)?.notes || '';
     return { ...c, totalSpend, collected, lastClean, firstClean, isRecurring, hasActive, totalBookings: c.bookings.length, doNotContact, latestNotes, latestBookingId: activeBooking?.id };
   }).sort((a, b) => (b.lastClean || '') > (a.lastClean || '') ? 1 : -1);
 
@@ -188,7 +188,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                       </button>
                     )}
                     <button
-                      onClick={() => { setEditClient(sc); setEditClientData({ firstName: sc.firstName, lastName: sc.lastName, phone: sc.phone || '', addr1: sc.addr1 || '', postcode: sc.postcode || '' }); setEditClientErr(''); }}
+                      onClick={() => { setEditClient(sc); setEditClientData({ firstName: sc.firstName, lastName: sc.lastName, phone: sc.phone || '', addr1: sc.addr1 || '', postcode: sc.postcode || '', notes: sc.latestNotes || '' }); setEditClientErr(''); }}
                       style={{ ...BTN, background: C.bg, color: C.text, border: `1px solid ${C.border}`, fontSize: 12 }}
                     >
                       Edit Client
@@ -500,6 +500,10 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                 <input value={editClientData[f.key] || ''} onChange={e => setEditClientData(p => ({ ...p, [f.key]: e.target.value }))} style={{ ...INPUT, marginBottom: 0 }} />
               </div>
             ))}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, marginBottom: 4 }}>Notes</div>
+              <textarea value={editClientData.notes || ''} onChange={e => setEditClientData(p => ({ ...p, notes: e.target.value }))} rows={3} style={{ ...INPUT, marginBottom: 0, resize: 'vertical' }} placeholder="Preferences, access notes, allergies…" />
+            </div>
             {editClientErr && <p style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginBottom: 12 }}>{editClientErr}</p>}
             <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
               <button onClick={() => setEditClient(null)} style={{ ...BTN, background: 'transparent', color: C.text, border: `1px solid ${C.border}` }}>Cancel</button>

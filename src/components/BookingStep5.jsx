@@ -273,23 +273,24 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           marketingOptOut: form.marketingOptOut,
           mediaConsent,
         };
-        const saveRes  = await fetch(import.meta.env.VITE_CF_SAVE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullBooking) });
-        const saveData = await saveRes.json();
-        if (!saveRes.ok) { setPayError(saveData.error || 'Your booking could not be saved. Please call us on 020 8137 0026.'); setLoading(false); return; }
 
+        // Store success data immediately — payment is confirmed, redirect must always happen.
+        // saveBooking or the Stripe webhook will persist the booking regardless.
         sessionStorage.setItem('bookingSuccess', JSON.stringify({
           packageName: booking.pkg?.name, size: booking.size?.label,
           cleanDate: booking.cleanDateDisplay, cleanTime: booking.cleanTime,
           address: `${form.addr1}, ${form.postcode.toUpperCase()}`,
           total: T.subtotal.toFixed(2), deposit: T.deposit.toFixed(2), remaining: T.remaining.toFixed(2),
-          bookingRef: saveData.bookingRef,
           ...(T.originalSubtotal ? { originalTotal: T.originalSubtotal.toFixed(2), launchDiscount: T.launchDiscount.toFixed(2) } : {}),
           ...(booking.freq && booking.freq.id !== 'one-off' ? { frequency: booking.freq.label, freqSaving: booking.freq.saving } : {}),
         }));
         sessionStorage.removeItem('bookingSession');
-        setLoading(false);
 
-        onSuccess({ bookingRef: saveData.bookingRef });
+        // Fire-and-forget — don't await, don't block redirect
+        fetch(import.meta.env.VITE_CF_SAVE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullBooking) }).catch(() => {});
+
+        setLoading(false);
+        onSuccess({});
       }
     } catch {
       setPayError('Something went wrong. Please try again or call us on 020 8137 0026.');
@@ -373,7 +374,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
         {/* Cleaning equipment acknowledgment */}
         <div style={{ marginBottom: 20 }}>
           <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.6, marginBottom: 10 }}>
-            A vacuum and mop will need to be available at the property for the cleaner to use.
+            Our cleaners bring all professional cleaning products and cloths. We only ask that a working vacuum and mop are available at the property for hygiene and cross-contamination reasons.
           </p>
           <div onClick={() => { onUpdate({ mopAck: !booking.mopAck }); setFieldErrors(e => ({ ...e, mopAck: null })); setSubmitError(''); }}
             style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: '#fdf8f3', border: `1px solid ${fieldErrors.mopAck ? '#8b2020' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}>
@@ -534,7 +535,6 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           </div>
 
           {payError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{payError}</p>}
-          {submitError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{submitError}</p>}
 
           {/* T&C scroll */}
           <div style={{ marginBottom: 8 }}>
@@ -591,6 +591,8 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           </div>
 
           {/* Pay button */}
+          {submitError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{submitError}</p>}
+          {payError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{payError}</p>}
           <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
             <button onClick={onBack}
               style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '14px 20px', background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)', cursor: 'pointer' }}>
