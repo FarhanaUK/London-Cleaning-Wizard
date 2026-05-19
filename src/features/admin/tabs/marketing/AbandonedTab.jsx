@@ -1,7 +1,127 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { FONT, statCard } from './shared.jsx';
 import { db } from '../../../../firebase/firebase';
 import { doc, deleteDoc, writeBatch } from 'firebase/firestore';
+
+const STEP_NAMES = ['', 'Landing', 'Service', 'Property', 'Schedule', 'Checkout'];
+
+const FIELD_NAMES = {
+  firstName: 'First name', lastName: 'Last name',
+  email: 'Email', phone: 'Phone', addr1: 'Address',
+  floor: 'Floor / access notes', parking: 'Parking selected',
+  keys: 'Key instructions', notes: 'Preferences & notes',
+  petTypes: 'Pet description',
+  card_number: 'Card number', card_expiry: 'Card expiry', card_cvc: 'CVC',
+};
+
+function fmtEvent(e) {
+  const chg = e.from != null;
+  switch (e.type) {
+    case 'service_category':    return { text: `Category: ${{ signature: 'Home Cleaning Packages', hourly: 'Hourly Cleaning', commercial: 'Commercial Cleaning' }[e.category] || e.category}` };
+    case 'tab_switched':        return { text: `Browsed ${e.tab} tab` };
+    case 'pkg_selected':        return { text: `Package: ${e.pkg}`, from: chg ? e.from : null };
+    case 'pkg_detail_expanded': return { text: `Expanded details: ${e.pkg}`, dim: true };
+    case 'section_expanded':    return { text: `Expanded section: ${e.section}`, dim: true };
+    case 'duration_selected':   return { text: `Duration: ${e.hours}`, from: chg ? e.from : null };
+    case 'commercial_service':  return { text: `Commercial: ${e.service}`, from: chg ? e.from : null };
+    case 'notes_started':       return { text: 'Started typing special notes', dim: true };
+    case 'property_type':       return { text: `Property: ${e.type}`, from: chg ? e.from : null };
+    case 'size_selected':       return { text: `Size: ${e.size}`, from: chg ? e.from : null };
+    case 'freq_selected':       return { text: `Frequency: ${e.freq}`, from: chg ? e.from : null };
+    case 'date_selected':       return { text: `Date selected${e.changed ? ' (changed)' : ''}` };
+    case 'time_selected':       return { text: `Time: ${e.time}`, from: chg ? e.from : null };
+    case 'field_filled':        return { text: e.field === 'postcode' ? `Postcode area: ${e.postcode_outward}` : `Filled: ${FIELD_NAMES[e.field] || e.field}`, dim: true };
+    case 'field_cleared':       return { text: `Removed: ${FIELD_NAMES[e.field] || e.field}`, dim: true };
+    case 'bathrooms':           return { text: `Bathrooms: ${e.count}`, from: e.from != null ? String(e.from) : null };
+    case 'has_pets':            return { text: `Pets: ${e.hasPets ? 'Yes' : 'No'}`, from: e.from != null ? (e.from ? 'Yes' : 'No') : null };
+    case 'mop_ack':             return { text: `Mop acknowledgement: ${e.checked ? 'Checked' : 'Unchecked'}` };
+    case 'signature_touch':     return { text: `Signature touch: ${e.enabled ? 'Enabled' : 'Disabled'}` };
+    case 'addon_toggled':       return { text: `Add-on "${e.addon}": ${e.checked ? 'added' : 'removed'}` };
+    case 'policy_checked':      return { text: `T&Cs: ${e.checked ? 'Accepted' : 'Unchecked'}` };
+    case 'media_consent':       return { text: `Media consent: ${e.checked ? 'Yes' : 'No'}` };
+    case 'marketing_opt_out':   return { text: `Marketing: ${e.opted_out ? 'Opted out' : 'Opted in'}` };
+    case 'signature_touch_reason': return { text: `Opted out reason: ${e.reason}`, dim: true };
+    case 'payment_attempted':   return { text: 'Payment attempted', green: true };
+    default:                    return { text: e.type };
+  }
+}
+
+function getVisits(events) {
+  const visits = [];
+  let current = null;
+  const sorted = [...(events || [])].sort((a, b) => (a.at || '').localeCompare(b.at || ''));
+  for (const e of sorted) {
+    if (e.type === 'step_entered') {
+      current = { step: e.step, direction: e.direction || 'forward', events: [], timeSpent: null };
+      visits.push(current);
+    } else if (e.type === 'step_left') {
+      if (current) current.timeSpent = e.timeSpent;
+    } else if (current) {
+      current.events.push(e);
+    }
+  }
+  return visits;
+}
+
+function SessionDetail({ session, C }) {
+  const visits = getVisits(session.events);
+  if (!visits.length) return (
+    <div style={{ padding: '12px 16px', fontFamily: FONT, fontSize: 12, color: C.muted }}>No event detail stored for this session.</div>
+  );
+  return (
+    <div style={{ borderTop: `2px solid rgba(100,116,139,0.15)`, background: C.bg, padding: '14px 16px 10px' }}>
+      {visits.map((visit, vi) => {
+        const isLast    = vi === visits.length - 1;
+        const isDropped = !session.converted && isLast;
+        const isBack    = visit.direction === 'back';
+        const dotColor  = isDropped ? '#dc2626' : session.converted && isLast ? '#16a34a' : isBack ? '#f59e0b' : '#94a3b8';
+        return (
+          <div key={vi} style={{ display: 'flex', gap: 12, marginBottom: isLast ? 0 : 10 }}>
+            {/* Spine */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 20, flexShrink: 0 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, marginTop: 3, flexShrink: 0 }} />
+              {!isLast && <div style={{ flex: 1, width: 1, background: 'rgba(148,163,184,0.25)', marginTop: 3 }} />}
+            </div>
+            {/* Content */}
+            <div style={{ flex: 1, paddingBottom: isLast ? 0 : 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: visit.events.length ? 5 : 0, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#64748b' }}>
+                  Step {visit.step} — {STEP_NAMES[visit.step]}
+                </span>
+                {isBack && (
+                  <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: '#92400e', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 10, padding: '0 6px' }}>went back</span>
+                )}
+                {visit.timeSpent != null && (
+                  <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0 6px' }}>{visit.timeSpent}s</span>
+                )}
+                {isDropped && (
+                  <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '0 7px' }}>dropped here</span>
+                )}
+                {session.converted && isLast && (
+                  <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '0 7px' }}>booked</span>
+                )}
+              </div>
+              {visit.events.length === 0 ? (
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Visited — no selections made</div>
+              ) : visit.events.map((e, i) => {
+                const { text, from, green, dim } = fmtEvent(e);
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
+                    <span style={{ color: '#94a3b8', fontSize: 10, flexShrink: 0 }}>·</span>
+                    <span style={{ fontFamily: FONT, fontSize: 12, color: green ? '#16a34a' : dim ? C.muted : C.text, fontWeight: green ? 600 : 400 }}>{text}</span>
+                    {from && (
+                      <span style={{ fontFamily: FONT, fontSize: 11, color: '#92400e', background: '#fef9c3', borderRadius: 3, padding: '0 5px', flexShrink: 0 }}>was {from}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 const FREQ_LABELS = {
   'one-off':   'One-off',
@@ -84,8 +204,9 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
     return Object.entries(map).sort((a, b) => b[1].total - a[1].total);
   }, [yearStats]);
 
-  const [showSessions, setShowSessions] = useState(false);
-  const [deletingAll,  setDeletingAll]  = useState(false);
+  const [showSessions,    setShowSessions]    = useState(false);
+  const [deletingAll,     setDeletingAll]     = useState(false);
+  const [expandedSession, setExpandedSession] = useState(null);
   const [eventsView,      setEventsView]      = useState('day');
   const [eventsDay,       setEventsDay]       = useState(today);
   const [eventsMonthView, setEventsMonthView] = useState({ month, year });
@@ -112,11 +233,11 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
     if (eventsView === 'month') return funnelData.filter(s => s.month === eventsMonthView.month && s.year === eventsMonthView.year);
     return funnelData.filter(s => s.year === eventsYearView);
   }, [funnelData, eventsView, eventsDay, eventsMonthView, eventsYearView]);
-  const STEP_LABELS = ['', 'Service', 'Schedule', 'Details', 'Payment'];
+  const STEP_LABELS = ['', 'Landing', 'Service', 'Property', 'Schedule', 'Checkout'];
   const funnelRows = useMemo(() => {
     const total = funnelMonth.length;
     if (!total) return [];
-    return [1, 2, 3, 4].map(s => {
+    return [1, 2, 3, 4, 5].map(s => {
       const reached    = funnelMonth.filter(d => d.maxStep >= s).length;
       const abandoned  = funnelMonth.filter(d => d.maxStep === s && !d.converted).length;
       const pctReached = Math.round((reached / total) * 100);
@@ -145,6 +266,91 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
     : eventsView === 'month'
     ? `${MONTH_NAMES[eventsMonthView.month - 1]} ${eventsMonthView.year}`
     : String(eventsYearView);
+
+  const exportPDF = useCallback(() => {
+    const sorted = [...funnelMonth].sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+
+    let sessionsHTML = '';
+    sorted.forEach((s, si) => {
+      const visits  = getVisits(s.events);
+      const dateStr = s.date ? new Date(s.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown date';
+      const statusHTML = s.converted
+        ? '<span style="color:#16a34a;font-weight:700">Booked</span>'
+        : '<span style="color:#dc2626;font-weight:700">Dropped</span>';
+
+      let visitsHTML = '';
+      if (!visits.length) {
+        visitsHTML = '<p style="color:#94a3b8;font-size:12px;margin:0">No event data stored.</p>';
+      } else {
+        visits.forEach((visit, vi) => {
+          const isLast    = vi === visits.length - 1;
+          const isDropped = !s.converted && isLast;
+          const isBooked  = s.converted && isLast;
+          const isBack    = visit.direction === 'back';
+          const dotColor  = isDropped ? '#dc2626' : isBooked ? '#16a34a' : isBack ? '#f59e0b' : '#94a3b8';
+
+          const badges = [
+            isBack    ? '<span style="background:#fef9c3;color:#92400e;font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px">went back</span>' : '',
+            visit.timeSpent != null ? `<span style="background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;font-size:10px;padding:1px 7px;border-radius:10px">${visit.timeSpent}s</span>` : '',
+            isDropped ? '<span style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px">dropped here</span>' : '',
+            isBooked  ? '<span style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px">booked</span>' : '',
+          ].join(' ');
+
+          let eventsHTML = '';
+          if (visit.events.length === 0) {
+            eventsHTML = '<p style="color:#94a3b8;font-size:12px;margin:3px 0 0">Visited — no selections made</p>';
+          } else {
+            visit.events.forEach(e => {
+              const { text, from, green, dim } = fmtEvent(e);
+              const color   = green ? '#16a34a' : dim ? '#64748b' : '#0f172a';
+              const weight  = green ? '600' : '400';
+              const fromTag = from ? `<span style="font-size:11px;color:#92400e;background:#fef9c3;padding:0 5px;border-radius:3px;margin-left:4px">was ${from}</span>` : '';
+              eventsHTML += `<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px"><span style="color:#94a3b8;font-size:10px;flex-shrink:0">·</span><span style="font-size:12px;color:${color};font-weight:${weight}">${text}</span>${fromTag}</div>`;
+            });
+          }
+
+          const lineHTML = !isLast ? '<div style="flex:1;width:1px;background:#e2e8f0;margin-top:3px;min-height:14px"></div>' : '';
+          visitsHTML += `
+            <div style="display:flex;gap:12px;margin-bottom:10px">
+              <div style="display:flex;flex-direction:column;align-items:center;width:16px;flex-shrink:0">
+                <div style="width:8px;height:8px;border-radius:50%;background:${dotColor};margin-top:5px;flex-shrink:0"></div>
+                ${lineHTML}
+              </div>
+              <div style="flex:1;padding-bottom:${isLast ? '0' : '4px'}">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">
+                  <span style="font-weight:700;font-size:11px;color:#475569;text-transform:uppercase;letter-spacing:0.04em">Step ${visit.step} — ${STEP_NAMES[visit.step] || ''}</span>
+                  ${badges}
+                </div>
+                ${eventsHTML}
+              </div>
+            </div>`;
+        });
+      }
+
+      sessionsHTML += `
+        <div style="margin-bottom:28px;${si > 0 ? 'border-top:1px solid #f1f5f9;padding-top:24px' : ''}">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8fafc;border-left:3px solid #2563eb;margin-bottom:14px;font-size:12px">
+            <div><span style="font-weight:600">${dateStr}</span> <span style="color:#94a3b8;font-family:monospace">${s.id}</span></div>
+            <div>${statusHTML}</div>
+          </div>
+          ${visitsHTML}
+        </div>`;
+    });
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Booking Funnel — ${eventsLabel}</title>
+<style>body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px;color:#0f172a;margin:0;padding:28px}@media print{.session{page-break-inside:avoid}}</style>
+</head><body>
+<div style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:4px">Booking Funnel Sessions</div>
+<div style="font-size:12px;color:#64748b;margin-bottom:28px">${eventsLabel} · ${sorted.length} session${sorted.length !== 1 ? 's' : ''}</div>
+${sessionsHTML}
+</body></html>`;
+
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
+  }, [funnelMonth, eventsLabel]);
 
   return (
     <>
@@ -190,7 +396,14 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
       })()}
 
       {/* Booking Funnel */}
-      <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>Booking funnel — {eventsLabel}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>Booking funnel — {eventsLabel}</div>
+        {funnelMonth.length > 0 && (
+          <button onClick={exportPDF} style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 5, border: `1px solid ${C.border}`, background: C.card, color: C.text, cursor: 'pointer' }}>
+            ↓ Download PDF
+          </button>
+        )}
+      </div>
       <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 14 }}>Each session counted once at the furthest step reached. Abandoned = left at that step without going further.</div>
       {funnelRows.length === 0 ? (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '24px 20px', fontFamily: FONT, fontSize: 13, color: C.muted, textAlign: 'center', marginBottom: 24 }}>
@@ -244,31 +457,45 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
             </button>
           </div>
           {showSessions && (
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px 32px', gap: 0, maxHeight: 1140, overflowY: 'auto' }}>
-                {['Date', 'Step', 'Status', 'Time', ''].map((h, i) => (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', maxHeight: 1200, overflowY: 'auto' }}>
+              {/* Header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 80px 60px 32px' }}>
+                {['Date', 'Last Step', 'Status', 'Time', ''].map((h, i) => (
                   <div key={i} style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: C.bg }}>{h}</div>
                 ))}
-                {[...funnelMonth].sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)).map((s, i) => {
-                  const stepLabel = s.converted ? 'Completed' : ['', 'Service', 'Schedule', 'Details', 'Payment'][s.maxStep] || `Step ${s.maxStep}`;
-                  const ts = s.updatedAt?.toDate ? s.updatedAt.toDate() : null;
-                  const time = ts ? ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—';
-                  const rowBg = i % 2 === 0 ? C.card : C.bg;
-                  return [
-                    <div key={`d${s.id}`} style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: rowBg }}>{s.date || '—'}</div>,
-                    <div key={`s${s.id}`} style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: rowBg }}>{stepLabel}</div>,
-                    <div key={`st${s.id}`} style={{ padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: rowBg }}>
-                      <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: s.converted ? '#dcfce7' : '#fef2f2', color: s.converted ? '#16a34a' : '#dc2626' }}>
-                        {s.converted ? 'Booked' : 'Dropped'}
-                      </span>
-                    </div>,
-                    <div key={`t${s.id}`} style={{ fontFamily: FONT, fontSize: 11, color: C.muted, padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: rowBg }}>{time}</div>,
-                    <div key={`x${s.id}`} style={{ padding: '4px 8px', borderBottom: `1px solid ${C.border}`, background: rowBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <button onClick={() => deleteSessions([s.id])} style={{ background: 'none', border: 'none', color: C.muted, fontSize: 15, cursor: 'pointer', lineHeight: 1, padding: 2 }}>×</button>
-                    </div>,
-                  ];
-                })}
               </div>
+              {/* Rows */}
+              {[...funnelMonth].sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)).map((s, i) => {
+                const isExpanded = expandedSession === s.id;
+                const stepLabel  = s.converted ? 'Completed' : STEP_NAMES[s.maxStep] || `Step ${s.maxStep}`;
+                const ts   = s.updatedAt?.toDate ? s.updatedAt.toDate() : null;
+                const time = ts ? ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—';
+                const rowBg = i % 2 === 0 ? C.card : C.bg;
+                return (
+                  <div key={s.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <div
+                      style={{ display: 'grid', gridTemplateColumns: '1fr 100px 80px 60px 32px', cursor: 'pointer', background: rowBg, borderLeft: isExpanded ? `3px solid ${C.accent}` : '3px solid transparent' }}
+                      onClick={() => setExpandedSession(isExpanded ? null : s.id)}
+                    >
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {s.date ? new Date(s.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                        <span style={{ fontSize: 9, color: C.muted }}>{isExpanded ? '▲' : '▼'}</span>
+                      </div>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '8px 12px' }}>{stepLabel}</div>
+                      <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
+                        <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: s.converted ? '#dcfce7' : '#fef2f2', color: s.converted ? '#16a34a' : '#dc2626' }}>
+                          {s.converted ? 'Booked' : 'Dropped'}
+                        </span>
+                      </div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, padding: '8px 12px' }}>{time}</div>
+                      <div style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button onClick={e => { e.stopPropagation(); deleteSessions([s.id]); }} style={{ background: 'none', border: 'none', color: C.muted, fontSize: 15, cursor: 'pointer', lineHeight: 1, padding: 2 }}>×</button>
+                      </div>
+                    </div>
+                    {isExpanded && <SessionDetail session={s} C={C} />}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -88,6 +88,12 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Email send failures — admin read + update (dismiss); writes via cloud functions only
+    match /emailFailures/{id} {
+      allow read, update: if request.auth != null;
+      allow create, delete: if false;
+    }
+
     // Everything else — deny
     match /{document=**} {
       allow read, write: if false;

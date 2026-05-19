@@ -383,7 +383,82 @@ export default function SOPTab({ isMobile, C }) {
         ))}
 
         <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginTop: 8, fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
-          <strong style={{ color: C.text }}>Note:</strong> Both recovery emails are fully automated. You do not need to manually send anything. Use this tab to monitor performance and spot patterns — for example, if a particular package has a high abandonment rate, or if lapsed customers tend to drop off after a specific number of cleans.
+          <strong style={{ color: C.text }}>Note:</strong> Both recovery emails are fully automated. You do not need to manually send anything. Use this tab to monitor performance and spot patterns -- for example, if a particular package has a high abandonment rate, or if lapsed customers tend to drop off after a specific number of cleans.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '24px 0 10px' }}>Booking Funnel Tracking</div>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 12 }}>
+          The booking funnel tracker records every meaningful action a visitor takes from the moment they land on the booking form until they either pay or drop off. This data lives in the Marketing tab under the Booking Funnel heading. Use it to understand exactly where customers are falling off and why.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 6 }}>What the 5 steps mean</div>
+        {[
+          { step: '1 — Landing', desc: 'The service picker. The visitor has opened the booking form and can see the package categories.' },
+          { step: '2 — Service', desc: 'Package selection step. The visitor is browsing tabs (Hourly, Signature, Commercial) and selecting a specific package.' },
+          { step: '3 — Property', desc: 'Property type and size selection (flat/house, studio/1-bed/2-bed etc.).' },
+          { step: '4 — Schedule', desc: 'Frequency (for Signature), date, and time selection.' },
+          { step: '5 — Checkout', desc: 'Contact details, add-ons, checkboxes, and payment. This is the final step before a booking is confirmed.' },
+        ].map(({ step, desc }, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0, minWidth: 120, fontFamily: FONT, fontSize: 13 }}>{step}</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{desc}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '16px 0 6px' }}>What is tracked on each session</div>
+        {[
+          'Every step visited, in order, with direction (forward = progressing, back = went back to change something).',
+          'Time spent on each step in seconds -- so you can see if someone stalled on the calendar, spent a long time on checkout, or bounced off the service page immediately.',
+          'Every selection made: service category, package name, property type, property size, frequency, date chosen, time chosen.',
+          'From/to changes: if a customer goes back and changes something (e.g. changes package from Signature 2-Bed to Signature 3-Bed), the tracker records both the old value and the new value.',
+          'Package detail expanded: whether the customer clicked to read the full package description. Useful for knowing if unclear copy is causing hesitation.',
+          'Every checkbox state: add-ons toggled (with name), mop acknowledgement, T&Cs accepted, media consent, marketing opt-out.',
+          'Every field filled: name, email, phone, address, postcode (first section only e.g. SW3, not the full postcode for privacy), bathroom count, pets yes/no. Only recorded as filled/not filled -- the actual values are not stored except postcode outward code.',
+          'Payment attempted: recorded when the customer clicks the pay button, whether or not payment succeeds.',
+          'Last action before drop-off: the final event recorded tells you the last thing the customer did before leaving.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '16px 0 6px' }}>How to use the Booking Funnel table</div>
+        {[
+          'The table shows one row per visitor session. The Last Step column tells you the furthest step they reached.',
+          'Converted = Yes means they completed a booking. Converted = No means they dropped off.',
+          'Filter by period (Today / This Week / This Month / This Year) to focus your analysis.',
+          'Look for sessions that reached Step 5 (Checkout) but did not convert -- these are the highest-priority drop-offs because the customer was very close to paying.',
+          'Sessions that drop off at Step 2 (Service) often indicate the pricing or packages are unclear. Combine this with the package detail expanded column in the CSV to see if they even read the details.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '16px 0 6px' }}>Downloading the CSV</div>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 10 }}>
+          Click the Download CSV button next to the Booking Funnel heading. The file is named funnel-[period].csv and includes one row per session with 29 columns covering everything tracked. Open it in Excel or Google Sheets.
+        </div>
+        {[
+          'Date, Session ID, Last Step reached, Converted (yes/no).',
+          'Service category selected, Package chosen, Property size, Frequency.',
+          'Time spent on each step (in seconds) -- columns: Time Step 1 through Time Step 5.',
+          'Fields filled: Name filled, Email filled, Phone filled, Address filled, Postcode outward (the actual outward code e.g. SW3).',
+          'Bathrooms count, Pets (yes/no/not answered).',
+          'Mop ack checked (yes/no), T&Cs checked (yes/no).',
+          'Payment attempted (yes/no), Add-ons selected (comma-separated list).',
+          'Package detail expanded (yes/no), Total events recorded, Changes made (yes/no), Last action type.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '3px solid #16a34a', borderRadius: 6, padding: '12px 16px', marginTop: 12, fontFamily: FONT, fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
+          <strong>Tip:</strong> Sort the CSV by "Last Step" descending, then filter "Converted" = No. This gives you every near-miss in order of how far they got. Start from the Step 5 drop-offs and work backwards. If you see a pattern (e.g. everyone who selected 3-Bed dropped off before paying), that is your actionable insight.
         </div>
       </Section>
 

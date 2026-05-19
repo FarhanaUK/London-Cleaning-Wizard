@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { trackEvent } from '../utils/funnelTrack';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { ADDONS } from '../data/siteData';
@@ -120,6 +121,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
   const [overlaySub,     setOverlaySub]     = useState('');
   const [hasScrolled,    setHasScrolled]    = useState(false);
   const [mediaConsent,   setMediaConsent]   = useState(false);
+  const trackedFieldsRef = useRef(new Set());
 
   useEffect(() => {
     if (!codeSent || secondsLeft <= 0) return;
@@ -143,6 +145,19 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
   const blurField = useCallback((field, value) => {
     const err = validateField(field, value);
     setFieldErrors(e => ({ ...e, [field]: err }));
+    if (value) {
+      if (!trackedFieldsRef.current.has(field)) {
+        trackedFieldsRef.current.add(field);
+        if (field === 'postcode') {
+          trackEvent('field_filled', { field, postcode_outward: value.trim().split(' ')[0].toUpperCase() });
+        } else {
+          trackEvent('field_filled', { field });
+        }
+      }
+    } else if (trackedFieldsRef.current.has(field)) {
+      trackedFieldsRef.current.delete(field);
+      trackEvent('field_cleared', { field });
+    }
   }, []);
 
   const handleSendCode = async () => {
@@ -210,6 +225,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
     // 2. Check T/O&C
     if (!policyChecked) { setPolicyError('Please read and accept the cancellation policy to continue.'); return; }
     setPolicyError(''); setPayError(''); setSubmitError('');
+    trackEvent('payment_attempted', { pkg: booking.pkg?.name || null, freq: booking.freq?.id || null });
 
     // 3. Check date still available
     if (booking.cleanDate) {
@@ -303,20 +319,20 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
       <div style={SECTION}>
         <div style={SECTION_TITLE}>Your Details</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field name="firstName" label="First Name *"    placeholder="Sophie"          value={form.firstName} error={fieldErrors.firstName} onChange={updateField} />
-          <Field name="lastName"  label="Last Name *"     placeholder="Lewis"           value={form.lastName}  error={fieldErrors.lastName}  onChange={updateField} />
-          <Field name="email"     label="Email Address *" placeholder="you@example.com" value={form.email}     error={fieldErrors.email}     onChange={updateField} type="email" />
-          <Field name="phone"     label="Phone Number *"  placeholder="07700 000 000"   value={form.phone}     error={fieldErrors.phone}     onChange={updateField} type="tel" />
+          <Field name="firstName" label="First Name *"    placeholder="Sophie"          value={form.firstName} error={fieldErrors.firstName} onChange={updateField} onBlur={blurField} />
+          <Field name="lastName"  label="Last Name *"     placeholder="Lewis"           value={form.lastName}  error={fieldErrors.lastName}  onChange={updateField} onBlur={blurField} />
+          <Field name="email"     label="Email Address *" placeholder="you@example.com" value={form.email}     error={fieldErrors.email}     onChange={updateField} onBlur={blurField} type="email" />
+          <Field name="phone"     label="Phone Number *"  placeholder="07700 000 000"   value={form.phone}     error={fieldErrors.phone}     onChange={updateField} onBlur={blurField} type="tel" />
         </div>
       </div>
 
       <div style={SECTION}>
         <div style={SECTION_TITLE}>Property Details</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px', alignItems: 'end' }}>
-          <Field name="addr1"    label="Address Line 1 *"    placeholder="Flat 3, 42 Mare Street" value={form.addr1}    error={fieldErrors.addr1}    onChange={updateField} />
+          <Field name="addr1"    label="Address Line 1 *"    placeholder="Flat 3, 42 Mare Street" value={form.addr1}    error={fieldErrors.addr1}    onChange={updateField} onBlur={blurField} />
           <Field name="postcode" label="Postcode *"           placeholder="E8 1HL"                 value={form.postcode} error={fieldErrors.postcode} onChange={updateField} onBlur={blurField} />
-          <Field name="floor"    label="Floor / Access Notes" placeholder="2nd floor, no lift"     value={form.floor}    error={fieldErrors.floor}    onChange={updateField} />
-          <SelectField label="Parking" value={form.parking} options={PARKING} onChange={v => setForm(f => ({ ...f, parking: v }))} />
+          <Field name="floor"    label="Floor / Access Notes" placeholder="2nd floor, no lift"     value={form.floor}    error={fieldErrors.floor}    onChange={updateField} onBlur={blurField} />
+          <SelectField label="Parking" value={form.parking} options={PARKING} onChange={v => { setForm(f => ({ ...f, parking: v })); if (v) trackEvent('field_filled', { field: 'parking' }); }} />
         </div>
         {booking.pkg?.id === 'airbnb' && (
           <div style={{ marginTop: 4, marginBottom: 4 }}>
@@ -329,7 +345,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Number of Bathrooms *</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: fieldErrors.bathrooms ? 6 : 0 }}>
             {['1','2','3','4','5+'].map(n => (
-              <button key={n} type="button" onClick={() => { setForm(f => ({ ...f, bathrooms: n })); setFieldErrors(e => ({ ...e, bathrooms: null })); setSubmitError(''); }}
+              <button key={n} type="button" onClick={() => { trackEvent('bathrooms', { count: n, from: form.bathrooms || null }); setForm(f => ({ ...f, bathrooms: n })); setFieldErrors(e => ({ ...e, bathrooms: null })); setSubmitError(''); }}
                 style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, padding: '10px 22px', cursor: 'pointer', border: 'none', background: form.bathrooms === n ? '#2c2420' : 'rgba(200,184,154,0.15)', color: form.bathrooms === n ? '#f5f0e8' : '#5a4e44', transition: 'all 0.15s' }}>{n}</button>
             ))}
           </div>
@@ -343,7 +359,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Are there any pets at the property? *</label>
           <div style={{ display: 'flex', gap: 10, marginBottom: fieldErrors.hasPets ? 6 : 0 }}>
             {[{ val: false, label: 'No' }, { val: true, label: 'Yes' }].map(opt => (
-              <button key={String(opt.val)} type="button" onClick={() => { setForm(f => ({ ...f, hasPets: opt.val, petTypes: opt.val ? f.petTypes : '' })); setFieldErrors(e => ({ ...e, hasPets: null, petTypes: null })); setSubmitError(''); }}
+              <button key={String(opt.val)} type="button" onClick={() => { trackEvent('has_pets', { hasPets: opt.val, from: form.hasPets }); setForm(f => ({ ...f, hasPets: opt.val, petTypes: opt.val ? f.petTypes : '' })); setFieldErrors(e => ({ ...e, hasPets: null, petTypes: null })); setSubmitError(''); }}
                 style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, padding: '10px 28px', cursor: 'pointer', border: 'none', background: form.hasPets === opt.val ? '#2c2420' : 'rgba(200,184,154,0.15)', color: form.hasPets === opt.val ? '#f5f0e8' : '#5a4e44', transition: 'all 0.15s' }}>{opt.label}</button>
             ))}
           </div>
@@ -353,7 +369,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           <>
             <div style={{ marginBottom: 16 }}>
               <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Please describe your pets *</label>
-              <input type="text" placeholder="e.g. 1 dog, 2 cats" value={form.petTypes} onChange={e => { setForm(f => ({ ...f, petTypes: e.target.value })); setFieldErrors(er => ({ ...er, petTypes: null })); }} style={INPUT(!!fieldErrors.petTypes)} />
+              <input type="text" placeholder="e.g. 1 dog, 2 cats" value={form.petTypes} onChange={e => { setForm(f => ({ ...f, petTypes: e.target.value })); setFieldErrors(er => ({ ...er, petTypes: null })); }} onBlur={e => { const v = e.target.value; if (v && !trackedFieldsRef.current.has('petTypes')) { trackedFieldsRef.current.add('petTypes'); trackEvent('field_filled', { field: 'petTypes' }); } else if (!v && trackedFieldsRef.current.has('petTypes')) { trackedFieldsRef.current.delete('petTypes'); trackEvent('field_cleared', { field: 'petTypes' }); } }} style={INPUT(!!fieldErrors.petTypes)} />
               {fieldErrors.petTypes && <p style={ERR}>{fieldErrors.petTypes}</p>}
             </div>
             <div style={{ background: '#7a1a1a', padding: '14px 18px', marginBottom: 20, borderLeft: '3px solid #ff6b6b' }}>
@@ -368,15 +384,15 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
 
       <div style={SECTION}>
         <div style={SECTION_TITLE}>Preferences & Access</div>
-        <Field name="keys"  label="Key Instructions"    placeholder="Key with concierge, smart lock code 1234, I'll be home" value={form.keys}  error={fieldErrors.keys}  onChange={updateField} />
-        <Field name="notes" label="Preferences & Notes" placeholder="e.g. allergic to strong fragrances, please avoid certain areas…" value={form.notes} error={fieldErrors.notes} onChange={updateField} />
+        <Field name="keys"  label="Key Instructions"    placeholder="Key with concierge, smart lock code 1234, I'll be home" value={form.keys}  error={fieldErrors.keys}  onChange={updateField} onBlur={blurField} />
+        <Field name="notes" label="Preferences & Notes" placeholder="e.g. allergic to strong fragrances, please avoid certain areas…" value={form.notes} error={fieldErrors.notes} onChange={updateField} onBlur={blurField} />
 
         {/* Cleaning equipment acknowledgment */}
         <div style={{ marginBottom: 20 }}>
           <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', fontWeight: 300, lineHeight: 1.6, marginBottom: 10 }}>
             Our cleaners bring all professional cleaning products and cloths. We only ask that a working vacuum and mop are available at the property for hygiene and cross-contamination reasons.
           </p>
-          <div onClick={() => { onUpdate({ mopAck: !booking.mopAck }); setFieldErrors(e => ({ ...e, mopAck: null })); setSubmitError(''); }}
+          <div onClick={() => { trackEvent('mop_ack', { checked: !booking.mopAck }); onUpdate({ mopAck: !booking.mopAck }); setFieldErrors(e => ({ ...e, mopAck: null })); setSubmitError(''); }}
             style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', background: '#fdf8f3', border: `1px solid ${fieldErrors.mopAck ? '#8b2020' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}>
             <div style={{ width: 18, height: 18, flexShrink: 0, marginTop: 1, border: booking.mopAck ? 'none' : '1px solid rgba(200,184,154,0.5)', background: booking.mopAck ? '#c8b89a' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1a1410', fontSize: 11 }}>
               {booking.mopAck && '✓'}
@@ -397,7 +413,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
                   As your final finishing touch, we lightly mist your home with our exclusive signature scent, so every room feels calm, refined, and unmistakably luxurious. By opting in, you will also receive a complimentary gift left in your home: a bottle of our signature fragrance and a hand-poured signature candle, crafted exclusively for our clients.
                 </div>
               </div>
-              <div onClick={() => { setForm(f => ({ ...f, signatureTouch: !f.signatureTouch, signatureTouchNotes: '' })); setStOtherNote(''); }}
+              <div onClick={() => { trackEvent('signature_touch', { enabled: !form.signatureTouch }); setForm(f => ({ ...f, signatureTouch: !f.signatureTouch, signatureTouchNotes: '' })); setStOtherNote(''); }}
                 style={{ flexShrink: 0, width: 40, height: 22, borderRadius: 11, position: 'relative', background: form.signatureTouch ? '#c8b89a' : 'rgba(200,184,154,0.2)', cursor: 'pointer', transition: 'background 0.2s', marginTop: 2 }}>
                 <div style={{ position: 'absolute', top: 3, left: form.signatureTouch ? 19 : 3, width: 16, height: 16, background: 'white', borderRadius: '50%', transition: 'left 0.2s' }} />
               </div>
@@ -405,7 +421,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
             {!form.signatureTouch && (
               <div>
                 <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Let us know why you're opting out (optional)</label>
-                <select value={form.signatureTouchNotes} onChange={e => setForm(f => ({ ...f, signatureTouchNotes: e.target.value }))} style={INPUT(false)}>
+                <select value={form.signatureTouchNotes} onChange={e => { const v = e.target.value; setForm(f => ({ ...f, signatureTouchNotes: v })); if (v) trackEvent('signature_touch_reason', { reason: v }); }} style={INPUT(false)}>
                   <option value="">Select a reason…</option>
                   {['Scent doesn\'t match my preference','Fragrance allergy or sensitivity','Candles not suitable for my home','Don\'t use home fragrance products','Already have enough home fragrance','Prefer a tidy clean only','Prefer to receive it occasionally','Other'].map(r => <option key={r}>{r}</option>)}
                 </select>
@@ -497,7 +513,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
                   const isSmall  = ['studio','1bed'].includes(booking.size?.id) || allSmall;
                   const price    = addon.id === 'windows' ? (isSmall ? 35 : 55) : addon.price;
                   return (
-                    <div key={addon.id} onClick={() => { const cur = booking.addons || []; onUpdate({ addons: selected ? cur.filter(a => a.id !== addon.id) : [...cur, { ...addon, price }] }); }}
+                    <div key={addon.id} onClick={() => { trackEvent('addon_toggled', { addon: addon.name, checked: !selected }); const cur = booking.addons || []; onUpdate({ addons: selected ? cur.filter(a => a.id !== addon.id) : [...cur, { ...addon, price }] }); }}
                       style={{ ...CARD_SEL(selected), display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ width: 20, height: 20, border: selected ? 'none' : '1px solid rgba(200,184,154,0.4)', background: selected ? '#c8b89a' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#1a1410', fontSize: 11, fontWeight: 500 }}>{selected && '✓'}</div>
                       <div style={{ flex: 1 }}>
@@ -521,16 +537,16 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           </div>
           <div style={STRIPE_FIELD}>
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#8b7355', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Card Number</div>
-            <CardNumberElement options={STRIPE_STYLE} onChange={() => setPayError('')} />
+            <CardNumberElement options={STRIPE_STYLE} onChange={e => { setPayError(''); if (e.complete && !trackedFieldsRef.current.has('card_number')) { trackedFieldsRef.current.add('card_number'); trackEvent('field_filled', { field: 'card_number' }); } }} />
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ ...STRIPE_FIELD, flex: 1 }}>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#8b7355', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Expiry Date</div>
-              <CardExpiryElement options={STRIPE_STYLE} onChange={() => setPayError('')} />
+              <CardExpiryElement options={STRIPE_STYLE} onChange={e => { setPayError(''); if (e.complete && !trackedFieldsRef.current.has('card_expiry')) { trackedFieldsRef.current.add('card_expiry'); trackEvent('field_filled', { field: 'card_expiry' }); } }} />
             </div>
             <div style={{ ...STRIPE_FIELD, flex: 1 }}>
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#8b7355', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>CVC</div>
-              <CardCvcElement options={STRIPE_STYLE} onChange={() => setPayError('')} />
+              <CardCvcElement options={STRIPE_STYLE} onChange={e => { setPayError(''); if (e.complete && !trackedFieldsRef.current.has('card_cvc')) { trackedFieldsRef.current.add('card_cvc'); trackEvent('field_filled', { field: 'card_cvc' }); } }} />
             </div>
           </div>
 
@@ -560,7 +576,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', fontStyle: 'italic', marginTop: 8 }}>London Cleaning Wizard · Registered in England & Wales</div>
             </div>
             {!hasScrolled && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', marginBottom: 8, fontStyle: 'italic' }}>↑ Please scroll to the bottom to read the full terms before accepting.</div>}
-            <div onClick={() => { if (!hasScrolled) { setPolicyError('Please scroll through and read the full terms before accepting.'); return; } setPolicyChecked(c => !c); setPolicyError(''); }}
+            <div onClick={() => { if (!hasScrolled) { setPolicyError('Please scroll through and read the full terms before accepting.'); return; } trackEvent('policy_checked', { checked: !policyChecked }); setPolicyChecked(c => !c); setPolicyError(''); }}
               style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', background: '#2c2420', border: `2px solid ${policyChecked ? '#c8b89a' : hasScrolled ? 'rgba(200,184,154,0.3)' : 'rgba(200,184,154,0.1)'}`, cursor: hasScrolled ? 'pointer' : 'not-allowed' }}>
               <div style={{ width: 24, height: 24, flexShrink: 0, marginTop: 1, border: `2px solid ${policyChecked ? '#2d6a4f' : '#8b7355'}`, background: policyChecked ? '#2d6a4f' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700 }}>{policyChecked && '✓'}</div>
               <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>I have read and agree to the Terms & Conditions, including the cancellation policy and authorisation to charge my payment method upon job completion.</p>
@@ -569,7 +585,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           {policyError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{policyError}</p>}
 
           {/* Media consent */}
-          <div onClick={() => setMediaConsent(c => !c)}
+          <div onClick={() => { trackEvent('media_consent', { checked: !mediaConsent }); setMediaConsent(c => !c); }}
             style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', marginBottom: 8, background: '#2c2420', border: `2px solid ${mediaConsent ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}>
             <div style={{ flexShrink: 0, marginTop: 1, width: 24, height: 24, border: `2px solid ${mediaConsent ? '#2d6a4f' : '#8b7355'}`, background: mediaConsent ? '#2d6a4f' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700 }}>{mediaConsent && '✓'}</div>
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6 }}>
@@ -582,7 +598,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           </div>
 
           {/* Marketing opt-out */}
-          <div onClick={() => setForm(f => ({ ...f, marketingOptOut: !f.marketingOptOut }))}
+          <div onClick={() => { trackEvent('marketing_opt_out', { opted_out: form.marketingOptOut }); setForm(f => ({ ...f, marketingOptOut: !f.marketingOptOut })); }}
             style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', marginBottom: 16, background: '#2c2420', border: `2px solid ${!form.marketingOptOut ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}>
             <div style={{ flexShrink: 0, marginTop: 1, width: 24, height: 24, border: `2px solid ${!form.marketingOptOut ? '#2d6a4f' : '#8b7355'}`, background: !form.marketingOptOut ? '#2d6a4f' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700 }}>
               {!form.marketingOptOut && '✓'}

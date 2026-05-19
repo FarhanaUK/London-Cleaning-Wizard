@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { trackEvent } from '../utils/funnelTrack';
 import { PACKAGES } from '../data/siteData';
 import { DEEP_SUPPLIES_FEE } from '../utils/pricing';
 import { validateStep1 } from '../utils/validation';
@@ -196,6 +197,8 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
     return 'signature';
   });
 
+  const notesTrackedRef = useRef(false);
+
   const setTab = (tab) => { setPkgTab(tab); sessionStorage.setItem('pkgTab', tab); };
 
   useEffect(() => {
@@ -236,27 +239,33 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
 
   const handlePackageSelect = (pkg) => {
     const isDeep = pkg.id === 'deep';
+    trackEvent('pkg_selected', { pkg: pkg.name, from: booking.pkg?.name || null });
     update({ pkg, size: null, sizePrice: 0, freq: null, addons: [], supplies: isDeep ? 'cleaner' : null, suppliesFee: isDeep ? DEEP_SUPPLIES_FEE : undefined, mopAck: false });
   };
 
   const switchToHourly = () => {
     setTab('hourly');
+    trackEvent('tab_switched', { tab: 'hourly' });
     update({ pkg: HOURLY_PKG, size: null, sizePrice: 0, propertyType: 'flat', freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false, notes: '' });
   };
 
   const switchToSignature = () => {
     setTab('signature');
+    trackEvent('tab_switched', { tab: 'signature' });
     update({ pkg: null, size: null, sizePrice: 0, propertyType: null, freq: null, addons: [], supplies: null, mopAck: false });
   };
 
   const switchToCommercial = () => {
     setTab('commercial');
+    trackEvent('tab_switched', { tab: 'commercial' });
     update({ pkg: null, size: null, sizePrice: 0, propertyType: null, freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false, notes: '' });
   };
 
   const toggleExpand = (e, pkgId) => {
     e.stopPropagation();
-    setExpanded(prev => prev === pkgId ? null : pkgId);
+    const next = expanded === pkgId ? null : pkgId;
+    if (next) trackEvent('pkg_detail_expanded', { pkg: pkgId });
+    setExpanded(next);
   };
 
   return (
@@ -425,7 +434,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                         PACKAGE_DETAIL[activePkg.id].mobileSections.map((sec, si) => (
                           <div key={si} style={{ borderBottom: '1px solid rgba(200,184,154,0.12)' }}>
                             <div
-                              onClick={() => setOpenSections(prev => { const n = new Set(prev); n.has(si) ? n.delete(si) : n.add(si); return n; })}
+                              onClick={() => { if (!openSections.has(si)) trackEvent('section_expanded', { pkg: activePkg.id, section: sec.heading }); setOpenSections(prev => { const n = new Set(prev); n.has(si) ? n.delete(si) : n.add(si); return n; }); }}
                               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', cursor: 'pointer', userSelect: 'none' }}
                             >
                               <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#2c2420', fontWeight: 600, letterSpacing: '0.04em' }}>{sec.heading}</div>
@@ -532,7 +541,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
             <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> How many hours?</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(100px,1fr))', gap: 8, marginBottom: 24 }}>
               {HOURLY_PKG.sizes.map(s => (
-                <div key={s.id} onClick={() => update({ size: s, sizePrice: s.basePrice })} style={CARD(booking.size?.id === s.id)}>
+                <div key={s.id} onClick={() => { trackEvent('duration_selected', { hours: s.label, price: s.basePrice, from: booking.size?.label || null }); update({ size: s, sizePrice: s.basePrice }); }} style={CARD(booking.size?.id === s.id)}>
                   <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', marginBottom: 4 }}>{s.label}</div>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: '#2c2420' }}>£{s.basePrice}</div>
                 </div>
@@ -546,7 +555,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
               </div>
               <textarea
                 value={booking.notes || ''}
-                onChange={e => update({ notes: e.target.value })}
+                onChange={e => { if (!notesTrackedRef.current && e.target.value) { trackEvent('notes_started', { step: 'service' }); notesTrackedRef.current = true; } update({ notes: e.target.value }); }}
                 placeholder="e.g. Focus on the kitchen and bathroom first, hoover the living room and bedroom, wipe all surfaces..."
                 rows={4}
                 style={{ width: '100%', boxSizing: 'border-box', background: '#fdf8f3', border: '1px solid rgba(200,184,154,0.45)', padding: '11px 14px', fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#1a1410', outline: 'none', resize: 'vertical', lineHeight: 1.6 }}
@@ -569,6 +578,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                   <button
                     key={pkg.id}
                     onClick={() => {
+                      trackEvent('commercial_service', { service: pkg.id, from: booking.pkg?.id || null });
                       update({ pkg, size: null, sizePrice: 0, propertyType: pkg.id === 'office_cleaning' ? 'office' : 'flat' });
                     }}
                     style={{ flex: 1, padding: '12px 10px', border: sel ? '1.5px solid #2c2420' : '1px solid rgba(200,184,154,0.4)', borderRadius: 6, background: sel ? '#2c2420' : 'transparent', color: sel ? '#f5f0e8' : '#5a4e44', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', outline: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start' }}
@@ -635,7 +645,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                   </div>
                   <textarea
                     value={booking.notes || ''}
-                    onChange={e => update({ notes: e.target.value })}
+                    onChange={e => { if (!notesTrackedRef.current && e.target.value) { trackEvent('notes_started', { step: 'service' }); notesTrackedRef.current = true; } update({ notes: e.target.value }); }}
                     placeholder="e.g. Full office clean: desks, surfaces, kitchen area, toilets. Floors need hoovering and mopping. Pay attention to the reception area..."
                     rows={4}
                     style={{ width: '100%', boxSizing: 'border-box', background: '#fdf8f3', border: '1px solid rgba(200,184,154,0.45)', padding: '11px 14px', fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#1a1410', outline: 'none', resize: 'vertical', lineHeight: 1.6 }}

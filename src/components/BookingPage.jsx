@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { trackEvent } from '../utils/funnelTrack';
 import { Helmet } from 'react-helmet-async';
 import BookingInvoice    from './BookingInvoice';
 import BookingStepPicker from './BookingStepPicker';
@@ -34,15 +35,16 @@ function loadSession() {
 
 export default function BookingPage() {
   const saved = loadSession();
-  // If session has no package selected yet, always start at step 1 (the picker)
-  const savedStep = saved?.step && saved?.booking?.pkg ? saved.step : 1;
   const [booking,   setBooking]   = useState(saved?.booking || INIT);
-  const [step,      setStep]      = useState(savedStep);
+  const [step,      setStep]      = useState(1);
   const [confirmed, setConfirmed] = useState(false);
   const [result,    setResult]    = useState(null);
   const [isMobile,  setIsMobile]  = useState(window.innerWidth < 768);
 
   // Funnel tracking — one Firestore doc per browser session, records the highest step reached
+  const stepStartTimeRef = useRef(Date.now());
+  const prevStepRef      = useRef(null);
+
   const funnelId = useRef((() => {
     let id = sessionStorage.getItem('bkFunnelId');
     if (!id) { id = `f${Date.now()}${Math.random().toString(36).slice(2, 7)}`; sessionStorage.setItem('bkFunnelId', id); }
@@ -80,7 +82,7 @@ export default function BookingPage() {
 
   // Write to Firestore only when user advances to a new step (never go backwards)
   useEffect(() => {
-    if (localStorage.getItem('lcw_test_mode') === '1') return;
+    if (window.location.hostname === 'localhost') return;
     if (step <= maxStepTracked.current) return;
     maxStepTracked.current = step;
     const now = new Date();
@@ -93,6 +95,18 @@ export default function BookingPage() {
       updatedAt: serverTimestamp(),
       ...(step === 1 && { startedAt: serverTimestamp() }),
     }, { merge: true }).catch(() => {});
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const now      = Date.now();
+    const prevStep = prevStepRef.current;
+    if (prevStep !== null) {
+      const timeSpent = Math.round((now - stepStartTimeRef.current) / 1000);
+      trackEvent('step_left', { step: prevStep, timeSpent, nextStep: step });
+    }
+    trackEvent('step_entered', { step, direction: prevStep === null ? 'start' : step > prevStep ? 'forward' : 'back' });
+    stepStartTimeRef.current = now;
+    prevStepRef.current = step;
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (partial) => setBooking(b => ({ ...b, ...partial }));
@@ -199,7 +213,7 @@ export default function BookingPage() {
           {step === 3 && <BookingStep1b booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} />}
           {step === 4 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(5)} onBack={() => goToStep(booking.pkg?.isHourly || booking.pkg?.id === 'office_cleaning' ? 2 : 3)} />}
           {step === 5 && <BookingStep5 booking={booking} onUpdate={update} onSuccess={(res) => {
-            if (localStorage.getItem('lcw_test_mode') !== '1') {
+            if (localStorage.getItem('lcw_test_mode') !== '1' && window.location.hostname !== 'localhost') {
               setDoc(doc(db, 'bookingFunnel', funnelId), { converted: true, maxStep: 6, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
             }
             sessionStorage.removeItem('bkFunnelId');

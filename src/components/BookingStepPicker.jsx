@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { trackEvent } from '../utils/funnelTrack';
 
 const OPTIONS = [
   { id: 'signature',  label: 'Home Cleaning Packages', desc: 'One-off, regular, fortnightly, monthly, and deep cleaning for homes' },
@@ -12,6 +13,7 @@ export default function BookingStepPicker({ onNext }) {
   const handleSelect = (id) => {
     setSelected(id);
     sessionStorage.setItem('pkgTab', id);
+    trackEvent('service_category', { category: id });
   };
 
   return (

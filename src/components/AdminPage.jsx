@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { readNotifications, addNotification, markAllRead, clearNotification, clearAll, EVENT as NOTIF_EVENT } from '../features/admin/notifications';
 import { db, auth } from '../firebase/firebase';
-import { collection, query, orderBy, onSnapshot, limit, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, limit, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { LogoMark } from './Icons';
 
@@ -106,6 +106,7 @@ export default function AdminPage() {
   const [welcomeColor, setWelcomeColor] = useState('#6b5e56');
   const [authLoading,   setAuthLoading]   = useState(true);
   const [bannerVisible, setBannerVisible] = useState(false);
+  const [emailFailures, setEmailFailures] = useState([]);
   const [schedulerLogs,     setSchedulerLogs]     = useState([]);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900);
   useEffect(() => {
@@ -126,9 +127,6 @@ export default function AdminPage() {
       setDoc(doc(db, 'userPrefs', user.uid), { theme: key }, { merge: true }).catch(() => {});
     }
   };
-
-  const [testMode, setTestMode] = useState(() => localStorage.getItem('lcw_test_mode') === '1');
-  const toggleTestMode = () => { const next = !testMode; setTestMode(next); localStorage.setItem('lcw_test_mode', next ? '1' : '0'); };
 
   const [notifs,    setNotifs]    = useState(readNotifications);
   const [bellOpen,  setBellOpen]  = useState(false);
@@ -188,6 +186,14 @@ export default function AdminPage() {
     const q = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'emailFailures'), orderBy('createdAt', 'desc'), limit(20));
+    return onSnapshot(q, snap => {
+      setEmailFailures(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => !d.resolved));
     });
   }, [user]);
 
@@ -424,15 +430,6 @@ export default function AdminPage() {
               <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: C.sidebarText }}>Menu</div>
               <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', color: C.sidebarMuted, fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>✕</button>
             </div>
-            {/* Test mode at the top so it's always reachable */}
-            <div style={{ padding: '10px 20px 14px', borderBottom: `1px solid ${C.sidebarBorder}`, flexShrink: 0 }}>
-              <button onClick={toggleTestMode} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                <div style={{ width: 32, height: 18, borderRadius: 9, background: testMode ? '#f97316' : C.sidebarBorder, position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', top: 3, left: testMode ? 15 : 3, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
-                </div>
-                <span style={{ fontFamily: FONT, fontSize: 11, color: testMode ? '#f97316' : C.sidebarMuted }}>{testMode ? 'Test mode ON — visits not tracked' : 'Test mode off'}</span>
-              </button>
-            </div>
             {NAV_ITEMS.map(v => (
               <button key={v.id} onClick={() => { setActiveView(v.id); localStorage.setItem('crmActiveView', v.id); setDrawerOpen(false); window.scrollTo(0, 0); }} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 12,
@@ -518,23 +515,33 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Test mode toggle */}
-            <div style={{ padding: '14px 20px' }}>
-              <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: C.sidebarMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>This Device</div>
-              <button onClick={toggleTestMode} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                <div style={{ width: 32, height: 18, borderRadius: 9, background: testMode ? '#f97316' : C.sidebarBorder, position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', top: 3, left: testMode ? 15 : 3, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
-                </div>
-                <span style={{ fontFamily: FONT, fontSize: 11, color: testMode ? '#f97316' : C.sidebarMuted }}>{testMode ? 'Test mode ON' : 'Test mode off'}</span>
-              </button>
-              {testMode && <div style={{ fontFamily: FONT, fontSize: 10, color: '#f97316', marginTop: 5 }}>Booking visits won't be tracked</div>}
-            </div>
-
         </div>
       )}
 
       <div style={{ marginLeft: isMobile ? 0 : 240, minHeight: 'calc(100vh - 54px)' }}>
         <div style={{ padding: isMobile ? '16px 12px' : '28px 28px' }}>
+
+        {emailFailures.length > 0 && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderLeft: '4px solid #dc2626', borderRadius: 6, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#991b1b', marginBottom: 4 }}>
+                {emailFailures.length === 1 ? '1 email failed to send' : `${emailFailures.length} emails failed to send`}
+              </div>
+              {emailFailures.slice(0, 3).map(f => (
+                <div key={f.id} style={{ fontFamily: FONT, fontSize: 12, color: '#7f1d1d', marginBottom: 2 }}>
+                  {f.fn} — {f.customer} — {f.error}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => emailFailures.forEach(f => updateDoc(doc(db, 'emailFailures', f.id), { resolved: true }).catch(() => {}))}
+              style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: 4, padding: '4px 10px', fontFamily: FONT, fontSize: 11, color: '#991b1b', cursor: 'pointer', flexShrink: 0 }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         <Suspense fallback={<div style={{ padding: 40, fontFamily: FONT, fontSize: 13, color: C.muted }}>Loading…</div>}>
           {(() => {
