@@ -552,7 +552,7 @@ export default function SignatureTouchPage() {
         <Reveal delay={120}>
           <div style={{ textAlign: "center" }}>
             <Link
-              to="/book"
+              to="/book?tab=signature&from=signature-page"
               style={{
                 fontFamily: "'Jost', sans-serif",
                 fontSize: 12,

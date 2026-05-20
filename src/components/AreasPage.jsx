@@ -181,7 +181,7 @@ export default function AreasPage() {
           <a href="tel:02081370026" style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "14px 32px", background: "#f5f0e8", color: "#1a1410", textDecoration: "none" }}>
             Call Us
           </a>
-          <Link to="/book" style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "14px 32px", background: "transparent", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", textDecoration: "none" }}>
+          <Link to="/book?from=areas-page" style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "14px 32px", background: "transparent", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", textDecoration: "none" }}>
             Book a Clean
           </Link>
         </div>

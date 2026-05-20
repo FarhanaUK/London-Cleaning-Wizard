@@ -149,7 +149,7 @@ export default function HourlyPage() {
             </div>
           </div>
           <Link
-            to="/book"
+            to="/book?from=hourly-upgrade"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '13px 28px', border: '1px solid rgba(200,184,154,0.4)', color: '#c8b89a', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
           >
             View Packages
@@ -172,8 +172,7 @@ export default function HourlyPage() {
             Book your hourly clean online in minutes. 30% deposit to secure your slot.
           </p>
           <Link
-            to="/book"
-            state={{ pkgTab: 'hourly' }}
+            to="/book?tab=hourly&from=hourly-page"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '15px 36px', background: '#2c2420', color: '#f5f0e8', textDecoration: 'none' }}
           >
             <WandIcon size={14} color="#c8b89a" /> Book Hourly Clean

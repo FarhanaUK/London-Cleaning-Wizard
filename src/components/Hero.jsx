@@ -131,7 +131,7 @@ export default function Hero({ onScrollTo }) {
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 10, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
               <Link
-                to="/book"
+                to="/book?from=hero"
                 style={{
                   fontFamily: "'Jost', sans-serif",
                   fontSize: 12,
@@ -229,7 +229,7 @@ Homes | Airbnbs | Offices
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
               <Link
-                to="/book"
+                to="/book?from=hero"
                 style={{
                   fontFamily: "'Jost', sans-serif",
                   fontSize: 14,
@@ -367,7 +367,7 @@ Homes | Airbnbs | Offices
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
               <Link
-                to="/book"
+                to="/book?from=hero"
                 style={{
                   fontFamily: "'Jost', sans-serif",
                   fontSize: 14,

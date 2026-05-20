@@ -60,7 +60,7 @@ export default function Services() {
         {SERVICES.map((service, i) => (
           <Reveal key={service.title} delay={i * 75}>
             <Link
-              to="/book"
+              to="/book?from=services-grid"
               style={{ overflow: "hidden", position: "relative", background: "#10121a", aspectRatio: "4/3", cursor: "pointer", display: "block", textDecoration: "none" }}
               onMouseEnter={() => !isMobile && setHovered(i)}
               onMouseLeave={() => !isMobile && setHovered(null)}

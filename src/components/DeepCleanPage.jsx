@@ -185,8 +185,7 @@ export default function DeepCleanPage() {
           ))}
           <div style={{ marginTop: 36 }}>
             <Link
-              to="/book"
-              state={{ pkgTab: 'deep' }}
+              to="/book?tab=signature&from=deep-clean-mid"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '12px 26px', background: '#2c2420', color: '#f5f0e8', textDecoration: 'none' }}
             >
               Book a Deep Clean
@@ -233,8 +232,7 @@ export default function DeepCleanPage() {
             Book online in minutes. 30% deposit to confirm your date. Balance charged on completion.
           </p>
           <Link
-            to="/book"
-            state={{ pkgTab: 'signature' }}
+            to="/book?tab=signature&from=deep-clean-cta"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '15px 36px', background: '#2c2420', color: '#f5f0e8', textDecoration: 'none' }}
           >
             <WandIcon size={14} color="#c8b89a" /> Book a Deep Clean

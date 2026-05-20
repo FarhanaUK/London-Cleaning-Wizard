@@ -228,7 +228,7 @@ export default function Navbar() {
                 {isTablet ? "📞" : "📞 020 8137 0026"}
               </a>
 
-              <Link to="/book" style={{
+              <Link to="/book?from=navbar" style={{
                 fontFamily: "'Jost', sans-serif",
                 fontSize: isTablet ? 10 : 12,
                 letterSpacing: "0.12em",
@@ -324,7 +324,7 @@ export default function Navbar() {
             </Link>
           ))}
 
-          <Link to="/book" onClick={() => setMenuOpen(false)} style={{
+          <Link to="/book?from=navbar" onClick={() => setMenuOpen(false)} style={{
             fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em",
             textTransform: "uppercase", fontWeight: 500, padding: "15px 44px",
             background: "#2c2420", color: "#f5f0e8", cursor: "pointer",

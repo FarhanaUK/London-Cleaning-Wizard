@@ -127,8 +127,7 @@ export default function CommercialPage() {
             ))}
             <div style={{ marginTop: 28 }}>
               <Link
-                to="/book"
-                state={{ pkgTab: 'commercial' }}
+                to={`/book?tab=commercial&from=commercial-${svc.id}`}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '12px 26px', background: '#2c2420', color: '#f5f0e8', textDecoration: 'none' }}
               >
                 {svc.cta}
@@ -181,8 +180,7 @@ export default function CommercialPage() {
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 12 }}>
             <Link
-              to="/book"
-              state={{ pkgTab: 'commercial' }}
+              to="/book?tab=commercial&from=commercial-cta"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '15px 36px', background: '#2c2420', color: '#f5f0e8', textDecoration: 'none' }}
             >
               <WandIcon size={14} color="#c8b89a" /> Book a Clean

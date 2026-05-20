@@ -10,7 +10,7 @@ import BookingStep2      from './Bookingstep2';
 import BookingStep5      from './BookingStep5';
 import BookingConfirm    from './Bookingconfirm';
 import { db } from '../firebase/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { getUTM } from '../utils/utmTrack';
 
 const INIT = {
@@ -41,6 +41,7 @@ export default function BookingPage() {
     const t = new URLSearchParams(window.location.search).get('tab');
     return ['signature', 'hourly', 'commercial'].includes(t) ? t : null;
   })();
+  const fromSource = new URLSearchParams(window.location.search).get('from');
 
   const [booking,   setBooking]   = useState(saved?.booking || INIT);
   const [step,      setStep]      = useState(adTab ? 2 : 1);
@@ -64,7 +65,10 @@ export default function BookingPage() {
     if (adTab) sessionStorage.setItem('pkgTab', adTab);
     if (window.location.hostname === 'localhost') return;
     const utm = getUTM();
-    if (utm) setDoc(doc(db, 'bookingFunnel', funnelId), { utm }, { merge: true }).catch(() => {});
+    const payload = {};
+    if (utm) payload.utm = utm;
+    if (fromSource) payload.buttonClicks = arrayUnion({ from: fromSource, at: new Date().toISOString() });
+    if (Object.keys(payload).length) setDoc(doc(db, 'bookingFunnel', funnelId), payload, { merge: true }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Write pre-booking page journey to Firestore once on mount

@@ -79,9 +79,32 @@ function fmtPageDuration(seconds) {
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
-function PageJourneySection({ journey, referrer, C }) {
-  if ((!journey || !journey.length) && !referrer) return null;
-  if (!journey || !journey.length) return (
+const FROM_LABELS = { navbar: 'Navbar — Book Now', hero: 'Homepage Hero — Book a Clean', 'services-grid': 'Services Grid', 'areas-page': 'Areas Page — Book a Clean', 'deep-clean-mid': 'Deep Clean Page — Book a Deep Clean', 'deep-clean-cta': 'Deep Clean Page — Book a Deep Clean (CTA)', 'signature-page': 'Signature Page — Book Now', 'hourly-page': 'Hourly Page — Book Hourly Clean', 'hourly-upgrade': 'Hourly Page — View Packages', 'regular-upgrade': 'Regular Clean Page — View Signature Reset', 'regular-page': 'Regular Clean Page — Book a Regular Clean', 'commercial-airbnb': 'Commercial Page — Book Airbnb Clean', 'commercial-office': 'Commercial Page — Book Office Clean', 'commercial-cta': 'Commercial Page — Book a Clean (CTA)' };
+
+function PageJourneySection({ journey, referrer, buttonClicks, C }) {
+  const hasJourney = journey && journey.length > 0;
+  const hasClicks  = buttonClicks && buttonClicks.length > 0;
+  if (!hasJourney && !referrer && !hasClicks) return null;
+
+  // Build a unified sorted timeline of page visits + button clicks
+  const pageEntries = (journey || []).map((entry, i) => {
+    const next = (journey || [])[i + 1];
+    let duration = null;
+    if (next && entry.at && next.at) {
+      const diff = Math.round((new Date(next.at) - new Date(entry.at)) / 1000);
+      if (diff > 0) duration = diff;
+    }
+    return { kind: 'page', ...entry, duration };
+  });
+  const clickEntries = (buttonClicks || []).map(c => ({ kind: 'click', ...c }));
+  const timeline = [...pageEntries, ...clickEntries].sort((a, b) => {
+    if (!a.at && !b.at) return 0;
+    if (!a.at) return 1;
+    if (!b.at) return -1;
+    return new Date(a.at) - new Date(b.at);
+  });
+
+  if (!hasJourney && !hasClicks) return (
     <div style={{ padding: '10px 16px 8px', borderBottom: '1px solid rgba(100,116,139,0.12)', fontFamily: FONT, fontSize: 12, color: C.muted }}>
       Came directly to booking
       {referrer && <span style={{ fontSize: 10, color: '#2563eb', background: '#eff6ff', borderRadius: 3, padding: '0 5px', marginLeft: 6 }}>via {referrer}</span>}
@@ -95,16 +118,25 @@ function PageJourneySection({ journey, referrer, C }) {
         </div>
         {referrer && <span style={{ fontFamily: FONT, fontSize: 10, color: '#2563eb', background: '#eff6ff', borderRadius: 3, padding: '0 5px' }}>via {referrer}</span>}
       </div>
-      {journey.map((entry, i) => {
-        const isLast = i === journey.length - 1;
-        const next = journey[i + 1];
-        let duration = null;
-        if (!isLast && entry.at && next?.at) {
-          const diff = Math.round((new Date(next.at) - new Date(entry.at)) / 1000);
-          if (diff > 0) duration = diff;
+      {timeline.map((entry, i) => {
+        const isLast = i === timeline.length - 1;
+        if (entry.kind === 'click') {
+          return (
+            <div key={`c${i}`} style={{ display: 'flex', gap: 10, marginBottom: isLast ? 4 : 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16, flexShrink: 0 }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: C.accent, marginTop: 3, flexShrink: 0 }} />
+                {!isLast && <div style={{ flex: 1, width: 1, background: 'rgba(148,163,184,0.2)', marginTop: 3, minHeight: 10 }} />}
+              </div>
+              <div style={{ flex: 1, paddingBottom: isLast ? 0 : 4 }}>
+                <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.accent, background: `${C.accent}18`, borderRadius: 4, padding: '1px 7px' }}>
+                  Clicked: {FROM_LABELS[entry.from] || entry.from}
+                </span>
+              </div>
+            </div>
+          );
         }
         return (
-          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: isLast ? 4 : 8 }}>
+          <div key={`p${i}`} style={{ display: 'flex', gap: 10, marginBottom: isLast ? 4 : 8 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16, flexShrink: 0 }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: isLast ? '#2563eb' : '#cbd5e1', marginTop: 4, flexShrink: 0 }} />
               {!isLast && <div style={{ flex: 1, width: 1, background: 'rgba(148,163,184,0.2)', marginTop: 3, minHeight: 10 }} />}
@@ -114,8 +146,8 @@ function PageJourneySection({ journey, referrer, C }) {
               {entry.from && (
                 <span style={{ fontFamily: FONT, fontSize: 10, color: '#2563eb', background: '#eff6ff', borderRadius: 3, padding: '0 5px', marginLeft: 6 }}>via {entry.from}</span>
               )}
-              {duration != null && (
-                <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0 6px', marginLeft: 6 }}>{fmtPageDuration(duration)}</span>
+              {entry.duration != null && (
+                <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0 6px', marginLeft: 6 }}>{fmtPageDuration(entry.duration)}</span>
               )}
             </div>
           </div>
@@ -127,56 +159,96 @@ function PageJourneySection({ journey, referrer, C }) {
 
 function SessionDetail({ session, C }) {
   const visits = getVisits(session.events);
-  const hasJourney = (session.pageJourney && session.pageJourney.length > 0) || !!session.referrer;
-  if (!visits.length && !hasJourney) return (
+
+  // Build one unified chronological timeline
+  const pageEntries = (session.pageJourney || []).map((entry, i, arr) => {
+    const next = arr[i + 1];
+    let duration = null;
+    if (next && entry.at && next.at) {
+      const diff = Math.round((new Date(next.at) - new Date(entry.at)) / 1000);
+      if (diff > 0) duration = diff;
+    }
+    return { kind: 'page', ...entry, duration };
+  });
+  const clickEntries = (session.buttonClicks || []).map(c => ({ kind: 'click', ...c }));
+  const stepEntries  = visits.map((v, vi) => ({ kind: 'step', ...v, isLastVisit: vi === visits.length - 1 }));
+  const timeline = [...pageEntries, ...clickEntries, ...stepEntries].sort((a, b) => {
+    const aAt = a.at || a.enteredAt;
+    const bAt = b.at || b.enteredAt;
+    if (!aAt && !bAt) return 0;
+    if (!aAt) return 1;
+    if (!bAt) return -1;
+    return new Date(aAt) - new Date(bAt);
+  });
+
+  if (!timeline.length && !session.referrer) return (
     <div style={{ padding: '12px 16px', fontFamily: FONT, fontSize: 12, color: C.muted }}>No event detail stored for this session.</div>
   );
+
   return (
-    <div style={{ borderTop: `2px solid rgba(100,116,139,0.15)`, background: C.bg }}>
-      <PageJourneySection journey={session.pageJourney} referrer={session.referrer} C={C} />
-      {!visits.length ? null : <div style={{ padding: '14px 16px 10px' }}>
-      {visits.map((visit, vi) => {
-        const isLast    = vi === visits.length - 1;
-        const isDropped = !session.converted && isLast;
-        const isBack    = visit.direction === 'back';
-        const dotColor  = isDropped ? '#dc2626' : session.converted && isLast ? '#16a34a' : isBack ? '#f59e0b' : '#94a3b8';
+    <div style={{ borderTop: `2px solid ${C.accent}`, background: '#fef9ee', padding: '14px 16px 10px' }}>
+      {session.referrer && (
+        <span style={{ fontFamily: FONT, fontSize: 10, color: '#2563eb', background: '#eff6ff', borderRadius: 3, padding: '1px 8px', marginBottom: 10, display: 'inline-block' }}>via {session.referrer}</span>
+      )}
+      {timeline.map((entry, i) => {
+        const isLast = i === timeline.length - 1;
+
+        if (entry.kind === 'page') return (
+          <div key={`p${i}`} style={{ display: 'flex', gap: 12, marginBottom: isLast ? 0 : 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 20, flexShrink: 0 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#cbd5e1', marginTop: 4, flexShrink: 0 }} />
+              {!isLast && <div style={{ flex: 1, width: 1, background: 'rgba(148,163,184,0.25)', marginTop: 3 }} />}
+            </div>
+            <div style={{ flex: 1, paddingBottom: isLast ? 0 : 4 }}>
+              <span style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{entry.page}</span>
+              {entry.from && <span style={{ fontFamily: FONT, fontSize: 10, color: '#2563eb', background: '#eff6ff', borderRadius: 3, padding: '0 5px', marginLeft: 6 }}>via {entry.from}</span>}
+              {entry.duration != null && <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0 6px', marginLeft: 6 }}>{fmtPageDuration(entry.duration)}</span>}
+            </div>
+          </div>
+        );
+
+        if (entry.kind === 'click') return (
+          <div key={`c${i}`} style={{ display: 'flex', gap: 12, marginBottom: isLast ? 0 : 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 20, flexShrink: 0 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: C.accent, marginTop: 3, flexShrink: 0 }} />
+              {!isLast && <div style={{ flex: 1, width: 1, background: 'rgba(148,163,184,0.25)', marginTop: 3 }} />}
+            </div>
+            <div style={{ flex: 1, paddingBottom: isLast ? 0 : 4 }}>
+              <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.accent, background: `${C.accent}18`, borderRadius: 4, padding: '1px 7px' }}>
+                Clicked: {FROM_LABELS[entry.from] || entry.from}
+              </span>
+            </div>
+          </div>
+        );
+
+        // step
+        const isBack      = entry.direction === 'back';
+        const isDropped   = !session.converted && entry.isLastVisit;
+        const isConverted = session.converted && entry.isLastVisit;
+        const dotColor    = isDropped ? '#dc2626' : isConverted ? '#16a34a' : isBack ? '#f59e0b' : '#94a3b8';
         return (
-          <div key={vi} style={{ display: 'flex', gap: 12, marginBottom: isLast ? 0 : 10 }}>
-            {/* Spine */}
+          <div key={`s${i}`} style={{ display: 'flex', gap: 12, marginBottom: isLast ? 0 : 10 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 20, flexShrink: 0 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, marginTop: 3, flexShrink: 0 }} />
               {!isLast && <div style={{ flex: 1, width: 1, background: 'rgba(148,163,184,0.25)', marginTop: 3 }} />}
             </div>
-            {/* Content */}
             <div style={{ flex: 1, paddingBottom: isLast ? 0 : 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: visit.events.length ? 5 : 0, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#64748b' }}>
-                  Step {visit.step} — {STEP_NAMES[visit.step]}
-                </span>
-                {isBack && (
-                  <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: '#92400e', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 10, padding: '0 6px' }}>went back</span>
-                )}
-                {visit.timeSpent != null && (
-                  <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0 6px' }}>{visit.timeSpent}s</span>
-                )}
-                {isDropped && (
-                  <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '0 7px' }}>dropped here</span>
-                )}
-                {session.converted && isLast && (
-                  <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '0 7px' }}>booked</span>
-                )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: entry.events.length ? 5 : 0, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#64748b' }}>Step {entry.step} — {STEP_NAMES[entry.step]}</span>
+                {isBack && <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: '#92400e', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 10, padding: '0 6px' }}>went back</span>}
+                {entry.timeSpent != null && <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0 6px' }}>{entry.timeSpent}s</span>}
+                {isDropped && <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '0 7px' }}>dropped here</span>}
+                {isConverted && <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '0 7px' }}>booked</span>}
               </div>
-              {visit.events.length === 0 ? (
+              {entry.events.length === 0 ? (
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Visited — no selections made</div>
-              ) : visit.events.map((e, i) => {
+              ) : entry.events.map((e, ei) => {
                 const { text, from, green, dim } = fmtEvent(e);
                 return (
-                  <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
+                  <div key={ei} style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
                     <span style={{ color: '#94a3b8', fontSize: 10, flexShrink: 0 }}>·</span>
                     <span style={{ fontFamily: FONT, fontSize: 12, color: green ? '#16a34a' : dim ? C.muted : C.text, fontWeight: green ? 600 : 400 }}>{text}</span>
-                    {from && (
-                      <span style={{ fontFamily: FONT, fontSize: 11, color: '#92400e', background: '#fef9c3', borderRadius: 3, padding: '0 5px', flexShrink: 0 }}>was {from}</span>
-                    )}
+                    {from && <span style={{ fontFamily: FONT, fontSize: 11, color: '#92400e', background: '#fef9c3', borderRadius: 3, padding: '0 5px', flexShrink: 0 }}>was {from}</span>}
                   </div>
                 );
               })}
@@ -184,7 +256,6 @@ function SessionDetail({ session, C }) {
           </div>
         );
       })}
-      </div>}
     </div>
   );
 }
@@ -565,9 +636,9 @@ ${sessionsHTML}
                 const stepLabel  = s.converted ? 'Completed' : STEP_NAMES[s.maxStep] || `Step ${s.maxStep}`;
                 const ts   = s.updatedAt?.toDate ? s.updatedAt.toDate() : null;
                 const time = ts ? ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—';
-                const rowBg = i % 2 === 0 ? C.card : C.bg;
+                const rowBg = isExpanded ? '#fef9ee' : (i % 2 === 0 ? C.card : C.bg);
                 return (
-                  <div key={s.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                  <div key={s.id} style={{ borderBottom: `1px solid ${C.border}`, boxShadow: isExpanded ? '0 2px 10px rgba(0,0,0,0.08)' : 'none', position: 'relative', zIndex: isExpanded ? 1 : 0 }}>
                     <div
                       style={{ display: 'grid', gridTemplateColumns: '36px 1fr 100px 80px 60px 32px', cursor: 'pointer', background: rowBg, borderLeft: isExpanded ? `3px solid ${C.accent}` : '3px solid transparent' }}
                       onClick={() => setExpandedSession(isExpanded ? null : s.id)}
@@ -582,6 +653,12 @@ ${sessionsHTML}
                             background: s.utm.source === 'google' ? '#eff6ff' : s.utm.source === 'facebook' || s.utm.source === 'instagram' ? '#f5f3ff' : s.utm.source === 'tiktok' ? '#f0fdf4' : '#f8fafc',
                             color:      s.utm.source === 'google' ? '#1d4ed8' : s.utm.source === 'facebook' || s.utm.source === 'instagram' ? '#6d28d9' : s.utm.source === 'tiktok' ? '#15803d' : '#475569',
                           }}>{s.utm.channel}</span>
+                        )}
+                        {(s.buttonClicks?.length > 0 || s.from) && (
+                          <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 500, padding: '1px 6px', borderRadius: 4, background: '#f1f5f9', color: '#475569' }}>
+                            {FROM_LABELS[(s.buttonClicks || []).slice(-1)[0]?.from || s.from]?.split(' — ')[0] || (s.buttonClicks || []).slice(-1)[0]?.from || s.from}
+                            {s.buttonClicks?.length > 1 && ` +${s.buttonClicks.length - 1}`}
+                          </span>
                         )}
                         <span style={{ fontSize: 9, color: C.muted }}>{isExpanded ? '▲' : '▼'}</span>
                       </div>
