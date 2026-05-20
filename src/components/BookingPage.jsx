@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { trackEvent } from '../utils/funnelTrack';
+import { getPageJourney } from '../utils/siteTrack';
 import { Helmet } from 'react-helmet-async';
 import BookingInvoice    from './BookingInvoice';
 import BookingStepPicker from './BookingStepPicker';
@@ -51,6 +52,14 @@ export default function BookingPage() {
     return id;
   })()).current;
   const maxStepTracked = useRef(0);
+
+  // Write pre-booking page journey to Firestore once on mount
+  useEffect(() => {
+    if (window.location.hostname === 'localhost') return;
+    const journey = getPageJourney();
+    if (!journey.length) return;
+    setDoc(doc(db, 'bookingFunnel', funnelId), { pageJourney: journey }, { merge: true }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goToStep = (n) => setStep(n);
 
@@ -108,6 +117,19 @@ export default function BookingPage() {
     stepStartTimeRef.current = now;
     prevStepRef.current = step;
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fire step_left when the tab is hidden (user switches away or closes) so we always capture time
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState !== 'hidden') return;
+      const s = prevStepRef.current;
+      if (s === null) return;
+      const timeSpent = Math.round((Date.now() - stepStartTimeRef.current) / 1000);
+      trackEvent('step_left', { step: s, timeSpent, nextStep: null });
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (partial) => setBooking(b => ({ ...b, ...partial }));
 

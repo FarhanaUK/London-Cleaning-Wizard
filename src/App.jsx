@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from "react"
 import { Helmet } from "react-helmet-async"
 import { Routes, Route, useLocation } from "react-router-dom"
+import { trackPageView } from "./utils/siteTrack"
 
 // ✅ Always-loaded core UI (small + needed everywhere)
 import Navbar from "./components/Navbar"
@@ -74,6 +75,7 @@ export default function App() {
     if (window.gtag) {
       window.gtag('config', 'AW-18070855826', { page_path: pathname });
     }
+    trackPageView(pathname);
   }, [pathname])
 
   const hideChrome =
