@@ -56,9 +56,15 @@ export default function BookingPage() {
   // Write pre-booking page journey to Firestore once on mount
   useEffect(() => {
     if (window.location.hostname === 'localhost') return;
-    const journey = getPageJourney();
-    if (!journey.length) return;
-    setDoc(doc(db, 'bookingFunnel', funnelId), { pageJourney: journey }, { merge: true }).catch(() => {});
+    const full = getPageJourney();
+    if (!full.length) return;
+    // Strip the /book entry itself — it's redundant in a booking session
+    // But preserve any referrer it captured (direct Google → /book case)
+    const bookEntry = full.find(e => e.path === '/book');
+    const journey = full.filter(e => e.path !== '/book');
+    const payload = { pageJourney: journey };
+    if (bookEntry?.from) payload.referrer = bookEntry.from;
+    setDoc(doc(db, 'bookingFunnel', funnelId), payload, { merge: true }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goToStep = (n) => setStep(n);
@@ -224,13 +230,13 @@ export default function BookingPage() {
         alignItems: isMobile ? 'start' : 'stretch',
         maxWidth: 1100,
         margin: '0 auto',
-        padding: isMobile ? (step === 1 ? '72px 16px 28px' : '28px 16px') : '40px 28px 40px',
+        padding: isMobile ? (step === 1 ? '72px 16px 0' : '28px 16px') : '40px 28px 40px',
         gap: 0,
       }}>
 
         {/* Steps column */}
         <div style={{ paddingRight: isMobile ? 0 : 40, paddingTop: isMobile ? (step === 1 ? 0 : 16) : 80, display: isMobile ? 'block' : 'flex', flexDirection: 'column' }}>
-          {step === 1 && <BookingStepPicker onNext={() => goToStep(2)} />}
+          {step === 1 && <BookingStepPicker onNext={() => goToStep(2)} isMobile={isMobile} />}
           {step === 2 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => goToStep(booking.pkg?.isHourly || booking.pkg?.id === 'office_cleaning' ? 4 : 3)} onBack={() => goToStep(1)} />}
           {step === 3 && <BookingStep1b booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} />}
           {step === 4 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(5)} onBack={() => goToStep(booking.pkg?.isHourly || booking.pkg?.id === 'office_cleaning' ? 2 : 3)} />}

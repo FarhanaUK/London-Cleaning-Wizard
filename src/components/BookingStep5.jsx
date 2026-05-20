@@ -499,6 +499,11 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
   return (
     <>
       <FullOverlay show={loading} title={overlayTitle} sub={overlaySub} />
+      <style>{`@media (max-width:640px) { .bk-back-btn { margin-top: 24px; } }`}</style>
+
+      <button className="bk-back-btn" onClick={onBack} style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', color: '#8b7355', padding: 0, marginBottom: 8, alignSelf: 'flex-start' }}>
+        ← Back
+      </button>
 
       {formBody}
 
@@ -610,10 +615,6 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           {submitError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{submitError}</p>}
           {payError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{payError}</p>}
           <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-            <button onClick={onBack}
-              style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '14px 20px', background: 'transparent', color: '#2c2420', border: '1px solid rgba(200,184,154,0.4)', cursor: 'pointer' }}>
-              ← Back
-            </button>
             <button onClick={handlePay} disabled={loading}
               style={{ flex: 1, fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '14px 24px', background: '#c8b89a', color: '#1a1410', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
               {loading ? <ButtonSpinner /> : <WandIcon size={14} color="#1a1410" />}

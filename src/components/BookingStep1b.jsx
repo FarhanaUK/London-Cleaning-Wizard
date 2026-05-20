@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { trackEvent } from '../utils/funnelTrack';
 import { PROPERTY_TYPES } from '../data/siteData';
 import { validateStep1b } from '../utils/validation';
 import { Sparkle, WandIcon } from './Icons';
@@ -42,13 +43,18 @@ export default function BookingStep1b({ booking, onUpdate, onNext, onBack }) {
         .book-next-btn { font-family:'Jost',sans-serif; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; font-weight:500; padding:14px 32px; background:#2c2420; color:#f5f0e8; border:none; cursor:pointer; display:flex; align-items:center; gap:10px; }
         @media (max-width:640px) {
           .book-next-btn { width:100%; justify-content:center; padding:16px 24px; }
-          .step-heading { margin-top: 24px; }
+          .bk-back-btn { margin-top: 24px; }
         }
         @media (min-width:641px) and (max-width:1024px) {
           .book-next-btn { width:100%; justify-content:center; }
         }
       `}</style>
 
+      {onBack && (
+        <button className="bk-back-btn" onClick={onBack} style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', color: '#8b7355', padding: 0, marginBottom: 8, alignSelf: 'flex-start' }}>
+          ← Back
+        </button>
+      )}
       <div className="step-heading" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: '#1a1410', marginBottom: 4 }}>
         Your property
       </div>
@@ -65,6 +71,7 @@ export default function BookingStep1b({ booking, onUpdate, onNext, onBack }) {
               <div
                 key={type.id}
                 onClick={() => {
+                  trackEvent('property_type', { type: type.id, from: booking.propertyType || null });
                   const partial = { propertyType: type.id };
                   if (type.id === 'house' && booking.size?.id === 'studio') partial.size = null;
                   update(partial);
@@ -95,7 +102,7 @@ export default function BookingStep1b({ booking, onUpdate, onNext, onBack }) {
               return (
                 <div
                   key={size.id}
-                  onClick={() => update({ size, sizePrice: size.basePrice })}
+                  onClick={() => { trackEvent('size_selected', { size: size.label, price: size.basePrice, from: booking.size?.label || null }); update({ size, sizePrice: size.basePrice }); }}
                   style={CARD(booking.size?.id === size.id)}
                 >
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, color: '#1a1410', marginBottom: 4 }}>
@@ -123,11 +130,6 @@ export default function BookingStep1b({ booking, onUpdate, onNext, onBack }) {
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        {onBack && (
-          <button onClick={onBack} style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', color: '#8b7355', padding: 0 }}>
-            Back
-          </button>
-        )}
         <button className="book-next-btn" onClick={handleNext}>
           <WandIcon size={14} color="#c8b89a" /> Continue to Schedule
         </button>

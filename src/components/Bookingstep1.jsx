@@ -313,17 +313,19 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
           .pkg-card-bottomline { font-size: 11px; }
           .pkg-card-price { font-size: 11px; }
           .pkg-card-offer { font-size: 11px; }
-          .step-heading { margin-top: 24px; }
+          .bk-back-btn { margin-top: 24px; }
         }
       `}</style>
 
       {/* Package content */}
       <>
-        <div className="step-heading" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: '#1a1410', marginBottom: 4 }}>
+        {onBack && (
+          <button className="bk-back-btn" onClick={onBack} style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', color: '#8b7355', padding: 0, marginBottom: 8, alignSelf: 'flex-start' }}>
+            ← Back
+          </button>
+        )}
+        <div className="step-heading" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: '#1a1410', marginBottom: 14 }}>
           Choose your clean
-        </div>
-        <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b7355', fontWeight: 300, marginBottom: 14 }}>
-          Select the level of service for your home
         </div>
 
         {/* Signature packages tab — horizontal tabs + detail panel */}
@@ -334,9 +336,6 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
             : null;
           return (
             <div style={{ marginBottom: 24 }}>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 10 }}>
-                Select a package to continue
-              </div>
               {/* 3 package cards */}
               <div className="sig-pkg-grid" style={{ marginBottom: 16 }}>
                 {sigPkgs.map(pkg => {
@@ -567,10 +566,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
         {/* Commercial & Airbnb tab */}
         {pkgTab === 'commercial' && (
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 10 }}>
-              Select a service to continue
-            </div>
-            {/* Horizontal tabs */}
+              {/* Horizontal tabs */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               {COMMERCIAL_SERVICES.map(({ pkg, headline, subheadline }) => {
                 const sel = booking.pkg?.id === pkg.id;
@@ -664,11 +660,6 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        {onBack && (
-          <button onClick={onBack} style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', color: '#8b7355', padding: 0 }}>
-            ← Back
-          </button>
-        )}
         <button className="book-next-btn" onClick={handleNext}>
           <WandIcon size={14} color="#c8b89a" /> Continue booking
         </button>

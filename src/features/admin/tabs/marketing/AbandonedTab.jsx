@@ -73,16 +73,36 @@ function getVisits(events) {
   return visits;
 }
 
-function PageJourneySection({ journey, C }) {
-  if (!journey || !journey.length) return null;
+function fmtPageDuration(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60), s = seconds % 60;
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
+
+function PageJourneySection({ journey, referrer, C }) {
+  if ((!journey || !journey.length) && !referrer) return null;
+  if (!journey || !journey.length) return (
+    <div style={{ padding: '10px 16px 8px', borderBottom: '1px solid rgba(100,116,139,0.12)', fontFamily: FONT, fontSize: 12, color: C.muted }}>
+      Came directly to booking
+      {referrer && <span style={{ fontSize: 10, color: '#2563eb', background: '#eff6ff', borderRadius: 3, padding: '0 5px', marginLeft: 6 }}>via {referrer}</span>}
+    </div>
+  );
   return (
     <div style={{ padding: '12px 16px 6px', borderBottom: '1px solid rgba(100,116,139,0.12)' }}>
-      <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-        Site journey before booking
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          Site journey before booking
+        </div>
+        {referrer && <span style={{ fontFamily: FONT, fontSize: 10, color: '#2563eb', background: '#eff6ff', borderRadius: 3, padding: '0 5px' }}>via {referrer}</span>}
       </div>
       {journey.map((entry, i) => {
         const isLast = i === journey.length - 1;
-        const time = entry.at ? new Date(entry.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null;
+        const next = journey[i + 1];
+        let duration = null;
+        if (!isLast && entry.at && next?.at) {
+          const diff = Math.round((new Date(next.at) - new Date(entry.at)) / 1000);
+          if (diff > 0) duration = diff;
+        }
         return (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: isLast ? 4 : 8 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16, flexShrink: 0 }}>
@@ -94,8 +114,8 @@ function PageJourneySection({ journey, C }) {
               {entry.from && (
                 <span style={{ fontFamily: FONT, fontSize: 10, color: '#2563eb', background: '#eff6ff', borderRadius: 3, padding: '0 5px', marginLeft: 6 }}>via {entry.from}</span>
               )}
-              {time && (
-                <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginLeft: 6 }}>{time}</span>
+              {duration != null && (
+                <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0 6px', marginLeft: 6 }}>{fmtPageDuration(duration)}</span>
               )}
             </div>
           </div>
@@ -107,13 +127,13 @@ function PageJourneySection({ journey, C }) {
 
 function SessionDetail({ session, C }) {
   const visits = getVisits(session.events);
-  const hasJourney = session.pageJourney && session.pageJourney.length > 0;
+  const hasJourney = (session.pageJourney && session.pageJourney.length > 0) || !!session.referrer;
   if (!visits.length && !hasJourney) return (
     <div style={{ padding: '12px 16px', fontFamily: FONT, fontSize: 12, color: C.muted }}>No event detail stored for this session.</div>
   );
   return (
     <div style={{ borderTop: `2px solid rgba(100,116,139,0.15)`, background: C.bg }}>
-      <PageJourneySection journey={session.pageJourney} C={C} />
+      <PageJourneySection journey={session.pageJourney} referrer={session.referrer} C={C} />
       {!visits.length ? null : <div style={{ padding: '14px 16px 10px' }}>
       {visits.map((visit, vi) => {
         const isLast    = vi === visits.length - 1;
@@ -328,16 +348,23 @@ export default function AbandonedTab({ abandonmentStats, funnelData = [], bookin
       if (s.pageJourney && s.pageJourney.length) {
         const items = s.pageJourney.map((entry, ji) => {
           const isLast = ji === s.pageJourney.length - 1;
-          const time = entry.at ? new Date(entry.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+          const next = s.pageJourney[ji + 1];
+          let durationTag = '';
+          if (!isLast && entry.at && next?.at) {
+            const diff = Math.round((new Date(next.at) - new Date(entry.at)) / 1000);
+            if (diff > 0) {
+              const label = diff < 60 ? `${diff}s` : `${Math.floor(diff / 60)}m${diff % 60 > 0 ? ` ${diff % 60}s` : ''}`;
+              durationTag = `<span style="font-size:10px;color:#94a3b8;background:#f8fafc;border:1px solid #e2e8f0;padding:0 6px;border-radius:10px;margin-left:5px">${label}</span>`;
+            }
+          }
           const fromTag = entry.from ? `<span style="font-size:10px;color:#2563eb;background:#eff6ff;padding:0 5px;border-radius:3px;margin-left:5px">via ${entry.from}</span>` : '';
-          const timeTag = time ? `<span style="font-size:10px;color:#94a3b8;margin-left:5px">${time}</span>` : '';
           const lineHTML = !isLast ? '<div style="flex:1;width:1px;background:#e2e8f0;margin-top:3px;min-height:10px"></div>' : '';
           return `<div style="display:flex;gap:10px;margin-bottom:${isLast ? '4px' : '8px'}">
             <div style="display:flex;flex-direction:column;align-items:center;width:14px;flex-shrink:0">
               <div style="width:6px;height:6px;border-radius:50%;background:${isLast ? '#2563eb' : '#cbd5e1'};margin-top:5px;flex-shrink:0"></div>
               ${lineHTML}
             </div>
-            <div style="flex:1"><span style="font-size:12px;color:#0f172a">${entry.page}</span>${fromTag}${timeTag}</div>
+            <div style="flex:1"><span style="font-size:12px;color:#0f172a">${entry.page}</span>${fromTag}${durationTag}</div>
           </div>`;
         }).join('');
         journeyHTML = `<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #f1f5f9">

@@ -437,19 +437,15 @@ export default function SOPTab({ isMobile, C }) {
           </div>
         ))}
 
-        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '16px 0 6px' }}>Downloading the CSV</div>
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '16px 0 6px' }}>Downloading a PDF</div>
         <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 10 }}>
-          Click the Download CSV button next to the Booking Funnel heading. The file is named funnel-[period].csv and includes one row per session with 29 columns covering everything tracked. Open it in Excel or Google Sheets.
+          Click the Download PDF button next to the Booking Funnel heading. A new tab opens showing every session for that period laid out exactly like the session log — step timeline, coloured dots, time badges, and site journey. Use your browser's print function (Ctrl+P / Cmd+P) to save as a PDF file.
         </div>
         {[
-          'Date, Session ID, Last Step reached, Converted (yes/no).',
-          'Service category selected, Package chosen, Property size, Frequency.',
-          'Time spent on each step (in seconds) -- columns: Time Step 1 through Time Step 5.',
-          'Fields filled: Name filled, Email filled, Phone filled, Address filled, Postcode outward (the actual outward code e.g. SW3).',
-          'Bathrooms count, Pets (yes/no/not answered).',
-          'Mop ack checked (yes/no), T&Cs checked (yes/no).',
-          'Payment attempted (yes/no), Add-ons selected (comma-separated list).',
-          'Package detail expanded (yes/no), Total events recorded, Changes made (yes/no), Last action type.',
+          'Each session is numbered (#1 = first session of the day, highest number = most recent).',
+          'The site journey before booking shows which pages the visitor browsed before opening the booking form, and how long they spent on each page.',
+          'The step timeline shows every step visited, time spent, selections made, and where they dropped off.',
+          '"went back" badge = the visitor went back to change something. "dropped here" badge = the last step they reached before leaving.',
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
             <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
@@ -458,7 +454,122 @@ export default function SOPTab({ isMobile, C }) {
         ))}
 
         <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '3px solid #16a34a', borderRadius: 6, padding: '12px 16px', marginTop: 12, fontFamily: FONT, fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
-          <strong>Tip:</strong> Sort the CSV by "Last Step" descending, then filter "Converted" = No. This gives you every near-miss in order of how far they got. Start from the Step 5 drop-offs and work backwards. If you see a pattern (e.g. everyone who selected 3-Bed dropped off before paying), that is your actionable insight.
+          <strong>Tip:</strong> Focus on sessions that reached Step 5 (Checkout) but did not convert — these are the highest-priority drop-offs because the customer was very close to paying. If you see a pattern (e.g. everyone who selected 3-Bed dropped off before paying), that is your actionable insight.
+        </div>
+      </Section>
+
+      <Section title="Analytics & Tracking Tools" C={C}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+          Three separate tracking tools are running on your site. Each answers different questions. Here is what each one is, where to find it, what it tells you, and what problems it helps you solve.
+        </div>
+
+        {[
+          {
+            name: 'Google Ads Conversion Tag (AW-18070855826)',
+            where: 'Managed inside Google Ads (ads.google.com). Not something you look at directly — it runs silently in the background.',
+            purpose: 'Its only job is to tell Google Ads when a booking is completed, so Google can use that signal to optimise who it shows your ads to. Without it, Google Ads would have no idea which ad clicks led to real bookings.',
+            tells: [
+              'How many conversions your Google Ads have driven (reported inside Google Ads).',
+              'Feeds Google\'s Smart Bidding — it uses this data to show your ads to people more likely to book.',
+            ],
+            solves: [
+              'Wasted ad spend — without conversion data, Google would show ads randomly rather than targeting people similar to those who have already booked.',
+              'Bid optimisation — Google automatically raises bids for searches more likely to convert and lowers them for searches that don\'t.',
+            ],
+            color: '#1e40af',
+            bg: '#eff6ff',
+            border: '#bfdbfe',
+          },
+          {
+            name: 'Google Analytics 4 — GA4 (G-94V706BZBP)',
+            where: 'analytics.google.com → London Cleaning Wizard property → Reports.',
+            purpose: 'Full site analytics. Tracks every visitor, every page view, and every traffic source across the whole website — not just people who book.',
+            tells: [
+              'How many people visited your site this week / month / year.',
+              'Where they came from: Google Ads (paid), organic Google search, direct (typed the URL), social media, referrals.',
+              'Which pages are most visited and how long people spend on them.',
+              'Which campaigns and keywords are driving the most traffic.',
+              'Whether traffic is growing or shrinking over time.',
+            ],
+            solves: [
+              '"Are my Google Ads actually bringing more people to the site?" — Traffic acquisition report.',
+              '"Which pages are people landing on?" — Pages and screens report.',
+              '"Is my traffic growing month on month?" — Compare date ranges in any report.',
+              '"Are people from Google Ads actually engaging, or just bouncing?" — Engagement metrics by channel.',
+            ],
+            color: '#15803d',
+            bg: '#f0fdf4',
+            border: '#bbf7d0',
+          },
+          {
+            name: 'Custom Booking Funnel Tracker (Admin panel → Marketing tab)',
+            where: 'Admin panel → Marketing tab → Booking Funnel section.',
+            purpose: 'Records every action a visitor takes inside the booking form, step by step, in real time. GA4 can tell you someone visited the booking page — this tracker tells you exactly what they did while they were there.',
+            tells: [
+              'Which step every visitor dropped off at, and how long they spent on each step.',
+              'What they selected: package, property type, frequency, date, add-ons.',
+              'Whether they went back and changed something, and what they changed it from and to.',
+              'Which fields they filled in before leaving (name, email, phone, postcode area).',
+              'The full page journey before they opened the booking form (e.g. Homepage → Deep Cleaning → Booking).',
+              'Where they came from before visiting the site (e.g. via google.com).',
+            ],
+            solves: [
+              '"Why are people dropping off in the booking form?" — Session log shows exactly what they did before leaving.',
+              '"Who abandoned at checkout and needs a follow-up email?" — Abandonment Events table.',
+              '"Are people confused by the package options?" — Check if they expand the package details and then leave.',
+              '"Is a specific package causing more drop-offs than others?" — Filter sessions by package selected.',
+              '"How long is the booking form taking to complete?" — Time spent per step.',
+            ],
+            color: '#6d28d9',
+            bg: '#f5f3ff',
+            border: '#ddd6fe',
+          },
+        ].map(({ name, where, purpose, tells, solves, color, bg, border }) => (
+          <div key={name} style={{ marginBottom: 20, background: bg, border: `1px solid ${border}`, borderLeft: `3px solid ${color}`, borderRadius: 8, padding: '16px 20px' }}>
+            <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color, marginBottom: 10 }}>{name}</div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color, minWidth: 70 }}>Where</div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, flex: 1, lineHeight: 1.5 }}>{where}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color, minWidth: 70 }}>Purpose</div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, flex: 1, lineHeight: 1.5 }}>{purpose}</div>
+            </div>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color, marginBottom: 6 }}>What it tells you</div>
+            {tells.map((t, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5 }}>
+                <div style={{ color, fontWeight: 700, flexShrink: 0 }}>·</div>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, lineHeight: 1.5 }}>{t}</div>
+              </div>
+            ))}
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color, margin: '10px 0 6px' }}>Problems it solves</div>
+            {solves.map((s, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5 }}>
+                <div style={{ color, fontWeight: 700, flexShrink: 0 }}>·</div>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, lineHeight: 1.5 }}>{s}</div>
+              </div>
+            ))}
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '8px 0 12px' }}>How to use them together</div>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 12 }}>
+          GA4 tells you there is a problem. The custom tracker tells you exactly where in the booking process it is happening. The conversion tag makes sure your ad spend keeps improving over time.
+        </div>
+        {[
+          'You check GA4 and notice traffic from Google Ads dropped this week.',
+          'You check the booking funnel in the admin panel to see if drop-off inside the form also changed, or if people are just not arriving at the booking page at all.',
+          'If people are arriving at the booking page but dropping — the problem is the booking form (use the session log to investigate).',
+          'If people are not arriving at all — the problem is your ads or landing pages (investigate in GA4 → Traffic acquisition).',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: C.accent, flexShrink: 0 }}>{i + 1}.</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginTop: 12, fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+          <strong style={{ color: C.text }}>Note on bots:</strong> Simple bots (scrapers, crawlers) do not execute JavaScript and will not appear in any of these tools. Sophisticated bots that use a full browser may appear in the custom tracker and GA4, but GA4 filters out most known bots automatically. If you see a session that reached Step 1 with no selections and dropped immediately, it could be a real person who bounced, or a bot — a pattern of many identical sessions in a short window is the tell.
         </div>
       </Section>
 

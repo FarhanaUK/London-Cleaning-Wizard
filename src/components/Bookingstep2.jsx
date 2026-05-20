@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { trackEvent } from '../utils/funnelTrack';
 import { validateStep2 } from '../utils/validation';
 import { toUTCISO, showDate, todayUK } from '../utils/time';
 import { Sparkle, WandIcon } from './Icons';
@@ -111,6 +112,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
 
   const handleDateClick = (dateStr) => {
     setError('');
+    trackEvent('date_selected', { changed: !!booking.cleanDate });
     onUpdate({
       cleanDate:        dateStr,
       cleanDateDisplay: showDate(dateStr),
@@ -121,6 +123,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
 
   const handleTimeSelect = (time) => {
     setError('');
+    trackEvent('time_selected', { time, from: booking.cleanTime || null });
     onUpdate({
       cleanTime:    time,
       cleanDateUTC: toUTCISO(booking.cleanDate, time),
@@ -170,8 +173,15 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
         @media (max-width:640px) {
           .step-heading { margin-top: 24px; }
           .step2-btn { padding: 11px 20px !important; font-size: 11px; }
+          .bk-back-btn { margin-top: 24px; }
         }
       `}</style>
+      <button className="bk-back-btn" onClick={onBack} style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', color: '#8b7355', padding: 0, marginBottom: 8, alignSelf: 'flex-start' }}>
+        ← Back
+      </button>
+      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: '#1a1410', marginBottom: 14 }}>
+        Schedule your clean
+      </div>
       {/* Frequency - only for packages that support it */}
       {booking.pkg?.showFreq && (
         <>
@@ -180,7 +190,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
             {FREQUENCIES.map(freq => (
               <div
                 key={freq.id}
-                onClick={() => onUpdate({ freq })}
+                onClick={() => { trackEvent('freq_selected', { freq: freq.label, from: booking.freq?.label || null }); onUpdate({ freq }); }}
                 style={CARD(booking.freq?.id === freq.id)}
               >
                 <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 500, color: '#1a1410', marginBottom: 3 }}>
@@ -312,7 +322,6 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
       )}
 
       <div style={{ display: 'flex', gap: 12, marginTop: 'auto', paddingTop: 32 }}>
-        <button onClick={onBack} className="step2-btn" style={BTN_GHOST}>← Back</button>
         {booking.pkg?.showFreq && !calendarRevealed ? (
           <button
             onClick={booking.freq ? revealCalendar : undefined}
