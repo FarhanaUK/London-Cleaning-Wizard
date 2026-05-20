@@ -26,14 +26,14 @@ export default function BookingStepPicker({ onNext, isMobile }) {
           .picker-trust-bar span { font-family: 'Jost', sans-serif; font-size: 11px; color: #1a1410; display: flex; align-items: center; gap: 4px; }
         }
         .picker-option {
-          display: flex; flex-direction: column; align-items: center; justify-content: center;
-          flex: 1; min-width: 0; padding: 36px 20px 28px; text-align: center;
+          display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+          flex: 1; min-width: 0; padding: 28px 16px 24px; text-align: center;
           border: 2px solid rgba(200,184,154,0.2); border-radius: 8px;
           background: #fdf8f3; cursor: pointer; transition: all 0.2s;
-          color: #1a1410; word-break: break-word; min-height: 240px;
+          color: #1a1410; word-break: break-word; min-height: 220px;
         }
         @media (max-width: 767px) {
-          .picker-option { min-height: 160px; padding: 20px 8px 16px; }
+          .picker-option { padding: 20px 8px 16px; min-height: 150px; }
         }
         .picker-option.sel {
           background: rgba(200,184,154,0.22); border-color: #c8b89a; color: #1a1410;
@@ -79,13 +79,15 @@ export default function BookingStepPicker({ onNext, isMobile }) {
             className={`picker-option${selected === opt.id ? ' sel' : ''}`}
             onClick={() => handleSelect(opt.id)}
           >
-            <div className="picker-label" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4 }}>
-              {opt.label}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="picker-label" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4 }}>
+                {opt.label}
+              </div>
+              <div className="picker-desc" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, marginTop: 6, lineHeight: 1.5, color: '#5a4e44' }}>
+                {opt.desc}
+              </div>
             </div>
-            <div className="picker-desc" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, marginTop: 6, lineHeight: 1.5, color: '#5a4e44' }}>
-              {opt.desc}
-            </div>
-            <div style={{ marginTop: 16, fontSize: 18, color: '#c8b89a', fontWeight: 600 }}>→</div>
+            <div style={{ paddingTop: 12, fontSize: 18, color: '#c8b89a', fontWeight: 600 }}>→</div>
           </button>
         ))}
       </div>

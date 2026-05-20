@@ -237,9 +237,9 @@ export default function BookingPage() {
         {/* Steps column */}
         <div style={{ paddingRight: isMobile ? 0 : 40, paddingTop: isMobile ? (step === 1 ? 0 : 16) : 80, display: isMobile ? 'block' : 'flex', flexDirection: 'column' }}>
           {step === 1 && <BookingStepPicker onNext={() => goToStep(2)} isMobile={isMobile} />}
-          {step === 2 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => goToStep(booking.pkg?.isHourly || booking.pkg?.id === 'office_cleaning' ? 4 : 3)} onBack={() => goToStep(1)} />}
+          {step === 2 && <BookingStep1 booking={booking} onUpdate={update} onNext={() => goToStep(booking.pkg?.id === 'office_cleaning' ? 4 : 3)} onBack={() => goToStep(1)} />}
           {step === 3 && <BookingStep1b booking={booking} onUpdate={update} onNext={() => goToStep(4)} onBack={() => goToStep(2)} />}
-          {step === 4 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(5)} onBack={() => goToStep(booking.pkg?.isHourly || booking.pkg?.id === 'office_cleaning' ? 2 : 3)} />}
+          {step === 4 && <BookingStep2 booking={booking} onUpdate={update} onNext={() => goToStep(5)} onBack={() => goToStep(booking.pkg?.id === 'office_cleaning' ? 2 : 3)} isMobile={isMobile} />}
           {step === 5 && <BookingStep5 booking={booking} onUpdate={update} onSuccess={(res) => {
             if (localStorage.getItem('lcw_test_mode') !== '1' && window.location.hostname !== 'localhost') {
               setDoc(doc(db, 'bookingFunnel', funnelId), { converted: true, maxStep: 6, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
@@ -258,7 +258,7 @@ export default function BookingPage() {
             alignSelf: 'start',
             maxHeight: `calc(100vh - ${SIDEBAR_TOP + 20}px)`,
             overflowY: 'auto',
-            marginTop: step === 1 ? 51 : 40,
+            marginTop: (step === 1 || step === 3 || step === 4) ? 51 : 40,
           }}>
             <BookingInvoice booking={booking} />
           </div>

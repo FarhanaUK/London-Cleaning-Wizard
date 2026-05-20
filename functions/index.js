@@ -604,6 +604,12 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
         EMAILJS_KEY.value());
     } catch (emailErr) {
       console.error('saveBooking: email send failed:', emailErr.message);
+      db.collection('emailFailures').add({
+        fn: 'saveBooking', error: emailErr.message,
+        bookingRef: ref || null, customer: d.email || null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        resolved: false,
+      }).catch(() => {});
     }
   }
 

@@ -661,7 +661,8 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <button className="book-next-btn" onClick={handleNext}>
-          <WandIcon size={14} color="#c8b89a" /> Continue booking
+          <WandIcon size={14} color="#c8b89a" />
+          {booking.pkg?.id === 'office_cleaning' ? 'Continue to scheduling' : 'Continue to your property'}
         </button>
       </div>
     </div>

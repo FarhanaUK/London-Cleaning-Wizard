@@ -39,12 +39,12 @@ const CARD = (selected) => ({
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
+export default function BookingStep2({ booking, onUpdate, onNext, onBack, isMobile }) {
   const today        = new Date();
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [blockedDates, setBlockedDates] = useState([]);
-  const [error,        setError]        = useState('');
+  const [errors,       setErrors]       = useState([]);
 
   const [calendarRevealed, setCalendarRevealed] = useState(false);
 
@@ -53,11 +53,13 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   const timeRef       = useRef(null);
   useEffect(() => { bookingRef.current = booking; }, [booking]);
 
-  // Reset calendar when user changes frequency so they re-read the banner (showFreq packages only)
+  // Auto-reveal calendar when frequency is selected; reset date/time if frequency changes
   useEffect(() => {
     if (!booking.pkg?.showFreq) return;
-    setCalendarRevealed(false);
+    if (!booking.freq) return;
     onUpdate({ cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null });
+    setCalendarRevealed(true);
+    setTimeout(() => scrollTo(calendarRef), 200);
   }, [booking.freq?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scrollTo = (ref) => {
@@ -92,7 +94,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
         setBlockedDates(dates);
         if (bookingRef.current.cleanDate && dates.includes(bookingRef.current.cleanDate)) {
           onUpdate({ cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null });
-          setError('The date you selected is no longer available. Please choose another day.');
+          setErrors(['The date you selected is no longer available. Please choose another day.']);
         }
       })
       .catch(() => {});
@@ -111,7 +113,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   };
 
   const handleDateClick = (dateStr) => {
-    setError('');
+    setErrors([]);
     trackEvent('date_selected', { changed: !!booking.cleanDate });
     onUpdate({
       cleanDate:        dateStr,
@@ -122,7 +124,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   };
 
   const handleTimeSelect = (time) => {
-    setError('');
+    setErrors([]);
     trackEvent('time_selected', { time, from: booking.cleanTime || null });
     onUpdate({
       cleanTime:    time,
@@ -131,8 +133,11 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
   };
 
   const handleNext = async () => {
-    const err = validateStep2(booking);
-    if (err) { setError(err); return; }
+    const errs = [];
+    if (booking.pkg?.showFreq && !booking.freq) errs.push('Please select how often you would like us to clean.');
+    if (!booking.cleanDate) errs.push('Please select a date.');
+    if (!booking.cleanTime) errs.push('Please select a time slot.');
+    if (errs.length) { setErrors(errs); return; }
     try {
       const res  = await fetch(`${import.meta.env.VITE_CF_GET_BLOCKED_DATES}?year=${year}&month=${month + 1}`);
       const data = await res.json();
@@ -140,13 +145,13 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
       setBlockedDates(latest);
       if (booking.cleanDate && latest.includes(booking.cleanDate)) {
         onUpdate({ cleanDate: null, cleanDateDisplay: null, cleanTime: null, cleanDateUTC: null });
-        setError('The date you selected is no longer available. Please choose another day.');
+        setErrors(['The date you selected is no longer available. Please choose another day.']);
         return;
       }
     } catch {
       // allow through on network error
     }
-    setError('');
+    setErrors([]);
     onNext();
   };
 
@@ -179,13 +184,10 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
       <button className="bk-back-btn" onClick={onBack} style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', color: '#8b7355', padding: 0, marginBottom: 8, alignSelf: 'flex-start' }}>
         ← Back
       </button>
-      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: '#1a1410', marginBottom: 14 }}>
-        Schedule your clean
-      </div>
       {/* Frequency - only for packages that support it */}
       {booking.pkg?.showFreq && (
         <>
-          <div className="step-heading" style={LABEL}><Sparkle size={7} color="#c8b89a" /> How often?</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 700, color: '#1a1410', marginBottom: 14 }}>How often?</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: 8, marginBottom: 12 }}>
             {FREQUENCIES.map(freq => (
               <div
@@ -260,8 +262,8 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
               <div
                 key={dateStr}
                 onClick={() => {
-                  if (isFullyBlocked) { setError('We are not available on this date. Please select another day.'); return; }
-                  if (isTooSoon) { setError('For cleaning jobs required urgently, please contact us directly so we can ensure we have available cleaning wizards in your area.'); return; }
+                  if (isFullyBlocked) { setErrors(['We are not available on this date. Please select another day.']); return; }
+                  if (isTooSoon) { setErrors(['For cleaning jobs required urgently, please contact us directly so we can ensure we have available cleaning wizards in your area.']); return; }
                   if (!isBlocked) handleDateClick(dateStr);
                 }}
                 style={{
@@ -315,31 +317,20 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack }) {
         </div>
       )}
 
-      {error && (
-        <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>
-          {error}
-        </p>
+      {errors.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          {errors.map((e, i) => (
+            <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 4 }}>
+              {e}
+            </p>
+          ))}
+        </div>
       )}
 
       <div style={{ display: 'flex', gap: 12, marginTop: 'auto', paddingTop: 32 }}>
-        {booking.pkg?.showFreq && !calendarRevealed ? (
-          <button
-            onClick={booking.freq ? revealCalendar : undefined}
-            className="step2-btn"
-            style={{
-              ...BTN_DARK,
-              background: booking.freq ? '#2c2420' : 'rgba(44,36,32,0.25)',
-              color: '#f5f0e8',
-              cursor: booking.freq ? 'pointer' : 'default',
-            }}
-          >
-            <WandIcon size={14} color={booking.freq ? '#c8b89a' : 'rgba(200,184,154,0.3)'} /> Continue to Date
-          </button>
-        ) : booking.cleanDate && booking.cleanTime ? (
-          <button onClick={handleNext} className="step2-btn" style={BTN_DARK}>
-            <WandIcon size={14} color="#c8b89a" /> Continue to Checkout
-          </button>
-        ) : null}
+        <button onClick={handleNext} className="step2-btn" style={BTN_DARK}>
+          <WandIcon size={14} color="#c8b89a" /> Continue to Checkout
+        </button>
       </div>
     </div>
   );

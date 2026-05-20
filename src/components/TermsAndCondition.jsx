@@ -119,7 +119,7 @@ export default function TermsAndConditions() {
               <>
                 <p>A 30% deposit is required to secure your booking and is charged immediately upon confirmation. The deposit goes toward the total cost of your clean. The remaining 70% balance will be charged automatically once your clean has been completed and marked as done by our team. By booking, you authorise London Cleaning Wizard to charge the remaining balance to your saved payment method upon job completion.</p>
                 <p style={{ marginTop: 16 }}><strong>Payment Method:</strong> All payments are taken by card via Stripe. No other payment methods are accepted.</p>
-                <p style={{ marginTop: 16 }}><strong>Missed Payment:</strong> If a card payment is declined or the remaining balance is not collected upon job completion, a formal invoice will be issued with a payment deadline. An administration fee of £15 may be added after the deadline. Additional admin fees may be applied for continued non-payment. Future services may be refused and unpaid balances may result in debt recovery or legal action.</p>
+                <p style={{ marginTop: 16 }}><strong>Missed Payment:</strong> If a card payment is declined upon job completion, we will automatically retry the charge on the following day. If the second attempt also fails, a formal invoice will be issued with a payment deadline. An administration fee of £15 may be added after the deadline. Additional admin fees may be applied for continued non-payment. Future services may be refused and unpaid balances may result in debt recovery or legal action.</p>
               </>
             ),
           },
@@ -230,7 +230,7 @@ export default function TermsAndConditions() {
             content: <p>These terms are governed by the laws of England and Wales.</p>,
           },
           {
-            title: "18. Contact",
+            title: "19. Contact",
             content: (
               <>
                 <p>Email: bookings@londoncleaningwizard.com</p>
