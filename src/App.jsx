@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect } from "react"
 import { Helmet } from "react-helmet-async"
 import { Routes, Route, useLocation } from "react-router-dom"
 import { trackPageView } from "./utils/siteTrack"
+import { captureUTM } from "./utils/utmTrack"
 
 // ✅ Always-loaded core UI (small + needed everywhere)
 import Navbar from "./components/Navbar"
@@ -63,6 +64,7 @@ export default function App() {
 
   useEffect(() => {
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    captureUTM();
   }, [])
 
   useEffect(() => {

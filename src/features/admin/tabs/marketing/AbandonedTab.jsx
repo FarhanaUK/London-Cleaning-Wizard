@@ -544,8 +544,8 @@ ${sessionsHTML}
       {funnelMonth.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <button onClick={() => setShowSessions(s => !s)} style={{ background: 'none', border: 'none', fontFamily: FONT, fontSize: 12, color: C.muted, cursor: 'pointer', padding: 0 }}>
-              {showSessions ? '▲' : '▼'} {showSessions ? 'Hide' : 'Show'} session log ({funnelMonth.length} sessions)
+            <button onClick={() => setShowSessions(s => !s)} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '8px 16px', borderRadius: 6, border: '2px solid #eab308', background: showSessions ? '#fefce8' : '#eab308', color: '#1a1410' }}>
+              {showSessions ? '▲ Hide' : '▼ Show'} Session Log ({funnelMonth.length} sessions)
             </button>
             <button onClick={handleDeleteAll} disabled={deletingAll} style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, fontFamily: FONT, fontSize: 11, color: '#dc2626', cursor: 'pointer', padding: '4px 12px' }}>
               {deletingAll ? 'Deleting…' : `Clear all (${eventsLabel})`}
@@ -575,8 +575,14 @@ ${sessionsHTML}
                       <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: C.muted, padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
                         {funnelMonth.length - i}
                       </div>
-                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         {s.date ? new Date(s.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                        {s.utm?.channel && (
+                          <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4,
+                            background: s.utm.source === 'google' ? '#eff6ff' : s.utm.source === 'facebook' || s.utm.source === 'instagram' ? '#f5f3ff' : s.utm.source === 'tiktok' ? '#f0fdf4' : '#f8fafc',
+                            color:      s.utm.source === 'google' ? '#1d4ed8' : s.utm.source === 'facebook' || s.utm.source === 'instagram' ? '#6d28d9' : s.utm.source === 'tiktok' ? '#15803d' : '#475569',
+                          }}>{s.utm.channel}</span>
+                        )}
                         <span style={{ fontSize: 9, color: C.muted }}>{isExpanded ? '▲' : '▼'}</span>
                       </div>
                       <div style={{ fontFamily: FONT, fontSize: 12, color: C.text, padding: '8px 12px' }}>{stepLabel}</div>

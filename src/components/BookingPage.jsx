@@ -11,6 +11,7 @@ import BookingStep5      from './BookingStep5';
 import BookingConfirm    from './Bookingconfirm';
 import { db } from '../firebase/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { getUTM } from '../utils/utmTrack';
 
 const INIT = {
   isAirbnb: false, pkg: null, propertyType: null, size: null,
@@ -36,8 +37,13 @@ function loadSession() {
 
 export default function BookingPage() {
   const saved = loadSession();
+  const adTab = (() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    return ['signature', 'hourly', 'commercial'].includes(t) ? t : null;
+  })();
+
   const [booking,   setBooking]   = useState(saved?.booking || INIT);
-  const [step,      setStep]      = useState(1);
+  const [step,      setStep]      = useState(adTab ? 2 : 1);
   const [confirmed, setConfirmed] = useState(false);
   const [result,    setResult]    = useState(null);
   const [isMobile,  setIsMobile]  = useState(window.innerWidth < 768);
@@ -52,6 +58,14 @@ export default function BookingPage() {
     return id;
   })()).current;
   const maxStepTracked = useRef(0);
+
+  // Pre-select tab from ad URL parameter (e.g. /book?tab=signature)
+  useEffect(() => {
+    if (adTab) sessionStorage.setItem('pkgTab', adTab);
+    if (window.location.hostname === 'localhost') return;
+    const utm = getUTM();
+    if (utm) setDoc(doc(db, 'bookingFunnel', funnelId), { utm }, { merge: true }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Write pre-booking page journey to Firestore once on mount
   useEffect(() => {
