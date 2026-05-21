@@ -236,7 +236,7 @@ function SessionDetail({ session, C }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: entry.events.length ? 5 : 0, flexWrap: 'wrap' }}>
                 <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#64748b' }}>Step {entry.step} — {STEP_NAMES[entry.step]}</span>
                 {isBack && <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: '#92400e', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 10, padding: '0 6px' }}>went back</span>}
-                {entry.timeSpent != null && <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0 6px' }}>{entry.timeSpent}s</span>}
+                {entry.timeSpent != null && <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0 6px' }}>{fmtPageDuration(entry.timeSpent)}</span>}
                 {isDropped && <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '0 7px' }}>dropped here</span>}
                 {isConverted && <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '0 7px' }}>booked</span>}
               </div>

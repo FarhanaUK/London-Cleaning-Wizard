@@ -44,6 +44,9 @@ export default function BookingStepPicker({ onNext, isMobile }) {
         }
         .picker-label { min-height: 0; font-size: 13px; }
         .picker-desc { font-size: 13px; }
+        @media (min-width: 768px) and (max-width: 1024px) {
+          .picker-label { min-height: 48px; }
+        }
         @media (max-width: 767px) {
           .picker-label { min-height: 36px; font-size: 10px !important; letter-spacing: 0.03em !important; }
           .picker-desc { font-size: 11px; }
@@ -79,7 +82,7 @@ export default function BookingStepPicker({ onNext, isMobile }) {
             className={`picker-option${selected === opt.id ? ' sel' : ''}`}
             onClick={() => handleSelect(opt.id)}
           >
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 8 }}>
               <div className="picker-label" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4 }}>
                 {opt.label}
               </div>

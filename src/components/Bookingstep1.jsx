@@ -288,7 +288,18 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
         .pkg-card-bottomline { font-size: 13px; }
         .pkg-card-price { font-size: 13px; }
         .pkg-card-offer { font-size: 13px; }
+        .pkg-card-tagline { font-size: 12px; }
+        .mobile-card-inner { display: none; }
+        .desktop-card-inner { display: contents; }
         .pkg-card-extras { display: block; }
+        @media (min-width: 768px) and (max-width: 1024px) {
+          .pkg-card-tagline { display: none; }
+          .pkg-desktop-extra { display: none; }
+        }
+        @media (max-width: 767px) {
+          .mobile-card-inner { display: contents; }
+          .desktop-card-inner { display: none; }
+        }
         .pkg-detail-extras { display: none; }
         .pkg-desc-mobile { display: none; }
         .pkg-wi-mobile { display: none; }
@@ -313,6 +324,8 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
           .pkg-card-bottomline { font-size: 11px; }
           .pkg-card-price { font-size: 11px; }
           .pkg-card-offer { font-size: 11px; }
+          .mobile-card-inner { display: contents; }
+          .desktop-card-inner { display: none; }
           .bk-back-btn { margin-top: 24px; }
         }
       `}</style>
@@ -349,19 +362,48 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                       role="button"
                       style={{ flex: 1, padding: '12px 10px', border: sel ? '2px solid #c8b89a' : '2px solid rgba(200,184,154,0.2)', borderRadius: 6, background: sel ? 'rgba(200,184,154,0.22)' : '#fdf8f3', boxShadow: sel ? '0 2px 10px rgba(200,184,154,0.25)' : 'none', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start' }}
                     >
-                      <div className="pkg-card-title" style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4, color: '#1a1410' }}>
-                        {pkg.name.split(' - ')[0]}
-                      </div>
-                      {subtitle && <div className="pkg-card-subtitle" style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#a89070', letterSpacing: '0.04em', marginBottom: 4 }}>({subtitle})</div>}
-                      <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', marginBottom: pkg.launchOffer ? 2 : 6 }}>
-                        from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
-                      </div>
-                      {pkg.launchOffer && (
-                        <div className="pkg-card-offer" style={{ fontFamily: "'Jost',sans-serif", color: '#8b2020', marginBottom: 6 }}>
-                          50% off first clean
+                      {/* Mobile: exact original layout */}
+                      <div className="mobile-card-inner">
+                        <div className="pkg-card-title" style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4, color: '#1a1410' }}>
+                          {pkg.name.split(' - ')[0]}
                         </div>
-                      )}
-                      <div className="pkg-card-extras" style={{ width: '100%' }}>
+                        {subtitle && <div className="pkg-card-subtitle" style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#a89070', letterSpacing: '0.04em', marginBottom: 4 }}>({subtitle})</div>}
+                        <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', marginBottom: pkg.launchOffer ? 2 : 6 }}>
+                          from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
+                        </div>
+                        {pkg.launchOffer && (
+                          <div className="pkg-card-offer" style={{ fontFamily: "'Jost',sans-serif", color: '#8b2020', marginBottom: 6 }}>
+                            50% off first clean
+                          </div>
+                        )}
+                      </div>
+                      {/* Desktop: new layout */}
+                      <div className="desktop-card-inner">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', marginBottom: 2 }}>
+                          <div className="pkg-card-title" style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4, color: '#1a1410' }}>
+                            {pkg.name.split(' - ')[0]}
+                          </div>
+                          {subtitle && <div className="pkg-card-subtitle" style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#a89070', letterSpacing: '0.04em', textAlign: 'right', marginLeft: 6 }}>({subtitle})</div>}
+                        </div>
+                        {pkg.cardTagline && <div className="pkg-card-tagline" style={{ fontFamily: "'Jost',sans-serif", color: '#2d6a4f', fontWeight: 600, marginTop: 4, marginBottom: 5 }}>{pkg.cardTagline}</div>}
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                          <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355' }}>
+                            from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
+                          </div>
+                          {pkg.launchOffer && (
+                            <div className="pkg-card-offer" style={{ fontFamily: "'Jost',sans-serif", color: '#8b2020', fontStyle: 'italic' }}>
+                              50% off first clean · ends 1 June
+                            </div>
+                          )}
+                        </div>
+                        {pkg.showFreq && (
+                          <div className="pkg-desktop-extra pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, marginBottom: 6, marginTop: pkg.launchOffer ? 0 : 26 }}>Weekly, fortnightly & monthly available</div>
+                        )}
+                        {pkg.cardUseNote && (
+                          <div className="pkg-desktop-extra pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, marginBottom: 6, marginTop: 26 }}>{pkg.cardUseNote}</div>
+                        )}
+                      </div>
+                      <div className="pkg-card-extras" style={{ width: '100%', marginTop: pkg.showFreq || pkg.cardUseNote ? 0 : 48 }}>
                         {pkg.cardDesc && <div className="pkg-card-desc" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#6b5e56', lineHeight: 1.4, marginBottom: 6 }}>{pkg.cardDesc}</div>}
                         {(pkg.cardBullets || []).map((b, i) => (
                           <div key={i} style={{ display: 'flex', gap: 5, alignItems: 'flex-start', marginBottom: 3 }}>
