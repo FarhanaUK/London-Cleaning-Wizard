@@ -168,6 +168,7 @@ export const PACKAGES = [
   {
     id: 'standard', name: 'Signature Hotel Reset', popular: true, launchOffer: 0.5,
     cardFromPrice: '72.50',
+    cardBanner: 'Most Popular',
     cardTagline: '✔ Premium full-home clean',
     cardDesc: 'Luxury-style home reset with detailed finishing touches',
     cardBullets: ['Full home clean', 'Linen change', 'Hotel-style presentation'],
@@ -187,6 +188,7 @@ export const PACKAGES = [
   },
   {
     id: 'refresh', name: 'Essential Reset - Regular Clean', popular: false,
+    cardBanner: 'Best Value',
     cardTagline: '✔ Standard maintenance clean',
     cardFromPrice: '115',
     mobileDesc: 'A regular maintenance clean to keep your home consistently tidy, fresh, and under control.',
@@ -210,6 +212,7 @@ export const PACKAGES = [
 
   {
     id: 'deep', name: 'Deep Reset - Deep Clean', popular: false,
+    cardBanner: 'Deep Clean',
     cardTagline: '✔ Intensive deep clean',
     cardFromPrice: '225',
     cardUseNote: 'End of Tenancy · Move-in · Full Resets',

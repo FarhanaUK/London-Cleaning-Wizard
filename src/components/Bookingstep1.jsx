@@ -467,15 +467,16 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                       style={{ flex: 1, padding: '12px 10px', border: sel ? '2px solid #c8b89a' : '2px solid rgba(200,184,154,0.2)', borderRadius: 6, background: sel ? 'rgba(200,184,154,0.22)' : '#fdf8f3', boxShadow: sel ? '0 2px 10px rgba(200,184,154,0.25)' : 'none', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start' }}
                     >
                       {/* Mobile: banner + original layout */}
-                      {pkg.cardTagline && (
+                      {pkg.cardBanner && (
                         <div className="pkg-card-banner" style={{ background: '#2c2420', fontFamily: "'Jost',sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: '0.06em', padding: '5px 10px', width: 'calc(100% + 20px)', marginLeft: -10, marginTop: -12, marginBottom: 8, boxSizing: 'border-box', textAlign: 'center', borderRadius: '4px 4px 0 0' }}>
-                          <span style={{ color: '#52b788' }}>✔</span><span style={{ color: '#ffffff' }}> {pkg.cardTagline.replace('✔ ', '')}</span>
+                          <span style={{ color: '#ffffff' }}>{pkg.cardBanner}</span>
                         </div>
                       )}
                       <div className="mobile-card-inner">
                         <div className="pkg-card-title" style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4, color: '#1a1410' }}>
                           {pkg.name.split(' - ')[0]}
                         </div>
+                        {pkg.cardTagline && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, fontWeight: 400, color: '#6b5e56', marginBottom: 2, letterSpacing: '0.02em' }}>{pkg.cardTagline.replace('✔ ', '')}</div>}
                         {subtitle && <div className="pkg-card-subtitle" style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#a89070', letterSpacing: '0.04em', marginBottom: 4 }}>({subtitle})</div>}
                         <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', marginBottom: pkg.launchOffer ? 2 : 6 }}>
                           from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
