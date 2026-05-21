@@ -477,7 +477,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                           {pkg.name.split(' - ')[0]}
                         </div>
                         {pkg.cardTagline && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, fontWeight: 400, color: '#6b5e56', marginBottom: 2, letterSpacing: '0.02em' }}>{pkg.cardTagline.replace('✔ ', '')}</div>}
-                        {subtitle && <div className="pkg-card-subtitle" style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#a89070', letterSpacing: '0.04em', marginBottom: 4 }}>({subtitle})</div>}
+                        {subtitle && !pkg.hideMobileSubtitle && <div className="pkg-card-subtitle" style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#a89070', letterSpacing: '0.04em', marginBottom: 4 }}>({subtitle})</div>}
                         <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', marginBottom: pkg.launchOffer ? 2 : 6 }}>
                           from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
                         </div>
