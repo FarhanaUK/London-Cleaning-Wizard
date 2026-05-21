@@ -483,7 +483,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                         <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', marginBottom: 2 }}>
                           from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
                         </div>
-                        {subtitle && !pkg.hideMobileSubtitle && <div className="pkg-card-subtitle" style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#a89070', letterSpacing: '0.04em', marginBottom: 4 }}>({subtitle})</div>}
+                        {subtitle && !pkg.hideMobileSubtitle && <div className="pkg-card-subtitle" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>({subtitle})</div>}
                         {pkg.launchOffer && (
                           <div className="pkg-card-offer" style={{ fontFamily: "'Jost',sans-serif", color: '#8b2020', marginBottom: 4 }}>
                             50% off first clean
