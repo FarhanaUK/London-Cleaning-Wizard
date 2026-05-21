@@ -31,9 +31,9 @@ export default function CookieBanner() {
             right: 12px !important;
             border-radius: 8px !important;
             border-top: none !important;
-            border: 1px solid rgba(200,184,154,0.2) !important;
+            border: 1px solid rgba(26,20,16,0.15) !important;
             padding: 12px 14px !important;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2) !important;
           }
           .cookie-banner-text {
             font-size: 11px !important;
@@ -49,8 +49,8 @@ export default function CookieBanner() {
         left: 0,
         right: 0,
         zIndex: 999,
-        background: "#1a1410",
-        borderTop: "1px solid rgba(200,184,154,0.15)",
+        background: "#c8b89a",
+        borderTop: "1px solid rgba(26,20,16,0.12)",
         padding: "20px clamp(20px, 6vw, 100px)",
         display: "flex",
         flexWrap: "wrap",
@@ -61,17 +61,17 @@ export default function CookieBanner() {
 
         {/* Text */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flex: 1, minWidth: 0 }}>
-          <Sparkle size={10} color="#c8b89a" style={{ marginTop: 3, flexShrink: 0 }} />
+          <Sparkle size={10} color="#1a1410" style={{ marginTop: 3, flexShrink: 0 }} />
           <p className="cookie-banner-text" style={{
             fontFamily: "'Jost', sans-serif",
             fontSize: 13,
             lineHeight: 1.8,
-            color: "rgba(245,240,232,0.65)",
+            color: "rgba(26,20,16,0.75)",
             fontWeight: 300,
             margin: 0,
           }}>
             We use cookies to improve your experience. See our{" "}
-            <a href="/privacy-policy" style={{ color: "#c8b89a", textDecoration: "underline" }}>
+            <a href="/privacy-policy" style={{ color: "#1a1410", textDecoration: "underline" }}>
               Privacy Policy
             </a>.
           </p>
@@ -89,8 +89,8 @@ export default function CookieBanner() {
               textTransform: "uppercase",
               padding: "10px 20px",
               background: "transparent",
-              border: "1px solid rgba(245,240,232,0.2)",
-              color: "rgba(245,240,232,0.5)",
+              border: "1px solid rgba(26,20,16,0.3)",
+              color: "rgba(26,20,16,0.6)",
               cursor: "pointer",
             }}
           >
@@ -106,9 +106,9 @@ export default function CookieBanner() {
               textTransform: "uppercase",
               fontWeight: 500,
               padding: "10px 24px",
-              background: "#c8b89a",
+              background: "#1a1410",
               border: "none",
-              color: "#1a1410",
+              color: "#c8b89a",
               cursor: "pointer",
             }}
           >
