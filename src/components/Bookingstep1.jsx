@@ -296,6 +296,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
         .sig-card-inline-detail { display: none; }
         .pkg-card-banner { display: none; }
         .pkg-mobile-note { display: none; }
+        .pkg-desktop-bottom { display: block; }
         @media (min-width: 768px) and (max-width: 1024px) {
           .sig-pkg-grid { flex-direction: column; }
           .sig-card-inline-detail { display: block; }
@@ -306,6 +307,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
           .desktop-card-inner { display: none; }
           .pkg-card-banner { display: block; }
           .pkg-mobile-note { display: block; }
+          .pkg-desktop-bottom { display: none; }
         }
         .pkg-detail-extras { display: none; }
         .pkg-desc-mobile { display: none; }
@@ -507,12 +509,6 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                             </div>
                           )}
                         </div>
-                        {pkg.showFreq && (
-                          <div className="pkg-desktop-extra pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, marginBottom: 6, marginTop: pkg.launchOffer ? 0 : 26 }}>Weekly, Fortnightly & Monthly available</div>
-                        )}
-                        {pkg.cardUseNote && (
-                          <div className="pkg-desktop-extra pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, marginBottom: 6, marginTop: 26 }}>{pkg.cardUseNote}</div>
-                        )}
                       </div>
                       <div className="pkg-card-extras" style={{ width: '100%', marginTop: pkg.showFreq || pkg.cardUseNote ? 0 : 48 }}>
                         {pkg.cardDesc && <div className="pkg-card-desc" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#6b5e56', lineHeight: 1.4, marginBottom: 6 }}>{pkg.cardDesc}</div>}
@@ -525,7 +521,14 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                       </div>
                       <div className="pkg-card-spacer" style={{ flex: 1 }} />
                       {(pkg.showFreq || pkg.cardUseNote) && (
-                        <div className="pkg-mobile-note" style={{ fontFamily: "'Jost',sans-serif", fontSize: 8, color: 'rgba(139,115,85,0.65)', fontWeight: 300, marginBottom: 4, lineHeight: 1.3, textAlign: 'center', width: '100%' }}>
+                        <div className="pkg-desktop-bottom" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(200,184,154,0.3)', width: '100%' }}>
+                          <div style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, lineHeight: 1.4 }}>
+                            {pkg.showFreq ? 'Weekly, Fortnightly & Monthly available' : pkg.cardUseNote}
+                          </div>
+                        </div>
+                      )}
+                      {(pkg.showFreq || pkg.cardUseNote) && (
+                        <div className="pkg-mobile-note" style={{ fontFamily: "'Jost',sans-serif", fontSize: 8, color: 'rgba(139,115,85,0.65)', fontWeight: 300, marginBottom: 4, lineHeight: 1.3, textAlign: 'center', width: '100%', borderTop: '1px solid rgba(200,184,154,0.3)', paddingTop: 6, marginTop: 4 }}>
                           {pkg.showFreq ? 'Weekly · Fortnightly · Monthly' : pkg.cardUseNote}
                         </div>
                       )}
