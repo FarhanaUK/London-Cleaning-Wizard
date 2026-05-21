@@ -25,6 +25,7 @@ export default function CookieBanner() {
     <>
       <style>{`
         @media (max-width: 767px) {
+          body { padding-bottom: 100px; }
           .cookie-banner {
             bottom: 12px !important;
             left: 12px !important;
