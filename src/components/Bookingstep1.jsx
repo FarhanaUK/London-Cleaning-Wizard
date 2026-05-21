@@ -277,6 +277,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
 .book-next-btn { font-family:'Jost',sans-serif; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; font-weight:500; padding:14px 32px; background:#2c2420; color:#f5f0e8; border:none; cursor:pointer; display:flex; align-items:center; gap:10px; }
         @media (max-width:640px) {
           .book-next-btn { width:100%; justify-content:center; padding:16px 24px; }
+          .step1-cta-row { padding-bottom: 90px; }
         }
         @media (min-width:641px) and (max-width:1024px) {
           .book-next-btn { width:100%; justify-content:center; }
@@ -708,7 +709,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
         </p>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+      <div className="step1-cta-row" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <button className="book-next-btn" onClick={handleNext}>
           <WandIcon size={14} color="#c8b89a" />
           {booking.pkg?.id === 'office_cleaning' ? 'Continue to scheduling' : 'Continue to your property'}
