@@ -32,6 +32,8 @@ export function captureUTM() {
       'facebook.com': { source: 'facebook', channel: 'Facebook' },
       'instagram.com': { source: 'instagram', channel: 'Instagram' },
       'l.instagram.com': { source: 'instagram', channel: 'Instagram' },
+      'google.com':   { source: 'google',   channel: 'Google Organic' },
+      'google.co.uk': { source: 'google',   channel: 'Google Organic' },
     };
 
     if (!gclid && !fbclid && !source) {

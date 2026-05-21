@@ -201,39 +201,45 @@ export default function BookingPage() {
           borderBottom: '1px solid rgba(200,184,154,0.1)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', maxWidth: 560 }}>
-            {STEPS.map((label, i) => {
-              const n = i + 1, displayStep = step - 1, done = displayStep > n, active = displayStep === n;
-              return (
-                <div key={n} style={{ display: 'flex', alignItems: 'center', flex: n < 4 ? 1 : 0 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                    <div style={{
-                      width: 28, height: 28, borderRadius: '50%',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontFamily: "'Jost',sans-serif",
-                      border: done ? 'none' : active ? '1.5px solid #c8b89a' : '1.5px solid rgba(200,184,154,0.2)',
-                      background: done ? '#2d6a4f' : 'transparent',
-                      color: done ? 'white' : active ? '#c8b89a' : 'rgba(200,184,154,0.3)',
-                    }}>
-                      {done ? '✓' : n}
+            {(() => {
+              const isHourlyFlow = booking.pkg?.isHourly || booking.pkg?.id === 'office_cleaning';
+              const visibleSteps = isHourlyFlow ? ['Service', 'Schedule', 'Checkout'] : STEPS;
+              const displayStep = isHourlyFlow ? (step <= 2 ? step - 1 : step - 2) : step - 1;
+              return visibleSteps.map((label, i) => {
+                const n = i + 1, isLast = i === visibleSteps.length - 1;
+                const done = displayStep > n, active = displayStep === n;
+                return (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', flex: !isLast ? 1 : 0 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontFamily: "'Jost',sans-serif",
+                        border: done ? 'none' : active ? '1.5px solid #c8b89a' : '1.5px solid rgba(200,184,154,0.2)',
+                        background: done ? '#2d6a4f' : 'transparent',
+                        color: done ? 'white' : active ? '#c8b89a' : 'rgba(200,184,154,0.3)',
+                      }}>
+                        {done ? '✓' : n}
+                      </div>
+                      <div style={{
+                        fontFamily: "'Jost',sans-serif", fontSize: 10,
+                        letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap',
+                        color: active ? '#c8b89a' : done ? 'rgba(200,184,154,0.4)' : 'rgba(200,184,154,0.2)',
+                      }}>
+                        {label}
+                      </div>
                     </div>
-                    <div style={{
-                      fontFamily: "'Jost',sans-serif", fontSize: 10,
-                      letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap',
-                      color: active ? '#c8b89a' : done ? 'rgba(200,184,154,0.4)' : 'rgba(200,184,154,0.2)',
-                    }}>
-                      {label}
-                    </div>
+                    {!isLast && (
+                      <div style={{
+                        flex: 1, height: 1,
+                        background: done ? 'rgba(45,106,79,0.5)' : 'rgba(200,184,154,0.1)',
+                        margin: '0 8px', marginBottom: 22,
+                      }} />
+                    )}
                   </div>
-                  {n < 4 && (
-                    <div style={{
-                      flex: 1, height: 1,
-                      background: done ? 'rgba(45,106,79,0.5)' : 'rgba(200,184,154,0.1)',
-                      margin: '0 8px', marginBottom: 22,
-                    }} />
-                  )}
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         </div>
       )}
