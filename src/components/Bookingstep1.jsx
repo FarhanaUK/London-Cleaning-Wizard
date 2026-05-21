@@ -522,13 +522,13 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                       <div className="pkg-card-spacer" style={{ flex: 1 }} />
                       {(pkg.showFreq || pkg.cardUseNote) && (
                         <div className="pkg-desktop-bottom" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(200,184,154,0.3)', width: '100%' }}>
-                          <div style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, lineHeight: 1.4 }}>
+                          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: 'rgba(139,115,85,0.45)', fontWeight: 300, lineHeight: 1.4 }}>
                             {pkg.showFreq ? 'Weekly, Fortnightly & Monthly available' : pkg.cardUseNote}
                           </div>
                         </div>
                       )}
                       {(pkg.showFreq || pkg.cardUseNote) && (
-                        <div className="pkg-mobile-note" style={{ fontFamily: "'Jost',sans-serif", fontSize: 8, color: 'rgba(139,115,85,0.65)', fontWeight: 300, marginBottom: 4, lineHeight: 1.3, textAlign: 'center', width: '100%', borderTop: '1px solid rgba(200,184,154,0.3)', paddingTop: 6, marginTop: 4 }}>
+                        <div className="pkg-mobile-note" style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: 'rgba(139,115,85,0.65)', fontWeight: 300, marginBottom: 4, lineHeight: 1.3, textAlign: 'center', width: '100%', borderTop: '1px solid rgba(200,184,154,0.3)', paddingTop: 6, marginTop: 4 }}>
                           {pkg.showFreq ? 'Weekly · Fortnightly · Monthly' : pkg.cardUseNote}
                         </div>
                       )}
