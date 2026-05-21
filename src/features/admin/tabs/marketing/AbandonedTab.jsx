@@ -624,8 +624,9 @@ ${sessionsHTML}
           </div>
           {showSessions && (
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', maxHeight: 1200, overflowY: 'auto' }}>
+              <div style={{ overflowX: 'auto' }}>
               {/* Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 100px 80px 60px 32px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 100px 80px 60px 32px', minWidth: 480 }}>
                 {['#', 'Date', 'Last Step', 'Status', 'Time', ''].map((h, i) => (
                   <div key={i} style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '8px 12px', borderBottom: `1px solid ${C.border}`, background: C.bg }}>{h}</div>
                 ))}
@@ -640,7 +641,7 @@ ${sessionsHTML}
                 return (
                   <div key={s.id} style={{ borderBottom: `1px solid ${C.border}`, boxShadow: isExpanded ? '0 2px 10px rgba(0,0,0,0.08)' : 'none', position: 'relative', zIndex: isExpanded ? 1 : 0 }}>
                     <div
-                      style={{ display: 'grid', gridTemplateColumns: '36px 1fr 100px 80px 60px 32px', cursor: 'pointer', background: rowBg, borderLeft: isExpanded ? `3px solid ${C.accent}` : '3px solid transparent' }}
+                      style={{ display: 'grid', gridTemplateColumns: '36px 1fr 100px 80px 60px 32px', minWidth: 480, cursor: 'pointer', background: rowBg, borderLeft: isExpanded ? `3px solid ${C.accent}` : '3px solid transparent' }}
                       onClick={() => setExpandedSession(isExpanded ? null : s.id)}
                     >
                       <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: C.muted, padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
@@ -677,6 +678,7 @@ ${sessionsHTML}
                   </div>
                 );
               })}
+              </div>
             </div>
           )}
         </div>
