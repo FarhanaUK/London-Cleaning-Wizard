@@ -479,7 +479,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                         <div className="pkg-card-title" style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4, color: '#1a1410' }}>
                           {pkg.name.split(' - ')[0]}
                         </div>
-                        {pkg.cardTagline && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, fontWeight: 400, color: '#6b5e56', marginBottom: 2, letterSpacing: '0.02em' }}>{pkg.cardTagline.replace('✔ ', '')}</div>}
+                        {pkg.cardTagline && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, fontWeight: 400, color: '#6b5e56', marginBottom: 2, letterSpacing: '0.02em', minHeight: 28 }}>{pkg.cardTagline.replace('✔ ', '')}</div>}
                         <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', marginBottom: 2 }}>
                           from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
                         </div>
