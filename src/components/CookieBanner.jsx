@@ -26,24 +26,21 @@ export default function CookieBanner() {
       <style>{`
         @media (max-width: 767px) {
           .cookie-banner {
-            top: 0 !important;
-            bottom: auto !important;
-            left: 0 !important;
-            right: 0 !important;
-            border-radius: 0 !important;
+            bottom: 12px !important;
+            left: 12px !important;
+            right: 12px !important;
+            border-radius: 8px !important;
             border-top: none !important;
-            border-bottom: 1px solid rgba(26,20,16,0.15) !important;
-            border-left: none !important;
-            border-right: none !important;
-            padding: 10px 14px !important;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.15) !important;
+            border: 1px solid rgba(26,20,16,0.15) !important;
+            padding: 12px 14px !important;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2) !important;
           }
           .cookie-banner-text {
             font-size: 11px !important;
-            line-height: 1.5 !important;
+            line-height: 1.6 !important;
           }
-          .cookie-banner-btn-decline { padding: 7px 12px !important; font-size: 10px !important; }
-          .cookie-banner-btn-accept  { padding: 7px 14px !important; font-size: 10px !important; }
+          .cookie-banner-btn-decline { padding: 8px 14px !important; font-size: 10px !important; }
+          .cookie-banner-btn-accept  { padding: 8px 16px !important; font-size: 10px !important; }
         }
       `}</style>
       <div className="cookie-banner" style={{
