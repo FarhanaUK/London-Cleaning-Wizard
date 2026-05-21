@@ -469,7 +469,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                       {/* Mobile: banner + original layout */}
                       {pkg.cardTagline && (
                         <div className="pkg-card-banner" style={{ background: '#2c2420', fontFamily: "'Jost',sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: '0.06em', padding: '5px 10px', width: 'calc(100% + 20px)', marginLeft: -10, marginTop: -12, marginBottom: 8, boxSizing: 'border-box', textAlign: 'center', borderRadius: '4px 4px 0 0' }}>
-                          <span style={{ color: '#52b788' }}>✔</span><span style={{ color: '#ffffff' }}> {pkg.cardTagline.replace('✔ ', '')}</span>
+                          <span style={{ color: '#3db87a' }}>✔</span><span style={{ color: '#ffffff' }}> {pkg.cardTagline.replace('✔ ', '')}</span>
                         </div>
                       )}
                       <div className="mobile-card-inner">
