@@ -479,9 +479,10 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                         </div>
                         {pkg.cardTagline && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, fontWeight: 400, color: '#6b5e56', marginBottom: 2, letterSpacing: '0.02em' }}>{pkg.cardTagline.replace('✔ ', '')}</div>}
                         {subtitle && !pkg.hideMobileSubtitle && <div className="pkg-card-subtitle" style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#a89070', letterSpacing: '0.04em', marginBottom: 4 }}>({subtitle})</div>}
-                        <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', marginBottom: pkg.launchOffer ? 2 : 6 }}>
+                        <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', marginBottom: pkg.launchOffer ? 2 : 2 }}>
                           from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
                         </div>
+                        {pkg.cardBottomLine && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 8, fontWeight: 300, color: 'rgba(139,115,85,0.5)', marginBottom: 4, lineHeight: 1.3 }}>{pkg.cardBottomLine}</div>}
                         {pkg.launchOffer && (
                           <div className="pkg-card-offer" style={{ fontFamily: "'Jost',sans-serif", color: '#8b2020', marginBottom: 4 }}>
                             50% off first clean
@@ -497,7 +498,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                           {subtitle && <div className="pkg-card-subtitle" style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, color: '#a89070', letterSpacing: '0.04em', textAlign: 'right', marginLeft: 6 }}>({subtitle})</div>}
                         </div>
                         {pkg.cardTagline && <div className="pkg-card-tagline" style={{ fontFamily: "'Jost',sans-serif", color: '#2d6a4f', fontWeight: 600, marginTop: 4, marginBottom: 5 }}>{pkg.cardTagline}</div>}
-                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 2 }}>
                           <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355' }}>
                             from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
                           </div>
@@ -507,6 +508,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                             </div>
                           )}
                         </div>
+                        {pkg.cardBottomLine && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, fontWeight: 300, color: 'rgba(139,115,85,0.5)', marginBottom: 6, lineHeight: 1.3 }}>{pkg.cardBottomLine}</div>}
                         {pkg.showFreq && (
                           <div className="pkg-desktop-extra pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, marginBottom: 6, marginTop: pkg.launchOffer ? 0 : 26 }}>Weekly, Fortnightly & Monthly available</div>
                         )}
@@ -527,11 +529,6 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                       {(pkg.showFreq || pkg.cardUseNote) && (
                         <div className="pkg-mobile-note" style={{ fontFamily: "'Jost',sans-serif", fontSize: 8, color: 'rgba(139,115,85,0.65)', fontWeight: 300, marginBottom: 4, lineHeight: 1.3, textAlign: 'center', width: '100%' }}>
                           {pkg.showFreq ? 'Weekly · Fortnightly · Monthly' : pkg.cardUseNote}
-                        </div>
-                      )}
-                      {pkg.cardBottomLine && (
-                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(200,184,154,0.3)', width: '100%' }}>
-                          <div className="pkg-card-bottomline" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#5a4e44', lineHeight: 1.4 }}>{pkg.cardBottomLine}</div>
                         </div>
                       )}
                     {sel && (
