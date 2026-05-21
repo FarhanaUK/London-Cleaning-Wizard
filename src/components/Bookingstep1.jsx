@@ -482,7 +482,6 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                         <div className="pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', marginBottom: pkg.launchOffer ? 2 : 2 }}>
                           from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
                         </div>
-                        {pkg.cardBottomLine && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 8, fontWeight: 300, color: 'rgba(139,115,85,0.5)', marginBottom: 4, lineHeight: 1.3 }}>{pkg.cardBottomLine}</div>}
                         {pkg.launchOffer && (
                           <div className="pkg-card-offer" style={{ fontFamily: "'Jost',sans-serif", color: '#8b2020', marginBottom: 4 }}>
                             50% off first clean
@@ -508,7 +507,6 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                             </div>
                           )}
                         </div>
-                        {pkg.cardBottomLine && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 9, fontWeight: 300, color: 'rgba(139,115,85,0.5)', marginBottom: 6, lineHeight: 1.3 }}>{pkg.cardBottomLine}</div>}
                         {pkg.showFreq && (
                           <div className="pkg-desktop-extra pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, marginBottom: 6, marginTop: pkg.launchOffer ? 0 : 26 }}>Weekly, Fortnightly & Monthly available</div>
                         )}
