@@ -292,13 +292,19 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
         .mobile-card-inner { display: none; }
         .desktop-card-inner { display: contents; }
         .pkg-card-extras { display: block; }
+        .sig-card-inline-detail { display: none; }
+        .pkg-card-banner { display: none; }
+        .pkg-mobile-note { display: none; }
         @media (min-width: 768px) and (max-width: 1024px) {
-          .pkg-card-tagline { display: none; }
-          .pkg-desktop-extra { display: none; }
+          .sig-pkg-grid { flex-direction: column; }
+          .sig-card-inline-detail { display: block; }
+          .sig-bottom-detail { display: none; }
         }
         @media (max-width: 767px) {
           .mobile-card-inner { display: contents; }
           .desktop-card-inner { display: none; }
+          .pkg-card-banner { display: block; }
+          .pkg-mobile-note { display: block; }
         }
         .pkg-detail-extras { display: none; }
         .pkg-desc-mobile { display: none; }
@@ -347,6 +353,104 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
           const activePkg = booking.pkg && sigPkgs.find(p => p.id === booking.pkg.id)
             ? booking.pkg
             : null;
+          const renderDetail = (p) => (
+            <>
+              {p.mobileDesc ? (
+                <>
+                  <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#6b5e56', fontWeight: 300, marginBottom: 4, lineHeight: 1.6 }}>{p.mobileDesc}</div>
+                  {p.mobileDescSub && <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#6b5e56', fontWeight: 300, marginBottom: 4, lineHeight: 1.5 }}>{p.mobileDescSub}</div>}
+                  {p.mobileDescNote && <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', fontWeight: 300, marginBottom: 8, lineHeight: 1.5 }}>⏱ {p.mobileDescNote}</div>}
+                </>
+              ) : (
+                <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#6b5e56', fontWeight: 300, marginBottom: 8, lineHeight: 1.6 }}>{p.desc}</div>
+              )}
+              <div className="pkg-detail-extras">
+                {p.cardDesc && <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#6b5e56', lineHeight: 1.4, marginBottom: 8 }}>{p.cardDesc}</div>}
+                {(p.cardBullets || []).map((b, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
+                    <span className="pkg-detail-text" style={{ color: '#2d6a4f', flexShrink: 0 }}>✔</span>
+                    <span className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#5a4e44', lineHeight: 1.5 }}>{b}</span>
+                  </div>
+                ))}
+              </div>
+              {p.tags?.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  {p.tags.map((tag, i) => (
+                    <span key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355', border: '1px solid rgba(200,184,154,0.4)', padding: '3px 8px', borderRadius: 3 }}>{tag}</span>
+                  ))}
+                </div>
+              )}
+              <div onClick={(e) => toggleExpand(e, p.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2c2420', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>
+                {expanded === p.id ? '▲' : '▼'} What's included
+              </div>
+              {expanded === p.id && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(200,184,154,0.2)' }}>
+                  {PACKAGE_DETAIL[p.id]?.mobileSections ? (
+                    PACKAGE_DETAIL[p.id].mobileSections.map((sec, si) => (
+                      <div key={si} style={{ borderBottom: '1px solid rgba(200,184,154,0.12)' }}>
+                        <div onClick={() => { if (!openSections.has(si)) trackEvent('section_expanded', { pkg: p.id, section: sec.heading }); setOpenSections(prev => { const n = new Set(prev); n.has(si) ? n.delete(si) : n.add(si); return n; }); }} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', cursor: 'pointer', userSelect: 'none' }}>
+                          <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#2c2420', fontWeight: 600, letterSpacing: '0.04em' }}>{sec.heading}</div>
+                          <span style={{ fontSize: 9, color: '#8b7355', marginLeft: 8, flexShrink: 0 }}>{openSections.has(si) ? '▲' : '▶'}</span>
+                        </div>
+                        {openSections.has(si) && (
+                          <div style={{ paddingBottom: 10 }}>
+                            {sec.items.map((item, i) => (
+                              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
+                                <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
+                                <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div>
+                      {Array.isArray(PACKAGE_DETAIL[p.id]) ? (
+                        (PACKAGE_DETAIL[p.id] || []).map((item, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
+                            <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
+                            <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                          </div>
+                        ))
+                      ) : (() => {
+                        const d = PACKAGE_DETAIL[p.id];
+                        return <>
+                          {d.intro.map((line, i) => (
+                            <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#2c2420', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.6, margin: '0 0 8px' }}>{line}</p>
+                          ))}
+                          {d.sections.map((sec, si) => (
+                            <div key={si} style={{ marginBottom: 10 }}>
+                              {sec.heading && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#2c2420', fontWeight: 600, marginBottom: 6, letterSpacing: '0.04em' }}>{sec.heading}</div>}
+                              {sec.baseItems && (
+                                <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(200,184,154,0.2)' }}>
+                                  {sec.baseItems.map((item, i) => (
+                                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 4 }}>
+                                      <span style={{ color: '#c8b89a', fontSize: 10, flexShrink: 0, marginTop: 2 }}>✓</span>
+                                      <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {sec.items.map((item, i) => (
+                                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
+                                  <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
+                                  <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                          {d.footer.map((f, i) => (
+                            <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: i === 0 ? '#2c2420' : '#8b7355', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.5, margin: '8px 0 4px' }}>{f}</p>
+                          ))}
+                        </>;
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          );
           return (
             <div style={{ marginBottom: 24 }}>
               {/* 3 package cards */}
@@ -358,11 +462,16 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                   return (
                     <div
                       key={pkg.id}
-                      onClick={() => handlePackageSelect(pkg)}
+                      onClick={() => sel ? update({ pkg: null, size: null, sizePrice: 0, freq: null, addons: [], supplies: null, mopAck: false }) : handlePackageSelect(pkg)}
                       role="button"
                       style={{ flex: 1, padding: '12px 10px', border: sel ? '2px solid #c8b89a' : '2px solid rgba(200,184,154,0.2)', borderRadius: 6, background: sel ? 'rgba(200,184,154,0.22)' : '#fdf8f3', boxShadow: sel ? '0 2px 10px rgba(200,184,154,0.25)' : 'none', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start' }}
                     >
-                      {/* Mobile: exact original layout */}
+                      {/* Mobile: banner + original layout */}
+                      {pkg.cardTagline && (
+                        <div className="pkg-card-banner" style={{ background: '#f0ebe3', fontFamily: "'Jost',sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: '0.06em', padding: '5px 10px', width: 'calc(100% + 20px)', marginLeft: -10, marginTop: -12, marginBottom: 8, boxSizing: 'border-box', textAlign: 'center', borderRadius: '4px 4px 0 0', borderBottom: '1px solid rgba(200,184,154,0.25)' }}>
+                          <span style={{ color: '#2d6a4f' }}>✔</span><span style={{ color: '#1a1410' }}> {pkg.cardTagline.replace('✔ ', '')}</span>
+                        </div>
+                      )}
                       <div className="mobile-card-inner">
                         <div className="pkg-card-title" style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4, color: '#1a1410' }}>
                           {pkg.name.split(' - ')[0]}
@@ -372,7 +481,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                           from £{fromPrice}{pkg.launchOffer ? ` (was £${pkg.sizes[0].basePrice})` : ''}
                         </div>
                         {pkg.launchOffer && (
-                          <div className="pkg-card-offer" style={{ fontFamily: "'Jost',sans-serif", color: '#8b2020', marginBottom: 6 }}>
+                          <div className="pkg-card-offer" style={{ fontFamily: "'Jost',sans-serif", color: '#8b2020', marginBottom: 4 }}>
                             50% off first clean
                           </div>
                         )}
@@ -397,7 +506,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                           )}
                         </div>
                         {pkg.showFreq && (
-                          <div className="pkg-desktop-extra pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, marginBottom: 6, marginTop: pkg.launchOffer ? 0 : 26 }}>Weekly, fortnightly & monthly available</div>
+                          <div className="pkg-desktop-extra pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, marginBottom: 6, marginTop: pkg.launchOffer ? 0 : 26 }}>Weekly, Fortnightly & Monthly available</div>
                         )}
                         {pkg.cardUseNote && (
                           <div className="pkg-desktop-extra pkg-card-price" style={{ fontFamily: "'Jost',sans-serif", color: 'rgba(139,115,85,0.45)', fontWeight: 300, marginBottom: 6, marginTop: 26 }}>{pkg.cardUseNote}</div>
@@ -413,133 +522,30 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                         ))}
                       </div>
                       <div className="pkg-card-spacer" style={{ flex: 1 }} />
+                      {(pkg.showFreq || pkg.cardUseNote) && (
+                        <div className="pkg-mobile-note" style={{ fontFamily: "'Jost',sans-serif", fontSize: 8, color: 'rgba(139,115,85,0.65)', fontWeight: 300, marginBottom: 4, lineHeight: 1.3, textAlign: 'center', width: '100%' }}>
+                          {pkg.showFreq ? 'Weekly · Fortnightly · Monthly' : pkg.cardUseNote}
+                        </div>
+                      )}
                       {pkg.cardBottomLine && (
                         <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(200,184,154,0.3)', width: '100%' }}>
                           <div className="pkg-card-bottomline" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#5a4e44', lineHeight: 1.4 }}>{pkg.cardBottomLine}</div>
                         </div>
                       )}
+                    {sel && (
+                      <div className="sig-card-inline-detail" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(200,184,154,0.3)', width: '100%' }} onClick={e => e.stopPropagation()}>
+                        {renderDetail(pkg)}
+                      </div>
+                    )}
                     </div>
                   );
                 })}
               </div>
 
               {/* Detail panel for selected package */}
-              {activePkg && (
-                <div style={CARD(true)}>
-                  {activePkg.mobileDesc ? (
-                    <>
-                      <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#6b5e56', fontWeight: 300, marginBottom: 4, lineHeight: 1.6 }}>
-                        {activePkg.mobileDesc}
-                      </div>
-                      {activePkg.mobileDescSub && (
-                        <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#6b5e56', fontWeight: 300, marginBottom: 4, lineHeight: 1.5 }}>
-                          {activePkg.mobileDescSub}
-                        </div>
-                      )}
-                      {activePkg.mobileDescNote && (
-                        <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', fontWeight: 300, marginBottom: 8, lineHeight: 1.5 }}>
-                          ⏱ {activePkg.mobileDescNote}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", color: '#6b5e56', fontWeight: 300, marginBottom: 8, lineHeight: 1.6 }}>
-                      {activePkg.desc}
-                    </div>
-                  )}
-                  <div className="pkg-detail-extras">
-                    {activePkg.cardDesc && <div className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#6b5e56', lineHeight: 1.4, marginBottom: 8 }}>{activePkg.cardDesc}</div>}
-                    {(activePkg.cardBullets || []).map((b, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
-                        <span className="pkg-detail-text" style={{ color: '#2d6a4f', flexShrink: 0 }}>✔</span>
-                        <span className="pkg-detail-text" style={{ fontFamily: "'Jost',sans-serif", fontWeight: 300, color: '#5a4e44', lineHeight: 1.5 }}>{b}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {activePkg.tags?.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                      {activePkg.tags.map((tag, i) => (
-                        <span key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355', border: '1px solid rgba(200,184,154,0.4)', padding: '3px 8px', borderRadius: 3 }}>{tag}</span>
-                      ))}
-                    </div>
-                  )}
-                  <div
-                    onClick={(e) => toggleExpand(e, activePkg.id)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2c2420', cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}
-                  >
-                    {expanded === activePkg.id ? '▲' : '▼'} What's included
-                  </div>
-                  {expanded === activePkg.id && (
-                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(200,184,154,0.2)' }}>
-                      {PACKAGE_DETAIL[activePkg.id]?.mobileSections ? (
-                        PACKAGE_DETAIL[activePkg.id].mobileSections.map((sec, si) => (
-                          <div key={si} style={{ borderBottom: '1px solid rgba(200,184,154,0.12)' }}>
-                            <div
-                              onClick={() => { if (!openSections.has(si)) trackEvent('section_expanded', { pkg: activePkg.id, section: sec.heading }); setOpenSections(prev => { const n = new Set(prev); n.has(si) ? n.delete(si) : n.add(si); return n; }); }}
-                              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', cursor: 'pointer', userSelect: 'none' }}
-                            >
-                              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#2c2420', fontWeight: 600, letterSpacing: '0.04em' }}>{sec.heading}</div>
-                              <span style={{ fontSize: 9, color: '#8b7355', marginLeft: 8, flexShrink: 0 }}>{openSections.has(si) ? '▲' : '▶'}</span>
-                            </div>
-                            {openSections.has(si) && (
-                              <div style={{ paddingBottom: 10 }}>
-                                {sec.items.map((item, i) => (
-                                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
-                                    <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
-                                    <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <div>
-                          {Array.isArray(PACKAGE_DETAIL[activePkg.id]) ? (
-                            (PACKAGE_DETAIL[activePkg.id] || []).map((item, i) => (
-                              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
-                                <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
-                                <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
-                              </div>
-                            ))
-                          ) : (() => {
-                            const d = PACKAGE_DETAIL[activePkg.id];
-                            return <>
-                              {d.intro.map((p, i) => (
-                                <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#2c2420', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.6, margin: '0 0 8px' }}>{p}</p>
-                              ))}
-                              {d.sections.map((sec, si) => (
-                                <div key={si} style={{ marginBottom: 10 }}>
-                                  {sec.heading && <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#2c2420', fontWeight: 600, marginBottom: 6, letterSpacing: '0.04em' }}>{sec.heading}</div>}
-                                  {sec.baseItems && (
-                                    <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(200,184,154,0.2)' }}>
-                                      {sec.baseItems.map((item, i) => (
-                                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 4 }}>
-                                          <span style={{ color: '#c8b89a', fontSize: 10, flexShrink: 0, marginTop: 2 }}>✓</span>
-                                          <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#8b7355', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {sec.items.map((item, i) => (
-                                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
-                                      <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
-                                      <span className="pkg-wi-item" style={{ fontFamily: "'Jost',sans-serif", color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              ))}
-                              {d.footer.map((f, i) => (
-                                <p key={i} style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: i === 0 ? '#2c2420' : '#8b7355', fontWeight: i === 0 ? 500 : 300, lineHeight: 1.5, margin: '8px 0 4px' }}>{f}</p>
-                              ))}
-                            </>;
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="sig-bottom-detail">
+              {activePkg && <div style={CARD(true)}>{renderDetail(activePkg)}</div>}
+              </div>
             </div>
           );
         })()}

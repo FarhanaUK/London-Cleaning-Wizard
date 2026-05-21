@@ -212,7 +212,7 @@ export const PACKAGES = [
     id: 'deep', name: 'Deep Reset - Deep Clean', popular: false,
     cardTagline: '✔ Intensive deep clean',
     cardFromPrice: '225',
-    cardUseNote: 'End of tenancy · move-in · full resets',
+    cardUseNote: 'End of Tenancy · Move-in · Full Resets',
     mobileDesc: 'A full top-to-bottom deep clean designed to restore your home beyond a standard clean, reaching areas not covered in regular maintenance cleaning.',
     mobileDescNote: 'Typically 4–10 hours (2 cleaners may attend depending on size)',
     cardDesc: 'Intensive deep clean for heavily used or reset-ready homes',
