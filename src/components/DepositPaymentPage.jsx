@@ -44,7 +44,6 @@ function PaymentForm({ details, bookingId }) {
   const [policyError,    setPolicyError]    = useState('');
   const [hasScrolled,    setHasScrolled]    = useState(false);
   const [marketingOptOut, setMarketingOptOut] = useState(true);
-  const [mediaConsent,    setMediaConsent]    = useState(false);
 
   const handleTCScroll = (e) => {
     const el = e.target;
@@ -76,7 +75,7 @@ function PaymentForm({ details, bookingId }) {
         await fetch(import.meta.env.VITE_CF_CONFIRM_DEPOSIT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId, paymentIntentId: paymentIntent.id, marketingOptOut, mediaConsent }),
+          body: JSON.stringify({ bookingId, paymentIntentId: paymentIntent.id, marketingOptOut }),
         });
         // Google Ads conversion tracking
         if (window.gtag) {
@@ -116,6 +115,7 @@ function PaymentForm({ details, bookingId }) {
         {[
           { l: `${details.packageName} · ${details.size}`, v: `£${details.originalTotal || details.total}` },
           details.launchDiscount && { l: 'Launch offer — 50% off first clean', v: `-£${parseFloat(details.launchDiscount).toFixed(2)}`, grn: true },
+          details.mediaConsentDiscount && { l: 'Photo consent discount', v: `-£${parseFloat(details.mediaConsentDiscount).toFixed(2)}`, grn: true },
           { l: 'Clean Date', v: details.cleanDate },
           { l: 'Clean Time', v: details.cleanTime },
         ].filter(Boolean).map((row, i) => (
@@ -240,29 +240,6 @@ function PaymentForm({ details, bookingId }) {
         <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6, margin: 0 }}>
           Keep me updated with reminders and occasional offers from London Cleaning Wizard. You can unsubscribe at any time.
         </p>
-      </div>
-
-      {/* Media consent */}
-      <div
-        onClick={() => setMediaConsent(c => !c)}
-        style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', marginBottom: 16, background: '#2c2420', border: `2px solid ${mediaConsent ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}
-      >
-        <div style={{
-          flexShrink: 0, marginTop: 1, width: 24, height: 24,
-          border: `2px solid ${mediaConsent ? '#2d6a4f' : '#8b7355'}`,
-          background: mediaConsent ? '#2d6a4f' : '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontSize: 14, fontWeight: 700,
-        }}>
-          {mediaConsent && '✓'}
-        </div>
-        <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6 }}>
-          <p style={{ margin: '0 0 8px', fontWeight: 500 }}>Help us showcase real transformations</p>
-          <p style={{ margin: '0 0 6px' }}>We're a new premium cleaning brand, and your home helps us demonstrate the standard we deliver.</p>
-          <p style={{ margin: '0 0 6px' }}>With your permission, we may share before &amp; after photos of your clean on our social media.</p>
-          <p style={{ margin: '0 0 6px' }}>Your privacy is fully protected. No personal details or identifiable information will ever be shown.</p>
-          <p style={{ margin: 0 }}>You can change or withdraw your consent at any time.</p>
-        </div>
       </div>
 
       {payError && (

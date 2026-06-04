@@ -54,7 +54,7 @@ const PARKING   = ['Free street parking nearby','Permit zone — I will arrange'
 function SelectField({ label, value, options, onChange, placeholder = 'Select…', error }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <label style={{ ...LABEL, minHeight: 36 }}><Sparkle size={7} color="#c8b89a" /> {label}</label>
+      <label style={{ ...LABEL, minHeight: 36 }}>{label}</label>
       <div style={{ position: 'relative' }}>
         <select value={value} onChange={e => onChange(e.target.value)} style={{ ...INPUT(!!error), appearance: 'none', cursor: 'pointer', paddingRight: 36 }}>
           <option value="">{placeholder}</option>
@@ -70,7 +70,7 @@ function SelectField({ label, value, options, onChange, placeholder = 'Select…
 function Field({ name, label, type = 'text', placeholder, readOnly, value, error, onChange, onBlur }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <label style={{ ...LABEL, minHeight: 36 }}><Sparkle size={7} color="#c8b89a" /> {label}</label>
+      <label style={{ ...LABEL, minHeight: 36 }}>{label}</label>
       <input
         type={type} name={name} value={value} readOnly={readOnly} placeholder={placeholder}
         onChange={e => onChange(name, e.target.value)}
@@ -205,12 +205,18 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
     suppliesFeeOverride: booking.suppliesFee,
   }) : null;
   const launchMult = booking.pkg?.launchOffer || null;
-  const T = rawT && launchMult ? (() => {
+  const baseT = rawT && launchMult ? (() => {
     const d  = parseFloat((rawT.base * (1 - launchMult)).toFixed(2));
     const ns = parseFloat((rawT.subtotal - d).toFixed(2));
     const nd = Math.round(ns * 30) / 100;
     return { ...rawT, originalSubtotal: rawT.subtotal, subtotal: ns, deposit: nd, remaining: parseFloat((ns - nd).toFixed(2)), launchDiscount: d };
   })() : rawT;
+  const MEDIA_DISCOUNT = 10;
+  const T = baseT && mediaConsent ? (() => {
+    const ns = parseFloat((baseT.subtotal - MEDIA_DISCOUNT).toFixed(2));
+    const nd = Math.round(ns * 30) / 100;
+    return { ...baseT, originalSubtotal: baseT.originalSubtotal ?? baseT.subtotal, subtotal: ns, deposit: nd, remaining: parseFloat((ns - nd).toFixed(2)), mediaConsentDiscount: MEDIA_DISCOUNT, recurringSubtotal: baseT.subtotal };
+  })() : baseT;
 
   const handlePay = async () => {
     // 1. Validate contact form
@@ -252,7 +258,15 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: Math.round(parseFloat(T.deposit) * 100),
-          bookingData: { ...booking, ...form, package: booking.pkg?.id, packageName: booking.pkg?.name, size: booking.size?.id, frequency: booking.freq?.id, total: parseFloat(T.subtotal), deposit: parseFloat(T.deposit), remaining: parseFloat(T.remaining) },
+          bookingData: {
+            ...booking, ...form,
+            package: booking.pkg?.id, packageName: booking.pkg?.name,
+            size: booking.size?.id, frequency: booking.freq?.id,
+            total: parseFloat(T.subtotal), deposit: parseFloat(T.deposit), remaining: parseFloat(T.remaining),
+            mediaConsent,
+            ...(T.mediaConsentDiscount > 0 ? { mediaConsentDiscount: T.mediaConsentDiscount } : {}),
+            ...(T.launchDiscount > 0 ? { launchDiscount: T.launchDiscount, originalTotal: T.originalSubtotal } : {}),
+          },
         }),
       });
       const piData = await piRes.json();
@@ -282,7 +296,8 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           package: booking.pkg?.id, packageName: booking.pkg?.name,
           size: booking.size?.id, frequency: booking.freq?.id,
           total: parseFloat(T.subtotal), deposit: parseFloat(T.deposit), remaining: parseFloat(T.remaining),
-          ...(T.originalSubtotal ? { recurringTotal: T.originalSubtotal, originalTotal: T.originalSubtotal, launchDiscount: T.launchDiscount } : {}),
+          ...(T.launchDiscount > 0 ? { originalTotal: T.originalSubtotal, launchDiscount: T.launchDiscount } : {}),
+          ...(T.recurringSubtotal ? { recurringTotal: T.recurringSubtotal, mediaConsentDiscount: T.mediaConsentDiscount } : T.originalSubtotal ? { recurringTotal: T.originalSubtotal } : {}),
           stripeDepositIntentId: paymentIntent.id,
           stripeCustomerId: piData.customerId,
           piId: piData.piId,
@@ -297,13 +312,15 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           cleanDate: booking.cleanDateDisplay, cleanTime: booking.cleanTime,
           address: `${form.addr1}, ${form.postcode.toUpperCase()}`,
           total: T.subtotal.toFixed(2), deposit: T.deposit.toFixed(2), remaining: T.remaining.toFixed(2),
-          ...(T.originalSubtotal ? { originalTotal: T.originalSubtotal.toFixed(2), launchDiscount: T.launchDiscount.toFixed(2) } : {}),
+          ...((T.launchDiscount > 0 || T.mediaConsentDiscount > 0) ? { originalTotal: T.originalSubtotal.toFixed(2) } : {}),
+          ...(T.launchDiscount > 0 ? { launchDiscount: T.launchDiscount.toFixed(2) } : {}),
+          ...(T.mediaConsentDiscount > 0 ? { mediaConsentDiscount: T.mediaConsentDiscount.toFixed(2) } : {}),
           ...(booking.freq && booking.freq.id !== 'one-off' ? { frequency: booking.freq.label, freqSaving: booking.freq.saving } : {}),
         }));
         sessionStorage.removeItem('bookingSession');
 
         // Fire-and-forget — don't await, don't block redirect
-        fetch(import.meta.env.VITE_CF_SAVE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullBooking) }).catch(() => {});
+        try { fetch(import.meta.env.VITE_CF_SAVE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullBooking) }).catch(() => {}); } catch {}
 
         setLoading(false);
         onSuccess({});
@@ -336,13 +353,13 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
         </div>
         {booking.pkg?.id === 'airbnb' && (
           <div style={{ marginTop: 4, marginBottom: 4 }}>
-            <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Airbnb / Short-let Listing URL *</label>
+            <label style={LABEL}>Airbnb / Short-let Listing URL *</label>
             <input type="url" placeholder="https://www.airbnb.co.uk/rooms/..." value={form.airbnbListing} onChange={e => { setForm(f => ({ ...f, airbnbListing: e.target.value })); setFieldErrors(er => ({ ...er, airbnbListing: null })); setSubmitError(''); }} style={{ ...INPUT(!!fieldErrors.airbnbListing), marginBottom: fieldErrors.airbnbListing ? 4 : 16 }} />
             {fieldErrors.airbnbListing && <p style={ERR}>{fieldErrors.airbnbListing}</p>}
           </div>
         )}
         <div style={{ marginTop: 4, marginBottom: 4 }}>
-          <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Number of Bathrooms *</label>
+          <label style={LABEL}>Number of Bathrooms *</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: fieldErrors.bathrooms ? 6 : 0 }}>
             {['1','2','3','4','5+'].map(n => (
               <button key={n} type="button" onClick={() => { trackEvent('bathrooms', { count: n, from: form.bathrooms || null }); setForm(f => ({ ...f, bathrooms: n })); setFieldErrors(e => ({ ...e, bathrooms: null })); setSubmitError(''); }}
@@ -356,7 +373,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
       <div style={SECTION}>
         <div style={SECTION_TITLE}>Pets at the Property</div>
         <div style={{ marginBottom: 20 }}>
-          <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Are there any pets at the property? *</label>
+          <label style={LABEL}>Are there any pets at the property? *</label>
           <div style={{ display: 'flex', gap: 10, marginBottom: fieldErrors.hasPets ? 6 : 0 }}>
             {[{ val: false, label: 'No' }, { val: true, label: 'Yes' }].map(opt => (
               <button key={String(opt.val)} type="button" onClick={() => { trackEvent('has_pets', { hasPets: opt.val, from: form.hasPets }); setForm(f => ({ ...f, hasPets: opt.val, petTypes: opt.val ? f.petTypes : '' })); setFieldErrors(e => ({ ...e, hasPets: null, petTypes: null })); setSubmitError(''); }}
@@ -368,7 +385,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
         {form.hasPets === true && (
           <>
             <div style={{ marginBottom: 16 }}>
-              <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Please describe your pets *</label>
+              <label style={LABEL}>Please describe your pets *</label>
               <input type="text" placeholder="e.g. 1 dog, 2 cats" value={form.petTypes} onChange={e => { setForm(f => ({ ...f, petTypes: e.target.value })); setFieldErrors(er => ({ ...er, petTypes: null })); }} onBlur={e => { const v = e.target.value; if (v && !trackedFieldsRef.current.has('petTypes')) { trackedFieldsRef.current.add('petTypes'); trackEvent('field_filled', { field: 'petTypes' }); } else if (!v && trackedFieldsRef.current.has('petTypes')) { trackedFieldsRef.current.delete('petTypes'); trackEvent('field_cleared', { field: 'petTypes' }); } }} style={INPUT(!!fieldErrors.petTypes)} />
               {fieldErrors.petTypes && <p style={ERR}>{fieldErrors.petTypes}</p>}
             </div>
@@ -420,7 +437,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
             </div>
             {!form.signatureTouch && (
               <div>
-                <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Let us know why you're opting out (optional)</label>
+                <label style={LABEL}>Let us know why you're opting out</label>
                 <select value={form.signatureTouchNotes} onChange={e => { const v = e.target.value; setForm(f => ({ ...f, signatureTouchNotes: v })); if (v) trackEvent('signature_touch_reason', { reason: v }); }} style={INPUT(false)}>
                   <option value="">Select a reason…</option>
                   {['Scent doesn\'t match my preference','Fragrance allergy or sensitivity','Candles not suitable for my home','Don\'t use home fragrance products','Already have enough home fragrance','Prefer a tidy clean only','Prefer to receive it occasionally','Other'].map(r => <option key={r}>{r}</option>)}
@@ -441,7 +458,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
         <>
           <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 300, marginBottom: 20 }}>Enter your email and we'll send a verification code.</p>
           <div style={{ marginBottom: 20 }}>
-            <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Email Address</label>
+            <label style={LABEL}>Email Address</label>
             <input type="email" value={retEmail} onChange={e => { setRetEmail(e.target.value); setRetEmailErr(''); }} placeholder="you@example.com" style={INPUT(!!retEmailErr)} />
             {retEmailErr && <p style={ERR}>{retEmailErr}</p>}
           </div>
@@ -459,7 +476,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
             A 6-digit code has been sent to <strong>{retEmail}</strong>.<br />{secondsLeft > 0 ? `Expires in ${timeDisplay}` : 'Code expired — please request a new one.'}
           </div>
           <div style={{ marginBottom: 20 }}>
-            <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Verification Code</label>
+            <label style={LABEL}>Verification Code</label>
             <input type="text" value={code} maxLength={6} onChange={e => { setCode(e.target.value.replace(/\D/g,'')); setCodeErr(''); }} placeholder="Enter 6-digit code" style={{ ...INPUT(!!codeErr), fontSize: 26, letterSpacing: '0.3em', textAlign: 'center', fontFamily: "'Cormorant Garamond',serif" }} />
             {codeErr && <p style={ERR}>{codeErr}</p>}
           </div>
@@ -510,7 +527,7 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           {/* Add-ons — after details, before payment */}
           {booking.pkg?.showAddons && (
             <div style={{ marginBottom: 24 }}>
-              <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Add-ons <span style={{ textTransform: 'none', letterSpacing: 0, fontSize: 11, color: '#8b7355', fontWeight: 300 }}>(optional)</span></div>
+              <div style={LABEL}>Add-ons</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {ADDONS.filter(addon => !(addon.id === 'microwave' && booking.pkg?.id === 'standard')).map(addon => {
                   const selected = (booking.addons || []).some(a => a.id === addon.id);
@@ -534,6 +551,12 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           )}
 
           {/* Card input */}
+          {T?.mediaConsentDiscount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(82,183,136,0.08)', border: '1px solid rgba(82,183,136,0.25)', padding: '8px 12px', marginBottom: 12 }}>
+              <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#52b788', letterSpacing: '0.06em' }}>Photo consent discount</span>
+              <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#52b788', fontWeight: 600 }}>-£{T.mediaConsentDiscount.toFixed(2)}</span>
+            </div>
+          )}
           <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Sparkle size={7} color="#c8b89a" /> Pay Deposit Today{T ? ` — £${T.deposit.toFixed(2)}` : ''}
           </div>
@@ -590,15 +613,18 @@ function CheckoutForm({ booking, onUpdate, onSuccess, onBack }) {
           {policyError && <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b2020', marginBottom: 12 }}>{policyError}</p>}
 
           {/* Media consent */}
-          <div onClick={() => { trackEvent('media_consent', { checked: !mediaConsent }); setMediaConsent(c => !c); }}
+          <div onClick={() => { const next = !mediaConsent; trackEvent('media_consent', { checked: next }); setMediaConsent(next); onUpdate({ mediaConsent: next }); }}
             style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '16px', marginBottom: 8, background: '#2c2420', border: `2px solid ${mediaConsent ? '#c8b89a' : 'rgba(200,184,154,0.3)'}`, cursor: 'pointer' }}>
             <div style={{ flexShrink: 0, marginTop: 1, width: 24, height: 24, border: `2px solid ${mediaConsent ? '#2d6a4f' : '#8b7355'}`, background: mediaConsent ? '#2d6a4f' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700 }}>{mediaConsent && '✓'}</div>
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.6 }}>
-              <p style={{ margin: '0 0 8px', fontWeight: 500 }}>Help us showcase real transformations</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <p style={{ margin: 0, fontWeight: 500 }}>Help us showcase real transformations</p>
+                <span style={{ flexShrink: 0, fontFamily: "'Jost',sans-serif", fontSize: 11, fontWeight: 600, color: '#52b788', background: 'rgba(82,183,136,0.12)', padding: '2px 8px', letterSpacing: '0.04em' }}>Save £10</span>
+              </div>
               <p style={{ margin: '0 0 6px' }}>We're a new premium cleaning brand, and your home helps us demonstrate the standard we deliver.</p>
               <p style={{ margin: '0 0 6px' }}>With your permission, we may share before &amp; after photos of your clean on our social media.</p>
               <p style={{ margin: '0 0 6px' }}>Your privacy is fully protected. No personal details or identifiable information will ever be shown.</p>
-              <p style={{ margin: 0 }}>You can change or withdraw your consent at any time.</p>
+              <p style={{ margin: 0 }}>You can change or withdraw your consent at any time. The £10 discount applies to this booking only.</p>
             </div>
           </div>
 

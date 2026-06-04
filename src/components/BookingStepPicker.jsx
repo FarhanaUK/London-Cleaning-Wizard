@@ -3,7 +3,6 @@ import { trackEvent } from '../utils/funnelTrack';
 
 const OPTIONS = [
   { id: 'signature',  label: 'Home Cleaning Packages', desc: 'One-off, regular, fortnightly, monthly, and deep cleaning for homes' },
-  { id: 'hourly',     label: 'Hourly Cleaning',     desc: 'Flexible cleaning based on the time you book' },
   { id: 'commercial', label: 'Commercial Cleaning',  desc: 'Airbnb turnovers and small office cleaning services' },
 ];
 

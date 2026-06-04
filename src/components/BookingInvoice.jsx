@@ -43,6 +43,11 @@ function MobilePriceBar({ booking, T, TOneOff }) {
                 50% off first clean only
               </div>
             )}
+            {T.mediaConsentDiscount > 0 && (
+              <div style={{ width: '100%', fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#52b788', fontWeight: 500 }}>
+                Photo consent discount: -£{T.mediaConsentDiscount.toFixed(2)}
+              </div>
+            )}
             {booking.freq && booking.freq.id !== 'one-off' && (
               <div style={{ width: '100%', fontFamily: "'Jost',sans-serif", fontSize: 10, color: '#6fcf97', fontWeight: 400 }}>
                 From 2nd clean ({booking.freq.label}): £{((T.originalSubtotal || T.subtotal) - booking.freq.saving).toFixed(2)} / visit · saves £{booking.freq.saving}
@@ -207,12 +212,18 @@ export default function BookingInvoice({ booking, isMobile }) {
   }) : null;
 
   const launchMultiplier = booking.pkg?.launchOffer || null;
-  const T = rawT && launchMultiplier ? (() => {
+  const baseT = rawT && launchMultiplier ? (() => {
     const launchDiscount = parseFloat((rawT.base * (1 - launchMultiplier)).toFixed(2));
     const newSubtotal    = parseFloat((rawT.subtotal - launchDiscount).toFixed(2));
     const newDeposit     = Math.round(newSubtotal * 30) / 100;
     return { ...rawT, originalSubtotal: rawT.subtotal, subtotal: newSubtotal, deposit: newDeposit, remaining: parseFloat((newSubtotal - newDeposit).toFixed(2)), launchDiscount };
   })() : rawT;
+  const MEDIA_DISCOUNT = 10;
+  const T = baseT && booking.mediaConsent ? (() => {
+    const ns = parseFloat((baseT.subtotal - MEDIA_DISCOUNT).toFixed(2));
+    const nd = Math.round(ns * 30) / 100;
+    return { ...baseT, originalSubtotal: baseT.originalSubtotal ?? baseT.subtotal, subtotal: ns, deposit: nd, remaining: parseFloat((ns - nd).toFixed(2)), mediaConsentDiscount: MEDIA_DISCOUNT };
+  })() : baseT;
   const TOneOff = null;
 
   const lines = T ? [
@@ -223,6 +234,7 @@ export default function BookingInvoice({ booking, isMobile }) {
     ...(booking.addons || []).map(a => ({ label: a.name, val: `+£${a.price}` })),
     rawT.suppliesFee > 0 && { label: 'Cleaning supplies', val: `+£${rawT.suppliesFee}` },
     rawT.surcharge > 0   && { label: 'Surcharge', val: `+£${rawT.surcharge}` },
+    T.mediaConsentDiscount > 0 && { label: 'Photo consent discount', val: `-£${T.mediaConsentDiscount.toFixed(2)}`, grn: true },
   ].filter(Boolean) : [];
 
   if (isMobile) {

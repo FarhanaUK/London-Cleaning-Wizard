@@ -252,7 +252,7 @@ export default function Contact() {
                   fontWeight: 300,
                   marginBottom: 40,
                 }}>
-                  For one-off Airbnb or office cleans, you can book directly through our website. This form is for hosts and businesses who need a <em>regular</em> arrangement — weekly, fortnightly, or monthly — without having to rebook each time. Fill in as much detail as you can and we will be in touch within a few hours to set everything up.
+                  For one-off Airbnb or office cleans, you can book directly through our website. This form is for hosts and businesses who need a <em>regular</em> arrangement (weekly, fortnightly, monthly or daily) without having to rebook each time. Fill in as much detail as you can and we will be in touch within a few hours to set everything up.
                 </p>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
@@ -513,8 +513,9 @@ export default function Contact() {
                 fontWeight: 300,
                 marginBottom: 32,
               }}>
-                For one-off Airbnb or office cleans, you can book directly through our website. This form is for hosts and businesses who need a <em>regular</em> arrangement — weekly, fortnightly, or monthly — without having to rebook each time. Fill in as much detail as you can and we will be in touch within a few hours to set everything up.
+                For one-off Airbnb or office cleans, you can book directly through our website. This form is for hosts and businesses who need a <em>regular</em> arrangement (weekly, fortnightly, monthly or daily) without having to rebook each time. Fill in as much detail as you can and we will be in touch within a few hours to set everything up.
               </p>
+
               <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
                 {CONTACT_INFO.map(({ label, value }) => (
                   <div key={label} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>

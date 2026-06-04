@@ -137,16 +137,18 @@ export const AREAS = [
 
 export const STATS = [
   { number: "No Hidden Fees",  label: "Transparent Pricing", small: true },
-  { number: "4.9 ✦",          label: "Average Rating" },
+  { number: "★★★★★",          label: "5 Star Google Reviews",  small: true },
   { number: "Free Re-clean",   label: "If Unsatisfied",      small: true },
   { number: "7 days",          label: "Always Available" },
+  { number: "Fully Insured",   label: "& Vetted Cleaners",   small: true },
+  { number: "Same Cleaner",   label: "Whenever Possible",   small: true },
 ];
 
 export const CONTACT_INFO = [
   { label: "Phone", value: "020 8137 0026" },
   { label: "Email", value: "bookings@londoncleaningwizard.com" },
   { label: "Service Hours", value: "Monday – Sunday · 7am to 9pm" },
-  { label: "Customer Service Hours", value: "Monday – Sunday · 9am to 5pm" },
+  { label: "Customer Service Hours", value: "Monday – Sunday · 9am to 5pm · For urgent matters outside these hours, contract clients have direct access to the owner." },
 ];
 
 export const NAV_LINKS = [
@@ -166,12 +168,11 @@ export const PROPERTY_TYPES = [
 
 export const PACKAGES = [
   {
-    id: 'standard', name: 'Signature Hotel Reset', popular: true, launchOffer: 0.5,
-    cardFromPrice: '72.50',
+    id: 'standard', name: 'Signature Hotel Reset', popular: true,
     cardBanner: 'Most Popular',
     hideMobileSubtitle: true,
     cardTagline: '✔ Premium full-home clean',
-    cardDesc: 'Luxury-style home reset with detailed finishing touches',
+    cardDesc: 'Hotel-style reset with detailed finishing touches',
     cardBullets: ['Full home clean', 'Linen change', 'Hotel-style presentation'],
     cardBottomLine: 'Best for a full home refresh with a premium finish',
     desc: 'A full home reset designed to leave your space feeling clean, styled, and refreshed with a consistent hotel-style finish. Ideal for homes that want a higher standard of presentation after cleaning.',
@@ -232,16 +233,6 @@ export const PACKAGES = [
       { id: '2bed',   label: '2 Bedroom', basePrice: P.deep['2bed'] },
       { id: '3bed',   label: '3 Bedroom', basePrice: P.deep['3bed'] },
       { id: '4bed',   label: '4 Bedroom', basePrice: P.deep['4bed'] },
-    ],
-  },
-  {
-    id: 'hourly', name: 'Hourly Clean', isHourly: true,
-    desc: 'Sometimes you just need the kitchen tackled, the bathroom refreshed, or a few rooms brought back together. You direct the priorities. We get to work.',
-    tags: ['£30/hr', 'Min. 3 Hours', 'One-off'],
-    showFreq: false, showAddons: false,
-    sizes: [
-      { id: '3h',   label: '3 hours',   basePrice: P.hourly['3h']   },
-      { id: '3.5h', label: '3.5 hours', basePrice: P.hourly['3.5h'] },
     ],
   },
   {

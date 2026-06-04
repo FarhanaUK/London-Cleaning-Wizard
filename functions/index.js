@@ -84,6 +84,9 @@ function buildBookingEmailData(b) {
     source:          clean(b.source||'—'),
     is_returning:    b.isReturning ? 'Returning customer' : 'New customer',
     media_consent:   b.mediaConsent ? 'Yes - consented to photos and videos on social media' : 'No consent given',
+    media_consent_row: b.mediaConsentDiscount
+      ? `<tr><td style="padding: 4px 16px 4px 0; color: rgba(200,184,154,0.6);">Photo consent discount</td><td style="padding: 4px 0; color: #22c55e; text-align: right; font-weight: bold;">-£${parseFloat(b.mediaConsentDiscount).toFixed(2)}</td></tr>`
+      : '',
     stripe_deposit_pi:  b.stripeDepositIntentId || '—',
     stripe_customer_id: b.stripeCustomerId || '—',
     booking_channel: b.isPhoneBooking ? '📞 Phone booking' : '🌐 Online booking',
@@ -364,6 +367,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       cleanDateUTC: toUTCISO(d.cleanDate, d.cleanTime),
       total: d.total, deposit: d.deposit, remaining: d.remaining,
       ...(d.launchDiscount ? { launchDiscount: d.launchDiscount, originalTotal: d.originalTotal } : {}),
+      ...(d.mediaConsentDiscount ? { mediaConsentDiscount: d.mediaConsentDiscount } : {}),
       stripeDepositIntentId: d.stripeDepositIntentId,
       stripeCustomerId: d.stripeCustomerId || '',
       status: d.stripeDepositIntentId === 'manual' ? 'pending_deposit' : 'deposit_paid',
@@ -386,6 +390,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       lastPackage: d.package, lastPackageName: d.packageName, lastSize: d.size,
       lastPrice: d.total, lastDate: d.cleanDate, lastCleaner: '',
       source: clean(d.source||''),
+      mediaConsent: d.mediaConsent === true,
       updatedAt: new Date(),
       ...(cSnap.exists ? {} : { firstBookingDate: new Date() }),
       ...(d.stripeCustomerId ? { stripeCustomerId: d.stripeCustomerId } : {}),
@@ -535,6 +540,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
             stripeCustomerId: d.stripeCustomerId || '',
             status: 'scheduled', isPhoneBooking: false,
             isAutoRecurring: true, source: clean(d.source||''),
+            mediaConsent: d.mediaConsent === true,
             recurringId: recurringId || '',
             createdAt: new Date(),
           };
@@ -1347,6 +1353,7 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
     if (parking  !== undefined) profileUpdates.parking  = newParking;
     if (keys     !== undefined) profileUpdates.keys     = newKeys;
     if (notes    !== undefined) profileUpdates.notes    = newNotes;
+    if (mediaConsent !== undefined) profileUpdates.mediaConsent = mediaConsent === true;
     await db.collection('customers').doc(current.email.toLowerCase()).update(profileUpdates).catch(() => {});
 
     // Also update all existing future scheduled recurring bookings
@@ -1575,6 +1582,10 @@ exports.getDepositDetails = onRequest(async (req, res) => {
     frequency:    b.frequency || 'one-off',
     freqSaving:   FREQ_SAVINGS[b.frequency] || 0,
     ...(b.launchDiscount ? { launchDiscount: b.launchDiscount, originalTotal: b.originalTotal } : {}),
+    ...(b.mediaConsentDiscount ? {
+      mediaConsentDiscount: b.mediaConsentDiscount,
+      ...(!b.launchDiscount ? { originalTotal: parseFloat((b.total + b.mediaConsentDiscount).toFixed(2)) } : {}),
+    } : {}),
   });
 });
 
@@ -1916,6 +1927,7 @@ exports.createRecurringBookings = onSchedule(
           recurringId:     c.recurringId || '',
           source:          c.recurringSource || c.source || '',
           assignedStaff:   c.assignedStaff || '',
+          mediaConsent:    c.mediaConsent === true,
           createdAt:       new Date(),
         };
 
@@ -2095,6 +2107,7 @@ exports.triggerSchedulerNow = onRequest({ secrets: [EMAILJS_KEY] }, async (req, 
           status: 'scheduled', isPhoneBooking: false,
           isAutoRecurring: true, source: c.recurringSource || c.source || '',
           recurringId: c.recurringId || '',
+          mediaConsent: c.mediaConsent === true,
           createdAt: new Date(),
         };
 
@@ -2326,12 +2339,14 @@ exports.stripeWebhook = onRequest(
     const id         = db.collection('bookings').doc().id;
     let claimed = false;
     let pd      = null;
+    let wh_recurringId = null;
 
     await db.runTransaction(async tx => {
       const pendingSnap = await tx.get(pendingRef);
       if (!pendingSnap.exists) { claimed = false; return; }
 
       pd = pendingSnap.data();
+      wh_recurringId = (pd.frequency && pd.frequency !== 'one-off') ? 'RS' + Date.now().toString(36).toUpperCase() : null;
 
       const bRef  = db.collection('bookings').doc(id);
       const cRef  = db.collection('customers').doc(pd.email.toLowerCase());
@@ -2354,12 +2369,16 @@ exports.stripeWebhook = onRequest(
         cleanDate: pd.cleanDate, cleanTime: pd.cleanTime,
         cleanDateUTC: toUTCISO(pd.cleanDate, pd.cleanTime),
         total: pd.total, deposit: pd.deposit, remaining: pd.remaining,
+        ...(pd.launchDiscount ? { launchDiscount: pd.launchDiscount, originalTotal: pd.originalTotal } : {}),
+        ...(pd.mediaConsentDiscount ? { mediaConsentDiscount: pd.mediaConsentDiscount } : {}),
         stripeDepositIntentId: piId,
         stripeCustomerId: pd.stripeCustomerId || pi.customer || '',
         status: 'deposit_paid', isPhoneBooking: false,
         source: clean(pd.source||''), createdAt: new Date(),
         marketingOptOut: pd.marketingOptOut === true,
         doNotContact:    pd.marketingOptOut === true,
+        mediaConsent:    pd.mediaConsent === true,
+        recurringId:     wh_recurringId || '',
       });
       tx.set(cRef, {
         firstName: clean(pd.firstName), lastName: clean(pd.lastName), phone: clean(pd.phone),
@@ -2373,6 +2392,7 @@ exports.stripeWebhook = onRequest(
         lastPackage: pd.package, lastPackageName: pd.packageName, lastSize: pd.size,
         lastPrice: pd.total, lastDate: pd.cleanDate, lastCleaner: '',
         source: clean(pd.source||''),
+        mediaConsent: pd.mediaConsent === true,
         updatedAt: new Date(),
         ...(cSnap.exists ? {} : { firstBookingDate: new Date() }),
         stripeCustomerId: pd.stripeCustomerId || pi.customer || '',
@@ -2390,6 +2410,7 @@ exports.stripeWebhook = onRequest(
           recurringDeposit:      pd.deposit,
           recurringRemaining:    pd.remaining,
           recurringSource:       clean(pd.source||''),
+          recurringId:           wh_recurringId,
         } : {}),
       }, { merge: true });
 
@@ -2397,6 +2418,116 @@ exports.stripeWebhook = onRequest(
     });
 
     if (!claimed) { res.json({ received: true }); return; }
+
+    // Pre-create recurring follow-up bookings within 28-day window
+    if (pd.frequency && pd.frequency !== 'one-off') {
+      try {
+        const freqSave        = FREQ_SAVINGS[pd.frequency] || 0;
+        const discountedTotal = Math.max(0, (pd.recurringTotal || pd.total) - freqSave);
+
+        const LEAD       = 28;
+        const firstClean = new Date(pd.cleanDate + 'T12:00:00');
+        const cutoff     = new Date(firstClean); cutoff.setDate(cutoff.getDate() + LEAD);
+
+        let lastDate    = new Date(pd.cleanDate + 'T12:00:00');
+        let lastDateStr = pd.cleanDate;
+
+        while (true) {
+          const nextDate = new Date(lastDate);
+          if (pd.frequency === 'weekly')           nextDate.setDate(nextDate.getDate() + 7);
+          else if (pd.frequency === 'fortnightly') nextDate.setDate(nextDate.getDate() + 14);
+          else if (pd.frequency === 'monthly') {
+            const originalDay = lastDate.getDate();
+            nextDate.setMonth(nextDate.getMonth() + 1);
+            const daysInMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+            nextDate.setDate(Math.min(originalDay, daysInMonth));
+          }
+          if (nextDate > cutoff) break;
+
+          const nextStr   = nextDate.toISOString().slice(0, 10);
+          const existSnap = await db.collection('bookings')
+            .where('email', '==', pd.email.toLowerCase())
+            .where('cleanDate', '==', nextStr).get();
+
+          if (existSnap.empty) {
+            const rRef = `LCW-${Date.now().toString().slice(-6)}`;
+            const rId  = db.collection('bookings').doc().id;
+            const recurringData = {
+              bookingRef: rRef, bookingId: rId,
+              email: pd.email.toLowerCase(),
+              firstName: clean(pd.firstName), lastName: clean(pd.lastName),
+              phone: clean(pd.phone), addr1: clean(pd.addr1), postcode: clean(pd.postcode).toUpperCase(),
+              propertyType: pd.propertyType,
+              floor: clean(pd.floor||''), parking: clean(pd.parking||''),
+              keys: clean(pd.keys||''), notes: clean(pd.notes||''),
+              hasPets: pd.hasPets || false, petTypes: clean(pd.petTypes||''),
+              signatureTouch: pd.signatureTouch !== false,
+              signatureTouchNotes: clean(pd.signatureTouchNotes||''),
+              package: pd.package, packageName: pd.packageName,
+              size: pd.size, frequency: pd.frequency,
+              addons: pd.addons || [], isAirbnb: false,
+              cleanDate: nextStr, cleanTime: pd.cleanTime,
+              cleanDateUTC: toUTCISO(nextStr, pd.cleanTime),
+              total: discountedTotal, deposit: 0, remaining: discountedTotal,
+              stripeDepositIntentId: 'auto-recurring',
+              stripeCustomerId: pd.stripeCustomerId || pi.customer || '',
+              status: 'scheduled', isPhoneBooking: false,
+              isAutoRecurring: true, source: clean(pd.source||''),
+              mediaConsent: pd.mediaConsent === true,
+              recurringId: wh_recurringId || '',
+              createdAt: new Date(),
+            };
+            await db.collection('bookings').doc(rId).set(recurringData);
+            try {
+              const cal      = await getCalendarClient();
+              const slotStart = toUTCISO(nextStr, pd.cleanTime);
+              const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+              const calEvent  = await cal.events.insert({
+                calendarId: process.env.GOOGLE_CALENDAR_ID,
+                resource: {
+                  summary: `${pd.packageName} — ${pd.firstName} ${pd.lastName} (recurring)`,
+                  description: [
+                    `Ref: ${rRef}`,
+                    `Customer: ${pd.firstName} ${pd.lastName}`,
+                    `Email: ${pd.email}`, `Phone: ${pd.phone}`,
+                    `Address: ${pd.addr1}, ${pd.postcode}`,
+                    `Property: ${pd.propertyType} · ${pd.size}`,
+                    `Frequency: ${pd.frequency}`,
+                    `Floor / Lift: ${pd.floor || '—'}`, `Parking: ${pd.parking || '—'}`, `Bathrooms: ${pd.bathrooms || '—'}`,
+                    `Keys: ${pd.keys || 'N/A'}`,
+                    `Add-ons: ${(pd.addons||[]).map(a => a.name).join(', ') || 'None'}`,
+                    `Supplies: ${pd.supplies === 'cleaner' ? `Cleaner brings (+£${pd.suppliesFee || 8})` : 'Customer provides'}`,
+                    ...(['hourly','office_cleaning'].includes(pd.package) ? [] : [`Pets: ${pd.hasPets ? `Yes — ${pd.petTypes || 'not specified'}` : 'No'}`]),
+                    ...(pd.package === 'standard' ? [`Signature Touch: ${pd.signatureTouch !== false ? 'Opted in' : `Opted out${pd.signatureTouchNotes ? ` — ${pd.signatureTouchNotes}` : ''}`}`] : []),
+                    `Cleaner: ${pd.assignedStaff || 'Unassigned'}`,
+                    `Notes: ${pd.notes || 'None'}`,
+                    `Media consent: ${pd.mediaConsent ? 'Yes - consented to photos/videos on social media' : 'No'}`,
+                    `Total: £${parseFloat(pd.total||0).toFixed(2)} | No deposit — full amount charged on completion`,
+                    `⚙️ Auto-created at booking time (pre-scheduled)`,
+                  ].join('\n'),
+                  start: { dateTime: slotStart, timeZone: 'Europe/London' },
+                  end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
+                  colorId: '5',
+                },
+              });
+              await db.collection('bookings').doc(rId).update({ calendarEventId: calEvent.data.id });
+            } catch (calErr) {
+              console.error('Webhook: Calendar event failed for pre-scheduled recurring:', calErr.message);
+            }
+            lastDateStr = nextStr;
+          }
+          lastDate = nextDate;
+        }
+
+        if (lastDateStr !== pd.cleanDate) {
+          await db.collection('customers').doc(pd.email.toLowerCase()).update({
+            lastDate: lastDateStr, updatedAt: new Date(),
+          });
+        }
+      } catch (recurErr) {
+        console.error('Webhook: Failed to pre-create recurring bookings:', recurErr.message);
+      }
+    }
 
     try {
       const calendar  = await getCalendarClient();

@@ -8,7 +8,7 @@ const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const INPUT = { width: '100%', padding: '8px 12px', fontFamily: FONT, fontSize: 13, background: '#fff', border: '1px solid #d4c4ae', borderRadius: 6, color: '#1a1410', outline: 'none', marginBottom: 16, boxSizing: 'border-box' };
 
 const HOW_HEARD_OPTIONS = ['Google Search','Instagram','Facebook','TikTok','Word of Mouth','Leaflet','Nextdoor','Other'];
-const BLANK_BOOKING = { firstName:'', lastName:'', email:'', phone:'', addr1:'', postcode:'', propertyType:'flat', floor:'', parking:'', keys:'', notes:'', packageId:'refresh', sizeId:'', frequency:'one-off', cleanDate:'', cleanTime:'9:00 AM', addons:[], hasPets:null, petTypes:'', signatureTouch:true, signatureTouchNotes:'', hearAbout:'', supplies:'customer', bathrooms: null };
+const BLANK_BOOKING = { firstName:'', lastName:'', email:'', phone:'', addr1:'', postcode:'', propertyType:'flat', floor:'', parking:'', keys:'', notes:'', packageId:'refresh', sizeId:'', frequency:'one-off', cleanDate:'', cleanTime:'9:00 AM', addons:[], hasPets:null, petTypes:'', signatureTouch:true, signatureTouchNotes:'', hearAbout:'', supplies:'customer', bathrooms: null, mediaConsent: false };
 
 const isValidUKPhone    = p => /^(\+44\s?7\d{3}|\(?07\d{3}\)?)\s?\d{3}\s?\d{3}$/.test(p.trim()) || /^(\+44\s?[12]\d{2,4}|\(?0[12]\d{2,4}\)?)\s?\d{3,4}\s?\d{3,4}$/.test(p.trim());
 const isValidEmail      = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -51,12 +51,18 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
     ? calculateTotal({ sizePrice: nbPkg.sizes.find(s => s.id === nb.sizeId).basePrice, propertyType: nb.propertyType, frequency: null, addons: nb.addons, supplies: nb.supplies, suppliesFeeOverride: nb.suppliesFee })
     : null;
   const nbLaunchMultiplier = nbPkg?.launchOffer || null;
-  const nbTotal = nbRawTotal && nbLaunchMultiplier ? (() => {
+  const nbBaseTotal = nbRawTotal && nbLaunchMultiplier ? (() => {
     const launchDiscount = parseFloat((nbRawTotal.base * (1 - nbLaunchMultiplier)).toFixed(2));
     const newSubtotal    = parseFloat((nbRawTotal.subtotal - launchDiscount).toFixed(2));
     const newDeposit     = Math.round(newSubtotal * 30) / 100;
     return { ...nbRawTotal, originalSubtotal: nbRawTotal.subtotal, subtotal: newSubtotal, deposit: newDeposit, remaining: parseFloat((newSubtotal - newDeposit).toFixed(2)), launchDiscount };
   })() : nbRawTotal;
+  const MEDIA_DISCOUNT = 10;
+  const nbTotal = nbBaseTotal && nb.mediaConsent ? (() => {
+    const ns = parseFloat((nbBaseTotal.subtotal - MEDIA_DISCOUNT).toFixed(2));
+    const nd = Math.round(ns * 30) / 100;
+    return { ...nbBaseTotal, originalSubtotal: nbBaseTotal.originalSubtotal ?? nbBaseTotal.subtotal, subtotal: ns, deposit: nd, remaining: parseFloat((ns - nd).toFixed(2)), mediaConsentDiscount: MEDIA_DISCOUNT };
+  })() : nbBaseTotal;
 
   const closeNewBooking = () => { onClose(); setNb(BLANK_BOOKING); setNbErr(''); setNbSubmitted(false); setNbTouched({}); };
 
@@ -84,7 +90,9 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
           total: nbTotal?.subtotal || 0,
           deposit: nbTotal?.deposit || 0,
           remaining: nbTotal?.remaining || 0,
-          ...(nbTotal?.launchDiscount ? { launchDiscount: nbTotal.launchDiscount, originalTotal: nbTotal.originalSubtotal, recurringTotal: nbTotal.originalSubtotal } : {}),
+          ...(nbTotal?.launchDiscount > 0 ? { launchDiscount: nbTotal.launchDiscount, originalTotal: nbTotal.originalSubtotal } : {}),
+          ...((nbTotal?.launchDiscount > 0 || nbTotal?.mediaConsentDiscount > 0) ? { recurringTotal: nbTotal.originalSubtotal } : {}),
+          ...(nbTotal?.mediaConsentDiscount > 0 ? { mediaConsentDiscount: nbTotal.mediaConsentDiscount } : {}),
           stripeDepositIntentId: 'manual',
           stripeCustomerId: '',
           isReturning: false,
@@ -378,6 +386,11 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
                 <span>Launch offer — 50% off first clean</span><span>−£{nbTotal.launchDiscount.toFixed(2)}</span>
               </div>
             )}
+            {nbTotal.mediaConsentDiscount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT, fontSize: 11, color: '#6fcf97', marginBottom: 3 }}>
+                <span>Photo consent discount</span><span>−£{nbTotal.mediaConsentDiscount.toFixed(2)}</span>
+              </div>
+            )}
             <div style={{ borderTop: '1px solid rgba(200,184,154,0.2)', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 300, color: '#f5f0e8' }}>
               <span style={{ fontFamily: FONT, fontSize: 12, alignSelf: 'center', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Total</span><span>£{nbTotal.subtotal.toFixed(2)}</span>
             </div>
@@ -441,6 +454,25 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
         )}
         <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f5f0e8', border: '1px solid #d4c4ae', borderRadius: 6, fontFamily: FONT, fontSize: 12, color: '#8b7355' }}>
           📞 This booking will be marked as a <strong>Phone booking</strong> in all emails and records.
+        </div>
+
+        {/* Media consent */}
+        <div
+          onClick={() => setNb(p => ({ ...p, mediaConsent: !p.mediaConsent }))}
+          style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '12px 14px', marginBottom: 14, background: nb.mediaConsent ? '#f0fdf4' : '#fafaf9', border: `1px solid ${nb.mediaConsent ? '#bbf7d0' : '#d4c4ae'}`, borderRadius: 6, cursor: 'pointer' }}
+        >
+          <div style={{ flexShrink: 0, marginTop: 1, width: 18, height: 18, border: `2px solid ${nb.mediaConsent ? '#16a34a' : '#9ca3af'}`, background: nb.mediaConsent ? '#16a34a' : '#fff', borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+            {nb.mediaConsent && '✓'}
+          </div>
+          <div>
+            <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: nb.mediaConsent ? '#166534' : '#374151', marginBottom: 2 }}>
+              Customer consents to before &amp; after photos on social media
+              {nb.mediaConsent && <span style={{ marginLeft: 8, fontWeight: 400, color: '#16a34a', fontSize: 11 }}>— £10 discount applied</span>}
+            </div>
+            <div style={{ fontFamily: FONT, fontSize: 11, color: '#6b7280', fontWeight: 300 }}>
+              Tick if customer verbally agreed. Applies £10 off this booking only.
+            </div>
+          </div>
         </div>
 
         {/* Signature Touch — standard package only */}

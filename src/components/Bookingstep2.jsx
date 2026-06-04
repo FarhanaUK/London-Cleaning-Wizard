@@ -218,7 +218,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack, isMobi
       {/* Calendar — shown immediately for non-frequency packages, or after user clicks Continue to Date */}
       {(!booking.pkg?.showFreq || calendarRevealed) && (
       <div ref={calendarRef}>
-      <div className={!booking.pkg?.showFreq ? 'step-heading' : ''} style={LABEL}><Sparkle size={7} color="#c8b89a" /> Select Date</div>
+      <div className={!booking.pkg?.showFreq ? 'step-heading' : ''} style={LABEL}>Select Date</div>
       <div style={{ border: '1px solid rgba(200,184,154,0.35)', background: 'white', padding: 20, marginBottom: 24 }}>
 
         {/* Month navigation */}
@@ -291,7 +291,7 @@ export default function BookingStep2({ booking, onUpdate, onNext, onBack, isMobi
       {/* Time selection — grouped Morning / Afternoon / Evening */}
       {booking.cleanDate && (
         <div ref={timeRef}>
-          <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Select Time</div>
+          <div style={LABEL}>Select Time</div>
           <div style={{ maxHeight: 190, overflowY: 'auto', marginBottom: 24 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5 }}>
               {TIMES.map(time => (

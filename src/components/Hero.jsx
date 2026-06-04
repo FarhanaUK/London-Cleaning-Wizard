@@ -1,4 +1,4 @@
-﻿import { HERO_IMAGE } from "../data/siteData"
+﻿import { HERO_IMAGE, STATS } from "../data/siteData"
 import { Sparkle, WandIcon, Constellation } from "./Icons";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -34,7 +34,6 @@ export default function Hero({ onScrollTo }) {
     [88, 45, "twinkle3", 0.5, 20],
     [5,  55, "twinkle1", 1.4, 17],
     [92, 72, "twinkle2", 0.8, 15],
-    [15, 80, "twinkle3", 0.3, 17],
     [45, 15, "twinkle1", 1.8, 19],
     [65, 60, "twinkle2", 0.6, 17],
     [30, 40, "twinkle3", 1.2, 18],
@@ -127,32 +126,56 @@ export default function Hero({ onScrollTo }) {
           {/* Callout badge - above image */}
           <div style={{ padding: "16px 20px 0", position: "relative", zIndex: 2 }}>
             <div style={{ background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 16px", borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for your space.</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>Clean Space, Elevated Mind.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 10, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
-              <Link
-                to="/book?from=hero"
-                style={{
-                  fontFamily: "'Jost', sans-serif",
-                  fontSize: 12,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "#f5f0e8",
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  fontWeight: 500,
-                  background: "#2c2420",
-                  padding: "11px 16px",
-                  borderRadius: 8,
-                  width: "100%",
-                  boxSizing: "border-box",
-                }}
-              >
-                <WandIcon size={13} color="#c8b89a" /> Book a Clean
-              </Link>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Link
+                  to="/book?from=hero"
+                  style={{
+                    fontFamily: "'Jost', sans-serif",
+                    fontSize: 11,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: "#f5f0e8",
+                    textDecoration: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    fontWeight: 500,
+                    background: "#2c2420",
+                    padding: "11px 12px",
+                    borderRadius: 8,
+                    flex: 1,
+                  }}
+                >
+                  <WandIcon size={12} color="#c8b89a" /> Book a Clean
+                </Link>
+                <a
+                  to="/book?tab=signature"
+                  style={{
+                    fontFamily: "'Jost', sans-serif",
+                    fontSize: 11,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#f5f0e8",
+                    textDecoration: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    fontWeight: 500,
+                    background: "#2c2420",
+                    padding: "11px 12px",
+                    borderRadius: 8,
+                    flex: 1,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#ef4444" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+                  020 8137 0026
+                </a>
+              </div>
              
             </div>
           </div>
@@ -176,9 +199,26 @@ export default function Hero({ onScrollTo }) {
 
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 10, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
               <Sparkle size={7} color="#c8b89a" />
-           Transforming, London Spaces <br />
-Homes | Airbnbs | Offices
+              Transforming, London Spaces
               <Sparkle size={7} color="#c8b89a" />
+            </div>
+
+            <div style={{ background: "#1a1410", margin: "0 -20px", padding: "20px 40px", marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px 32px" }}>
+              {STATS.map(({ number, label, small }, i) => (
+                <div key={number} style={{ gridColumn: i === STATS.length - 1 && STATS.length % 2 !== 0 ? "1 / -1" : undefined }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+                    <span style={{ color: "#52b788", fontSize: 11, fontWeight: 700, flexShrink: 0, lineHeight: 1 }}>✓</span>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(16px, 4vw, 20px)", fontWeight: 400, color: "#c8b89a", lineHeight: 1.1 }}>
+                      {number}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 8, letterSpacing: "0.16em", color: "rgba(245,240,232,0.4)", textTransform: "uppercase", paddingLeft: 16 }}>
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
             </div>
 
             <div style={{ width: 28, height: 1, background: "rgba(200,184,154,0.6)", marginBottom: 16 }} />
@@ -192,23 +232,22 @@ Homes | Airbnbs | Offices
             </p>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 13, lineHeight: 1.8, color: "rgba(245,240,232,0.65)", marginBottom: 28, fontWeight: 300 }}>
-              Hotel-standard cleaning for homes, Airbnbs and offices across London. From £30/hour or full Reset packages from £115.
+              Hotel-standard cleaning for homes, Airbnbs and offices across London. Full Reset packages from £115.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32 }}>
-              <a
-                href="tel:02081370026"
+              <Link
+                to="/book?tab=signature"
                 style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "14px 24px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", boxSizing: "border-box" }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="#e05c6a" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-                Tap to Call
-              </a>
-              <button
-                onClick={() => onScrollTo("our-work")}
-                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 300, padding: "13px 24px", background: "transparent", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.4)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%" }}
+                Tap here for Residential Cleaning
+              </Link>
+              <Link
+                to="/quote"
+                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 300, padding: "14px 24px", background: "rgba(0,0,0,0.35)", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.7)", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", boxSizing: "border-box" }}
               >
-                View Our Work
-              </button>
+                Get a Quote for Commercial/Airbnb
+              </Link>
             </div>
           </div>
         </div>
@@ -225,7 +264,7 @@ Homes | Airbnbs | Offices
 
             {/* Callout badge */}
             <div style={{ position: "absolute", bottom: 24, right: 32, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "12px 18px", zIndex: 10, borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for your space.</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>Clean Space, Elevated Mind.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 8, marginBottom: 6 }} />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
               <Link
@@ -260,8 +299,7 @@ Homes | Airbnbs | Offices
 
             <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 15, letterSpacing: "0.28em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
               <Sparkle size={8} color="#c8b89a" />
-            Transforming, London Spaces <br />
-Homes | Airbnbs | Offices
+            Transforming, London Spaces
               <Sparkle size={8} color="#c8b89a" />
             </div>
 
@@ -276,23 +314,22 @@ Homes | Airbnbs | Offices
             </p>
 
             <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 500, marginBottom: 36, fontWeight: 300 }}>
-              Hotel-standard cleaning for homes, Airbnbs and offices across London. From £30/hour or full Reset packages from £115.
+              Hotel-standard cleaning for homes, Airbnbs and offices across London. Full Reset packages from £115.
             </p>
 
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 40 }}>
-              <a
-                href="tel:02081370026"
-                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "15px 40px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 40, width: "fit-content" }}>
+              <Link
+                to="/book?tab=signature"
+                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "15px 24px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="#e05c6a" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-                Tap to Call
-              </a>
-              <button
-                onClick={() => onScrollTo("our-work")}
-                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 300, padding: "14px 36px", background: "transparent", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.4)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
+                Tap here for Residential Cleaning
+              </Link>
+              <Link
+                to="/quote"
+                style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 300, padding: "15px 24px", background: "rgba(0,0,0,0.35)", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.7)", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
               >
-                View Our Work
-              </button>
+                Get a Quote for Commercial/Airbnb
+              </Link>
             </div>
           </div>
         </div>
@@ -316,8 +353,7 @@ Homes | Airbnbs | Offices
 
               <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, letterSpacing: "0.2em", color: "#c8b89a", textTransform: "uppercase", marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
                 <Sparkle size={12} color="#c8b89a" />
-            Transforming, London Spaces <br />
-Homes | Airbnbs | Offices
+            Transforming, London Spaces
                 <Sparkle size={12} color="#c8b89a" />
               </div>
 
@@ -332,24 +368,55 @@ Homes | Airbnbs | Offices
               </p>
 
               <p style={{ fontFamily: "'Jost', sans-serif", fontSize: 18, lineHeight: 1.9, color: "rgba(245,240,232,0.65)", maxWidth: 400, marginBottom: 44, fontWeight: 300 }}>
-                Hotel-standard cleaning for homes, Airbnbs and offices across London. From £30/hour or full Reset packages from £115.
+                Hotel-standard cleaning for homes, Airbnbs and offices across London. Full Reset packages from £115.
               </p>
 
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 52 }}>
-                <a
-                  href="tel:02081370026"
-                  style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "15px 44px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28, width: "fit-content" }}>
+                <Link
+                  to="/book?tab=signature"
+                  style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 500, padding: "15px 44px", background: "#2c2420", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.3)", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#e05c6a" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-                  Tap to Call
-                </a>
-                <button
-                  onClick={() => onScrollTo("our-work")}
-                  style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 300, padding: "14px 40px", background: "transparent", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.4)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
+                  Click here for Residential Cleaning
+                </Link>
+                <Link
+                  to="/quote"
+                  style={{ fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 300, padding: "15px 44px", background: "rgba(0,0,0,0.35)", color: "#f5f0e8", border: "1px solid rgba(245,240,232,0.7)", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
                 >
-                  View Our Work
-                </button>
+                  Get a Quote for Commercial/Airbnb
+                </Link>
               </div>
+
+              {/* Stats strip — desktop only, inline below buttons */}
+              {(() => {
+                const StatItem = ({ number, label, borderRight }) => (
+                  <div style={{ flex: 1, borderRight, padding: "0 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+                      <span style={{ color: "#52b788", fontSize: 13, fontWeight: 700, flexShrink: 0, lineHeight: 1 }}>✓</span>
+                      <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 10.5, fontWeight: 500, color: "rgba(200,184,154,0.92)", letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", lineHeight: 1.3 }}>
+                        {number}
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: "'Jost', sans-serif", fontSize: 9, letterSpacing: "0.14em", color: "rgba(245,240,232,0.4)", textTransform: "uppercase", whiteSpace: "nowrap", paddingLeft: 20 }}>
+                      {label}
+                    </div>
+                  </div>
+                );
+                return (
+                  <div style={{ borderTop: "1px solid rgba(200,184,154,0.2)", paddingTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ display: "flex" }}>
+                      {STATS.slice(0, 3).map(({ number, label }, i) => (
+                        <StatItem key={number} number={number} label={label} borderRight={i < 2 ? "1px solid rgba(200,184,154,0.12)" : "none"} />
+                      ))}
+                    </div>
+                    <div style={{ display: "flex" }}>
+                      {STATS.slice(3).map(({ number, label }, i) => (
+                        <StatItem key={number} number={number} label={label} borderRight={i < STATS.slice(3).length - 1 ? "1px solid rgba(200,184,154,0.12)" : "none"} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
             </div>
           </div>
 
@@ -363,7 +430,7 @@ Homes | Airbnbs | Offices
 
             {/* Callout badge */}
             <div style={{ position: "absolute", top: 120, right: 40, background: "linear-gradient(135deg, #d4c4a0, #c8b89a)", padding: "14px 22px", zIndex: 10, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)", backdropFilter: "blur(4px)" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>A reset for your home,<br />a reset for your space.</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 300, lineHeight: 1.2, fontStyle: "italic", color: "#1a1410" }}>Clean Space, Elevated Mind.</div>
               <div style={{ width: "100%", height: 1, background: "rgba(44,36,32,0.3)", marginTop: 10, marginBottom: 8 }} />
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontStyle: "italic", fontWeight: 400, color: "#1a3d2b", marginBottom: 8, letterSpacing: "0.02em" }}>Homes · Airbnbs · Offices</div>
               <Link

@@ -8,7 +8,6 @@ const SERVICE_SUB_LINKS = [
   { label: "Signature Hotel Reset", tab: "signature"  },
   { label: "Regular Clean",         tab: "regular"    },
   { label: "Deep Clean",            tab: "deep"       },
-  { label: "Hourly Clean",          tab: "hourly"     },
   { label: "Commercial & Airbnb",   tab: "commercial" },
   { label: "Go to Booking >",         tab: "book",      cta: true     },
 ];
@@ -59,8 +58,7 @@ export default function Navbar() {
   const goToBooking = (tab) => {
     setServicesOpen(false);
     setMenuOpen(false);
-    if (tab === 'hourly') navigate('/hourly-clean');
-    else if (tab === 'commercial') navigate('/commercial-clean');
+    if (tab === 'commercial') navigate('/commercial-clean');
     else if (tab === 'regular') navigate('/regular-clean');
     else if (tab === 'deep') navigate('/deep-clean');
     else if (tab === 'book') navigate('/book');

@@ -49,7 +49,7 @@ const PARKING   = ['Free street parking nearby','Permit zone — I will arrange'
 function SelectField({ label, value, options, onChange, placeholder = 'Select…', error, style }) {
   return (
     <div style={{ marginBottom: 20, ...style }}>
-      <label style={{ ...LABEL, minHeight: 36 }}><Sparkle size={7} color="#c8b89a" /> {label}</label>
+      <label style={{ ...LABEL, minHeight: 36 }}>{label}</label>
       <div style={{ position: 'relative' }}>
         <select
           value={value}
@@ -73,7 +73,7 @@ function SelectField({ label, value, options, onChange, placeholder = 'Select…
 function Field({ name, label, type = 'text', placeholder, readOnly, value, error, onChange, onBlur }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <label style={{ ...LABEL, minHeight: 36 }}><Sparkle size={7} color="#c8b89a" /> {label}</label>
+      <label style={{ ...LABEL, minHeight: 36 }}>{label}</label>
       <input
         type={type}
         name={name}
@@ -289,7 +289,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
         {/* Airbnb listing URL */}
         {booking.pkg?.id === 'airbnb' && (
           <div style={{ marginTop: 4, marginBottom: 4 }}>
-            <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Airbnb / Short-let Listing URL *</label>
+            <label style={LABEL}>Airbnb / Short-let Listing URL *</label>
             <input
               type="url"
               placeholder="https://www.airbnb.co.uk/rooms/..."
@@ -303,7 +303,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
 
         {/* Bathrooms */}
         <div style={{ marginTop: 4, marginBottom: 4 }}>
-          <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> Number of Bathrooms *</div>
+          <div style={LABEL}>Number of Bathrooms *</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: fieldErrors.bathrooms ? 6 : 0 }}>
             {['1', '2', '3', '4', '5+'].map(n => (
               <button
@@ -328,7 +328,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
       <div style={SECTION}>
         <div style={SECTION_TITLE}>Pets at the Property</div>
         <div style={{ marginBottom: 20 }}>
-          <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Are there any pets at the property? *</label>
+          <label style={LABEL}>Are there any pets at the property? *</label>
           <div style={{ display: 'flex', gap: 10, marginBottom: fieldErrors.hasPets ? 6 : 0 }}>
             {[{ val: false, label: 'No' }, { val: true, label: 'Yes' }].map(opt => (
               <button
@@ -350,7 +350,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
         {form.hasPets === true && (
           <>
             <div style={{ marginBottom: 16 }}>
-              <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Please describe your pets *</label>
+              <label style={LABEL}>Please describe your pets *</label>
               <input
                 type="text"
                 placeholder="e.g. 1 dog, 2 cats"
@@ -398,7 +398,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
           </div>
           {!form.signatureTouch && (
             <div>
-              <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Let us know why you're opting out (optional)</label>
+              <label style={LABEL}>Let us know why you're opting out</label>
               <select
                 value={form.signatureTouchNotes}
                 onChange={e => setForm(f => ({ ...f, signatureTouchNotes: e.target.value }))}
@@ -502,7 +502,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
                 Enter your email and we'll send a verification code.
               </p>
               <div style={{ marginBottom: 20 }}>
-                <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Email Address</label>
+                <label style={LABEL}>Email Address</label>
                 <input
                   type="email" value={retEmail}
                   onChange={e => { setRetEmail(e.target.value); setRetEmailErr(''); }}
@@ -529,7 +529,7 @@ export default function BookingStep3({ booking, onUpdate, onNext, onBack, isMobi
                 {secondsLeft > 0 ? `Expires in ${timeDisplay}` : 'Code expired — please request a new one.'}
               </div>
               <div style={{ marginBottom: 20 }}>
-                <label style={LABEL}><Sparkle size={7} color="#c8b89a" /> Verification Code</label>
+                <label style={LABEL}>Verification Code</label>
                 <input
                   type="text" value={code} maxLength={6}
                   onChange={e => { setCode(e.target.value.replace(/\D/g,'')); setCodeErr(''); }}

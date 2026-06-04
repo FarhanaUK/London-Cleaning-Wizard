@@ -183,7 +183,7 @@ export default function BookingPage() {
     <>
       <Helmet>
         <title>Book a Clean | London Cleaning Wizard</title>
-        <meta name="description" content="Book residential cleaning, hourly cleans, Airbnb turnarounds and office cleaning across London. Packages from £115 or from £30/hour. Book online today." />
+        <meta name="description" content="Book residential cleaning, Airbnb turnarounds and office cleaning across London. Reset packages from £115. Book online today." />
         <link rel="canonical" href="https://londoncleaningwizard.com/book" />
       </Helmet>
 

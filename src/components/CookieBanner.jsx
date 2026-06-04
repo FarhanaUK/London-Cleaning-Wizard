@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Sparkle } from "./Icons";
 
-export default function CookieBanner() {
+export default function CookieBanner({ onDismiss }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -12,11 +12,13 @@ export default function CookieBanner() {
   const accept = () => {
     localStorage.setItem("cookieConsent", "accepted");
     setVisible(false);
+    onDismiss?.();
   };
 
   const decline = () => {
     localStorage.setItem("cookieConsent", "declined");
     setVisible(false);
+    onDismiss?.();
   };
 
   if (!visible) return null;

@@ -18,6 +18,7 @@ export default function ConfirmCard({ details }) {
             { l: 'Service',              v: `${details.packageName}${details.size ? ' · ' + details.size : ''}` },
             details.originalTotal        ? { l: 'Package price',              v: `£${details.originalTotal}`, strike: true } : { l: 'Package price', v: `£${details.total}` },
             details.launchDiscount       ? { l: 'Launch offer — 50% off first clean', v: `-£${details.launchDiscount}`, grn: true } : null,
+            details.mediaConsentDiscount ? { l: 'Photo consent discount', v: `-£${details.mediaConsentDiscount}`, grn: true } : null,
             { l: 'Total',                v: `£${details.total}` },
             { l: 'Date',                 v: details.cleanDate },
             { l: 'Time',                 v: details.cleanTime },

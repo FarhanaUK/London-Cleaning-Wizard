@@ -29,11 +29,7 @@ const FAQS = [
   },
   {
     question: "How much does a clean cost?",
-    answer: "Our pricing is transparent and displayed in full on our booking page. Home cleaning packages start from £115 for a studio Essential Reset and from £145 for the Signature Hotel Reset. Deep cleans (including end of tenancy) start from £225. Airbnb turnaround cleans start from £95. Hourly cleaning starts from £90 for 3 hours (£30/hr). Airbnb & Serviced Apartment hourly cleans and office cleaning are priced at £35/hr, from £70 and £105 respectively. All prices include VAT and there are no hidden fees.",
-  },
-  {
-    question: "Do you offer hourly cleaning?",
-    answer: "Yes. Our hourly cleaning option is ideal if you need specific areas tackled rather than a full package clean. It starts from 3 hours at £30/hour (minimum £90). You decide the priorities: whether that's the kitchen, bathrooms, or a general tidy. Book directly through our website or call us on 020 8137 0026.",
+    answer: "Our pricing is transparent and displayed in full on our booking page. Home cleaning packages start from £115 for a studio Essential Reset and from £145 for the Signature Hotel Reset. Deep cleans (including end of tenancy) start from £225. Airbnb turnaround cleans start from £95. Office cleaning starts from £105 for 3 hours (£35/hr). All prices include VAT and there are no hidden fees.",
   },
   {
     question: "Do you offer discounts for regular cleans?",
@@ -53,7 +49,7 @@ const FAQS = [
   },
   {
     question: "Do you offer Airbnb and short-let cleaning?",
-    answer: "Yes. We offer two Airbnb cleaning options: a fixed-price Airbnb Turnaround package (from £95 for a studio) with a completion photo sent to you, and an hourly Airbnb & Serviced Apartments option at £35/hr (minimum 2 hours) for more flexible turnarounds. Both are designed to get your property guest-ready quickly and to a hotel standard.",
+    answer: "Yes. We offer a fixed-price Airbnb Turnaround package (from £95 for a studio) with a completion photo sent to you, designed to get your property guest-ready quickly and to a hotel standard.",
   },
   {
     question: "Do you offer end of tenancy cleaning?",

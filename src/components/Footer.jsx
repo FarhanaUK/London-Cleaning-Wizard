@@ -144,7 +144,6 @@ export default function Footer() {
           {[
             { label: "Regular Clean",       href: "/regular-clean" },
             { label: "Deep Clean",          href: "/deep-clean" },
-            { label: "Hourly Clean",        href: "/hourly-clean" },
             { label: "Commercial & Airbnb", href: "/commercial-clean" },
             { label: "Signature Hotel Reset", href: "/signature-touch" },
           ].map(({ label, href }) => (

@@ -149,7 +149,6 @@ const CARD = (selected) => ({
   position: 'relative',
 });
 
-const HOURLY_PKG          = PACKAGES.find(p => p.id === 'hourly');
 const AIRBNB_PKG          = PACKAGES.find(p => p.id === 'airbnb');
 const OFFICE_CLEANING     = PACKAGES.find(p => p.id === 'office_cleaning');
 
@@ -192,7 +191,6 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
     const saved = sessionStorage.getItem('pkgTab');
     if (saved) return saved;
     const id = booking.pkg?.id;
-    if (id === 'hourly') return 'hourly';
     if (id === 'airbnb' || id === 'office_cleaning') return 'commercial';
     return 'signature';
   });
@@ -210,9 +208,6 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
   }, [location.state]);
 
   useEffect(() => {
-    if (pkgTab === 'hourly' && !booking.pkg) {
-      update({ pkg: HOURLY_PKG, size: null, sizePrice: 0, propertyType: 'flat', freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false });
-    }
     if (pkgTab === 'signature') {
       const sigPkgs = PACKAGES.filter(p => !['airbnb','hourly','airbnb_commercial','office_cleaning'].includes(p.id));
       const alreadySelected = booking.pkg && sigPkgs.find(p => p.id === booking.pkg.id);
@@ -241,12 +236,6 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
     const isDeep = pkg.id === 'deep';
     trackEvent('pkg_selected', { pkg: pkg.name, from: booking.pkg?.name || null });
     update({ pkg, size: null, sizePrice: 0, freq: null, addons: [], supplies: isDeep ? 'cleaner' : null, suppliesFee: isDeep ? DEEP_SUPPLIES_FEE : undefined, mopAck: false });
-  };
-
-  const switchToHourly = () => {
-    setTab('hourly');
-    trackEvent('tab_switched', { tab: 'hourly' });
-    update({ pkg: HOURLY_PKG, size: null, sizePrice: 0, propertyType: 'flat', freq: null, addons: [], supplies: null, suppliesFee: undefined, mopAck: false, signatureTouch: false, notes: '' });
   };
 
   const switchToSignature = () => {
@@ -550,70 +539,24 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
           );
         })()}
 
-        {/* Hourly tab */}
-        {pkgTab === 'hourly' && (
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-              <div style={CARD(true)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 21, fontWeight: 400, color: '#1a1410' }}>Hourly Clean</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0, marginLeft: 12 }}>
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, color: '#5a4e44' }}>from £30/hour</div>
-                    <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8b7355' }}>3 to 3.5 hours</div>
-                  </div>
-                </div>
-                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#6b5e56', fontWeight: 300, marginBottom: 10, lineHeight: 1.6 }}>
-                  Sometimes you just need the kitchen tackled, the bathroom refreshed, or a few rooms brought back together. You direct the priorities. We get to work.
-                </div>
-                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5a4e44', fontWeight: 600, marginBottom: 7 }}>Ideal For</div>
-                {[
-                  'Maintaining a clean home between full resets',
-                  'A quick refresh before guests or family arrive',
-                  'Homes with specific cleaning requirements',
-                ].map((item, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 5 }}>
-                    <span style={{ color: '#c8b89a', fontSize: 11, flexShrink: 0, marginTop: 1 }}>✓</span>
-                    <span style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#5a4e44', fontWeight: 300, lineHeight: 1.5 }}>{item}</span>
-                  </div>
-                ))}
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(200,184,154,0.2)', fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#8b7355', fontWeight: 300, lineHeight: 1.6 }}>
-                  <span style={{ fontWeight: 600, color: '#5a4e44' }}>Please note: </span>This is a timed service. Your cleaner works for the booked duration only, no checklist, no completion guarantee, and no reclean promise. For a guaranteed full home clean, upgrade to one of our reset packages.
-                </div>
-                <div style={{ marginTop: 12, padding: '12px 14px', background: '#2c2420', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.7 }}>
-                  <span style={{ color: '#c8b89a', fontWeight: 600, marginRight: 6 }}>✦</span>Booking regularly? Our Regular Clean starts from £85/clean with weekly bookings, with a full home clean every visit.
-                </div>
-              </div>
-            </div>
-
-            <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> How many hours?</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(100px,1fr))', gap: 8, marginBottom: 24 }}>
-              {HOURLY_PKG.sizes.map(s => (
-                <div key={s.id} onClick={() => { trackEvent('duration_selected', { hours: s.label, price: s.basePrice, from: booking.size?.label || null }); update({ size: s, sizePrice: s.basePrice }); }} style={CARD(booking.size?.id === s.id)}>
-                  <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#5a4e44', marginBottom: 4 }}>{s.label}</div>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: '#2c2420' }}>£{s.basePrice}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5a4e44', fontWeight: 600, marginBottom: 6 }}>What do you need done? *</div>
-              <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#8b7355', fontWeight: 300, lineHeight: 1.6, marginBottom: 8 }}>
-                Tell us exactly what areas to focus on. Your cleaner needs clear priorities before they arrive.
-              </div>
-              <textarea
-                value={booking.notes || ''}
-                onChange={e => { if (!notesTrackedRef.current && e.target.value) { trackEvent('notes_started', { step: 'service' }); notesTrackedRef.current = true; } update({ notes: e.target.value }); }}
-                placeholder="e.g. Focus on the kitchen and bathroom first, hoover the living room and bedroom, wipe all surfaces..."
-                rows={4}
-                style={{ width: '100%', boxSizing: 'border-box', background: '#fdf8f3', border: '1px solid rgba(200,184,154,0.45)', padding: '11px 14px', fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#1a1410', outline: 'none', resize: 'vertical', lineHeight: 1.6 }}
-              />
-            </div>
-          </div>
-        )}
-
         {/* Commercial & Airbnb tab */}
         {pkgTab === 'commercial' && (
           <div style={{ marginBottom: 24 }}>
+
+            {/* Large / communal spaces banner */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16, padding: '12px 14px', background: '#faf7f2', border: '1px solid rgba(200,184,154,0.5)', borderLeft: '3px solid #c8b89a' }}>
+              <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>🏢</span>
+              <div>
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 600, color: '#2c2420', marginBottom: 3 }}>
+                  Managing a large building, block of flats, communal areas or need daily cleaning?
+                </div>
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#6b5e56', fontWeight: 300, lineHeight: 1.6 }}>
+                  For one-off Airbnb or office cleans, you can book directly below. For hosts and businesses who need a regular arrangement (weekly, fortnightly, monthly or daily) without having to rebook each time,{' '}
+                  <a href="/quote" style={{ color: '#2c2420', fontWeight: 600, textDecoration: 'underline' }}>get a tailored quote</a>. Fill in as much detail as you can and we will be in touch within a few hours to set everything up.
+                </div>
+              </div>
+            </div>
+
               {/* Horizontal tabs */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               {COMMERCIAL_SERVICES.map(({ pkg, headline, subheadline }) => {
@@ -670,7 +613,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
 
             {booking.pkg && booking.pkg.id === 'office_cleaning' && (
               <>
-                <div style={LABEL}><Sparkle size={7} color="#c8b89a" /> How many hours?</div>
+                <div style={LABEL}>How many hours?</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(100px,1fr))', gap: 8, marginBottom: 24 }}>
                   {booking.pkg.sizes.map(s => (
                     <div key={s.id} onClick={() => update({ size: s, sizePrice: s.basePrice })} style={CARD(booking.size?.id === s.id)}>

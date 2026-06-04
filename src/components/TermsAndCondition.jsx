@@ -82,8 +82,7 @@ export default function TermsAndConditions() {
                   {[
                     "Regular home cleaning (Regular Clean & Signature Hotel Reset) — available as one-off or recurring (weekly, fortnightly, or monthly)",
                     "Deep cleaning, including end of tenancy and move-in preparation (Deep Clean) — one-off only",
-                    "Hourly cleaning — flexible, task-directed cleans from 3 hours (one-off only)",
-                    "Airbnb and short-let turnaround cleaning — fixed-price packages or hourly, one-off or recurring by arrangement",
+                    "Airbnb and short-let turnaround cleaning — fixed-price packages, one-off or recurring by arrangement",
                     "Office and commercial cleaning — hourly from 3 hours, one-off or recurring by arrangement",
                   ].map(s => (
                     <li key={s}>{s}</li>
@@ -97,7 +96,7 @@ export default function TermsAndConditions() {
             title: "3. Pricing & Bookings",
             content: (
               <>
-                <p>Our prices are displayed in full on our booking page with no hidden fees. Fixed-price packages are charged at a set rate based on property size and service type. Hourly services (Hourly Clean, Airbnb & Serviced Apartments, and Office Cleaning) are charged at a fixed hourly rate for the duration selected, subject to the minimum booking hours stated. You can book directly through our website or by calling us on 020 8137 0026.</p>
+                <p>Our prices are displayed in full on our booking page with no hidden fees. Fixed-price packages are charged at a set rate based on property size and service type. Office cleaning is charged at a fixed hourly rate for the duration selected, subject to the minimum booking hours stated. You can book directly through our website or by calling us on 020 8137 0026.</p>
                 <p style={{ marginTop: 16 }}>We may request photos or videos of the property before or after booking to assess the condition accurately. A booking is confirmed once a deposit has been paid.</p>
                 <p style={{ marginTop: 16 }}><strong>Property Condition:</strong> Our pricing is based on the information provided at the time of booking, including any photos or videos where requested. If the actual condition of the property differs significantly from what was described or shown, additional charges may apply or the service may be refused. Even where photos or videos were not requested, if our cleaner arrives and finds the property to be in a condition that falls significantly outside the scope of the booked service, we reserve the right to either charge an additional fee or cancel the clean. In all such cases, the deposit will be retained to cover our costs.</p>
               </>
