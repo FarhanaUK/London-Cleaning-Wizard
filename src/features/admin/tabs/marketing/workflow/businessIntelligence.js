@@ -302,19 +302,46 @@ export function computePrediction(data, pulse) {
   };
 }
 
-// Dynamic urgency for gap since last booking — threshold scales with business maturity
+// 4-level urgency for gap since last booking. Thresholds scale with business maturity.
+// level 0 = green (fine), 1 = soft amber (early heads-up), 2 = amber (push harder), 3 = red (urgent)
 export function getDaysSinceUrgency(daysSinceLast, bookingCount) {
   if (daysSinceLast === null || daysSinceLast === undefined) return { level: 0, message: null };
 
-  let warnDays, urgentDays;
-  if (bookingCount <= 3)      { warnDays = 21; urgentDays = 30; }
-  else if (bookingCount <= 10) { warnDays = 14; urgentDays = 21; }
-  else if (bookingCount <= 20) { warnDays = 10; urgentDays = 14; }
-  else                         { warnDays = 7;  urgentDays = 10; }
+  let softDays, warnDays, urgentDays;
+  if (bookingCount <= 3)      { softDays = 11; warnDays = 21; urgentDays = 30; }
+  else if (bookingCount <= 10) { softDays = 7;  warnDays = 14; urgentDays = 21; }
+  else if (bookingCount <= 20) { softDays = 5;  warnDays = 10; urgentDays = 14; }
+  else                         { softDays = 4;  warnDays = 7;  urgentDays = 10; }
 
-  if (daysSinceLast >= urgentDays) return { level: 2, message: 'Act now — pipeline at risk' };
-  if (daysSinceLast >= warnDays)   return { level: 1, message: 'Time to accelerate outreach' };
-  return { level: 0, message: null };
+  const daysToWarn   = warnDays - daysSinceLast;
+  const daysToUrgent = urgentDays - daysSinceLast;
+  const d = daysSinceLast;
+
+  if (d === 0) return { level: 0, message: 'Booking today -- great start, keep momentum going' };
+
+  if (d >= urgentDays) {
+    const over = d - urgentDays;
+    return {
+      level: 3,
+      message: over > 0
+        ? `${d}d since last booking -- ${over}d past urgent threshold. Block 2 hrs/day for calls. Revisit every contact from the last 6 weeks.`
+        : `${d}d since last booking -- urgent threshold reached. Double outreach immediately.`,
+    };
+  }
+  if (d >= warnDays) return {
+    level: 2,
+    message: `${d}d since last booking -- pipeline may be thinning (${daysToUrgent}d before urgent). Push to 40+ calls this week and follow up every lead from last month.`,
+  };
+  if (d >= softDays) return {
+    level: 1,
+    message: `${d}d since last booking -- worth a nudge (${daysToWarn}d before concern threshold). Add 5 extra calls today and post in a Facebook group.`,
+  };
+
+  const daysToSoft = softDays - d;
+  return {
+    level: 0,
+    message: `${d}d since last booking -- on track. ${daysToSoft}d before early concern threshold. Keep outreach consistent.`,
+  };
 }
 
 export function readMarketingCost() {

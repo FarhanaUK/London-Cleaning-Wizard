@@ -23,18 +23,25 @@ function SigCol(urgency) {
   return MKT.dim;
 }
 
+function dayUrgCol(level) {
+  if (level === 3) return '#c05b5b';
+  if (level === 2) return MKT.amber;
+  if (level === 1) return '#d4a017';
+  return MKT.green;
+}
+
 function DaysBadge({ days, bookingCount }) {
   const { level, message } = getDaysSinceUrgency(days, bookingCount);
-  const col   = days === null ? MKT.dim : days <= 7 ? MKT.green : days <= 14 ? MKT.amber : '#c05b5b';
-  const urgCol = level === 2 ? '#c05b5b' : MKT.amber;
+  const col   = dayUrgCol(level);
   const label = days === null ? 'No bookings yet' : days === 0 ? 'Today' : `${days}d ago`;
+  const bgMap = ['rgba(16,185,129,0.06)', 'rgba(212,160,23,0.06)', 'rgba(217,119,6,0.08)', 'rgba(192,91,91,0.10)'];
   return (
-    <div style={{ textAlign: 'center', padding: '0.75rem 1rem', background: level === 2 ? 'rgba(192,91,91,0.10)' : level === 1 ? 'rgba(217,119,6,0.08)' : MKT.dark3, border: level > 0 ? `0.5px solid ${urgCol}40` : 'none', borderRadius: 10, flex: '0 0 auto' }}>
-      <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 600, color: col, lineHeight: 1 }}>{label}</div>
+    <div style={{ textAlign: 'center', padding: '0.75rem 1rem', background: days === null ? MKT.dark3 : bgMap[level] || MKT.dark3, border: days !== null ? `0.5px solid ${col}30` : 'none', borderRadius: 10, flex: '0 0 auto', minWidth: 130 }}>
+      <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 600, color: days === null ? MKT.dim : col, lineHeight: 1 }}>{label}</div>
       <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Last booking</div>
-      {message && (
-        <div style={{ fontFamily: FONT, fontSize: 10, color: urgCol, marginTop: 5, fontWeight: 600, lineHeight: 1.3 }}>
-          {level === 2 ? '⚠ ' : '! '}{message}
+      {message && days !== null && (
+        <div style={{ fontFamily: FONT, fontSize: 10, color: col, marginTop: 5, fontWeight: level >= 2 ? 600 : 400, lineHeight: 1.4, maxWidth: 160, margin: '5px auto 0' }}>
+          {level >= 3 ? '⚠ ' : ''}{message}
         </div>
       )}
     </div>

@@ -1,4 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+
+// Module-level: survives component re-mounts within the same browser session.
+// Tracks the date the brief was already shown so it never fires twice in one day
+// even if WorkflowTab is destroyed and re-created (e.g., user switches admin tabs).
+let _briefShownForDate = null;
 import { MKT, FONT, SERIF } from './workflow/MktShared';
 import { db } from '../../../../firebase/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -58,6 +63,13 @@ function sigCol(urgency) {
   if (urgency === 1) return MKT.amber;
   if (urgency === 0) return MKT.green;
   return MKT.dim;
+}
+
+function dayUrgencyCol(level) {
+  if (level === 3) return '#c05b5b';
+  if (level === 2) return MKT.amber;
+  if (level === 1) return '#d4a017';
+  return MKT.green;
 }
 
 // ── MilestoneBar ──────────────────────────────────────────────────────────────
@@ -262,14 +274,14 @@ function DailyBrief({ onDismiss, onOpenToday, bookings }) {
 
         {/* Business health strip */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div style={{ background: dayUrgency.level === 2 ? 'rgba(192,91,91,0.10)' : dayUrgency.level === 1 ? 'rgba(217,119,6,0.08)' : MKT.dark3, border: dayUrgency.level > 0 ? `0.5px solid ${dayUrgency.level === 2 ? '#c05b5b' : MKT.amber}40` : 'none', borderRadius: 8, padding: '0.65rem 0.85rem' }}>
+          <div style={{ background: dayUrgency.level >= 3 ? 'rgba(192,91,91,0.10)' : dayUrgency.level === 2 ? 'rgba(217,119,6,0.08)' : dayUrgency.level === 1 ? 'rgba(212,160,23,0.06)' : 'rgba(16,185,129,0.06)', border: `0.5px solid ${dayUrgencyCol(dayUrgency.level)}30`, borderRadius: 8, padding: '0.65rem 0.85rem' }}>
             <div style={{ fontFamily: FONT, fontSize: 9, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Last booking</div>
-            <div style={{ fontFamily: SERIF, fontSize: 20, color: data.daysSinceLast === null ? MKT.dim : data.daysSinceLast <= 7 ? MKT.green : data.daysSinceLast <= 14 ? MKT.amber : '#c05b5b', lineHeight: 1 }}>
+            <div style={{ fontFamily: SERIF, fontSize: 20, color: dayUrgencyCol(dayUrgency.level), lineHeight: 1 }}>
               {data.daysSinceLast === null ? 'None yet' : data.daysSinceLast === 0 ? 'Today' : `${data.daysSinceLast}d ago`}
             </div>
             {dayUrgency.message && (
-              <div style={{ fontFamily: FONT, fontSize: 10, color: dayUrgency.level === 2 ? '#c05b5b' : MKT.amber, marginTop: 4, lineHeight: 1.4, fontWeight: 600 }}>
-                {dayUrgency.level === 2 ? '⚠ ' : '! '}{dayUrgency.message}
+              <div style={{ fontFamily: FONT, fontSize: 10, color: dayUrgencyCol(dayUrgency.level), marginTop: 4, lineHeight: 1.5, fontWeight: dayUrgency.level >= 2 ? 600 : 400 }}>
+                {dayUrgency.level >= 3 ? '⚠ ' : dayUrgency.level === 0 ? '' : '! '}{dayUrgency.message}
               </div>
             )}
           </div>
@@ -357,29 +369,35 @@ export default function WorkflowTab({ funnelData = [], bookings = [] }) {
   const [editMode,    setEditMode]    = useState(false);
   const [activePromo, setActivePromo] = useState(undefined);
   const [pillTick,    setPillTick]    = useState(0);
-  const BRIEF_KEY = 'lcw_brief_dismissed_date';
-  const todayStr  = () => new Date().toISOString().slice(0, 10);
+  const BRIEF_LS_KEY = 'lcw_brief_shown_date';
 
+  // Show brief if: (a) not shown yet today in this session, and (b) not already stored in localStorage for today.
+  // Writing to localStorage on mount (not on dismiss) ensures navigating away and back never re-triggers it.
   const [showBrief, setShowBrief] = useState(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (_briefShownForDate === today) return false;
     try {
-      const stored = localStorage.getItem(BRIEF_KEY);
-      return !stored || stored !== new Date().toISOString().slice(0, 10);
-    } catch { return true; }
+      const stored = localStorage.getItem(BRIEF_LS_KEY);
+      if (stored === today) { _briefShownForDate = today; return false; }
+      // First view today -- mark and show
+      localStorage.setItem(BRIEF_LS_KEY, today);
+    } catch {}
+    _briefShownForDate = today;
+    return true;
   });
 
-  function dismissBrief() {
-    try { localStorage.setItem(BRIEF_KEY, todayStr()); } catch {}
-    setShowBrief(false);
-  }
+  function dismissBrief() { setShowBrief(false); }
 
-  // Re-show when the user returns on a new calendar day (tab still open)
+  // Re-show on a new calendar day when the user returns to the browser tab
   useEffect(() => {
     const check = () => {
       if (!document.hidden) {
-        try {
-          const stored = localStorage.getItem(BRIEF_KEY);
-          if (!stored || stored !== todayStr()) setShowBrief(true);
-        } catch {}
+        const today = new Date().toISOString().slice(0, 10);
+        if (_briefShownForDate !== today) {
+          _briefShownForDate = today;
+          try { localStorage.setItem(BRIEF_LS_KEY, today); } catch {}
+          setShowBrief(true);
+        }
       }
     };
     document.addEventListener('visibilitychange', check);
