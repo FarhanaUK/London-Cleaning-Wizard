@@ -210,7 +210,7 @@ export default function TodayContent({ bookings = [] }) {
           {data.lastBookingLabel && <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 4 }}>Last: {data.lastBookingLabel}</div>}
         </div>
         <div style={{ flex: 1, minWidth: 200, background: MKT.dark3, borderRadius: 10, padding: '0.75rem 1rem' }}>
-          <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Revenue (completed jobs, 30 days)</div>
+          <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Revenue (deposits + completed, 30 days)</div>
           <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 600, color: data.monthlyRevenue > 0 ? MKT.gold : MKT.dim, lineHeight: 1 }}>
             £{data.monthlyRevenue.toLocaleString()}
           </div>

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { MKT, FONT, SERIF } from './workflow/MktShared';
 import { db } from '../../../../firebase/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { readBusinessData, readOutreachPulse, computePrediction, readMarketingCost, getDaysSinceUrgency, MILESTONES, getMilestoneIndex } from './workflow/businessIntelligence';
+import { readBusinessData, readOutreachPulse, computePrediction, readMarketingCost, getDaysSinceUrgency, getMilestonePacing, MILESTONES, getMilestoneIndex } from './workflow/businessIntelligence';
 import WorkflowContent  from './workflow/WorkflowContent';
 import BudgetContent    from './workflow/BudgetContent';
 import TargetsContent   from './workflow/TargetsContent';
@@ -78,7 +78,7 @@ function milestoneProgressText(m, data) {
   const id = m.id;
   if (id === 'm1') return v >= 1 ? 'First booking confirmed!' : 'No confirmed bookings yet';
   if (id === 'm2') return `${v} of 5 bookings by Month 2${v < 5 ? ` — ${5 - v} more to go` : '!'}`;
-  if (id === 'm3') return `${v} of 10 reviews${v < 10 ? ` — ${10 - v} more to go` : '!'}`;
+  if (id === 'm3') return `${v} of 3 bookings this month${v < 3 ? ` — ${3 - v} more needed` : ' — target hit!'}`;
   if (id === 'm4') return v ? 'First agent referral done!' : 'First letting agent referral — keep building';
   if (id === 'm5') return `£${v.toLocaleString()} of £1,000 this month`;
   if (id === 'm6') return `£${v.toLocaleString()} of £2,000 this month`;
@@ -87,15 +87,16 @@ function milestoneProgressText(m, data) {
 }
 
 function MilestoneBar({ bookings }) {
-  const isMobile     = useIsMobile();
-  const data         = readBusinessData(bookings);
-  const mktCost      = readMarketingCost();
-  const netProfit    = data.monthlyRevenue - mktCost;
-  const midx         = getMilestoneIndex(data);
-  const currentIdx   = midx + 1;
-  const allDone      = midx >= MILESTONES.length - 1;
-  const currentM     = MILESTONES[Math.min(currentIdx, MILESTONES.length - 1)];
-  const currentCol   = MILESTONE_COLORS[Math.min(currentIdx, MILESTONE_COLORS.length - 1)];
+  const isMobile   = useIsMobile();
+  const data       = readBusinessData(bookings);
+  const mktCost    = readMarketingCost();
+  const netProfit  = data.monthlyRevenue - mktCost;
+  const midx       = getMilestoneIndex(data);
+  const currentIdx = midx + 1;
+  const allDone    = midx >= MILESTONES.length - 1;
+  const currentM   = MILESTONES[Math.min(currentIdx, MILESTONES.length - 1)];
+  const currentCol = MILESTONE_COLORS[Math.min(currentIdx, MILESTONE_COLORS.length - 1)];
+  const pacing     = getMilestonePacing(currentM, data);
 
   const progressPct = !allDone && currentM
     ? Math.min(100, Math.round((currentM.progressNum(data) / currentM.target) * 100))
@@ -163,7 +164,7 @@ function MilestoneBar({ bookings }) {
 
       {/* Progress strip for current milestone */}
       {!allDone && currentM && (
-        <div style={{ padding: isMobile ? '0 1rem 12px' : '0 1.5rem 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ padding: isMobile ? '0 1rem 8px' : '0 1.5rem 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
               <span style={{ fontFamily: FONT, fontSize: isMobile ? 11 : 12, color: currentCol, fontWeight: 500 }}>
@@ -176,6 +177,12 @@ function MilestoneBar({ bookings }) {
             <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 5, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${progressPct}%`, background: currentCol, borderRadius: 4, minWidth: progressPct > 0 ? 6 : 0, transition: 'width 0.6s ease', boxShadow: `0 0 8px ${currentCol}60` }} />
             </div>
+            {/* Pacing warning */}
+            {pacing && pacing.message && (
+              <div style={{ fontFamily: FONT, fontSize: 10, color: pacing.status === 'behind' || pacing.status === 'overdue' ? '#c05b5b' : MKT.amber, marginTop: 5, fontWeight: 600 }}>
+                {pacing.status === 'overdue' || pacing.status === 'behind' ? '⚠ ' : '! '}{pacing.message}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -186,9 +193,9 @@ function MilestoneBar({ bookings }) {
         </div>
       )}
 
-      {/* Always-visible key metrics strip */}
+      {/* Always-visible key metrics strip — bookings + money only */}
       <div style={{ padding: isMobile ? '4px 1rem 12px' : '4px 1.5rem 12px', display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 20, flexWrap: 'wrap' }}>
-        <Stat label="Google reviews" value={`${data.googleReviews} / 10`} col={MILESTONE_COLORS[2]} />
+        <Stat label="Bookings this month" value={`${data.monthlyBookings}`} col={data.monthlyBookings >= 3 ? MKT.green : data.monthlyBookings >= 1 ? MKT.amber : MKT.dim} />
         <Stat label="Revenue this month" value={`£${data.monthlyRevenue.toLocaleString()}`} col={MKT.gold} />
         <Stat label="Net profit" value={`£${netProfit.toLocaleString()}`} col={netProfit > 0 ? MKT.green : netProfit < 0 ? '#c05b5b' : MKT.dim} />
       </div>
