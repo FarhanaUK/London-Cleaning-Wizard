@@ -87,12 +87,20 @@ export function readBusinessData(bookings = []) {
     }
   }
 
-  // Monthly revenue: bookings created in last 30 days
+  // Revenue: only completed jobs in last 30 days (remaining balance collected on completion)
   const cutoff = Date.now() - 30 * 86400000;
   const monthlyRevenue = Math.round(
-    active
+    bookings
       .filter(b => {
-        const ms = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+        if (!b.status || b.status.toLowerCase() !== 'complete') return false;
+        // Use cleanDate (when job was done + payment collected), fall back to createdAt
+        const ms = b.cleanDate?.seconds
+          ? b.cleanDate.seconds * 1000
+          : b.cleanDate
+            ? new Date(b.cleanDate).getTime()
+            : b.createdAt?.seconds
+              ? b.createdAt.seconds * 1000
+              : new Date(b.createdAt || 0).getTime();
         return ms >= cutoff;
       })
       .reduce((s, b) => s + (parseFloat(b.total) || 0), 0)
@@ -205,6 +213,21 @@ export function computePrediction(data, pulse) {
     text: `Activity is uneven. ${noBookingMed ? `${daysSinceLast} days since the last booking — time to accelerate.` : 'Focus on what produced interest last week and repeat it every day this week.'}`,
     urgency: 1,
   };
+}
+
+// Dynamic urgency for gap since last booking — threshold scales with business maturity
+export function getDaysSinceUrgency(daysSinceLast, bookingCount) {
+  if (daysSinceLast === null || daysSinceLast === undefined) return { level: 0, message: null };
+
+  let warnDays, urgentDays;
+  if (bookingCount <= 3)       { warnDays = 21; urgentDays = 30; }
+  else if (bookingCount <= 10)  { warnDays = 14; urgentDays = 21; }
+  else if (bookingCount <= 20)  { warnDays = 10; urgentDays = 14; }
+  else                          { warnDays = 7;  urgentDays = 10; }
+
+  if (daysSinceLast >= urgentDays) return { level: 2, message: 'Act now — pipeline at risk' };
+  if (daysSinceLast >= warnDays)   return { level: 1, message: 'Time to accelerate outreach' };
+  return { level: 0, message: null };
 }
 
 export function readMarketingCost() {

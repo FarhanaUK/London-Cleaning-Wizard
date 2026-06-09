@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { MKT, FONT, SERIF } from './workflow/MktShared';
 import { db } from '../../../../firebase/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { readBusinessData, readOutreachPulse, computePrediction, readMarketingCost, MILESTONES, getMilestoneIndex } from './workflow/businessIntelligence';
+import { readBusinessData, readOutreachPulse, computePrediction, readMarketingCost, getDaysSinceUrgency, MILESTONES, getMilestoneIndex } from './workflow/businessIntelligence';
 import WorkflowContent  from './workflow/WorkflowContent';
 import BudgetContent    from './workflow/BudgetContent';
 import TargetsContent   from './workflow/TargetsContent';
@@ -228,7 +228,8 @@ function DailyBrief({ onDismiss, onOpenToday, bookings }) {
   const log            = (() => { try { return JSON.parse(localStorage.getItem('lcw_outreach_log')) || []; } catch { return []; } })();
   const thisWeekLogged = log.some(w => w.weekOf === monday);
 
-  const col = sigCol(pred.urgency);
+  const col         = sigCol(pred.urgency);
+  const dayUrgency  = getDaysSinceUrgency(data.daysSinceLast, data.bookingCount);
 
   // Combined task list: prediction action + checklist items + priority actions
   const tasks = [];
@@ -254,11 +255,16 @@ function DailyBrief({ onDismiss, onOpenToday, bookings }) {
 
         {/* Business health strip */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div style={{ background: MKT.dark3, borderRadius: 8, padding: '0.65rem 0.85rem' }}>
+          <div style={{ background: dayUrgency.level === 2 ? 'rgba(192,91,91,0.10)' : dayUrgency.level === 1 ? 'rgba(217,119,6,0.08)' : MKT.dark3, border: dayUrgency.level > 0 ? `0.5px solid ${dayUrgency.level === 2 ? '#c05b5b' : MKT.amber}40` : 'none', borderRadius: 8, padding: '0.65rem 0.85rem' }}>
             <div style={{ fontFamily: FONT, fontSize: 9, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Last booking</div>
             <div style={{ fontFamily: SERIF, fontSize: 20, color: data.daysSinceLast === null ? MKT.dim : data.daysSinceLast <= 7 ? MKT.green : data.daysSinceLast <= 14 ? MKT.amber : '#c05b5b', lineHeight: 1 }}>
               {data.daysSinceLast === null ? 'None yet' : data.daysSinceLast === 0 ? 'Today' : `${data.daysSinceLast}d ago`}
             </div>
+            {dayUrgency.message && (
+              <div style={{ fontFamily: FONT, fontSize: 10, color: dayUrgency.level === 2 ? '#c05b5b' : MKT.amber, marginTop: 4, lineHeight: 1.4, fontWeight: 600 }}>
+                {dayUrgency.level === 2 ? '⚠ ' : '! '}{dayUrgency.message}
+              </div>
+            )}
           </div>
           <div style={{ background: MKT.dark3, borderRadius: 8, padding: '0.65rem 0.85rem' }}>
             <div style={{ fontFamily: FONT, fontSize: 9, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Total bookings</div>
@@ -344,20 +350,29 @@ export default function WorkflowTab({ funnelData = [], bookings = [] }) {
   const [editMode,    setEditMode]    = useState(false);
   const [activePromo, setActivePromo] = useState(undefined);
   const [pillTick,    setPillTick]    = useState(0);
-  const [showBrief,   setShowBrief]   = useState(true);
-  const dismissedDate = useRef(null);
+  const BRIEF_KEY = 'lcw_brief_dismissed_date';
+  const todayStr  = () => new Date().toISOString().slice(0, 10);
+
+  const [showBrief, setShowBrief] = useState(() => {
+    try {
+      const stored = localStorage.getItem(BRIEF_KEY);
+      return !stored || stored !== new Date().toISOString().slice(0, 10);
+    } catch { return true; }
+  });
 
   function dismissBrief() {
-    dismissedDate.current = new Date().toISOString().slice(0, 10);
+    try { localStorage.setItem(BRIEF_KEY, todayStr()); } catch {}
     setShowBrief(false);
   }
 
-  // Re-show if the user returns on a new day without refreshing
+  // Re-show when the user returns on a new calendar day (tab still open)
   useEffect(() => {
     const check = () => {
-      if (!document.hidden && dismissedDate.current) {
-        const today = new Date().toISOString().slice(0, 10);
-        if (dismissedDate.current !== today) setShowBrief(true);
+      if (!document.hidden) {
+        try {
+          const stored = localStorage.getItem(BRIEF_KEY);
+          if (!stored || stored !== todayStr()) setShowBrief(true);
+        } catch {}
       }
     };
     document.addEventListener('visibilitychange', check);

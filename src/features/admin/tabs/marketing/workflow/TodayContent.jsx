@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MKT, FONT, SERIF, SLabel } from './MktShared';
-import { readBusinessData, readOutreachPulse, computePrediction, MILESTONES, getMilestoneIndex } from './businessIntelligence';
+import { readBusinessData, readOutreachPulse, computePrediction, getDaysSinceUrgency, MILESTONES, getMilestoneIndex } from './businessIntelligence';
 
 const STORAGE_CHECKS = 'mkt_weekly_checks';
 
@@ -23,13 +23,20 @@ function SigCol(urgency) {
   return MKT.dim;
 }
 
-function DaysBadge({ days }) {
-  const col = days === null ? MKT.dim : days <= 7 ? MKT.green : days <= 14 ? MKT.amber : '#c05b5b';
+function DaysBadge({ days, bookingCount }) {
+  const { level, message } = getDaysSinceUrgency(days, bookingCount);
+  const col   = days === null ? MKT.dim : days <= 7 ? MKT.green : days <= 14 ? MKT.amber : '#c05b5b';
+  const urgCol = level === 2 ? '#c05b5b' : MKT.amber;
   const label = days === null ? 'No bookings yet' : days === 0 ? 'Today' : `${days}d ago`;
   return (
-    <div style={{ textAlign: 'center', padding: '0.75rem 1rem', background: MKT.dark3, borderRadius: 10, flex: '0 0 auto' }}>
+    <div style={{ textAlign: 'center', padding: '0.75rem 1rem', background: level === 2 ? 'rgba(192,91,91,0.10)' : level === 1 ? 'rgba(217,119,6,0.08)' : MKT.dark3, border: level > 0 ? `0.5px solid ${urgCol}40` : 'none', borderRadius: 10, flex: '0 0 auto' }}>
       <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 600, color: col, lineHeight: 1 }}>{label}</div>
       <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Last booking</div>
+      {message && (
+        <div style={{ fontFamily: FONT, fontSize: 10, color: urgCol, marginTop: 5, fontWeight: 600, lineHeight: 1.3 }}>
+          {level === 2 ? '⚠ ' : '! '}{message}
+        </div>
+      )}
     </div>
   );
 }
@@ -161,7 +168,9 @@ function ChecklistSection({ checklist, checked, onToggle }) {
 }
 
 export default function TodayContent({ bookings = [] }) {
-  const [state, setState] = useState(() => readAll(bookings));
+  const [state,       setState]      = useState(() => readAll(bookings));
+  const [editReviews, setEditReviews] = useState(false);
+  const [reviewInput, setReviewInput] = useState('');
 
   useEffect(() => { setState(readAll(bookings)); }, [bookings]);
 
@@ -194,23 +203,39 @@ export default function TodayContent({ bookings = [] }) {
       {/* Header metrics */}
       <SLabel first>Business health</SLabel>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-        <DaysBadge days={data.daysSinceLast} />
+        <DaysBadge days={data.daysSinceLast} bookingCount={data.bookingCount} />
         <div style={{ flex: 1, minWidth: 200, background: MKT.dark3, borderRadius: 10, padding: '0.75rem 1rem' }}>
           <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Confirmed bookings</div>
           <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 600, color: MKT.gold, lineHeight: 1 }}>{data.bookingCount}</div>
           {data.lastBookingLabel && <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 4 }}>Last: {data.lastBookingLabel}</div>}
         </div>
         <div style={{ flex: 1, minWidth: 200, background: MKT.dark3, borderRadius: 10, padding: '0.75rem 1rem' }}>
-          <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Revenue last 30 days</div>
+          <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Revenue (completed jobs, 30 days)</div>
           <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 600, color: data.monthlyRevenue > 0 ? MKT.gold : MKT.dim, lineHeight: 1 }}>
             £{data.monthlyRevenue.toLocaleString()}
           </div>
           <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 4 }}>Target: £1,000/month</div>
         </div>
         <div style={{ flex: 1, minWidth: 200, background: MKT.dark3, borderRadius: 10, padding: '0.75rem 1rem' }}>
-          <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Google reviews</div>
-          <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 600, color: data.googleReviews >= 10 ? MKT.green : MKT.amber, lineHeight: 1 }}>{data.googleReviews}</div>
-          <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 4 }}>Target: 20+</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Google reviews</div>
+            <button onClick={() => { setReviewInput(String(data.googleReviews)); setEditReviews(true); }} style={{ background: 'none', border: 'none', color: MKT.dim, fontFamily: FONT, fontSize: 10, cursor: 'pointer', padding: '2px 4px', borderRadius: 3 }}>edit</button>
+          </div>
+          {editReviews ? (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                type="number" min="0" value={reviewInput}
+                onChange={e => setReviewInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { try { localStorage.setItem('lcw_google_reviews', reviewInput); } catch {} setState(readAll(bookings)); setEditReviews(false); } if (e.key === 'Escape') setEditReviews(false); }}
+                autoFocus
+                style={{ width: 60, background: MKT.dark4, border: `1px solid ${MKT.borderStrong}`, borderRadius: 6, color: MKT.gold, fontFamily: FONT, fontSize: 18, padding: '4px 8px', outline: 'none' }}
+              />
+              <button onClick={() => { try { localStorage.setItem('lcw_google_reviews', reviewInput); } catch {} setState(readAll(bookings)); setEditReviews(false); }} style={{ background: 'rgba(201,169,110,0.12)', border: `0.5px solid ${MKT.borderStrong}`, borderRadius: 6, color: MKT.gold, fontFamily: FONT, fontSize: 11, padding: '4px 10px', cursor: 'pointer' }}>Save</button>
+            </div>
+          ) : (
+            <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 600, color: data.googleReviews >= 10 ? MKT.green : MKT.amber, lineHeight: 1 }}>{data.googleReviews}</div>
+          )}
+          <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 4 }}>Target: 20+ — update manually</div>
         </div>
       </div>
 
