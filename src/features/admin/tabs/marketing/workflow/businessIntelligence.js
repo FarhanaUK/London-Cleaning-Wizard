@@ -9,8 +9,8 @@ export const MILESTONES = [
     progressNum: (d) => Math.min(d.bookingCount, 1), target: 1,
   },
   {
-    id: 'm2', label: '5 confirmed bookings', shortLabel: '5 bookings',
-    desc: 'Build early momentum — 5 bookings means the channels are working',
+    id: 'm2', label: '5 bookings in your first 2 months', shortLabel: '5 bookings',
+    desc: '5 bookings in your first 2 months -- proof your outreach channels are working',
     timeframe: 'Month 1-2',
     check: (d) => d.bookingCount >= 5,
     progressNum: (d) => Math.min(d.bookingCount, 5), target: 5,
@@ -205,6 +205,13 @@ export function computePrediction(data, pulse) {
     text: `Activity is uneven. ${noBookingMed ? `${daysSinceLast} days since the last booking — time to accelerate.` : 'Focus on what produced interest last week and repeat it every day this week.'}`,
     urgency: 1,
   };
+}
+
+export function readMarketingCost() {
+  try {
+    const rows = JSON.parse(localStorage.getItem('mkt_budget_rows_v2')) || [];
+    return Math.round(rows.filter(r => r.active).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0));
+  } catch { return 0; }
 }
 
 export function buildBriefContext(data, pulse, prediction) {

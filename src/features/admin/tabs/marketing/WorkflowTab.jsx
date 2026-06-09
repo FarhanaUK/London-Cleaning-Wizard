@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { MKT, FONT, SERIF } from './workflow/MktShared';
 import { db } from '../../../../firebase/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { readBusinessData, readOutreachPulse, computePrediction, MILESTONES, getMilestoneIndex } from './workflow/businessIntelligence';
+import { readBusinessData, readOutreachPulse, computePrediction, readMarketingCost, MILESTONES, getMilestoneIndex } from './workflow/businessIntelligence';
 import WorkflowContent  from './workflow/WorkflowContent';
 import BudgetContent    from './workflow/BudgetContent';
 import TargetsContent   from './workflow/TargetsContent';
@@ -62,52 +62,145 @@ function sigCol(urgency) {
 
 // ── MilestoneBar ──────────────────────────────────────────────────────────────
 
+const MILESTONE_COLORS = [
+  '#c9a96e', // gold  — 1st booking
+  '#f59e0b', // amber — 5 bookings
+  '#3b82f6', // blue  — 10 reviews
+  '#8b5cf6', // purple — agent referral
+  '#10b981', // green — £1k/month
+  '#34d399', // light green — £2k/month
+  '#6ee7b7', // bright teal — £3k/month
+];
+
+function milestoneProgressText(m, data) {
+  if (!m) return '';
+  const v = m.progressNum(data);
+  const id = m.id;
+  if (id === 'm1') return v >= 1 ? 'First booking confirmed!' : 'No confirmed bookings yet';
+  if (id === 'm2') return `${v} of 5 bookings by Month 2${v < 5 ? ` — ${5 - v} more to go` : '!'}`;
+  if (id === 'm3') return `${v} of 10 reviews${v < 10 ? ` — ${10 - v} more to go` : '!'}`;
+  if (id === 'm4') return v ? 'First agent referral done!' : 'First letting agent referral — keep building';
+  if (id === 'm5') return `£${v.toLocaleString()} of £1,000 this month`;
+  if (id === 'm6') return `£${v.toLocaleString()} of £2,000 this month`;
+  if (id === 'm7') return `£${v.toLocaleString()} of £3,000 this month`;
+  return '';
+}
+
 function MilestoneBar({ bookings }) {
-  const isMobile = useIsMobile();
-  const data  = readBusinessData(bookings);
-  const midx  = getMilestoneIndex(data);
-  const nextM = MILESTONES[midx + 1];
-  const allDone = midx >= MILESTONES.length - 1;
-  const nodeSize = isMobile ? 20 : 26;
+  const isMobile     = useIsMobile();
+  const data         = readBusinessData(bookings);
+  const mktCost      = readMarketingCost();
+  const netProfit    = data.monthlyRevenue - mktCost;
+  const midx         = getMilestoneIndex(data);
+  const currentIdx   = midx + 1;
+  const allDone      = midx >= MILESTONES.length - 1;
+  const currentM     = MILESTONES[Math.min(currentIdx, MILESTONES.length - 1)];
+  const currentCol   = MILESTONE_COLORS[Math.min(currentIdx, MILESTONE_COLORS.length - 1)];
+
+  const progressPct = !allDone && currentM
+    ? Math.min(100, Math.round((currentM.progressNum(data) / currentM.target) * 100))
+    : 100;
 
   return (
-    <div style={{ padding: isMobile ? '10px 1rem 8px' : '12px 1.5rem 10px', borderBottom: `0.5px solid ${MKT.border}` }}>
-      <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
+    <div style={{ borderBottom: `0.5px solid ${MKT.border}` }}>
+
+      {/* Milestone chips row */}
+      <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', scrollbarWidth: 'none', padding: isMobile ? '14px 1rem 10px' : '16px 1.5rem 10px', gap: 0 }}>
         {MILESTONES.map((m, i) => {
           const done    = i <= midx;
-          const current = i === midx + 1;
+          const current = i === currentIdx;
+          const col     = MILESTONE_COLORS[i];
+          const faded   = !done && !current && i > currentIdx + 1;
+
           return (
-            <div key={m.id} style={{ display: 'flex', alignItems: 'center', flex: i < MILESTONES.length - 1 ? 1 : '0 0 auto', minWidth: 0 }}>
+            <div key={m.id} style={{ display: 'flex', alignItems: 'center', opacity: faded ? 0.3 : 1 }}>
+              {i > 0 && (
+                <div style={{ width: isMobile ? 6 : 12, height: 2, flexShrink: 0, background: i <= midx ? MILESTONE_COLORS[i - 1] : 'rgba(255,255,255,0.07)', borderRadius: 1 }} />
+              )}
               <div
                 title={`${m.label} — ${m.desc}`}
                 style={{
-                  width: nodeSize, height: nodeSize, borderRadius: '50%', flexShrink: 0,
-                  background: done ? MKT.gold : 'transparent',
-                  border: current ? `2px solid ${MKT.gold}` : done ? 'none' : `1px solid ${MKT.border}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: isMobile ? 8 : 10, fontFamily: FONT, fontWeight: 700,
-                  color: done ? MKT.bg : current ? MKT.gold : MKT.dim,
+                  position: 'relative',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  gap: 4, padding: isMobile ? '6px 8px' : '8px 14px',
+                  minWidth: isMobile ? 58 : 82, flexShrink: 0,
+                  background: done ? `${col}1a` : current ? `${col}10` : 'rgba(255,255,255,0.02)',
+                  border: done
+                    ? `1px solid ${col}55`
+                    : current
+                      ? `2px solid ${col}`
+                      : `0.5px solid rgba(255,255,255,0.07)`,
+                  borderRadius: 10,
+                  boxShadow: current ? `0 0 18px ${col}28, inset 0 0 12px ${col}08` : 'none',
                 }}
               >
-                {done ? '✓' : i + 1}
+                {/* NEXT badge */}
+                {current && (
+                  <div style={{ position: 'absolute', top: -9, left: '50%', transform: 'translateX(-50%)', background: col, color: '#0d0b08', fontFamily: FONT, fontSize: 7, fontWeight: 800, letterSpacing: '0.08em', padding: '2px 6px', borderRadius: 3, whiteSpace: 'nowrap' }}>
+                    NEXT GOAL
+                  </div>
+                )}
+
+                {/* Status mark */}
+                <div style={{ fontFamily: FONT, fontSize: isMobile ? 13 : 15, color: done ? col : current ? col : MKT.dim, fontWeight: 700, lineHeight: 1 }}>
+                  {done ? '✓' : `${i + 1}`}
+                </div>
+
+                {/* Label */}
+                <div style={{ fontFamily: FONT, fontSize: isMobile ? 8 : 9, color: done ? col : current ? col : MKT.dim, textAlign: 'center', lineHeight: 1.3, fontWeight: done || current ? 600 : 400, whiteSpace: isMobile ? 'nowrap' : 'normal' }}>
+                  {m.shortLabel}
+                </div>
+
+                {/* "Done" badge on last completed */}
+                {done && i === midx && (
+                  <div style={{ fontFamily: FONT, fontSize: 7, color: col, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Done!</div>
+                )}
               </div>
-              {i < MILESTONES.length - 1 && (
-                <div style={{ flex: 1, height: 1, background: i < midx ? MKT.gold : MKT.dark4, minWidth: 4 }} />
-              )}
             </div>
           );
         })}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, flexWrap: 'wrap', gap: 4 }}>
-        <span style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim }}>
-          {allDone ? 'All milestones complete' : nextM ? `Next: ` : ''}
-          {!allDone && nextM && <strong style={{ color: MKT.gold }}>{nextM.shortLabel}</strong>}
-          {!allDone && nextM && <span style={{ color: MKT.dim }}> · {nextM.timeframe}</span>}
-        </span>
-        <span style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim }}>
-          {midx + 1} / {MILESTONES.length} milestones
-        </span>
+
+      {/* Progress strip for current milestone */}
+      {!allDone && currentM && (
+        <div style={{ padding: isMobile ? '0 1rem 12px' : '0 1.5rem 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+              <span style={{ fontFamily: FONT, fontSize: isMobile ? 11 : 12, color: currentCol, fontWeight: 500 }}>
+                {milestoneProgressText(currentM, data)}
+              </span>
+              <span style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, flexShrink: 0, marginLeft: 8 }}>
+                {midx + 1} / {MILESTONES.length}
+              </span>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 5, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${progressPct}%`, background: currentCol, borderRadius: 4, minWidth: progressPct > 0 ? 6 : 0, transition: 'width 0.6s ease', boxShadow: `0 0 8px ${currentCol}60` }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {allDone && (
+        <div style={{ padding: isMobile ? '0 1rem 4px' : '0 1.5rem 4px', fontFamily: FONT, fontSize: 12, color: MILESTONE_COLORS[6], fontWeight: 600 }}>
+          All milestones complete. Full-time income achieved.
+        </div>
+      )}
+
+      {/* Always-visible key metrics strip */}
+      <div style={{ padding: isMobile ? '4px 1rem 12px' : '4px 1.5rem 12px', display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 20, flexWrap: 'wrap' }}>
+        <Stat label="Google reviews" value={`${data.googleReviews} / 10`} col={MILESTONE_COLORS[2]} />
+        <Stat label="Revenue this month" value={`£${data.monthlyRevenue.toLocaleString()}`} col={MKT.gold} />
+        <Stat label="Net profit" value={`£${netProfit.toLocaleString()}`} col={netProfit > 0 ? MKT.green : netProfit < 0 ? '#c05b5b' : MKT.dim} />
       </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, col }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+      <span style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, letterSpacing: '0.04em' }}>{label}:</span>
+      <span style={{ fontFamily: FONT, fontSize: 12, color: col, fontWeight: 600 }}>{value}</span>
     </div>
   );
 }
