@@ -174,6 +174,10 @@ function ChecklistSection({ checklist, checked, onToggle }) {
   );
 }
 
+function gbp(n) {
+  return Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function TodayContent({ bookings = [] }) {
   const [state,       setState]      = useState(() => readAll(bookings));
   const [editReviews, setEditReviews] = useState(false);
@@ -219,7 +223,7 @@ export default function TodayContent({ bookings = [] }) {
         <div style={{ flex: 1, minWidth: 200, background: MKT.dark3, borderRadius: 10, padding: '0.75rem 1rem' }}>
           <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Revenue (deposits + completed, 30 days)</div>
           <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 600, color: data.monthlyRevenue > 0 ? MKT.gold : MKT.dim, lineHeight: 1 }}>
-            £{data.monthlyRevenue.toLocaleString()}
+            £{gbp(data.monthlyRevenue)}
           </div>
           <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 4 }}>Target: £1,000/month</div>
         </div>
@@ -242,7 +246,7 @@ export default function TodayContent({ bookings = [] }) {
           ) : (
             <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 600, color: data.googleReviews >= 10 ? MKT.green : MKT.amber, lineHeight: 1 }}>{data.googleReviews}</div>
           )}
-          <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 4 }}>Target: 20+ — update manually</div>
+          <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 4 }}>Target: 20+ -- update manually</div>
         </div>
       </div>
 
@@ -252,7 +256,7 @@ export default function TodayContent({ bookings = [] }) {
         <MilestoneSteps midx={midx} />
         {midx < MILESTONES.length - 1 && (
           <div style={{ marginTop: 12, background: MKT.dark3, borderRadius: 8, padding: '0.75rem 1rem' }}>
-            <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Current focus — {MILESTONES[midx + 1]?.timeframe}</div>
+            <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Current focus -- {MILESTONES[midx + 1]?.timeframe}</div>
             <div style={{ fontFamily: FONT, fontSize: 13, color: MKT.muted }}>{MILESTONES[midx + 1]?.desc}</div>
             <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 4 }}>
               Progress: {(() => {
@@ -260,7 +264,7 @@ export default function TodayContent({ bookings = [] }) {
                 const n = m.progressNum(data);
                 const t = m.target;
                 if (t === 1) return n >= 1 ? 'Done' : 'Not yet';
-                if (t >= 1000) return `£${n.toLocaleString()} / £${t.toLocaleString()}`;
+                if (t >= 1000) return `£${gbp(n)} / £${t.toLocaleString()}`;
                 return `${n} / ${t}`;
               })()}
             </div>

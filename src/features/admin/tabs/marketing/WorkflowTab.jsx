@@ -1,13 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 
-// Module-level: survives component re-mounts within the same browser session.
-// Tracks the date the brief was already shown so it never fires twice in one day
-// even if WorkflowTab is destroyed and re-created (e.g., user switches admin tabs).
-let _briefShownForDate = null;
+// Brief guard lives on window so AdminPage can reset it on logout without a circular import.
+// window._lcwBriefDate is cleared on logout; prevents re-show during in-app tab navigation.
 import { MKT, FONT, SERIF } from './workflow/MktShared';
 import { db } from '../../../../firebase/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { readBusinessData, readOutreachPulse, computePrediction, readMarketingCost, getDaysSinceUrgency, getMilestonePacing, MILESTONES, getMilestoneIndex } from './workflow/businessIntelligence';
+import { readBusinessData, readOutreachPulse, computePrediction, readMarketingCost, getDaysSinceUrgency, getMilestonePacing, getMilestoneTargetDate, MILESTONES, getMilestoneIndex } from './workflow/businessIntelligence';
 import WorkflowContent  from './workflow/WorkflowContent';
 import BudgetContent    from './workflow/BudgetContent';
 import TargetsContent   from './workflow/TargetsContent';
@@ -72,16 +70,20 @@ function dayUrgencyCol(level) {
   return MKT.green;
 }
 
+function gbp(n) {
+  return Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 // ── MilestoneBar ──────────────────────────────────────────────────────────────
 
 const MILESTONE_COLORS = [
-  '#c9a96e', // gold  — 1st booking
-  '#f59e0b', // amber — 5 bookings
-  '#3b82f6', // blue  — 10 reviews
-  '#8b5cf6', // purple — agent referral
-  '#10b981', // green — £1k/month
-  '#34d399', // light green — £2k/month
-  '#6ee7b7', // bright teal — £3k/month
+  '#c9a96e', // gold -- 1st booking
+  '#f59e0b', // amber -- 5 bookings
+  '#3b82f6', // blue -- monthly bookings
+  '#8b5cf6', // purple -- agent referral
+  '#10b981', // green -- £1k/month
+  '#34d399', // light green -- £2k/month
+  '#6ee7b7', // bright teal -- £3k/month
 ];
 
 function milestoneProgressText(m, data) {
@@ -89,12 +91,12 @@ function milestoneProgressText(m, data) {
   const v = m.progressNum(data);
   const id = m.id;
   if (id === 'm1') return v >= 1 ? 'First booking confirmed!' : 'No confirmed bookings yet';
-  if (id === 'm2') return `${v} of 5 bookings by Month 2${v < 5 ? ` — ${5 - v} more to go` : '!'}`;
-  if (id === 'm3') return `${v} of 3 bookings this month${v < 3 ? ` — ${3 - v} more needed` : ' — target hit!'}`;
-  if (id === 'm4') return v ? 'First agent referral done!' : 'First letting agent referral — keep building';
-  if (id === 'm5') return `£${v.toLocaleString()} of £1,000 this month`;
-  if (id === 'm6') return `£${v.toLocaleString()} of £2,000 this month`;
-  if (id === 'm7') return `£${v.toLocaleString()} of £3,000 this month`;
+  if (id === 'm2') return `${v} of 5 bookings by Month 2${v < 5 ? ` -- ${5 - v} more to go` : '!'}`;
+  if (id === 'm3') return `${v} of 4 bookings this month${v < 4 ? ` -- ${4 - v} more needed` : ' -- target hit!'}`;
+  if (id === 'm4') return v ? 'First letting agent relationship confirmed!' : 'First letting agent referral -- keep visiting';
+  if (id === 'm5') return `£${gbp(v)} of £1,000 this month`;
+  if (id === 'm6') return `£${gbp(v)} of £2,000 this month`;
+  if (id === 'm7') return `£${gbp(v)} of £3,000 this month`;
   return '';
 }
 
@@ -131,7 +133,7 @@ function MilestoneBar({ bookings }) {
                 <div style={{ width: isMobile ? 6 : 12, height: 2, flexShrink: 0, background: i <= midx ? MILESTONE_COLORS[i - 1] : 'rgba(255,255,255,0.07)', borderRadius: 1 }} />
               )}
               <div
-                title={`${m.label} — ${m.desc}`}
+                title={`${m.label} -- ${m.desc}`}
                 style={{
                   position: 'relative',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -160,9 +162,26 @@ function MilestoneBar({ bookings }) {
                 </div>
 
                 {/* Label */}
-                <div style={{ fontFamily: FONT, fontSize: isMobile ? 8 : 9, color: done ? col : current ? col : MKT.dim, textAlign: 'center', lineHeight: 1.3, fontWeight: done || current ? 600 : 400, whiteSpace: isMobile ? 'nowrap' : 'normal' }}>
+                <div style={{ fontFamily: FONT, fontSize: isMobile ? 8 : 9, color: done ? col : current ? col : MKT.dim, textAlign: 'center', lineHeight: 1.3, fontWeight: done || current ? 700 : 400, whiteSpace: isMobile ? 'nowrap' : 'normal' }}>
                   {m.shortLabel}
                 </div>
+
+                {/* Equiv */}
+                {m.equiv && (
+                  <>
+                    <div style={{ fontFamily: FONT, fontSize: 6, color: done ? `${col}55` : current ? `${col}55` : 'rgba(255,255,255,0.1)', textAlign: 'center', lineHeight: 1 }}>or</div>
+                    <div style={{ fontFamily: FONT, fontSize: isMobile ? 8 : 9, color: done ? `${col}cc` : current ? `${col}cc` : 'rgba(255,255,255,0.25)', textAlign: 'center', lineHeight: 1.2, fontWeight: done || current ? 600 : 400 }}>
+                      {m.equiv}
+                    </div>
+                  </>
+                )}
+
+                {/* Target date */}
+                {!done && getMilestoneTargetDate(m) && (
+                  <div style={{ fontFamily: FONT, fontSize: 6, color: current ? `${col}66` : 'rgba(255,255,255,0.1)', textAlign: 'center', lineHeight: 1, whiteSpace: 'nowrap' }}>
+                    by {getMilestoneTargetDate(m)}
+                  </div>
+                )}
 
                 {/* "Done" badge on last completed */}
                 {done && i === midx && (
@@ -189,10 +208,19 @@ function MilestoneBar({ bookings }) {
             <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 5, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${progressPct}%`, background: currentCol, borderRadius: 4, minWidth: progressPct > 0 ? 6 : 0, transition: 'width 0.6s ease', boxShadow: `0 0 8px ${currentCol}60` }} />
             </div>
-            {/* Pacing warning */}
-            {pacing && pacing.message && (
-              <div style={{ fontFamily: FONT, fontSize: 10, color: pacing.status === 'behind' || pacing.status === 'overdue' ? '#c05b5b' : MKT.amber, marginTop: 5, fontWeight: 600 }}>
-                {pacing.status === 'overdue' || pacing.status === 'behind' ? '⚠ ' : '! '}{pacing.message}
+            {/* Pacing -- always show days remaining; escalate colour when behind */}
+            {pacing && pacing.status !== 'complete' && (
+              <div style={{
+                fontFamily: FONT, fontSize: 10, marginTop: 5,
+                color: pacing.status === 'behind' || pacing.status === 'overdue' ? '#c05b5b'
+                     : pacing.status === 'slow' ? MKT.amber
+                     : MKT.dim,
+                fontWeight: pacing.status === 'on_track' ? 400 : 600,
+              }}>
+                {pacing.message
+                  ? <>{pacing.status === 'overdue' || pacing.status === 'behind' ? '⚠ ' : '! '}{pacing.message}</>
+                  : pacing.daysLeft > 0 ? `${pacing.daysLeft} day${pacing.daysLeft !== 1 ? 's' : ''} to hit ${currentM.shortLabel} -- target by ${getMilestoneTargetDate(currentM)}` : null
+                }
               </div>
             )}
           </div>
@@ -205,11 +233,11 @@ function MilestoneBar({ bookings }) {
         </div>
       )}
 
-      {/* Always-visible key metrics strip — bookings + money only */}
+      {/* Always-visible key metrics strip -- bookings + money only */}
       <div style={{ padding: isMobile ? '4px 1rem 12px' : '4px 1.5rem 12px', display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 20, flexWrap: 'wrap' }}>
         <Stat label="Bookings this month" value={`${data.monthlyBookings}`} col={data.monthlyBookings >= 3 ? MKT.green : data.monthlyBookings >= 1 ? MKT.amber : MKT.dim} />
-        <Stat label="Revenue this month" value={`£${data.monthlyRevenue.toLocaleString()}`} col={MKT.gold} />
-        <Stat label="Net profit" value={`£${netProfit.toLocaleString()}`} col={netProfit > 0 ? MKT.green : netProfit < 0 ? '#c05b5b' : MKT.dim} />
+        <Stat label="Revenue this month" value={`£${gbp(data.monthlyRevenue)}`} col={MKT.gold} />
+        <Stat label="Net profit" value={`£${gbp(netProfit)}`} col={netProfit > 0 ? MKT.green : netProfit < 0 ? '#c05b5b' : MKT.dim} />
       </div>
     </div>
   );
@@ -329,7 +357,7 @@ function DailyBrief({ onDismiss, onOpenToday, bookings }) {
             </div>
             {(remaining.length + priorities.length) > topTasks.length && (
               <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 6, paddingLeft: 4 }}>
-                + {(remaining.length + priorities.length) - topTasks.length} more — open the Today tab
+                + {(remaining.length + priorities.length) - topTasks.length} more -- open the Today tab
               </div>
             )}
           </div>
@@ -369,33 +397,35 @@ export default function WorkflowTab({ funnelData = [], bookings = [] }) {
   const [editMode,    setEditMode]    = useState(false);
   const [activePromo, setActivePromo] = useState(undefined);
   const [pillTick,    setPillTick]    = useState(0);
-  const BRIEF_LS_KEY = 'lcw_brief_shown_date';
+  const BRIEF_SS_KEY = 'lcw_brief_session';
 
-  // Show brief if: (a) not shown yet today in this session, and (b) not already stored in localStorage for today.
-  // Writing to localStorage on mount (not on dismiss) ensures navigating away and back never re-triggers it.
+  // Show brief on:
+  //   - Every login  (sessionStorage cleared by AdminPage on logout, so it's empty on next login mount)
+  //   - Every new calendar day (date stored in sessionStorage differs from today)
+  // NOT on in-app tab navigation (sessionStorage persists within the session).
+  // window._lcwBriefDate is a same-render guard to prevent flicker from strict mode double-invokes.
   const [showBrief, setShowBrief] = useState(() => {
     const today = new Date().toISOString().slice(0, 10);
-    if (_briefShownForDate === today) return false;
+    if (window._lcwBriefDate === today) return false;
     try {
-      const stored = localStorage.getItem(BRIEF_LS_KEY);
-      if (stored === today) { _briefShownForDate = today; return false; }
-      // First view today -- mark and show
-      localStorage.setItem(BRIEF_LS_KEY, today);
+      const stored = sessionStorage.getItem(BRIEF_SS_KEY);
+      if (stored === today) { window._lcwBriefDate = today; return false; }
+      sessionStorage.setItem(BRIEF_SS_KEY, today);
     } catch {}
-    _briefShownForDate = today;
+    window._lcwBriefDate = today;
     return true;
   });
 
   function dismissBrief() { setShowBrief(false); }
 
-  // Re-show on a new calendar day when the user returns to the browser tab
+  // Re-show when calendar day changes while the tab is open (user left app open overnight)
   useEffect(() => {
     const check = () => {
       if (!document.hidden) {
         const today = new Date().toISOString().slice(0, 10);
-        if (_briefShownForDate !== today) {
-          _briefShownForDate = today;
-          try { localStorage.setItem(BRIEF_LS_KEY, today); } catch {}
+        if (window._lcwBriefDate !== today) {
+          window._lcwBriefDate = today;
+          try { sessionStorage.setItem(BRIEF_SS_KEY, today); } catch {}
           setShowBrief(true);
         }
       }

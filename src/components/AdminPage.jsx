@@ -178,6 +178,8 @@ export default function AdminPage() {
     } else {
       setBannerVisible(false);
       setThemeKey('look3');
+      try { sessionStorage.removeItem('lcw_brief_session'); } catch {}
+      window._lcwBriefDate = null;
     }
   }), []);
 
