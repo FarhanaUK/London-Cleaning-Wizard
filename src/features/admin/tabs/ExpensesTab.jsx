@@ -264,6 +264,50 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         </div>
       </div>
 
+      {/* ── MONTHLY COST SUMMARY ── */}
+      {(() => {
+        const [cy, cm] = thisMonthKey.split('-').map(Number);
+        const mStart = `${thisMonthKey}-01`;
+        const mEnd   = new Date(cy, cm, 0).toISOString().split('T')[0];
+        const activeMonthlyDDs = fixedCosts.filter(f => f.active && !(f.startDate && f.startDate > mEnd) && !(f.endDate && f.endDate < mStart) && !(f.startDate && f.startDate.slice(0, 7) > thisMonthStr));
+        const summaryVars     = expenses.filter(e => e.date?.startsWith(thisMonthKey)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+        const summaryFixed    = activeMonthlyDDs.reduce((s, f) => { const amt = parseFloat(f.amount) || 0; return s + (f.frequency === 'yearly' ? amt / 12 : amt); }, 0);
+        const summaryAds      = marketingSpend.filter(e => e.date?.startsWith(thisMonthKey)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+        const summarySupplies = supplies.filter(s => s.purchaseDate?.startsWith(thisMonthKey)).reduce((s, sup) => s + (parseFloat(sup.unitCost) || 0) * (Number(sup.inStock) || 0), 0);
+        const summaryTotal    = summaryVars + summaryFixed + summaryAds + summarySupplies;
+        const cashFixed       = activeMonthlyDDs.filter(f => f.frequency !== 'yearly').reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
+        const cashTotal       = summaryVars + cashFixed + summaryAds + summarySupplies;
+        const monthLabel = new Date(thisMonthKey + '-01').toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+        return (
+          <>
+            <div style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: 8, border: `1px solid ${C.border}` }}>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Total Spend — {monthLabel}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5,1fr)', gap: 0 }}>
+                {[
+                  { label: 'Variable Expenses', value: summaryVars,      color: '#dc2626' },
+                  { label: 'Direct Debits',     value: summaryFixed,     color: '#f97316' },
+                  { label: 'Ad Spend',          value: summaryAds,       color: '#ec4899' },
+                  { label: 'Supplies',          value: summarySupplies,  color: '#0ea5e9' },
+                  { label: 'Total',             value: summaryTotal,     color: C.text, bold: true },
+                ].map((item, i) => (
+                  <div key={item.label} style={{ padding: '8px 14px', borderLeft: (!isMobile && i > 0) || (isMobile && i % 2 !== 0) ? `1px solid ${C.border}` : 'none', borderTop: isMobile && i >= 2 ? `1px solid ${C.border}` : 'none' }}>
+                    <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>{item.label}</div>
+                    <div style={{ fontFamily: FONT, fontSize: item.bold ? 20 : 18, fontWeight: item.bold ? 700 : 600, color: item.color }}>£{item.value.toFixed(2)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ background: C.card, borderRadius: 10, padding: '12px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: 16, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Actual Cash Leaving Bank — {monthLabel}</div>
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>Excludes yearly direct debits (paid once a year)</div>
+              </div>
+              <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 700, color: '#dc2626' }}>£{cashTotal.toFixed(2)}</div>
+            </div>
+          </>
+        );
+      })()}
+
       {/* ── VARIABLE TAB ── */}
       {expenseTab === 'variable' && (
         <div>
@@ -428,7 +472,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                 const periodLabel = fixedMonthFilter === 'all' ? 'All Time'
                   : fixedMonthFilter.startsWith('ty:') ? `Tax Year ${fixedMonthFilter.slice(3)}`
                   : new Date(fixedMonthFilter + '-01').toLocaleString('en-GB', { month: 'long', year: 'numeric' });
-                const periodTotal = fixedCosts.filter(f => f.active && (!start || (!(f.startDate && f.startDate > end) && !(f.endDate && f.endDate < start))) && !(f.startDate && f.startDate > today)).reduce((s, f) => {
+                const periodTotal = fixedCosts.filter(f => f.active && (!start || (!(f.startDate && f.startDate > end) && !(f.endDate && f.endDate < start))) && !(f.startDate && f.startDate.slice(0, 7) > (fixedMonthFilter === 'all' || fixedMonthFilter.startsWith('ty:') ? thisMonthStr : fixedMonthFilter))).reduce((s, f) => {
                   const amt = parseFloat(f.amount) || 0;
                   return s + (f.frequency === 'yearly' ? amt / 12 : amt);
                 }, 0);
@@ -543,15 +587,15 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                   return s + monthly * monthsActive(f);
                 }, 0)
               : isTaxYearView
-              ? fixedCosts.filter(f => f.active && fixedInPeriod(f) && !(f.startDate && f.startDate > today)).reduce((s, f) => s + taxYearItemContrib(f), 0)
-              : fixedCosts.filter(f => f.active && fixedInPeriod(f) && !(f.startDate && f.startDate > today)).reduce((s, f) => {
+              ? fixedCosts.filter(f => f.active && fixedInPeriod(f) && !(f.startDate && f.startDate.slice(0, 7) > thisMonthStr)).reduce((s, f) => s + taxYearItemContrib(f), 0)
+              : fixedCosts.filter(f => f.active && fixedInPeriod(f) && !(f.startDate && f.startDate.slice(0, 7) > fixedMonthFilter)).reduce((s, f) => {
                   const amt = parseFloat(f.amount) || 0;
                   return s + (f.frequency === 'yearly' ? amt / 12 : amt);
                 }, 0);
             const fixedCatTotals = CATS.map(cat => {
               const total = (isAllTimeView
                 ? fixedCosts.filter(f => f.active && f.category === cat)
-                : fixedCosts.filter(f => f.active && fixedInPeriod(f) && f.category === cat && !(f.startDate && f.startDate > today))
+                : fixedCosts.filter(f => f.active && fixedInPeriod(f) && f.category === cat && !(f.startDate && f.startDate.slice(0, 7) > (isTaxYearView ? thisMonthStr : fixedMonthFilter)))
               ).reduce((s, f) => {
                 const amt = parseFloat(f.amount) || 0;
                 const monthly = f.frequency === 'yearly' ? amt / 12 : amt;
@@ -570,7 +614,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                   </div>
                   {[...fixedCosts].filter(f => {
                     if (!fixedInPeriod(f)) return false;
-                    if (!isAllTimeView && f.startDate && f.startDate > today) return false;
+                    if (!isAllTimeView && f.startDate && f.startDate.slice(0, 7) > (fixedMonthFilter.startsWith('ty:') ? thisMonthStr : fixedMonthFilter)) return false;
                     if (isTaxYearView && f.frequency === 'yearly' && !taxYearYearlyDate(f)) return false;
                     return true;
                   }).sort((a,b) => (a.name||'').localeCompare(b.name||'')).map((f, i, arr) => {
@@ -696,7 +740,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         const moLabourPct = moRevenue > 0 ? (moLabour / moRevenue) * 100 : 0;
 
         const fixedForMonth = (mS, mE) =>
-          fixedCosts.filter(f => f.active && !(f.startDate && f.startDate > mE) && !(f.endDate && f.endDate < mS) && !(f.startDate && f.startDate > today)).reduce((s, f) => {
+          fixedCosts.filter(f => f.active && !(f.startDate && f.startDate > mE) && !(f.endDate && f.endDate < mS)).reduce((s, f) => {
             const amt = parseFloat(f.amount) || 0;
             return s + (f.frequency === 'yearly' ? amt / 12 : amt);
           }, 0);
@@ -759,7 +803,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
           const s = d.toISOString().split('T')[0];
           return s <= pnlEndOfCurMonth ? s : null;
         };
-        const tyFixed = fixedCosts.filter(f => f.active && !(f.startDate && f.startDate > today)).reduce((s, f) => {
+        const tyFixed = fixedCosts.filter(f => f.active && !(f.startDate && f.startDate.slice(0, 7) > thisMonthStr)).reduce((s, f) => {
           const amt = parseFloat(f.amount) || 0;
           if (f.frequency === 'yearly') return s + (pnlTyYearlyDate(f) ? amt : 0);
           return s + amt * pnlTyMonths(f);

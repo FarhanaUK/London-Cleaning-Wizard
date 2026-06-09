@@ -1,37 +1,98 @@
 import { useState, useRef, useEffect } from 'react';
 import { SLabel, Divider, MKT, FONT, genId, buildContext } from './MktShared';
+import { readBusinessData, readOutreachPulse, computePrediction, getMilestoneIndex, MILESTONES, buildBriefContext } from './businessIntelligence';
 
 const MODEL   = 'claude-sonnet-4-6';
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const KEY_SK  = 'lcw_anthropic_key';
 const REV_SK  = 'lcw_weekly_reviews';
 
-const STATIC_CHANNELS = [];
+const CHANNEL_COLLECT = {
+  cold_calling:     { label: 'Cold calling',          items: ['Calls made + calls answered (pick-up rate)', 'Showed interest or asked for pricing', 'Quotes / prices sent this week', 'Call follow-ups completed (day 3-5)'] },
+  face_to_face:     { label: 'Face-to-face visits',   items: ['Visits completed this week', 'Same-day emails sent after visits', 'Responses or interest shown'] },
+  facebook_groups:  { label: 'Facebook groups',       items: ['Posts this week + which groups', 'Enquiries received', 'Converted to bookings'] },
+  email_outreach:   { label: 'Email outreach',        items: ['Emails sent this week', 'Replies received', 'Follow-ups completed (day 3-4)'] },
+  google_business:  { label: 'Google Business',       items: ['Posts published this week', 'New reviews received (total now: X)', 'Review requests sent via WhatsApp'] },
+  personal_network: { label: 'Personal network',      items: ['WhatsApp status updated (yes/no)', 'Direct messages sent', 'Enquiries or bookings from this channel'] },
+  google_ads:       { label: 'Google Ads',            items: ['Campaign overview (impressions, clicks, CTR, spend, conversions)', 'Keyword performance — all keywords with clicks, CTR, spend', 'Search terms report — what people actually typed', 'Ad performance — which ad copy has the best CTR'] },
+  lsa:              { label: 'Local Services Ads',    items: ['Leads received this week', 'Lead response time (first reply)', 'Bookings confirmed from LSA'] },
+};
 
-const ADS_ITEMS = [
-  'Campaign overview (impressions, clicks, CTR, spend, conversions)',
-  'Keyword performance report — all keywords with clicks, CTR, spend',
-  'Search terms report — what people actually typed',
-  'Ad performance — which ad copy has the best CTR',
-];
+const ALWAYS_COLLECT = { label: 'Always', items: ['New bookings this week (total)', 'Any trials or partnerships confirmed'] };
 
-const SYSTEM_PROMPT = `You are LC Wizard, the dedicated marketing advisor for London Cleaning Wizard — a premium residential cleaning business in London run by Farhana and Steven.
+const CHANNEL_ADVICE = {
+  cold_calling:     '→ If call volume is reported: ask about pick-up rate and interest rate — these are the leading indicators, not just total calls',
+  face_to_face:     '→ If face-to-face visits are reported: ask whether same-day emails were sent — this follow-up is non-negotiable',
+  facebook_groups:  '→ If Facebook posts are reported: ask about the post tone — did it read like a person or an advert? This is the biggest factor',
+  email_outreach:   '→ If email outreach is reported: ask about open rates and follow-up cadence — day 3-4 follow-ups drive replies',
+  google_business:  '→ If Google Business activity is reported: check review count progress — growing from 7 to 20+ is a priority',
+  personal_network: '→ If personal network activity is reported: ask how many contacts were reached and any bookings that came from it',
+  google_ads:       '→ If someone asks about Google Ads: note it is paused until the booking funnel is fixed — do not recommend reactivating until Deep Reset prices, the surcharge disclosure, and the ad destination URL are resolved',
+  lsa:              '→ If LSA activity is reported: check lead response time — first to reply wins most LSA bookings',
+};
+
+function readBudget() {
+  try { return JSON.parse(localStorage.getItem('mkt_budget_rows_v2')) || []; } catch { return []; }
+}
+
+function getChannelType(name = '') {
+  const n = name.toLowerCase();
+  if (n.includes('cold call')) return 'cold_calling';
+  if (n.includes('face-to-face') || n.includes('visit')) return 'face_to_face';
+  if (n.includes('facebook')) return 'facebook_groups';
+  if (n.includes('email outreach')) return 'email_outreach';
+  if (n.includes('google business')) return 'google_business';
+  if (n.includes('personal network')) return 'personal_network';
+  if (n.includes('google ads')) return 'google_ads';
+  if (n.includes('lsa')) return 'lsa';
+  return null;
+}
+
+function buildSystemPrompt(rows, bookings = []) {
+  const activeRows  = rows.filter(r => r.active !== false);
+  const activeNames = activeRows.map(r => r.name).join(', ') || 'none currently set';
+  const totalBudget = activeRows.reduce((s, r) => s + (r.amount || 0), 0);
+  const googleAdsRow = rows.find(r => r.name?.toLowerCase().includes('google ads'));
+  const googleAdsPaused = !googleAdsRow || googleAdsRow.active === false;
+  const channelAdvice = activeRows
+    .map(r => CHANNEL_ADVICE[getChannelType(r.name)])
+    .filter(Boolean)
+    .join('\n');
+
+  // Live business intelligence
+  const bizData  = readBusinessData(bookings);
+  const pulse    = readOutreachPulse();
+  const pred     = computePrediction(bizData, pulse);
+  const midx     = getMilestoneIndex(bizData);
+  const nextM    = MILESTONES[midx + 1];
+  const briefCtx = buildBriefContext(bizData, pulse, pred);
+
+  return `You are The Wizard, the dedicated marketing advisor for London Cleaning Wizard — a premium residential cleaning business in London run by Farhana.
 
 Business context:
 → Premium residential cleaning in London — never "cheap" or "affordable"
-→ Farhana: Google Ads premium areas campaign (LCW Premium Areas Residential)
-→ Steven: Google Ads general campaign (LCW General Residential), Facebook groups, Nextdoor
-→ Shared monthly budget: £500 · Goal: 30 bookings/month
-→ Campaigns launched May 2026 — in early learning phase
+→ ${bizData.googleReviews} Google reviews currently — growing to 20+ is a priority
+→ Active channels: ${activeNames}
+→ Monthly marketing budget: ${totalBudget > 0 ? `£${totalBudget}` : 'all free (no paid channels active)'}
+${googleAdsPaused ? '→ Google Ads paused — funnel issues: Deep Reset price ambiguity, house surcharge shown too late, ad destination URL not pointing to booking flow' : '→ Google Ads active — check spend, conversions, and search terms weekly'}
+→ Letting agent timeline: realistic 4-8 weeks from first contact to first booking — do not suggest dropping a prospect after 1-2 touchpoints
+→ Airbnb hosts via Facebook groups: reply speed is the critical variable — first to reply has the best chance
 
-The user will paste their weekly marketing data and have a conversation with you about it. Be a smart, engaged advisor — not a report generator. Read the data carefully, ask questions when anything is unclear or could lead to a wrong conclusion, connect numbers to trends you know about, and help them understand what's actually happening and what to do next.
+Live business data (read and use this in every response):
+${briefCtx}
+→ Current milestone: ${midx >= 0 ? MILESTONES[midx].label : 'none complete yet'}
+→ Next milestone to hit: ${nextM ? `${nextM.label} (${nextM.timeframe})` : 'all milestones complete'}
 
-Rules that matter:
-→ Never attribute data to Farhana or Steven unless it is explicitly labelled as theirs in the paste
-→ If data is unlabelled or ambiguous, ask which campaign or person it belongs to before drawing conclusions
-→ Never recommend pausing a keyword based solely on 0 conversions in the keyword report — Google Ads keyword-level attribution is often incomplete, especially in early campaigns
-→ Campaigns are in bid strategy learning phase — be patient, avoid aggressive cut or pause recommendations
-→ Ask clarifying questions when you need more information — it is better to ask than to assume and get it wrong`;
+How to use this data:
+→ Always open your analysis by referencing where the business currently stands (days since last booking, booking count, outreach velocity)
+→ If the prediction signal is "Action required" or "Needs attention" — lead with the most important corrective action before anything else
+→ If days since last booking exceeds 14: flag this explicitly and help identify why conversion is stalling
+→ If outreach velocity is below target: quantify the gap and give a specific number to aim for this week
+→ If velocity is good but bookings are not converting: focus on follow-up cadence, not channel changes
+→ Always tie advice to the specific active channels (${activeNames})
+→ Never give generic advice — always ground it in the specific numbers they have shared
+${channelAdvice}`;
+}
 
 function AiText({ text, loading }) {
   function renderInline(str) {
@@ -81,8 +142,11 @@ function ChatMsg({ msg, isLast, loading }) {
   const isDataDump = msg.isPaste;
   return (
     <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexDirection: isBot ? 'row' : 'row-reverse' }}>
-      <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isBot ? MKT.dark4 : 'rgba(37,99,235,0.08)', border: `0.5px solid ${isBot ? MKT.border : 'rgba(37,99,235,0.2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT, fontSize: 9, color: isBot ? MKT.gold : MKT.blue }}>
-        {isBot ? 'LC' : 'You'}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+        <div style={{ width: 28, height: 28, borderRadius: '50%', background: isBot ? MKT.dark4 : 'rgba(37,99,235,0.08)', border: `0.5px solid ${isBot ? MKT.border : 'rgba(37,99,235,0.2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT, fontSize: 9, color: isBot ? MKT.gold : MKT.blue }}>
+          {isBot ? 'W' : 'You'}
+        </div>
+        {isBot && <span style={{ fontFamily: FONT, fontSize: 8, color: MKT.dim, whiteSpace: 'nowrap', letterSpacing: '0.04em' }}>AI Adviser</span>}
       </div>
       <div style={{ maxWidth: '85%', background: isBot ? MKT.dark3 : 'rgba(37,99,235,0.04)', border: `0.5px solid ${isBot ? MKT.border : 'rgba(37,99,235,0.12)'}`, borderRadius: isBot ? '4px 10px 10px 10px' : '10px 4px 10px 10px', padding: '10px 14px' }}>
         {isDataDump ? (
@@ -99,7 +163,7 @@ function ChatMsg({ msg, isLast, loading }) {
   );
 }
 
-export default function WeeklyReviewContent() {
+export default function WeeklyReviewContent({ bookings = [] }) {
   const [checked,     setChecked]     = useState({});
   const [paste,       setPaste]       = useState('');
   const [loading,     setLoading]     = useState(false);
@@ -110,19 +174,30 @@ export default function WeeklyReviewContent() {
   const [expanded,    setExpanded]    = useState(null);
   const [saved,       setSaved]       = useState(false);
   const [apiKey]                      = useState(() => localStorage.getItem(KEY_SK) || '');
+  const [budgetRows,  setBudgetRows]  = useState(readBudget);
 
-  const abortRef   = useRef(null);
-  const scrollRef  = useRef(null);
-  const inputRef   = useRef(null);
-  const msgsRef    = useRef([]);
+  const abortRef    = useRef(null);
+  const scrollRef   = useRef(null);
+  const inputRef    = useRef(null);
+  const msgsRef     = useRef([]);
+  const systemRef   = useRef('');
 
-  const [campaigns, setCampaigns] = useState([]);
   useEffect(() => {
-    try {
-      const roadmap = JSON.parse(localStorage.getItem('mkt_campaigns')) || [];
-      setCampaigns(roadmap.filter(r => r.green));
-    } catch {}
+    const refresh = () => setBudgetRows(readBudget());
+    window.addEventListener('lcw-data-saved', refresh);
+    return () => window.removeEventListener('lcw-data-saved', refresh);
   }, []);
+
+  const activeRows    = budgetRows.filter(r => r.active !== false);
+  const collectGroups = [
+    ...activeRows
+      .map(r => ({ type: getChannelType(r.name), r }))
+      .filter(({ type }) => type && CHANNEL_COLLECT[type])
+      .map(({ type }) => CHANNEL_COLLECT[type]),
+    ALWAYS_COLLECT,
+  ];
+  const totalItems   = collectGroups.reduce((s, g) => s + g.items.length, 0);
+  const totalChecked = Object.values(checked).filter(Boolean).length;
 
   useEffect(() => { localStorage.setItem(REV_SK, JSON.stringify(reviews)); }, [reviews]);
   useEffect(() => { msgsRef.current = messages; }, [messages]);
@@ -130,12 +205,9 @@ export default function WeeklyReviewContent() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  const totalChecked = Object.values(checked).filter(Boolean).length;
-  const totalItems   = campaigns.length * ADS_ITEMS.length + STATIC_CHANNELS.reduce((s, c) => s + c.items.length, 0);
-
   function toggle(id) { setChecked(p => ({ ...p, [id]: !p[id] })); }
 
-  async function callApi(apiMessages, botId) {
+  async function callApi(apiMessages, botId, systemPrompt) {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -143,7 +215,7 @@ export default function WeeklyReviewContent() {
       const res = await fetch(API_URL, {
         method: 'POST', signal: ctrl.signal,
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-        body: JSON.stringify({ model: MODEL, max_tokens: 2048, stream: true, system: SYSTEM_PROMPT, messages: apiMessages }),
+        body: JSON.stringify({ model: MODEL, max_tokens: 2048, stream: true, system: systemPrompt, messages: apiMessages }),
       });
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const reader = res.body.getReader();
@@ -179,11 +251,12 @@ export default function WeeklyReviewContent() {
     setLoading(true);
     setSaved(false);
     setChatStarted(true);
+    systemRef.current = buildSystemPrompt(budgetRows, bookings);
     const userMsg = { id: genId(), role: 'user', content: paste, isPaste: true };
     const botMsg  = { id: genId(), role: 'assistant', content: '' };
     setMessages([userMsg, botMsg]);
     const ctx = buildContext();
-    await callApi([{ role: 'user', content: `${ctx}\n\n---\n\nHere is this week's raw marketing data:\n\n${paste}` }], botMsg.id);
+    await callApi([{ role: 'user', content: `${ctx}\n\n---\n\nHere is this week's raw marketing data:\n\n${paste}` }], botMsg.id, systemRef.current);
   }
 
   async function sendFollowUp() {
@@ -198,7 +271,6 @@ export default function WeeklyReviewContent() {
     const current = msgsRef.current;
     setMessages([...current, userMsg, botMsg]);
 
-    // Build API history — first user message always injects the paste as context
     const apiMessages = [];
     for (const m of current) {
       if (!m.content) continue;
@@ -209,7 +281,7 @@ export default function WeeklyReviewContent() {
       }
     }
     apiMessages.push({ role: 'user', content: text });
-    await callApi(apiMessages, botMsg.id);
+    await callApi(apiMessages, botMsg.id, systemRef.current);
   }
 
   function saveReview() {
@@ -251,34 +323,18 @@ export default function WeeklyReviewContent() {
           </div>
         )}
 
-        <div style={{ display: 'flex', borderTop: `0.5px solid ${MKT.border}` }}>
+        <div style={{ display: 'flex', borderTop: `0.5px solid ${MKT.border}`, flexDirection: typeof window !== 'undefined' && window.innerWidth < 640 ? 'column' : 'row' }}>
 
           {/* Checklist column */}
-          <div style={{ width: 280, flexShrink: 0, borderRight: `0.5px solid ${MKT.border}`, overflowY: 'auto', maxHeight: 420, padding: '1rem 1.25rem' }}>
-            {campaigns.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: MKT.blue, marginBottom: 8 }}>Google Ads</div>
-                {campaigns.map(c => (
-                  <div key={c.id} style={{ marginBottom: 10 }}>
-                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: MKT.text, marginBottom: 4 }}>{c.text.replace(/^Campaign \d+ \(live\) — /, '')}</div>
-                    {ADS_ITEMS.map((item, ii) => {
-                      const key = `${c.id}_${ii}`;
-                      return (
-                        <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '3px 0', cursor: 'pointer' }}>
-                          <input type="checkbox" checked={!!checked[key]} onChange={() => toggle(key)} style={{ marginTop: 2, accentColor: MKT.blue, flexShrink: 0 }} />
-                          <span style={{ fontFamily: FONT, fontSize: 11, color: checked[key] ? MKT.green : MKT.muted, textDecoration: checked[key] ? 'line-through' : 'none', lineHeight: 1.45 }}>{item}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
+          <div style={{ width: typeof window !== 'undefined' && window.innerWidth < 640 ? '100%' : 280, flexShrink: 0, borderRight: typeof window !== 'undefined' && window.innerWidth >= 640 ? `0.5px solid ${MKT.border}` : 'none', borderBottom: typeof window !== 'undefined' && window.innerWidth < 640 ? `0.5px solid ${MKT.border}` : 'none', overflowY: 'auto', maxHeight: 300, padding: '1rem 1.25rem' }}>
+            {collectGroups.length === 1 && (
+              <p style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, margin: 0 }}>No active channels — go to the Budget tab and toggle channels on.</p>
             )}
-            {STATIC_CHANNELS.map(ch => (
-              <div key={ch.id} style={{ marginBottom: 12 }}>
-                <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: MKT.blue, marginBottom: 5 }}>{ch.label}</div>
-                {ch.items.map((item, ii) => {
-                  const key = `${ch.id}_${ii}`;
+            {collectGroups.map((group, gi) => (
+              <div key={gi} style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: MKT.blue, marginBottom: 5 }}>{group.label}</div>
+                {group.items.map((item, ii) => {
+                  const key = `g${gi}_${ii}`;
                   return (
                     <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '3px 0', cursor: 'pointer' }}>
                       <input type="checkbox" checked={!!checked[key]} onChange={() => toggle(key)} style={{ marginTop: 2, accentColor: MKT.blue, flexShrink: 0 }} />
@@ -298,7 +354,7 @@ export default function WeeklyReviewContent() {
             <textarea
               value={paste}
               onChange={e => { setPaste(e.target.value); if (chatStarted) resetChat(); }}
-              placeholder="=== FARHANA - LCW PREMIUM AREAS ===&#10;Paste Farhana's data here...&#10;&#10;=== STEVEN - LCW GENERAL ===&#10;Paste Steven's data here..."
+              placeholder="=== COLD CALLING ===&#10;Calls made: _ · Answered: _ · Showed interest: _ · Quotes sent: _&#10;&#10;=== FACEBOOK GROUPS ===&#10;Posts this week: _ · Enquiries received: _ · Converted to bookings: _&#10;&#10;=== FACE-TO-FACE VISITS ===&#10;Visits: _ · Same-day emails sent: _ · Responses: _&#10;&#10;=== FOLLOW-UPS ===&#10;Day 3-4 follow-ups completed: _ · Positive replies: _&#10;&#10;=== BOOKINGS ===&#10;New bookings this week: _ · Any trials or partnerships confirmed:"
               style={{ flex: 1, minHeight: 300, background: MKT.dark3, border: `0.5px solid ${MKT.borderStrong}`, borderRadius: 8, padding: '10px 12px', color: MKT.text, fontFamily: FONT, fontSize: 12, outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box', width: '100%' }}
             />
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10 }}>
@@ -307,9 +363,9 @@ export default function WeeklyReviewContent() {
                 disabled={!paste.trim() || loading || !apiKey}
                 style={{ background: paste.trim() && !loading && apiKey ? 'rgba(37,99,235,0.1)' : 'transparent', border: `0.5px solid ${paste.trim() && !loading && apiKey ? MKT.borderStrong : MKT.border}`, borderRadius: 6, padding: '7px 20px', color: paste.trim() && !loading && apiKey ? MKT.gold : MKT.dim, fontSize: 13, fontFamily: FONT, cursor: paste.trim() && !loading && apiKey ? 'pointer' : 'default' }}
               >
-                {loading ? 'Thinking...' : chatStarted ? 'Start over' : 'Start review with LC Wizard'}
+                {loading ? 'Thinking...' : chatStarted ? 'Start over' : 'Start review with The Wizard'}
               </button>
-              {!apiKey && <span style={{ fontFamily: FONT, fontSize: 11, color: MKT.amber }}>Enter your API key in LC Wizard chat first</span>}
+              {!apiKey && <span style={{ fontFamily: FONT, fontSize: 11, color: MKT.amber }}>Enter your API key in The Wizard chat first</span>}
             </div>
           </div>
         </div>

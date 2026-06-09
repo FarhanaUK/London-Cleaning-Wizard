@@ -275,61 +275,47 @@ export default function Navbar() {
       {/* Mobile menu */}
       {menuOpen && isMobile && (
         <div style={{
-          position: "fixed", inset: 0, zIndex: 45, background: "#1a1410",
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28,
-          overflowY: "auto", padding: "40px 20px",
+          position: "fixed", inset: 0, zIndex: 999, background: "#1a1410",
+          display: "flex", flexDirection: "column", alignItems: "center",
+          overflowY: "auto", paddingTop: 96, paddingBottom: 48, paddingLeft: 20, paddingRight: 20,
         }}>
-          <WandIcon size={40} color="#c8b89a" />
 
-          {/* Services group */}
-          <div style={{ textAlign: "center" }}>
-            <div style={{
-              fontFamily: "'Jost', sans-serif",
-              fontSize: 11,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "rgba(245,240,232,0.35)",
-              marginBottom: 16,
-            }}>
-              Services
-            </div>
-            {SERVICE_SUB_LINKS.map(item => (
-              <div
-                key={item.label}
-                onClick={() => goToBooking(item.tab)}
-                style={{
-                  fontFamily: "'Jost', sans-serif",
-                  fontSize: item.cta ? 14 : 16,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: item.cta ? "#c8b89a" : "#f5f0e8",
-                  cursor: "pointer",
-                  marginBottom: 14,
-                }}
-              >
+          {/* All nav links */}
+          <div style={{ width: "100%", paddingLeft: 32 }}>
+            {SERVICE_SUB_LINKS.filter(i => !i.cta).map(item => (
+              <div key={item.label} onClick={() => goToBooking(item.tab)} style={{
+                fontFamily: "'Jost', sans-serif", fontSize: 14, letterSpacing: "0.16em",
+                textTransform: "uppercase", color: "rgba(245,240,232,0.7)",
+                cursor: "pointer", marginBottom: 20,
+              }}>
                 {item.label}
               </div>
             ))}
+
+            <div style={{ width: 32, height: 1, background: "rgba(200,184,154,0.2)", margin: "8px 0 28px" }} />
+
+            {NAV_LINKS.filter(l => l.path !== "/services").map(({ path, label }) => (
+              <Link key={path} to={path} onClick={() => setMenuOpen(false)} style={{
+                fontFamily: "'Jost', sans-serif", fontSize: 14, letterSpacing: "0.16em",
+                textTransform: "uppercase", color: "rgba(245,240,232,0.7)",
+                cursor: "pointer", textDecoration: "none", marginBottom: 20, display: "block",
+              }}>
+                {label}
+              </Link>
+            ))}
           </div>
 
-          {/* Other nav links */}
-          {NAV_LINKS.filter(l => l.path !== "/services").map(({ path, label }) => (
-            <Link key={path} to={path} onClick={() => setMenuOpen(false)} style={{
-              fontFamily: "'Jost', sans-serif", fontSize: 18, letterSpacing: "0.18em",
-              textTransform: "uppercase", color: "#f5f0e8", cursor: "pointer", textDecoration: "none",
+          {/* Book Now */}
+          <div style={{ width: "100%", paddingLeft: 32, marginTop: 8 }}>
+            <Link to="/book?from=navbar" onClick={() => setMenuOpen(false)} style={{
+              fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em",
+              textTransform: "uppercase", fontWeight: 500, padding: "15px 44px",
+              background: "#2c2420", color: "#f5f0e8", cursor: "pointer",
+              display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none",
             }}>
-              {label}
+              <WandIcon size={14} color="#c8b89a" /> Book Now
             </Link>
-          ))}
-
-          <Link to="/book?from=navbar" onClick={() => setMenuOpen(false)} style={{
-            fontFamily: "'Jost', sans-serif", fontSize: 11, letterSpacing: "0.14em",
-            textTransform: "uppercase", fontWeight: 500, padding: "15px 44px",
-            background: "#2c2420", color: "#f5f0e8", cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 10, textDecoration: "none",
-          }}>
-            <WandIcon size={14} color="#c8b89a" /> Book Now
-          </Link>
+          </div>
         </div>
       )}
     </>

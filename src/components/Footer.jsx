@@ -200,6 +200,7 @@ export default function Footer() {
         {[
           { label: "Privacy Policy",    href: "/privacy-policy" },
           { label: "Terms & Conditions", href: "/terms-and-conditions" },
+          { label: "Careers",            href: "/careers" },
         ].map(({ label, href }) => (
           <a key={label} href={href} style={{ fontFamily: "'Jost',sans-serif", fontSize: isMobile ? 10 : 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(245,240,232,0.18)", textDecoration: "none" }}>
             {label}

@@ -23,6 +23,18 @@
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
       }
     ],
+    "redirects": [
+      {
+        "source": "/hourly-clean",
+        "destination": "/regular-clean",
+        "type": 301
+      },
+      {
+        "source": "/faq",
+        "destination": "/faqs",
+        "type": 301
+      }
+    ],
     "rewrites": [
       {
         "source": "**",

@@ -35,7 +35,7 @@ export const GALLERY = [
 
 export const TESTIMONIALS = [
   { name: "Sophie L.",  area: "Hackney",       stars: 5, text: "I've tried three cleaning companies before. None came close to this. My home genuinely feels like a boutique hotel after every visit." },
-  { name: "Marcus B.",  area: "Canary Wharf",  stars: 5, text: "End-of-tenancy was flawless. They recovered my full £2,400 deposit. My landlord called it the cleanest handback he'd ever seen in 20 years." },
+  { name: "Steven S.",  area: "Canary Wharf",  stars: 5, text: "Appreciate the level of detail you provided for my cleaning! Cleaner was professional and on time. Booking the clean was very easy. Will book reoccurring cleans very soon!" },
   { name: "Amara N.",   area: "Bethnal Green", stars: 5, text: "They came for a move-in clean and left our flat looking like a show home. Immaculate kitchen, glowing bathroom. Already booked the regular service." },
 ];
 

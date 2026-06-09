@@ -53,6 +53,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const allReportMonths = getReportMonths();
   const isMonthMode     = reportsMode === 'month';
   const today           = now.toISOString().slice(0, 10);
+  const thisMonthStr    = today.slice(0, 7);
 
   // ── Period boundaries ──
   let periodStart, periodEnd, periodLabel;
@@ -74,7 +75,6 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     if (!f.active) return false;
     if (f.startDate && f.startDate > pEnd) return false;
     if (f.endDate && f.endDate < pStart) return false;
-    if (f.startDate && f.startDate > today) return false;
     return true;
   });
   const fixedMonthlyForPeriod = (pStart, pEnd) => fixedCostsForPeriod(pStart, pEnd).reduce((s, f) => {
@@ -154,7 +154,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   };
   const periodFixed = isMonthMode
     ? fixedMonthly
-    : fixedCosts.filter(f => f.active && !(f.startDate && f.startDate > today)).reduce((s, f) => {
+    : fixedCosts.filter(f => f.active && !(f.startDate && f.startDate.slice(0, 7) > thisMonthStr)).reduce((s, f) => {
         const amt = parseFloat(f.amount) || 0;
         if (f.frequency === 'yearly') return s + (rptTyYearlyDate(f) ? amt : 0);
         return s + amt * rptTyMonths(f);
@@ -246,7 +246,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
 
   // ── Tax-year-only: 12 monthly bars + MoM + supplies trend ──
   const fixedForMonth = (mS, mE) =>
-    fixedCosts.filter(f => f.active && !(f.startDate && f.startDate > mE) && !(f.endDate && f.endDate < mS) && !(f.startDate && f.startDate > today)).reduce((s, f) => {
+    fixedCosts.filter(f => f.active && !(f.startDate && f.startDate > mE) && !(f.endDate && f.endDate < mS)).reduce((s, f) => {
       const amt = parseFloat(f.amount) || 0;
       return s + (f.frequency === 'yearly' ? amt / 12 : amt);
     }, 0);

@@ -275,7 +275,75 @@ export default function AdminPage() {
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'bookingFunnel'), orderBy('updatedAt', 'desc'), limit(5000));
-    return onSnapshot(q, snap => setFunnelData(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return onSnapshot(q, snap => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setFunnelData(data);
+
+      // Weekly funnel notification — fires at most once per week when 10+ visitors in last 7 days
+      try {
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+        const cutoffStr = cutoff.toISOString().slice(0, 10);
+        const recent = data.filter(s => {
+          const d = s.date || (s.updatedAt?.seconds ? new Date(s.updatedAt.seconds * 1000).toISOString().slice(0, 10) : null);
+          return d && d >= cutoffStr;
+        });
+        if (recent.length >= 10) {
+          const now = new Date();
+          const weekKey = `${now.getFullYear()}-W${Math.ceil((now.getDate()) / 7)}`;
+          addNotification({
+            id: `funnel_intel_${weekKey}`,
+            type: 'funnel_intel',
+            icon: '📊',
+            title: 'Funnel Intel — weekly reading ready',
+            message: `${recent.length} visitors in the last 7 days. Check Funnel Intel for your automated reading and next steps.`,
+            link: 'campaigns',
+          });
+        }
+      } catch {}
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    // Weekly check-in reminder — fires if no action plan check-in or outreach log in 7 days
+    try {
+      const now = new Date();
+      const weekKey = `${now.getFullYear()}-W${Math.ceil(now.getDate() / 7)}`;
+
+      const checkins = JSON.parse(localStorage.getItem('lcw_action_checkins') || '[]');
+      const lastCheckin = checkins.sort((a, b) => b.weekOf.localeCompare(a.weekOf))[0];
+      const daysSinceCheckin = lastCheckin
+        ? Math.floor((Date.now() - new Date(lastCheckin.weekOf).getTime()) / (1000 * 60 * 60 * 24))
+        : 999;
+
+      const outreach = JSON.parse(localStorage.getItem('lcw_outreach_log') || '[]');
+      const lastOutreach = outreach.sort((a, b) => b.weekOf.localeCompare(a.weekOf))[0];
+      const daysSinceOutreach = lastOutreach
+        ? Math.floor((Date.now() - new Date(lastOutreach.weekOf).getTime()) / (1000 * 60 * 60 * 24))
+        : 999;
+
+      if (daysSinceCheckin >= 7) {
+        addNotification({
+          id: `action_plan_checkin_${weekKey}`,
+          type: 'action_checkin',
+          icon: '✅',
+          title: 'Weekly check-in due',
+          message: `Log what you did this week in the Action Plan tab. Without it, the combined reading cannot tell whether results are flat because actions were skipped or because the strategy needs changing.`,
+          link: 'campaigns',
+        });
+      }
+
+      if (daysSinceOutreach >= 7) {
+        addNotification({
+          id: `outreach_log_due_${weekKey}`,
+          type: 'outreach_due',
+          icon: '📞',
+          title: 'Outreach data not logged this week',
+          message: `Log your calls, emails, visits, and group posts in the Outreach Tracker. The reading needs weekly data to be accurate.`,
+          link: 'campaigns',
+        });
+      }
+    } catch {}
   }, [user]);
 
   useEffect(() => {
@@ -558,7 +626,7 @@ export default function AdminPage() {
               {activeView === 'reports'   && <ReportsTab bookings={activeBookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} marketingSpend={marketingSpend} isMobile={isMobile} C={C} />}
               {activeView === 'bookings'  && <BookingsTab bookings={activeBookings} setBookings={setBookings} staff={staff} isMobile={isMobile} C={C} user={user} schedulerLogs={schedulerLogs} bannerVisible={bannerVisible} welcomeMsg={welcomeMsg} welcomeColor={welcomeColor} />}
               {activeView === 'marketing'       && <MarketingTab abandonmentStats={abandonmentStats} funnelData={funnelData} bookings={activeBookings} isMobile={isMobile} C={C} />}
-              {activeView === 'campaigns'      && <CampaignWorkflow />}
+              {activeView === 'campaigns'      && <CampaignWorkflow funnelData={funnelData} bookings={activeBookings} />}
               {activeView === 'adSpend'        && <MarketingSpendTab isMobile={isMobile} C={C} />}
               {activeView === 'promotions'     && <PromotionsTab isMobile={isMobile} C={C} />}
               {activeView === 'signatureTouch' && <SignatureTouchTab bookings={activeBookings} staff={staff} stDistributions={stDistributions} C={C} />}

@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { SLabel, MktMetric, MktAlert, Divider, AddBtn, DragHandle, useDragSort, MKT, FONT, SERIF, EDIT_INPUT, DEL_BTN, genId, usePersisted } from './MktShared';
 
 const DEFAULT_MONTHLY = [
@@ -9,18 +8,41 @@ const DEFAULT_MONTHLY = [
 ];
 
 const DEFAULT_CARDS = [
-  { id: 'tc1', title: 'Month 1 — weeks 1 & 2', items: [{ id: 'i1', text: 'Google Ads: 30–50 impressions/day, CTR 3–7%', amber: false }, { id: 'i2', text: '1–2 bookings total', amber: false }, { id: 'i3', text: 'LSA verification submitted', amber: false }, { id: 'i4', text: 'Bark.com profile live', amber: false }, { id: 'i5', text: "Steven's campaign urgent fixes done", amber: false }, { id: 'i6', text: 'Nextdoor business page set up', amber: false }, { id: 'i7', text: 'Flyers designed and distributed', amber: false }], danger: 'Zero bookings after 2 weeks → copy your Analytics tab data and share it with Claude: "Here is my weekly marketing data, tell me exactly what to fix on each channel."' },
-  { id: 'tc2', title: 'Month 1 — weeks 3 & 4', items: [{ id: 'j1', text: '3–6 bookings total for the month', amber: false }, { id: 'j2', text: 'LSA live and generating 2+ leads/week', amber: false }, { id: 'j3', text: 'At least 1 enquiry from Nextdoor or Facebook', amber: false }, { id: 'j4', text: 'At least 1 new Google review from a real client', amber: false }, { id: 'j5', text: 'Follow up every booking with recurring offer within 24hrs', amber: true }], danger: 'Under 3 bookings → shift £30 from Facebook boost to LSA. Share Analytics tab data with Claude for a full channel-by-channel review.' },
-  { id: 'tc3', title: 'Month 2', items: [{ id: 'k1', text: '6–12 bookings total', amber: false }, { id: 'k2', text: '1–2 recurring weekly clients confirmed', amber: false }, { id: 'k3', text: 'Switch Google Ads to Maximise Conversions', amber: false }, { id: 'k4', text: 'First TikTok content posted after real clean', amber: false }, { id: 'k5', text: '5+ Google reviews live', amber: false }, { id: 'k6', text: 'Start building General Residential campaign', amber: false }], danger: 'No recurring clients → send the follow-up message to every past client within 24hrs of their clean. Share Analytics data with Claude for a review.' },
-  { id: 'tc4', title: 'Month 3 — scaling', items: [{ id: 'l1', text: '12–20 bookings total', amber: false }, { id: 'l2', text: '3–5 recurring weekly clients', amber: false }, { id: 'l3', text: 'Ad spend covered by recurring revenue', amber: false }, { id: 'l4', text: '10+ Google reviews', amber: false }, { id: 'l5', text: 'Deep Clean campaign built', amber: false }, { id: 'l6', text: 'Recruit 2 more vetted cleaners', amber: false }], danger: 'Bookings plateau → add Airbnb campaign, increase LSA to £200/month, increase Instagram boost to £100/month. Share Analytics data with Claude.' },
+  { id: 'nc1', title: 'Weeks 1-4 — building volume', items: [
+    { id: 'ni1', text: '30-40 calls per week consistently — not once, every week', amber: false },
+    { id: 'ni2', text: '3-5 face-to-face visits per week to letting agencies', amber: false },
+    { id: 'ni3', text: 'First letting agent genuinely interested — asked for pricing or said "send me info"', amber: false },
+    { id: 'ni4', text: 'First Facebook Airbnb enquiry received and replied to within 1 hour', amber: false },
+    { id: 'ni5', text: 'Same-day follow-up emails sent before getting home from every visit', amber: true },
+  ], danger: 'Zero responses after 4 weeks of 30+ calls/week → review your opening line. Log the data in Outreach Tracker and bring it to Claude for an honest channel review.' },
+  { id: 'nc2', title: 'Weeks 5-8 — first conversions', items: [
+    { id: 'nj1', text: 'First booking from Facebook Airbnb group post', amber: false },
+    { id: 'nj2', text: '1-2 letting agents at quote stage — prices sent, follow-up in progress', amber: false },
+    { id: 'nj3', text: 'Google reviews at 10+ from personal WhatsApp requests after cleans', amber: false },
+    { id: 'nj4', text: 'First trial clean confirmed with a letting agent', amber: true },
+  ], danger: 'No bookings from any channel after 8 weeks → log all data in Outreach Tracker and review with Claude. Volume or follow-up cadence is likely the bottleneck.' },
+  { id: 'nc3', title: 'Month 3 — first partnerships', items: [
+    { id: 'nk1', text: 'One letting agent sending regular work — EOT or routine property cleans', amber: false },
+    { id: 'nk2', text: '3-5 Airbnb bookings from Facebook groups this month', amber: false },
+    { id: 'nk3', text: '15+ Google reviews live', amber: false },
+    { id: 'nk4', text: 'Booking funnel fixed — test Google Ads restart at £5/day', amber: false },
+  ], danger: '' },
+  { id: 'nc4', title: 'Month 4+ — scaling', items: [
+    { id: 'nl1', text: '2-3 letting agents sending regular work', amber: false },
+    { id: 'nl2', text: 'Facebook groups producing 4-6 bookings per month', amber: false },
+    { id: 'nl3', text: '20+ Google reviews', amber: false },
+    { id: 'nl4', text: 'Google Ads active at £150/month with confirmed conversions', amber: false },
+    { id: 'nl5', text: 'Recruit an additional cleaner to handle volume', amber: false },
+  ], danger: '' },
 ];
 
 const DEFAULT_ROADMAP = [
-  { id: 'cr1', text: 'Campaign 1 (live) — LCW Premium Areas Residential · Farhana · premium London postcodes', tag: 'Now', green: true },
-  { id: 'cr2', text: "Campaign 2 (live) — LCW General Residential · Steven · broader London keywords", tag: 'Now', green: true },
-  { id: 'cr3', text: 'Campaign 3 — LCW Airbnb London · Shoreditch, City, Canary Wharf · £75/month', tag: 'Month 3', green: false },
-  { id: 'cr4', text: 'Campaign 4 — LCW Deep Clean London · all London within 8 miles · £75/month', tag: 'Month 3', green: false },
-  { id: 'cr5', text: 'Campaign 5 — LCW Office London · business districts · £50/month', tag: 'Month 4+', green: false },
+  { id: 'nr1', text: 'Cold calling — letting agents · 30-40 calls/week · active now', tag: 'Active', green: false },
+  { id: 'nr2', text: 'Face-to-face visits — letting agents · 3-5 visits/week · active now', tag: 'Active', green: false },
+  { id: 'nr3', text: 'Facebook groups — Airbnb hosts · 2-3 posts/week · active now', tag: 'Active', green: false },
+  { id: 'nr4', text: 'Email outreach — letting agents · cold emails to named contacts · active now', tag: 'Active', green: false },
+  { id: 'nr5', text: 'Google Ads — paused · restart after fixing Deep Reset prices, surcharge disclosure, and booking URL', tag: 'Paused', green: false },
+  { id: 'nr6', text: 'LSA (Local Services Ads) — activate once 15+ Google reviews are live', tag: 'Month 3+', green: false },
 ];
 
 function TargetCard({ card, setCards, editMode }) {
@@ -61,24 +83,10 @@ function TargetCard({ card, setCards, editMode }) {
 }
 
 export default function TargetsContent({ editMode }) {
-  const [monthly,  setMonthly]  = usePersisted('mkt_targets_monthly',  DEFAULT_MONTHLY);
-  const [cards,    setCards]    = usePersisted('mkt_targets_cards',    DEFAULT_CARDS);
-  const [roadmap,  setRoadmap]  = usePersisted('mkt_campaigns',        DEFAULT_ROADMAP);
+  const [monthly,  setMonthly]  = usePersisted('mkt_targets_monthly',   DEFAULT_MONTHLY);
+  const [cards,    setCards]    = usePersisted('mkt_targets_cards_v2',  DEFAULT_CARDS);
+  const [roadmap,  setRoadmap]  = usePersisted('mkt_campaigns_v2',      DEFAULT_ROADMAP);
   const { dragHandlers: rmDrag, isOver: rmOver, isAfter: rmAfter } = useDragSort(roadmap, setRoadmap);
-
-  // Migration: mark Campaign 2 live + restore any accidentally deleted default entries
-  useEffect(() => {
-    setRoadmap(prev => {
-      let next = prev.map(r => r.id === 'cr2' && !r.green
-        ? { ...r, text: 'Campaign 2 (live) — LCW General Residential · Steven · broader London keywords', tag: 'Now', green: true }
-        : r
-      );
-      DEFAULT_ROADMAP.forEach(def => {
-        if (!next.find(r => r.id === def.id)) next = [...next, def];
-      });
-      return next;
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -109,7 +117,7 @@ export default function TargetsContent({ editMode }) {
       </div>
 
       <Divider />
-      <SLabel>Google Ads campaigns roadmap</SLabel>
+      <SLabel>Channel roadmap</SLabel>
       <div style={{ background: MKT.card, border: `0.5px solid ${MKT.border}`, borderRadius: 10, padding: '1.25rem' }}>
         {roadmap.map((item, i) => (
           <div key={item.id} {...rmDrag(i)} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderTop: rmOver(i) && !rmAfter(i) ? '2px solid rgba(201,169,110,0.6)' : '0.5px solid transparent', borderBottom: rmOver(i) && rmAfter(i) ? '2px solid rgba(201,169,110,0.6)' : i < roadmap.length - 1 ? '0.5px solid rgba(255,255,255,0.04)' : '0.5px solid transparent' }}>
@@ -123,7 +131,7 @@ export default function TargetsContent({ editMode }) {
                   onChange={e => setRoadmap(rs => rs.map(r => r.id === item.id ? { ...r, tag: e.target.value, green: e.target.value === 'Now' } : r))}
                   style={{ ...EDIT_INPUT, width: 80, fontSize: 10, flexShrink: 0, color: item.tag === 'Now' ? MKT.green : MKT.muted, cursor: 'pointer' }}
                 >
-                  {['Now', 'Month 2', 'Month 3', 'Month 4+', 'Month 5+'].map(o => (
+                  {['Active', 'Paused', 'Month 2', 'Month 3', 'Month 4+', 'Month 5+'].map(o => (
                     <option key={o} value={o}>{o}</option>
                   ))}
                 </select>

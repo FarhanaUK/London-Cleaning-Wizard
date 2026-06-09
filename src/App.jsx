@@ -34,6 +34,7 @@ const AreasPage = lazy(() => import("./components/AreasPage"))
 const CommercialPage = lazy(() => import("./components/CommercialPage"))
 const RegularCleanPage = lazy(() => import("./components/RegularCleanPage"))
 const DeepCleanPage = lazy(() => import("./components/DeepCleanPage"))
+const CareersPage = lazy(() => import("./components/CareersPage"))
 
 const scrollTo = (id) =>
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })
@@ -42,15 +43,15 @@ function MainPage() {
   return (
     <>
       <Helmet>
-        <title>London Cleaning Wizard | Premium Home Cleaning London</title>
-        <meta name="description" content="Hotel-standard home cleaning across London. Vetted insured cleaners. Same cleaner every visit. Reset packages from £115. 50% off your first Signature Hotel Reset." />
+        <title>London Cleaning Wizard | Premium Residential & Commercial Cleaning</title>
+        <meta name="description" content="Premium residential, commercial and Airbnb cleaning across London. Vetted and fully insured cleaners. Regular cleans, deep cleans and end of tenancy. Book online." />
         <link rel="canonical" href="https://londoncleaningwizard.com/" />
       </Helmet>
       <Hero onScrollTo={scrollTo} />
       <StatsStrip />
 
       <Services />
-      <Gallery />
+      {/* <Gallery /> */}
       <About />
       <Testimonials />
       <Areas />
@@ -110,6 +111,7 @@ export default function App() {
           <Route path="/commercial-clean" element={<CommercialPage />} />
           <Route path="/regular-clean" element={<RegularCleanPage />} />
           <Route path="/deep-clean" element={<DeepCleanPage />} />
+          <Route path="/careers" element={<CareersPage />} />
         </Routes>
       </Suspense>
 

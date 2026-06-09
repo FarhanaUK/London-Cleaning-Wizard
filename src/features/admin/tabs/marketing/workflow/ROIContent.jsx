@@ -795,14 +795,14 @@ export default function ROIContent() {
   const [channels,       setChannels]       = useState(() => readLS('mkt_investment_channels'));
   const [history,        setHistory]        = useState(() => readLS('mkt_weekly_history'));
   const [invHistory,     setInvHistory]     = useState(() => readLS('mkt_investment_history'));
-  const [budgetRows,     setBudgetRows]     = useState(() => readLS('mkt_budget_rows'));
+  const [budgetRows,     setBudgetRows]     = useState(() => readLS('mkt_budget_rows_v2'));
 
   useEffect(() => {
     const refresh = () => {
       setChannels(readLS('mkt_investment_channels'));
       setHistory(readLS('mkt_weekly_history'));
       setInvHistory(readLS('mkt_investment_history'));
-      setBudgetRows(readLS('mkt_budget_rows'));
+      setBudgetRows(readLS('mkt_budget_rows_v2'));
     };
     window.addEventListener('lcw-data-saved', refresh);
     return () => window.removeEventListener('lcw-data-saved', refresh);

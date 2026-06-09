@@ -4,37 +4,36 @@ import { SLabel, MktMetric, ActionList, AddBtn, DragHandle, useDragSort, MKT, FO
 const OWNER_COLOR = { f: '#6a9bc4', s: '#7fb069', b: '#d4a03a' };
 
 const DEFAULT_BUDGET = [
-  { id: 'b1', name: "Google Ads — Farhana's campaign", owner: 'Farhana', ownerType: 'f', note: 'LCW Premium Areas Residential · £5/day · live and working', amount: 150 },
-  { id: 'b2', name: "Google Ads — Steven's campaign",  owner: 'Steven',  ownerType: 's', note: 'LCW Campaign 2 · broader London · fix urgently before spending more', amount: 100 },
-  { id: 'b3', name: 'Local Services Ads (LSA)',         owner: 'Farhana', ownerType: 'f', note: 'Pay per lead · Google Guaranteed badge · £25/week', amount: 100 },
-  { id: 'b4', name: 'Instagram paid boosts',            owner: 'Steven',  ownerType: 's', note: 'Boost best performing posts only · London homeowners 28–55', amount: 50 },
-  { id: 'b5', name: 'Bark.com credits',                 owner: 'Farhana', ownerType: 'f', note: 'Active leads from people ready to book now', amount: 50 },
-  { id: 'b6', name: 'Facebook paid boosts',             owner: 'Steven',  ownerType: 's', note: '1–2 boosted posts/month · local London community targeting', amount: 30 },
-  { id: 'b7', name: 'TikTok (month 2 only)',            owner: 'Farhana', ownerType: 'f', note: 'Small test budget · start only after first real clean is filmed', amount: 20 },
+  { id: 'nb1', name: 'Cold calling — letting agents',        owner: 'Farhana', ownerType: 'f', note: 'No direct cost — time investment. Target 30-40 calls/week.', amount: 0, active: true },
+  { id: 'nb2', name: 'Face-to-face visits — letting agents', owner: 'Farhana', ownerType: 'f', note: 'No direct cost — travel time and fuel. Target 3-5 visits/week.', amount: 0, active: true },
+  { id: 'nb3', name: 'Facebook groups — Airbnb hosts',       owner: 'Farhana', ownerType: 'f', note: 'No cost — conversational posts only. 2-3 groups per week.', amount: 0, active: true },
+  { id: 'nb4', name: 'Email outreach — letting agents',      owner: 'Farhana', ownerType: 'f', note: 'No direct cost — named contacts only, not info@ addresses.', amount: 0, active: true },
+  { id: 'nb5', name: 'Google Business Profile',              owner: 'Farhana', ownerType: 'f', note: '2 fresh posts/week + review request after every clean.', amount: 0, active: true },
+  { id: 'nb6', name: 'Personal network',                     owner: 'Farhana', ownerType: 'f', note: 'WhatsApp status updates + direct messages to warm contacts.', amount: 0, active: true },
+  { id: 'nb7', name: 'Google Ads',                           owner: 'Farhana', ownerType: 'f', note: 'Paused. Restart at £5/day only after fixing Deep Reset prices, surcharge disclosure, and ad destination URL.', amount: 0, active: false },
 ];
 
 const DEFAULT_FREE = [
-  { id: 'f1', label: 'Instagram organic', sub: 'Steven'   },
-  { id: 'f2', label: 'Facebook groups',   sub: 'Steven'   },
-  { id: 'f3', label: 'Nextdoor organic',  sub: 'Steven'   },
-  { id: 'f4', label: 'Google Business',   sub: 'Farhana'  },
-  { id: 'f5', label: 'Personal network',  sub: 'Both'     },
-  { id: 'f6', label: 'TikTok organic',    sub: 'Month 2'  },
+  { id: 'nf1', label: 'Cold calling',     sub: 'Farhana' },
+  { id: 'nf2', label: 'Face-to-face',     sub: 'Farhana' },
+  { id: 'nf3', label: 'Facebook groups',  sub: 'Farhana' },
+  { id: 'nf4', label: 'Email outreach',   sub: 'Farhana' },
+  { id: 'nf5', label: 'Google Business',  sub: 'Farhana' },
+  { id: 'nf6', label: 'Personal network', sub: 'Farhana' },
 ];
 
-const DEFAULT_CUT  = [
-  { id: 'c1', text: 'Cut TikTok £20 first — it is month 2 anyway, save it until organic content is ready' },
-  { id: 'c2', text: 'Cut Facebook boost from £30 to £15 — run 1 boosted post instead of 2' },
-  { id: 'c3', text: 'Cut Bark.com from £50 to £25 — respond to fewer but stay active on the platform' },
-  { id: 'c4', text: 'Never cut LSA — pay per lead means zero wasted spend even on a tight budget' },
-  { id: 'c5', text: 'Never cut Google Ads below £75/month per campaign — too little data to learn from' },
+const DEFAULT_CUT = [
+  { id: 'nc1', text: 'Cut time on cold calling before cutting face-to-face visits — visits convert at a higher rate' },
+  { id: 'nc2', text: 'Cut Facebook posting frequency before cutting follow-up calls — follow-ups convert warm leads that already exist' },
+  { id: 'nc3', text: 'Never skip the review request after every clean — costs nothing and compounds over time' },
+  { id: 'nc4', text: 'When Google Ads restarts: never cut below £75/month per campaign — too little data to learn from at lower spend' },
 ];
 
 const DEFAULT_SCALE = [
-  { id: 's1', text: 'Increase LSA from £100 to £200/month once live and generating 3+ leads/week',                             triggerField: 'lsa1',   triggerValue: '3',  notified: false },
-  { id: 's2', text: "Increase Farhana's Google Ads to £250/month after 15+ tracked conversions confirm it is profitable",      triggerField: 'f6_cum', triggerValue: '15', notified: false },
-  { id: 's3', text: 'Scale Instagram boost to £100/month if boosted posts are converting to bookings',                         triggerField: 'h6',     triggerValue: '1',  notified: false },
-  { id: 's4', text: 'Scale TikTok to £50/month if organic content gets 1,000+ views consistently',                             triggerField: '',       triggerValue: '',   notified: false },
+  { id: 'ns1', text: 'Restart Google Ads at £5/day once: Deep Reset per-bedroom prices are shown, house surcharge is disclosed on the service card, and ad destination URL points to the booking flow — not the homepage', triggerField: '', triggerValue: '', notified: false },
+  { id: 'ns2', text: 'Increase Google Ads to £150/month after the first 5 paid-ad conversions confirm the funnel is working', triggerField: '', triggerValue: '', notified: false },
+  { id: 'ns3', text: 'Add LSA (Local Services Ads) once 15+ Google reviews are live — LSA ranking depends heavily on review count', triggerField: '', triggerValue: '', notified: false },
+  { id: 'ns4', text: 'Add Instagram paid boosts only if an organic post gets strong engagement first — boost what is already working', triggerField: '', triggerValue: '', notified: false },
 ];
 
 function ScaleList({ items, setItems, editMode }) {
@@ -135,10 +134,10 @@ function SimpleList({ items, setItems, editMode, addLabel }) {
 const DEFAULT_WEIGHTS_TOTAL = DEFAULT_BUDGET.reduce((s, r) => s + r.amount, 0);
 
 export default function BudgetContent({ editMode }) {
-  const [budget,   setBudget]   = usePersisted('mkt_budget_rows',  DEFAULT_BUDGET, () => window.dispatchEvent(new Event('lcw-data-saved')));
-  const [free,     setFree]     = usePersisted('mkt_budget_free',  DEFAULT_FREE);
-  const [cutOrder, setCutOrder] = usePersisted('mkt_budget_cut',   DEFAULT_CUT);
-  const [scaleUp,  setScaleUp]  = usePersisted('mkt_budget_scale', DEFAULT_SCALE);
+  const [budget,   setBudget]   = usePersisted('mkt_budget_rows_v2',  DEFAULT_BUDGET, () => window.dispatchEvent(new Event('lcw-data-saved')));
+  const [free,     setFree]     = usePersisted('mkt_budget_free_v2',  DEFAULT_FREE);
+  const [cutOrder, setCutOrder] = usePersisted('mkt_budget_cut_v2',   DEFAULT_CUT);
+  const [scaleUp,  setScaleUp]  = usePersisted('mkt_budget_scale_v2', DEFAULT_SCALE);
   const [planInput, setPlanInput] = useState('');
   const [applied,   setApplied]   = useState(false);
 

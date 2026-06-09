@@ -404,18 +404,19 @@ export function buildContext() {
   const elapsed = Math.floor((new Date(thisSun).getTime() - new Date(CAMPAIGN_WEEK1_SUN).getTime()) / (7 * 24 * 60 * 60 * 1000));
   const campaignWeek = Math.max(1, elapsed + 1);
 
-  let history = [], channels = [], invHistory = [], budgetRows = [], budgetCut = [], budgetScale = [], roadmap = [], actions = [], targets = [], changeLog = [], weeklyReviews = [];
+  let history = [], channels = [], invHistory = [], budgetRows = [], budgetCut = [], budgetScale = [], roadmap = [], actions = [], targets = [], changeLog = [], weeklyReviews = [], outreachLog = [];
   try { history       = JSON.parse(localStorage.getItem('mkt_weekly_history'))      || []; } catch {}
   try { channels      = JSON.parse(localStorage.getItem('mkt_investment_channels')) || []; } catch {}
   try { invHistory    = JSON.parse(localStorage.getItem('mkt_investment_history'))  || []; } catch {}
-  try { budgetRows    = JSON.parse(localStorage.getItem('mkt_budget_rows'))         || []; } catch {}
-  try { budgetCut     = JSON.parse(localStorage.getItem('mkt_budget_cut'))          || []; } catch {}
-  try { budgetScale   = JSON.parse(localStorage.getItem('mkt_budget_scale'))        || []; } catch {}
-  try { roadmap       = JSON.parse(localStorage.getItem('mkt_campaigns'))           || []; } catch {}
+  try { budgetRows    = JSON.parse(localStorage.getItem('mkt_budget_rows_v2'))      || JSON.parse(localStorage.getItem('mkt_budget_rows'))    || []; } catch {}
+  try { budgetCut     = JSON.parse(localStorage.getItem('mkt_budget_cut_v2'))       || JSON.parse(localStorage.getItem('mkt_budget_cut'))     || []; } catch {}
+  try { budgetScale   = JSON.parse(localStorage.getItem('mkt_budget_scale_v2'))     || JSON.parse(localStorage.getItem('mkt_budget_scale'))   || []; } catch {}
+  try { roadmap       = JSON.parse(localStorage.getItem('mkt_campaigns_v2'))        || JSON.parse(localStorage.getItem('mkt_campaigns'))       || []; } catch {}
   try { actions       = JSON.parse(localStorage.getItem('mkt_priority_actions'))    || []; } catch {}
   try { targets       = JSON.parse(localStorage.getItem('mkt_targets_monthly'))     || []; } catch {}
   try { changeLog     = JSON.parse(localStorage.getItem('mkt_change_log'))          || []; } catch {}
   try { weeklyReviews = JSON.parse(localStorage.getItem('lcw_weekly_reviews'))      || []; } catch {}
+  try { outreachLog   = JSON.parse(localStorage.getItem('lcw_outreach_log'))        || []; } catch {}
 
   let sections = [];
   try { sections = JSON.parse(localStorage.getItem('mkt_analytics_sections')) || []; } catch {}
@@ -470,6 +471,16 @@ export function buildContext() {
     lines.push('');
   } else {
     lines.push('No weekly history saved yet.', '');
+  }
+
+  if (outreachLog.length) {
+    const n = v => parseFloat(v) || 0;
+    const sorted = [...outreachLog].sort((a, b) => (b.weekOf || '').localeCompare(a.weekOf || ''));
+    lines.push('Outreach log (Outreach Tracker tab):');
+    sorted.slice(0, 4).forEach(w => {
+      lines.push(`  Week of ${w.weekOf}: calls ${n(w.calls_made)} made / ${n(w.calls_answered)} answered / ${n(w.calls_interested)} interested | emails ${n(w.emails_sent)} sent / ${n(w.emails_replied)} replied | FB posts ${n(w.fb_posts)} / enquiries ${n(w.fb_enquiries)} | visits ${n(w.visits_made)}`);
+    });
+    lines.push('');
   }
 
   const active = channels.filter(c => c.spend || c.bookings);

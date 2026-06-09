@@ -8,7 +8,7 @@ const SUM_SK  = 'lcw_wizard_summary';
 const KEY_SK  = 'lcw_anthropic_key';
 const WINDOW  = 12;
 
-const SYSTEM_PROMPT = `You are LC Wizard — the dedicated marketing advisor for London Cleaning Wizard, a premium residential cleaning business in London run by Farhana Aktar and Steven.
+const SYSTEM_PROMPT = `You are The Wizard — the dedicated marketing advisor for London Cleaning Wizard, a premium residential cleaning business in London run by Farhana Aktar and Steven.
 
 You have access to a live snapshot of their full marketing dashboard with every message — budget, campaigns, weekly performance history, past reviews, change log, and targets. Use all of it. Connect the dots across past and present. Spot trends. Notice when something contradicts what happened last week.
 
@@ -83,7 +83,7 @@ async function streamClaude({ apiKey, messages, onChunk, onDone, onError, signal
 
 async function fetchSummary(apiKey, msgs) {
   try {
-    const text = msgs.filter(m => m.content).map(m => `${m.role === 'user' ? 'User' : 'LC Wizard'}: ${m.content.slice(0, 500)}`).join('\n\n');
+    const text = msgs.filter(m => m.content).map(m => `${m.role === 'user' ? 'User' : 'The Wizard'}: ${m.content.slice(0, 500)}`).join('\n\n');
     const res  = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
@@ -139,7 +139,7 @@ function AiText({ text, loading }) {
 
 function WizardAvatar({ size = 32 }) {
   return (
-    <img src="/wizard.png" alt="LC Wizard" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: `1px solid rgba(201,169,110,0.4)`, flexShrink: 0, background: MKT.dark3 }} />
+    <img src="/wizard.png" alt="The Wizard" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: `1px solid rgba(201,169,110,0.4)`, flexShrink: 0, background: MKT.dark3 }} />
   );
 }
 
@@ -152,8 +152,9 @@ function ChatMessage({ msg, isLast, loading }) {
         : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(201,169,110,0.12)', border: `0.5px solid rgba(201,169,110,0.3)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT, fontSize: 10, color: MKT.gold, flexShrink: 0 }}>You</div>
       }
       <div style={{ maxWidth: '82%' }}>
-        <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, marginBottom: 4, textAlign: isBot ? 'left' : 'right' }}>
-          {isBot ? 'LC Wizard' : 'You'}
+        <div style={{ fontFamily: FONT, fontSize: 10, color: MKT.dim, marginBottom: 4, textAlign: isBot ? 'left' : 'right', display: 'flex', alignItems: 'center', gap: 6, flexDirection: isBot ? 'row' : 'row-reverse' }}>
+          <span>{isBot ? 'The Wizard' : 'You'}</span>
+          {isBot && <span style={{ background: 'rgba(201,169,110,0.12)', border: '0.5px solid rgba(201,169,110,0.25)', borderRadius: 4, padding: '1px 5px', fontSize: 8, color: MKT.gold, letterSpacing: '0.06em', textTransform: 'uppercase' }}>AI Adviser</span>}
         </div>
         <div style={{ background: isBot ? MKT.dark3 : 'rgba(201,169,110,0.08)', border: `0.5px solid ${isBot ? 'rgba(255,255,255,0.06)' : 'rgba(201,169,110,0.2)'}`, borderRadius: isBot ? '4px 12px 12px 12px' : '12px 4px 12px 12px', padding: '10px 14px' }}>
           {msg.error
@@ -300,7 +301,7 @@ export default function LCWizardChat() {
           {/* Chat header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.7rem 1rem', borderBottom: `1px solid ${MKT.border}`, background: MKT.dark3, borderRadius: '12px 12px 0 0' }}>
             <WizardAvatar size={26} />
-            <span style={{ fontFamily: SERIF, fontSize: 14, color: MKT.gold, flex: 1 }}>LC Wizard</span>
+            <span style={{ fontFamily: SERIF, fontSize: 14, color: MKT.gold, flex: 1 }}>The Wizard</span>
             {summary && <span style={{ fontFamily: FONT, fontSize: 10, color: MKT.green, background: 'rgba(22,163,74,0.08)', border: `0.5px solid rgba(22,163,74,0.2)`, borderRadius: 4, padding: '2px 7px' }}>Context</span>}
             {hasMessages && <button onClick={clearChat} style={{ background: 'none', border: `0.5px solid ${MKT.border}`, borderRadius: 5, padding: '3px 9px', color: MKT.dim, fontFamily: FONT, fontSize: 10, cursor: 'pointer' }}>Clear</button>}
           </div>
@@ -309,7 +310,7 @@ export default function LCWizardChat() {
           {keySetup && (
             <div style={{ padding: '1rem', borderBottom: `1px solid ${MKT.border}` }}>
               <div style={{ fontFamily: FONT, fontSize: 12, color: MKT.muted, marginBottom: 10, lineHeight: 1.6 }}>
-                Enter your Anthropic API key to activate LC Wizard. Same key as the 6 tools above. Get it at console.anthropic.com → API Keys.
+                Enter your Anthropic API key to activate The Wizard. Same key as the 6 tools above. Get it at console.anthropic.com → API Keys.
               </div>
               <KeyInput onSave={saveKey} />
             </div>
@@ -335,7 +336,7 @@ export default function LCWizardChat() {
                 {!hasMessages && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, textAlign: 'center' }}>
                     <WizardAvatar size={52} />
-                    <div style={{ fontFamily: SERIF, fontSize: 17, color: MKT.gold }}>Hello, I'm LC Wizard</div>
+                    <div style={{ fontFamily: SERIF, fontSize: 17, color: MKT.gold }}>Hello, I'm The Wizard</div>
                     <div style={{ fontFamily: FONT, fontSize: 12, color: MKT.muted, maxWidth: 280, lineHeight: 1.75 }}>
                       Ask me anything about your marketing — or tap a quick action above.
                     </div>
@@ -354,7 +355,7 @@ export default function LCWizardChat() {
                     ref={textaRef} value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={handleKey}
-                    placeholder="Ask LC Wizard anything..."
+                    placeholder="Ask The Wizard anything..."
                     rows={1}
                     style={{ flex: 1, background: MKT.bg, border: `1px solid ${MKT.border}`, borderRadius: 8, padding: '7px 11px', color: MKT.text, fontFamily: FONT, fontSize: 13, outline: 'none', resize: 'none', lineHeight: 1.6, maxHeight: 120, overflowY: 'auto' }}
                   />
@@ -382,7 +383,7 @@ export default function LCWizardChat() {
         <WizardAvatar size={30} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 500, color: MKT.gold, display: 'flex', alignItems: 'center', gap: 7 }}>
-            LC Wizard
+            The Wizard
             {unread && <span style={{ width: 6, height: 6, borderRadius: '50%', background: MKT.green, display: 'inline-block', flexShrink: 0 }} />}
           </div>
           <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
