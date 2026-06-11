@@ -69,7 +69,13 @@ export default function DashboardTab({ bookings, staff, isMobile, C }) {
   const staffJobs   = activeStaff.map(s => {
     const rate    = s.hourlyRate !== 'N/A' ? parseFloat(s.hourlyRate) || null : null;
     const ppJobs  = activeBookings.filter(b => (b.assignedStaff === s.name || b.secondCleaner === s.name) && b.cleanDate >= payPeriod.start && b.cleanDate <= payPeriod.end);
-    const ppHours = ppJobs.reduce((sum, b) => { const h = calcHours(b.actualStart || b.cleanTime, b.actualFinish); return sum + (h || 0); }, 0);
+    const ppHours = ppJobs.reduce((sum, b) => {
+      const isPrimary = b.assignedStaff === s.name;
+      const aStart  = isPrimary ? b.actualStart  : b.actualStart2;
+      const aFinish = isPrimary ? b.actualFinish : b.actualFinish2;
+      const h = calcHours(aStart || b.cleanTime, aFinish);
+      return sum + (h || 0);
+    }, 0);
     const ppEarned = rate !== null ? ppHours * rate : null;
     return { ...s, rate, ppJobs, ppHours, ppEarned };
   });

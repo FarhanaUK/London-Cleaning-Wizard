@@ -7,9 +7,8 @@ const SERVICES = [
   {
     id: 'airbnb',
     label: 'Airbnb & Serviced Apartments',
-    rate: '£35/hr',
-    min: 'Min 2 hours',
-    from: '£70',
+    tagline: 'Studio · 1 bed · 2 bed · 3 bed · 4 bed',
+    from: '£135',
     desc: 'Your guests expect a hotel experience. We make sure they get one. Fresh linens, spotless surfaces, completion photo sent directly to you. We turn your property around quickly and to the highest standard so you never miss a 5-star review.',
     items: [
       'Guest-ready turnaround between every booking',
@@ -23,8 +22,7 @@ const SERVICES = [
   {
     id: 'office',
     label: 'Office & Commercial Cleaning',
-    rate: '£35/hr',
-    min: 'Min 3 hours',
+    tagline: 'Min 3 hours',
     from: '£105',
     desc: "A clean office affects focus, morale and the impression you make on clients. We work around your schedule, arriving after hours so your team walks in to a fresh, professional environment every morning.",
     items: [
@@ -58,8 +56,8 @@ export default function CommercialPage() {
   return (
     <>
       <Helmet>
-        <title>Commercial & Airbnb Cleaning London | From £35/hr | London Cleaning Wizard</title>
-        <meta name="description" content="Professional commercial and Airbnb cleaning across London from £35/hr. Office cleans, short-let turnarounds. Vetted, insured cleaners. Book online or get a tailored quote." />
+        <title>Commercial & Airbnb Cleaning London | London Cleaning Wizard</title>
+        <meta name="description" content="Professional commercial and Airbnb cleaning across London. Office cleans from £105, Airbnb turnarounds from £135. Vetted, insured cleaners. Book online or get a tailored quote." />
         <link rel="canonical" href="https://londoncleaningwizard.com/commercial-clean" />
       </Helmet>
 
@@ -106,14 +104,13 @@ export default function CommercialPage() {
           <div style={{ maxWidth: 800, margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
               <div>
-                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.18em', color: '#8b7355', textTransform: 'uppercase', marginBottom: 10 }}>{svc.min}</div>
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.18em', color: '#8b7355', textTransform: 'uppercase', marginBottom: 10 }}>{svc.tagline}</div>
                 <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: isMobile ? 'clamp(24px,6vw,32px)' : 'clamp(28px,4vw,40px)', fontWeight: 300, color: '#1a1410', margin: 0 }}>
                   {svc.label}
                 </h2>
               </div>
               <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
-                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 36, fontWeight: 300, color: '#1a1410' }}>{svc.rate}</div>
-                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#8b7355' }}>from {svc.from}</div>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 36, fontWeight: 300, color: '#1a1410' }}>from {svc.from}</div>
               </div>
             </div>
             <p style={{ fontFamily: "'Jost',sans-serif", fontSize: isMobile ? 14 : 15, color: '#5a4e44', fontWeight: 300, lineHeight: 1.8, marginBottom: 28 }}>

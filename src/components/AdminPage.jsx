@@ -4,6 +4,7 @@ import { db, auth } from '../firebase/firebase';
 import { collection, query, orderBy, onSnapshot, limit, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { LogoMark } from './Icons';
+import DailyBrief from '../features/admin/tabs/marketing/workflow/DailyBrief';
 
 const ReportsTab   = lazy(() => import('../features/admin/tabs/ReportsTab'));
 const SOPTab       = lazy(() => import('../features/admin/tabs/SOPTab'));
@@ -21,6 +22,7 @@ const PromotionsTab      = lazy(() => import('../features/admin/tabs/PromotionsT
 const SignatureTouchTab  = lazy(() => import('../features/admin/tabs/SignatureTouchTab'));
 const TrashTab           = lazy(() => import('../features/admin/tabs/TrashTab'));
 const MarketingSpendTab  = lazy(() => import('../features/admin/tabs/MarketingSpendTab'));
+const QuotesTab          = lazy(() => import('../features/admin/tabs/QuotesTab'));
 
 
 // ── Themes ────────────────────────────────────────────────────
@@ -69,6 +71,7 @@ const NAV_ITEMS = [
   { id: 'promotions',     label: 'Promotions',     icon: '🎁' },
   { id: 'signatureTouch', label: 'Signature Touch', icon: '✦'  },
   { id: 'sop',       label: 'SOP',       icon: '📖' },
+  { id: 'quotes',         label: 'Quotes',          icon: '💰' },
   { id: 'trash',          label: 'Trash',           icon: '🗑'  },
 ];
 
@@ -148,6 +151,32 @@ export default function AdminPage() {
     };
   }, [refreshNotifs]);
 
+  const BRIEF_SS_KEY = 'lcw_brief_session';
+  const [briefShown, setBriefShown] = useState(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (window._lcwBriefDate === today) return true;
+    try {
+      const stored = sessionStorage.getItem('lcw_brief_session');
+      if (stored === today) { window._lcwBriefDate = today; return true; }
+    } catch {}
+    return false;
+  });
+
+  useEffect(() => {
+    const check = () => {
+      if (!document.hidden) {
+        const today = new Date().toISOString().slice(0, 10);
+        if (window._lcwBriefDate !== today) {
+          window._lcwBriefDate = today;
+          try { sessionStorage.setItem(BRIEF_SS_KEY, today); } catch {}
+          setBriefShown(false);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', check);
+    return () => document.removeEventListener('visibilitychange', check);
+  }, []);
+
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [activeView,       setActiveView]       = useState(() => localStorage.getItem('crmActiveView') || 'dashboard');
   const [staff,            setStaff]            = useState([]);
@@ -180,6 +209,7 @@ export default function AdminPage() {
       setThemeKey('look3');
       try { sessionStorage.removeItem('lcw_brief_session'); } catch {}
       window._lcwBriefDate = null;
+      setBriefShown(false);
     }
   }), []);
 
@@ -190,6 +220,42 @@ export default function AdminPage() {
       setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
   }, [user]);
+
+  // Phase notifications for Quotes Calculator -- each fires at most once (deduped by ID)
+  useEffect(() => {
+    if (!user || bookings.length === 0) return;
+    const active = bookings.filter(b => !b.deleted);
+
+    // Phase 2: 3+ returning clients (same customer booked 2+ times)
+    const clientCounts = {};
+    active.forEach(b => {
+      const key = `${(b.firstName || '').toLowerCase().trim()}_${(b.lastName || '').toLowerCase().trim()}`;
+      if (key !== '_') clientCounts[key] = (clientCounts[key] || 0) + 1;
+    });
+    const returningClients = Object.values(clientCounts).filter(n => n >= 2).length;
+    if (returningClients >= 3) {
+      addNotification({
+        id: 'quotes_phase2_ready',
+        icon: '💰',
+        title: 'Time to raise your profit margin',
+        message: `You now have ${returningClients} returning clients -- your reputation is building. Go to the Quotes Calculator and raise your profit margin from 25% to 30-35%. You have earned it.`,
+        link: 'quotes',
+      });
+    }
+
+    // Phase 3: 15+ bookings in current month
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const thisMonthCount = active.filter(b => b.cleanDate?.startsWith(thisMonth)).length;
+    if (thisMonthCount >= 15) {
+      addNotification({
+        id: 'quotes_phase3_ready',
+        icon: '📊',
+        title: 'Raise your margin to 40%',
+        message: `You have ${thisMonthCount} bookings this month. At this volume your overhead is spread across enough jobs that you can push your profit margin to 35-40% without pricing yourself out. Update it in the Quotes Calculator now.`,
+        link: 'quotes',
+      });
+    }
+  }, [user, bookings]);
 
   useEffect(() => {
     if (!user) return;
@@ -613,6 +679,23 @@ export default function AdminPage() {
           </div>
         )}
 
+        {user && !briefShown && (
+          <DailyBrief
+            bookings={bookings.filter(b => !b.deleted)}
+            onDismiss={() => {
+              const today = new Date().toISOString().slice(0, 10);
+              window._lcwBriefDate = today;
+              try { sessionStorage.setItem(BRIEF_SS_KEY, today); } catch {}
+              setBriefShown(true);
+            }}
+            onOpenToday={() => {
+              setActiveView('campaigns');
+              localStorage.setItem('crmActiveView', 'campaigns');
+              setTimeout(() => window.dispatchEvent(new Event('lcw-open-today-tab')), 100);
+            }}
+          />
+        )}
+
         <Suspense fallback={<div style={{ padding: 40, fontFamily: FONT, fontSize: 13, color: C.muted }}>Loading…</div>}>
           {(() => {
             const activeBookings = bookings.filter(b => !b.deleted);
@@ -632,6 +715,7 @@ export default function AdminPage() {
               {activeView === 'adSpend'        && <MarketingSpendTab isMobile={isMobile} C={C} />}
               {activeView === 'promotions'     && <PromotionsTab isMobile={isMobile} C={C} />}
               {activeView === 'signatureTouch' && <SignatureTouchTab bookings={activeBookings} staff={staff} stDistributions={stDistributions} C={C} />}
+              {activeView === 'quotes'         && <QuotesTab isMobile={isMobile} C={C} expenses={expenses} fixedCosts={fixedCosts} marketingSpend={marketingSpend} supplies={supplies} bookings={bookings} />}
               {activeView === 'trash'          && <TrashTab bookings={bookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
             </>;
           })()}

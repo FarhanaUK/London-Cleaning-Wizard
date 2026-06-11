@@ -346,8 +346,8 @@ export function getDaysSinceUrgency(daysSinceLast, bookingCount) {
   const daysToUrgent = urgentDays - daysSinceLast;
   const d = daysSinceLast;
 
-  // Conversion note used in messages: 2% means 2 bookings per 100 calls made.
-  // Baseline: 30 calls/week (6/day Mon-Fri). Push mode: 40/week (8/day). Urgent: 50/week (10/day).
+  // Target throughout: 30 calls/week (6/day Mon-Fri). At 2 bookings per 100 calls = 2-3 bookings/month.
+  // Urgency is expressed through message tone and level colour, not by asking for more calls.
 
   if (d === 0) return { level: 0, message: 'Booking today -- great momentum. Log it and keep outreach going.' };
 
@@ -356,33 +356,33 @@ export function getDaysSinceUrgency(daysSinceLast, bookingCount) {
     return {
       level: freshStart ? 2 : 3,
       message: freshStart
-        ? `${d}d gap during inactive period -- starting outreach today. Build to 50 calls/week (10/day Mon-Fri). At 2 bookings per 100 calls, that is roughly 1 booking per week.`
+        ? `${d}d gap during inactive period -- starting outreach today. Target: 6 calls per day (30/week, Mon-Fri). At 2 bookings per 100 calls, that is 2-3 bookings per month.`
         : over > 0
-          ? `${d}d gap, ${over}d past the urgent mark. Push to 50 calls/week (10/day). At 2 bookings per 100 calls that is roughly 1 per week. Also follow up every contact from the last 6 weeks.`
-          : `${d}d gap -- urgent. Push from your baseline 30 calls/week to 50 (10/day). 2 per 100 calls converts -- 50/week means roughly 1 booking per week.`,
+          ? `${d}d gap -- ${over}d past the urgent mark. Commit to 6 calls per day (30/week, Mon-Fri) and follow up every contact from the last 6 weeks. At 2 per 100 calls you need consistent daily volume, not a one-off burst.`
+          : `${d}d gap -- past the urgent mark. Start today: 6 calls before noon, every weekday. At 2 bookings per 100 calls, 30/week = 2-3 bookings per month.`,
     };
   }
   if (d >= warnDays) {
     return {
       level: freshStart ? 1 : 2,
       message: freshStart
-        ? `${d}d gap during inactive period -- starting outreach fresh today. Baseline is 30 calls/week (6/day). Push to 40/week (8/day) to recover faster. At 2 bookings per 100 calls, 40/week = roughly 1 booking every 10-12 days.`
-        : `${d}d gap, ${daysToUrgent}d before the urgent mark. Push from baseline 30 to 40 calls/week (8/day Mon-Fri). At 2 bookings per 100 calls, 40/week = roughly 1 booking every 10-12 days. Post in 2 Facebook groups today.`,
+        ? `${d}d gap during inactive period -- starting outreach fresh. Target: 6 calls per day (30/week, Mon-Fri). At 2 bookings per 100 calls, 30/week = 2-3 bookings per month.`
+        : `${d}d gap -- ${daysToUrgent}d before the urgent mark. Get to 6 calls per day (30/week). At 2 bookings per 100 calls, 30/week = 2-3 bookings per month. Post in 2 Facebook groups today as well.`,
     };
   }
   if (d >= softDays) {
     return {
       level: freshStart ? 0 : 1,
       message: freshStart
-        ? `${d}d gap during inactive period -- starting fresh. Begin at the baseline: 6 calls/day (30/week Mon-Fri). At 2 bookings per 100 calls, 30/week = roughly 2-3 bookings per month.`
-        : `${d}d since last booking, ${daysToWarn}d before concern. Maintain baseline: 6 calls/day (30/week). If you want to speed up, push to 8/day (40/week) -- that is roughly 3-4 bookings per month at 2 per 100 calls.`,
+        ? `${d}d gap during inactive period -- starting fresh. Target: 6 calls per day (30/week, Mon-Fri). At 2 bookings per 100 calls, 30/week = 2-3 bookings per month.`
+        : `${d}d since last booking -- ${daysToWarn}d before concern. Keep at 6 calls per day (30/week). At 2 bookings per 100 calls, 30/week = 2-3 bookings per month.`,
     };
   }
 
   const daysToSoft = softDays - d;
   return {
     level: 0,
-    message: `${d}d since last booking -- on track. Maintain 6 calls/day (30/week) to keep the pipeline steady. ${daysToSoft}d before early concern.`,
+    message: `${d}d since last booking -- on track. Keep at 6 calls per day (30/week) to maintain the pipeline. ${daysToSoft}d before early concern.`,
   };
 }
 

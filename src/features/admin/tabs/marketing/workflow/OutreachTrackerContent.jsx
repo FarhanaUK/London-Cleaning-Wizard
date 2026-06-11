@@ -11,11 +11,13 @@ function saveLog(log) {
 }
 
 const TARGET_TYPES = [
-  { id: 'airbnb',      label: 'Airbnb hosts'       },
-  { id: 'letting',     label: 'Letting agents'      },
-  { id: 'mixed',       label: 'Mix of both'         },
-  { id: 'offices',     label: 'Local offices'       },
-  { id: 'residential', label: 'Residential'         },
+  { id: 'airbnb',        label: 'Airbnb hosts'          },
+  { id: 'letting',       label: 'Letting agents'        },
+  { id: 'property_mgmt', label: 'Property management'  },
+  { id: 'estate',        label: 'Estate agents'         },
+  { id: 'offices',       label: 'Commercial offices'    },
+  { id: 'mixed',         label: 'Mixed targets'         },
+  { id: 'other',         label: 'Other businesses'      },
 ];
 
 function getMondayOf(dateStr) {
