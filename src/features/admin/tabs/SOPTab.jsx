@@ -629,6 +629,117 @@ export default function SOPTab({ isMobile, C }) {
           <strong>Your data is safe.</strong> Every booking, expense, and stock entry is saved to the cloud the moment you press save. It does not live on your device. Even if your laptop breaks or your browser crashes, nothing is lost. The only risk is a failed save that was interrupted mid-action, which is why the alerts tell you to retry.
         </div>
       </Section>
+
+      <Section title="Incidents & Damage Reports" C={C}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+          An incident is any damage, unexpected cost, or customer complaint that requires a formal response. All incidents must be logged in <strong>Expenses &gt; Incidents tab</strong> immediately, even if you are still gathering information. Never manage a damage claim verbally or informally. Every step must be on record.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 10 }}>Log these details every time</div>
+        {[
+          'Date of the incident (the clean date, not the date it was reported).',
+          'Description of the damage or issue.',
+          'Booking reference and client name.',
+          'Photos from the customer and/or the cleaner.',
+          'Amount claimed or estimated cost. Update later if not known at the time.',
+          'Notes from the cleaner about what happened.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Scenario A: Customer reports damage to you</div>
+        <Row C={C} label="Step 1" value="Receive the call" note="Damage reports must come by phone (per your T&Cs). Note the date, time, what they are describing, and the booking reference. Do not admit liability on the call." />
+        <Row C={C} label="Step 2" value="Log it immediately" note="Open Expenses > Incidents tab and create a new entry while you are still on the call or straight after. Set status to Open." />
+        <Row C={C} label="Step 3" value="Ask for photos" note="Ask the customer to send photos of the damage to bookings@londoncleaningwizard.com before moving, repairing, or disposing of the item. Explain you need them to investigate. Attach them to the incident record once received." />
+        <Row C={C} label="Step 4" value="Contact the cleaner" note="Call the cleaner the same day. Ask for their account of events. Did they notice anything? Did they take before or after photos? Note their response in the incident record." />
+        <Row C={C} label="Step 5" value="Acknowledge to the customer" note="Call or email the customer within 2 working days to confirm you have received their report and are investigating. Do not give a decision on this contact. Only confirm you are looking into it." />
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 8px' }}>Scenario B: Cleaner reports damage first</div>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 12 }}>
+          This is the better scenario. Being proactive gives you full control of the situation before the customer is upset and is one of the most effective ways to keep the relationship intact.
+        </div>
+        <Row C={C} label="Step 1" value="Log the incident immediately" note="Open Expenses > Incidents tab and create the entry using the cleaner's account. You already have the booking reference, clean date, and description. Set status to Open." />
+        <Row C={C} label="Step 2" value="Get photos from the cleaner" note="Ask the cleaner to send photos straight away if they have not already. These are your primary evidence." />
+        <Row C={C} label="Step 3" value="Contact the customer proactively" note='Call the customer before they contact you. Say: "Our cleaner let us know there was an incident during your clean today and we want to sort it out for you." Do not wait for them to discover it themselves.' />
+        <Row C={C} label="Step 4" value="Ask them to photograph the damage" note="Even though you have the cleaner's photos, ask the customer to photograph the item from their side. This counts as their formal report. The 24-hour reporting window runs from the clean date, not from when they call back." />
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '3px solid #16a34a', borderRadius: 8, padding: '12px 16px', margin: '4px 0 20px', fontFamily: FONT, fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
+          <strong>Why this matters:</strong> Customers who hear about damage from you before they discover it themselves are far less likely to escalate or leave a bad review. Being upfront is not an admission of liability. It is good business practice, especially as a new business building a reputation.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '4px 0 10px' }}>Deciding liability</div>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 12 }}>
+          Give your decision within 5 working days of having all the information (photos, cleaner's account, any inspection needed). Do not delay. Keeping a customer waiting increases frustration and escalation risk.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 6 }}>Accept liability if:</div>
+        {[
+          'The damage was clearly caused during the clean. The cleaner confirms it, photos support it, and there is no evidence of pre-existing damage.',
+          'The cleaner was in the area where the damage occurred and was using products or equipment that could have caused it.',
+          'You cannot reasonably rule it out and the customer relationship is worth protecting.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '12px 0 6px' }}>Do not accept liability if:</div>
+        {[
+          'The damage is pre-existing or consistent with normal wear and tear.',
+          'The item was already fragile, damaged, or unstable and was not declared to us before the clean.',
+          'There is no credible evidence the cleaner was near the item or could have caused the damage.',
+          'Photos or the cleaner\'s account directly contradict what the customer is claiming.',
+          'The report came in after the 24-hour window with no valid reason for the delay.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: '#dc2626', fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Resolution options (when liability is accepted)</div>
+        {[
+          { label: 'Repair', desc: 'Arrange and pay for the item to be professionally repaired. Get a quote first and agree it with the customer. Best option for furniture, appliances, or anything fixable.' },
+          { label: 'Replace', desc: 'Replace with an equivalent item of similar age and condition, not brand new unless the item was brand new. Agree the replacement value with the customer before ordering anything.' },
+          { label: 'Compensate', desc: 'Agree a monetary payment that reflects the fair market value of the item at the time of damage. Pay via bank transfer or through Stripe. Log the amount in the incident record.' },
+        ].map(({ label, desc }) => (
+          <div key={label} style={{ marginBottom: 10, padding: '10px 14px', background: C.bg, borderRadius: 8 }}>
+            <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 3 }}>{label}</div>
+            <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{desc}</div>
+          </div>
+        ))}
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 4, marginTop: 4 }}>
+          Once resolution is agreed: update the incident to <strong style={{ color: C.text }}>Pending Payment</strong>. Once paid: update to <strong style={{ color: C.text }}>Closed</strong>. Add the payment date and method in the resolution notes.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>If the customer disputes your decision or is still unhappy</div>
+        <Row C={C} label="Step 1" value="Listen without interrupting" note='Let them say what they need to say. Acknowledge: "I understand this is frustrating and I take it seriously." Do not argue on the first call. Give them space to be heard.' />
+        <Row C={C} label="Step 2" value="Re-examine the evidence" note="Go back to the photos, the cleaner's account, and the timeline. If the customer raises a valid new point you had not considered, revisit your decision properly." />
+        <Row C={C} label="Step 3" value="If your position stands, explain it clearly" note="Reference T&Cs Section 13 (Damage, Liability & Claims). Be firm but polite. Do not make extra offers under pressure if you genuinely do not believe you are liable." />
+        <Row C={C} label="Step 4" value="Goodwill gesture (your discretion)" note="If the customer is a recurring client or the amount is small and the relationship is worth keeping, you can offer a partial goodwill payment or a discount on a future clean without accepting full liability. Make clear it is a goodwill gesture, not an admission that we caused the damage." />
+        <Row C={C} label="Step 5" value="Put your position in writing" note="Send a brief email summarising your decision, what you have offered, and what you are proposing. This creates a paper trail and often de-escalates the situation because the customer can see the reasoning clearly." />
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>If no resolution can be reached</div>
+        {[
+          'Stop making verbal offers. All further communication should be in writing from this point so everything is documented.',
+          'Advise the customer that if they wish to pursue the matter further, they can seek independent advice through Citizens Advice (citizensadvice.org.uk) or raise a Small Claims Court case for amounts under £10,000.',
+          'Do not admit liability in writing and do not make payments just to make a dispute go away if you genuinely do not believe you caused the damage. It sets a precedent.',
+          'Keep all evidence: photos, call notes, email threads, the cleaner\'s account. You will need these if the matter escalates.',
+          'Notify your insurer if you receive a formal legal letter or a court claim is threatened. Do this before responding further.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ background: '#fef9ef', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', marginTop: 12, fontFamily: FONT, fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+          <strong>14-day no-response rule:</strong> Once you have communicated your resolution offer, if the customer has not responded at all after 14 days, send one final written message: "We have not heard back regarding our proposed resolution. If we do not receive a response by [date 7 days from now], we will consider this matter closed." If there is still no response after that, close the incident in the system. The 14 days only starts once your offer has been sent, not from the incident date. If the customer is actively in dialogue with you at any point, the case stays open.
+        </div>
+      </Section>
     </div>
   );
 }
