@@ -19,6 +19,7 @@ const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 export default function BookingExpandedPanel({
   b, C, isMobile, staff,
   setBookings,
+  contractVisits = [],
   openEdit,
   completing, handleComplete,
   cancelling, handleCancel,
@@ -213,6 +214,82 @@ export default function BookingExpandedPanel({
           </div>
         );
       })()}
+
+      {/* Contract visit cards */}
+      {b.isContract && contractVisits.length > 0 && (
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 14 }}>
+          <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 10 }}>
+            Visit Schedule ({contractVisits.length} visits)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {contractVisits.map(v => {
+              const vDate   = v.cleanDate ? v.cleanDate.split('-').reverse().join('/') : '—';
+              const isPast  = v.cleanDate && v.cleanDate < new Date().toISOString().slice(0,10);
+              const isDone  = v.status === 'completed';
+              const activeV = staff?.filter(s => s.status === 'Active') || [];
+              const onHolV  = activeV.filter(s => (s.holidays||[]).includes(v.cleanDate));
+              const availV  = activeV.filter(s => !(s.holidays||[]).includes(v.cleanDate));
+              return (
+                <div key={v.id} style={{ background: C.card, border: `1px solid ${isDone ? '#86efac' : C.border}`, borderRadius: 6, overflow: 'hidden' }}>
+                  {/* Visit header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: isDone ? '#f0fdf4' : isPast ? '#fef9f0' : C.bg, borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text }}>{vDate}</span>
+                      {v.bookingRef && <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: '1px 6px' }}>{v.bookingRef}</span>}
+                      {isDone && <span style={{ fontFamily: FONT, fontSize: 10, color: '#166534', background: '#dcfce7', borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>Completed</span>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {v.total > 0 && <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: C.text }}>£{parseFloat(v.total).toFixed(2)}</span>}
+                      <button
+                        onClick={() => openEdit(v)}
+                        style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '4px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
+                      >✏️ Edit</button>
+                    </div>
+                  </div>
+                  {/* Cleaner assignment */}
+                  <div style={{ padding: '8px 12px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <select
+                      value={v.assignedStaff || ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setBookings(all => all.map(x => x.id === v.id ? { ...x, assignedStaff: val } : x));
+                        fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: v.id, assignedStaff: val }) }).catch(() => {});
+                      }}
+                      style={{ fontFamily: FONT, fontSize: 12, padding: '5px 8px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
+                    >
+                      <option value="">👤 Assign cleaner…</option>
+                      {availV.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      {onHolV.map(s => <option key={s.id} value={s.name} disabled>🏖 {s.name} (holiday)</option>)}
+                    </select>
+                    <select
+                      value={v.secondCleaner || ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setBookings(all => all.map(x => x.id === v.id ? { ...x, secondCleaner: val } : x));
+                        fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: v.id, secondCleaner: val }) }).catch(() => {});
+                      }}
+                      style={{ fontFamily: FONT, fontSize: 12, padding: '5px 8px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
+                    >
+                      <option value="">+2nd cleaner</option>
+                      {availV.filter(s => s.name !== v.assignedStaff).map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      {onHolV.filter(s => s.name !== v.assignedStaff).map(s => <option key={s.id} value={s.name} disabled>🏖 {s.name} (holiday)</option>)}
+                    </select>
+                    {v.assignedStaff && (
+                      <button
+                        onClick={async () => {
+                          const res = await fetch(import.meta.env.VITE_CF_NOTIFY_CLEANER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: v.id, cleanerName: v.assignedStaff, secondCleaner: v.secondCleaner || '' }) });
+                          if (res.ok) alert(`Notified ${[v.assignedStaff, v.secondCleaner].filter(Boolean).join(' & ')}`);
+                        }}
+                        style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '5px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
+                      >✉ Notify</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Notes */}
       {b.notes && (

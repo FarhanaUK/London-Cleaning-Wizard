@@ -795,7 +795,8 @@ export default function AdminPage() {
 
         <Suspense fallback={<div style={{ padding: 40, fontFamily: FONT, fontSize: 13, color: C.muted }}>Loading…</div>}>
           {(() => {
-            const activeBookings = bookings.filter(b => !b.deleted);
+            const deletedContractIds = new Set(bookings.filter(b => b.isContract && b.deleted).map(b => b.id));
+            const activeBookings = bookings.filter(b => !b.deleted && !(b.contractId && deletedContractIds.has(b.contractId)));
             return <>
               {activeView === 'actions'   && <ActionsTab savedQuotes={savedQuotes} bookings={activeBookings} isMobile={isMobile} C={C} onNavigate={setActiveView} />}
               {activeView === 'calendar'  && <CalendarTab bookings={activeBookings} isMobile={isMobile} C={C} />}

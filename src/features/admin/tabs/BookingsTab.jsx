@@ -138,13 +138,14 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
   const VALUE = { fontFamily: FONT, fontSize: isMobile ? 20 : 24, fontWeight: 600, color: C.text };
   const searchTerm = searchQuery.trim().toLowerCase();
   const displayedBookings = (preset === 'all' ? bookings : bookings.filter(b => {
+    if (b.contractId) return false; // individual visits — managed from within the master contract
     if (b.isContract) {
       const start = b.contractStartDate || b.cleanDate;
       const end   = b.contractEndDate;
       return start <= dateTo && (!end || end >= dateFrom);
     }
     return b.cleanDate >= dateFrom && b.cleanDate <= dateTo;
-  }))
+  })).filter(b => !b.contractId)
     .filter(b => {
       if (!searchTerm) return true;
       return (
@@ -546,7 +547,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                   {b.isContract && (
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 99, background: '#fef3c7', color: '#92400e' }}>Contract</span>
                   )}
-                  {(b.isAutoRecurring || (b.isContract && b.frequency && b.frequency !== 'one-off')) && (
+                  {!b.isContract && b.isAutoRecurring && (
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#dcfce7', color: '#166534' }}>Recurring</span>
                   )}
                   {b.isPhoneBooking && !b.isAutoRecurring && !b.isContract && (
@@ -555,7 +556,10 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                   {b.assignedStaff && (
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#f5f3ff', color: '#6d28d9' }}>👤 {[b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ')}</span>
                   )}
-                  <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: sc.bg, color: sc.color }}>{b.isContract && !b.status ? 'Active' : sc.label}</span>
+                  {b.isContract
+                    ? <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: b.status?.startsWith('cancelled') ? '#f5f5f5' : '#f0fdf4', color: b.status?.startsWith('cancelled') ? '#5a5a5a' : '#166534' }}>{b.status?.startsWith('cancelled') ? 'Inactive' : 'Active'}</span>
+                    : <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                  }
                   <span style={{ fontSize: 14, color: C.muted, padding: '0 4px' }}>{isOpen ? '▲' : '▼'}</span>
                 </div>
               </div>
@@ -564,6 +568,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
               {isOpen && (
                 <BookingExpandedPanel
                   b={b} C={C} isMobile={isMobile} staff={staff} setBookings={setBookings}
+                  contractVisits={b.isContract ? bookings.filter(v => v.contractId === b.id).sort((a,z) => (a.cleanDate||'').localeCompare(z.cleanDate||'')) : []}
                   openEdit={openEdit}
                   completing={completing} handleComplete={handleComplete}
                   cancelling={cancelling} handleCancel={handleCancel}

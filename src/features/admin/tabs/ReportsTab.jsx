@@ -100,7 +100,12 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   })() : 1;
 
   const activeBookings = bookings.filter(b => !b.status?.startsWith('cancelled'));
-  const periodBookings = activeBookings.filter(b => b.cleanDate >= periodStart && b.cleanDate <= periodEnd);
+  // Exclude master contract records — individual visits have their own cleanDate
+  const periodBookings = activeBookings.filter(b => !b.isContract && b.cleanDate >= periodStart && b.cleanDate <= periodEnd);
+
+  // Build master contract lookup for payment checking
+  const contractMasterMap = {};
+  bookings.filter(b => b.isContract).forEach(b => { contractMasterMap[b.id] = b; });
 
   const bookingLabour = b => {
     const m1 = staff.find(m => m.name === b.assignedStaff);
@@ -116,6 +121,11 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
 
   // ── KPIs ──
   const collectedAmt = b => {
+    if (b.isContractVisit) {
+      const master = contractMasterMap[b.contractId];
+      const key = b.cleanDate?.slice(0, 7);
+      return key && master?.monthlyPayments?.[key] === 'paid' ? parseFloat(b.total || 0) : 0;
+    }
     if (b.status === 'fully_paid')  return parseFloat(b.total)   || 0;
     if (b.status === 'deposit_paid') return parseFloat(b.deposit) || 0;
     return 0;

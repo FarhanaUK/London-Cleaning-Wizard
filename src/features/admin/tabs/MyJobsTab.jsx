@@ -80,9 +80,9 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
   const member     = myJobsCleaner ? staff.find(s => s.name === myJobsCleaner) : null;
   const rate       = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : null;
   const hasNARate  = member && member.hourlyRate === 'N/A';
-  const assignedToSelected = bookings.filter(b => b.assignedStaff === myJobsCleaner || b.secondCleaner === myJobsCleaner);
+  const assignedToSelected = bookings.filter(b => !b.isContract && (b.assignedStaff === myJobsCleaner || b.secondCleaner === myJobsCleaner));
   const unassignedJobs = bookings
-    .filter(b => !b.assignedStaff && b.cleanDate >= period.start && b.cleanDate <= period.end && !b.status?.startsWith('cancelled'))
+    .filter(b => !b.isContract && !b.assignedStaff && b.cleanDate >= period.start && b.cleanDate <= period.end && !b.status?.startsWith('cancelled'))
     .sort((a, b) => a.cleanDate.localeCompare(b.cleanDate));
   const periodJobs = myJobsCleaner
     ? assignedToSelected

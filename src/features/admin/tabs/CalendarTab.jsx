@@ -106,43 +106,15 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
 
   const bookingsByDate = {};
   bookings.forEach(b => {
-    if (!b.cleanDate && !b.contractStartDate) return;
-
-    if (b.isContract && b.contractStartDate && b.frequency) {
-      const contractStart = b.contractStartDate;
-      const contractEnd   = b.contractEndDate || `${calYear + 2}-12-31`;
-      if (contractEnd < monthStart || contractStart > monthEnd) return;
-
-      // Walk from contract start to first occurrence in or after month start
-      let cur = new Date(contractStart + 'T00:00:00');
-      const msEnd = new Date(Math.min(new Date(contractEnd + 'T00:00:00'), new Date(monthEnd + 'T00:00:00')));
-      while (cur.toISOString().slice(0, 10) < monthStart) {
-        const next = advanceByFreq(cur, b.frequency);
-        if (next <= cur) break;
-        cur = next;
-      }
-      while (cur <= msEnd) {
-        const dateStr = cur.toISOString().slice(0, 10);
-        if (dateStr >= monthStart && dateStr <= monthEnd) {
-          if (!bookingsByDate[dateStr]) bookingsByDate[dateStr] = [];
-          if (!bookingsByDate[dateStr].some(x => x.id === b.id)) {
-            bookingsByDate[dateStr].push(b);
-          }
-        }
-        const next = advanceByFreq(cur, b.frequency);
-        if (next <= cur) break;
-        cur = next;
-      }
-    } else {
-      if (!b.cleanDate) return;
-      if (calPackageFilter && b.packageName !== calPackageFilter) return;
-      if (!bookingsByDate[b.cleanDate]) bookingsByDate[b.cleanDate] = [];
-      bookingsByDate[b.cleanDate].push(b);
-    }
+    if (b.isContract) return; // skip masters — individual visits have their own cleanDate
+    if (!b.cleanDate) return;
+    if (calPackageFilter && b.packageName !== calPackageFilter) return;
+    if (!bookingsByDate[b.cleanDate]) bookingsByDate[b.cleanDate] = [];
+    bookingsByDate[b.cleanDate].push(b);
   });
 
   const prefix       = `${String(calYear)}-${String(calMonth + 1).padStart(2, '0')}`;
-  const monthBookings = bookings.filter(b => b.cleanDate?.startsWith(prefix));
+  const monthBookings = bookings.filter(b => !b.isContract && b.cleanDate?.startsWith(prefix));
   const active        = monthBookings.filter(b => !b.status?.startsWith('cancelled'));
   const revenue       = active.reduce((s, b) => s + parseFloat(b.total || 0), 0);
   const pendingCount  = monthBookings.filter(b => b.status === 'pending_deposit').length;
