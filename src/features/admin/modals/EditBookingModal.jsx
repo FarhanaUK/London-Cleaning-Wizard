@@ -28,9 +28,15 @@ export default function EditBookingModal({ editBooking, editData, setEditData, e
   if (!editBooking) return null;
 
   const currentPkg   = PACKAGES.find(p => p.id === editData.packageId);
-  const clientType   = editBooking.clientType || editData.clientType;
-  const contractAddonList = clientType === 'airbnb' ? AIRBNB_ADDONS : clientType === 'commercial' ? COMMERCIAL_ADDONS : null;
-  const isContractBooking = !!(editBooking.isContract || editBooking.isContractVisit || contractAddonList);
+  // Detect client type from any available field on the booking or visit
+  const rawType = editBooking.clientType || editData.clientType
+    || editBooking.packageId || editData.packageId
+    || (((editBooking.packageName || editData.packageName || '') + (editBooking.contractLabel || '')).toLowerCase().includes('airbnb') ? 'airbnb' : '')
+    || (((editBooking.packageName || editData.packageName || '') + (editBooking.contractLabel || '')).toLowerCase().includes('commercial') ? 'commercial' : '');
+  const isAirbnb     = rawType === 'airbnb' || String(rawType).toLowerCase().includes('airbnb');
+  const isCommercial = rawType === 'commercial' || String(rawType).toLowerCase().includes('commercial');
+  const contractAddonList = isAirbnb ? AIRBNB_ADDONS : isCommercial ? COMMERCIAL_ADDONS : null;
+  const isContractBooking = !!(editBooking.isContract || editBooking.isContractVisit || editBooking.contractId || contractAddonList);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,20,16,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
