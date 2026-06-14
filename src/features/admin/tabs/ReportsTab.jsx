@@ -703,36 +703,32 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
         <div style={RCARD}>
           <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Reimbursements &amp; Incident Recovery — {periodLabel}</div>
 
-          {/* Incident count summary */}
+          {/* Incident count summary — all time */}
           {(() => {
-            const periodList = incidents.filter(i => i.date >= periodStart && i.date <= periodEnd);
             const allOpen    = incidents.filter(i => i.status === 'open').length;
             const allPending = incidents.filter(i => i.status === 'pending_reimbursement').length;
             const allClosed  = incidents.filter(i => i.status === 'closed').length;
             const allTotal   = incidents.length;
-            const pOpen    = periodList.filter(i => i.status === 'open').length;
-            const pPending = periodList.filter(i => i.status === 'pending_reimbursement').length;
-            const pClosed  = periodList.filter(i => i.status === 'closed').length;
+            const periodCount = incidents.filter(i => i.date >= periodStart && i.date <= periodEnd).length;
             return (
               <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-                  <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted }}>Incident Count</div>
-                  <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted }}>All time: <strong style={{ color: C.text }}>{allTotal}</strong></div>
+                  <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted }}>Incident Count — All Time</div>
+                  <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted }}>{periodCount} in {periodLabel}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                   {[
-                    { label: 'Open',            count: pOpen,    allCount: allOpen,    bg: '#fef2f2', color: '#dc2626' },
-                    { label: 'Pending Payment', count: pPending, allCount: allPending, bg: '#fffbeb', color: '#d97706' },
-                    { label: 'Closed',          count: pClosed,  allCount: allClosed,  bg: '#f0fdf4', color: '#16a34a' },
-                  ].map(({ label, count, allCount, bg, color }) => (
+                    { label: 'Open',            count: allOpen,    bg: '#fef2f2', color: '#dc2626' },
+                    { label: 'Pending Payment', count: allPending, bg: '#fffbeb', color: '#d97706' },
+                    { label: 'Closed',          count: allClosed,  bg: '#f0fdf4', color: '#16a34a' },
+                  ].map(({ label, count, bg, color }) => (
                     <div key={label} style={{ flex: 1, minWidth: 80, background: bg, borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
-                      <div style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color }}>{count}</div>
-                      <div style={{ fontFamily: FONT, fontSize: 10, color, fontWeight: 600, marginBottom: 2 }}>{label}</div>
-                      <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted }}>{allCount} all time</div>
+                      <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color }}>{count}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 10, color, fontWeight: 600 }}>{label}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Showing incidents with a date in {periodLabel}. Total count includes all statuses.</div>
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Total: <strong style={{ color: C.text }}>{allTotal}</strong> incident{allTotal !== 1 ? 's' : ''} on record across all time.</div>
               </div>
             );
           })()}
