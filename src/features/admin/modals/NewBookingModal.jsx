@@ -172,16 +172,14 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
           );
         })}
 
-        {/* Property type — hidden for hourly */}
-        {!nbPkg?.isHourly && (
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Property Type</div>
-            <select value={nb.propertyType} onChange={e => setNb(p => ({ ...p, propertyType: e.target.value, sizeId: e.target.value === 'house' && p.sizeId === 'studio' ? '' : p.sizeId }))} style={{ ...INPUT, marginBottom: 0 }}>
-              <option value="flat">Flat / Apartment / Studio</option>
-              <option value="house">House (+10%)</option>
-            </select>
-          </div>
-        )}
+        {/* Property type */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Property Type</div>
+          <select value={nb.propertyType} onChange={e => setNb(p => ({ ...p, propertyType: e.target.value, sizeId: e.target.value === 'house' && p.sizeId === 'studio' ? '' : p.sizeId }))} style={{ ...INPUT, marginBottom: 0 }}>
+            <option value="flat">Flat / Apartment / Studio</option>
+            <option value="house">House (+10%)</option>
+          </select>
+        </div>
 
         {/* Bathrooms */}
         <div style={{ marginBottom: 14 }}>
@@ -202,40 +200,24 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Package *</div>
           <select value={nb.packageId} onChange={e => {
-            const pkg = PACKAGES.find(p => p.id === e.target.value);
-            const isDeep   = e.target.value === 'deep';
-            const isHourly = pkg?.isHourly;
-            setNb(p => ({ ...p, packageId: e.target.value, sizeId: '', addons: [], frequency: pkg?.showFreq ? p.frequency : 'one-off', supplies: isDeep ? 'cleaner' : p.supplies, suppliesFee: isDeep ? DEEP_SUPPLIES_FEE : undefined, propertyType: isHourly ? 'flat' : p.propertyType }));
+            const pkg    = PACKAGES.find(p => p.id === e.target.value);
+            const isDeep = e.target.value === 'deep';
+            setNb(p => ({ ...p, packageId: e.target.value, sizeId: '', addons: [], frequency: pkg?.showFreq ? p.frequency : 'one-off', supplies: isDeep ? 'cleaner' : p.supplies, suppliesFee: isDeep ? DEEP_SUPPLIES_FEE : undefined }));
           }} style={{ ...INPUT, marginBottom: 0 }}>
-            {PACKAGES.filter(p => p.id !== 'airbnb').map(p => <option key={p.id} value={p.id}>{p.name}{p.isHourly ? ' — Hourly' : ''}</option>)}
+            {PACKAGES.filter(p => !['airbnb', 'office_cleaning'].includes(p.id)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
-        {nbPkg?.isHourly ? (
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && !nb.sizeId ? C.danger : '#8b7355', marginBottom: 4 }}>Hours *</div>
-            <select value={nb.sizeId} onChange={e => setNb(p => ({ ...p, sizeId: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderColor: nbSubmitted && !nb.sizeId ? C.danger : undefined }}>
-              <option value="">— Select hours —</option>
-              {(nbPkg?.sizes || []).map(s => {
-                const hrs  = parseFloat(s.id.replace('h', ''));
-                const rate = Math.round(s.basePrice / hrs);
-                return <option key={s.id} value={s.id}>{s.label} — £{s.basePrice} (£{rate}/hr)</option>;
-              })}
-            </select>
-            {nbSubmitted && !nb.sizeId && <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 4 }}>This field is required</div>}
-          </div>
-        ) : (
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && !nb.sizeId ? C.danger : '#8b7355', marginBottom: 4 }}>Size *</div>
-            <select value={nb.sizeId} onChange={e => setNb(p => ({ ...p, sizeId: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderColor: nbSubmitted && !nb.sizeId ? C.danger : undefined }}>
-              <option value="">— Select size —</option>
-              {(nbPkg?.sizes || []).filter(s => !(nb.propertyType === 'house' && s.id === 'studio')).map(s => {
-                const price = Math.round(s.basePrice * (nb.propertyType === 'house' ? 1.10 : 1.0));
-                return <option key={s.id} value={s.id}>{s.label} — £{price}</option>;
-              })}
-            </select>
-            {nbSubmitted && !nb.sizeId && <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 4 }}>This field is required</div>}
-          </div>
-        )}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && !nb.sizeId ? C.danger : '#8b7355', marginBottom: 4 }}>Size *</div>
+          <select value={nb.sizeId} onChange={e => setNb(p => ({ ...p, sizeId: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderColor: nbSubmitted && !nb.sizeId ? C.danger : undefined }}>
+            <option value="">— Select size —</option>
+            {(nbPkg?.sizes || []).filter(s => !(nb.propertyType === 'house' && s.id === 'studio')).map(s => {
+              const price = Math.round(s.basePrice * (nb.propertyType === 'house' ? 1.10 : 1.0));
+              return <option key={s.id} value={s.id}>{s.label} — £{price}</option>;
+            })}
+          </select>
+          {nbSubmitted && !nb.sizeId && <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 4 }}>This field is required</div>}
+        </div>
         {nbPkg?.showFreq ? (
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Frequency</div>
@@ -534,7 +516,7 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
             { heading: '2. Cancellation & Rescheduling Policy', body: 'One-off bookings / First Booking: Full refund if cancelled more than 48 hours before the scheduled clean. No refund if cancelled less than 48 hours before the clean.\n\nRegular services (weekly, fortnightly or monthly): You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean. For cancellations with less than 48 hours notice, a charge of 30% of that clean\'s price will be applied to your saved payment method, as your cleaner\'s time will have been reserved.\n\nCancelling two consecutive cleans will end your recurring arrangement and your recurring discount. A new booking will be required, subject to standard first-clean pricing.\n\nIf our cleaner arrives at the scheduled time and is refused access or the clean is declined for any reason, this will be treated as a late cancellation and the applicable charge will apply.\n\nAll cancellations must be made by phone call only on 020 8137 0026. Cancellation requests made by email, text, WhatsApp or any other method will not be accepted as valid notice and will not waive any applicable charges. We reserve the right to review pricing with a minimum of 4 weeks written notice.' },
             { heading: '3. Pet Policy', body: 'All pets must be secured and kept away from our cleaning team for the entire duration of the clean. This is for the safety of both your pet and our staff. Failure to secure pets may result in the clean being abandoned without refund of the deposit.' },
             { heading: '4. Access to Property', body: 'You agree to ensure our team has full access to the property at the agreed time. If access is not provided within 15 minutes of the scheduled start time, the clean may be abandoned and no refund will be issued.' },
-            { heading: '5. Property Condition & Liability', body: 'You confirm that the property details provided are accurate. London Cleaning Wizard carries full public liability insurance. Any damage must be reported within 24 hours of the clean. We are not liable for pre-existing damage or items of exceptional value not declared prior to the clean.' },
+            { heading: '5. Damage, Liability & Claims', body: 'London Cleaning Wizard carries full public liability insurance and takes every care when working in your home. You confirm that the property details provided are accurate.\n\nReporting damage: Any damage believed to have occurred during a clean must be reported to us within 24 hours of the clean being completed. Reports must be made by phone call on 020 8137 0026 and must include photographs of the damage taken before the item is moved, repaired, or disposed of. We cannot accept claims for damage reported after this 24-hour window or without photographic evidence.\n\nInvestigation: Once a damage report is received, we will acknowledge it within 2 working days and investigate. We may request additional information or access to inspect the item. Our decision on liability will be communicated to you within 5 working days of receiving all required information.\n\nOur liability: We accept liability for damage caused directly by our cleaners’ negligence during the clean. We are not liable for: pre-existing damage or wear and tear; damage to items already in a fragile, deteriorating, or unstable condition; items broken as a result of not being properly secured; or loss not directly caused by cleaning activity.\n\nHigh-value and fragile items: We strongly recommend that fragile, antique, sentimental, or high-value items are stored away or removed from the property before your clean. If you have items of significant value in areas to be cleaned, you must inform us in advance so we can take appropriate precautions. We are not liable for damage to high-value or fragile items that were not declared to us before the clean.\n\nResolution: Where we accept liability for damage, we will offer one of the following at our discretion: repair of the item at our cost; replacement with an equivalent item of similar value; or agreed monetary compensation. We do not accept liability for sentimental value or consequential losses beyond the fair market value of the item at the time of damage. If we do not receive a response from you within 14 days of our resolution offer or any request for further information, the case will be considered closed.' },
             { heading: '6. Service Standards', body: 'If you are not satisfied with any aspect of your clean, you must notify us within 24 hours and we will arrange a complimentary re-clean of the affected areas. We do not offer refunds after a clean has been completed.' },
             { heading: '7. Cleaner Allocation', body: 'While we always strive to send the same dedicated cleaner for recurring bookings, this cannot be guaranteed. In the event that your usual cleaner is unavailable, we will contact you in advance and arrange an equally skilled replacement.' },
             { heading: '8. Privacy', body: 'Your personal data is processed in accordance with our Privacy Policy. We use your contact details to manage your booking and send confirmations only. We do not sell or share your data with third parties.' },

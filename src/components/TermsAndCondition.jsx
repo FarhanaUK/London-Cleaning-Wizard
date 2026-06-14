@@ -199,9 +199,16 @@ export default function TermsAndConditions() {
             ),
           },
           {
-            title: "13. Liability",
+            title: "13. Damage, Liability & Claims",
             content: (
-              <p>We take reasonable care in all services. We are not liable for pre-existing damage, normal wear and tear, or undisclosed fragile or valuable items. Customers should secure valuable items before cleaning. We maintain appropriate public liability insurance.</p>
+              <>
+                <p>London Cleaning Wizard carries full public liability insurance and takes every care when working in your home.</p>
+                <p style={{ marginTop: 12 }}><strong>Reporting damage:</strong> Any damage believed to have occurred during a clean must be reported to us within 24 hours of the clean being completed. Reports must be made by phone call on 020 8137 0026 and must include photographs of the damage taken before the item is moved, repaired, or disposed of. We cannot accept claims for damage reported after this 24-hour window or without photographic evidence.</p>
+                <p style={{ marginTop: 12 }}><strong>Investigation:</strong> Once a damage report is received, we will acknowledge it within 2 working days and investigate. We may request additional information or access to inspect the item. Our decision on liability will be communicated to you within 5 working days of receiving all required information.</p>
+                <p style={{ marginTop: 12 }}><strong>Our liability:</strong> We accept liability for damage caused directly by our cleaners' negligence during the clean. We are not liable for: pre-existing damage or wear and tear; damage to items already in a fragile, deteriorating, or unstable condition; items broken as a result of not being properly secured; or loss not directly caused by cleaning activity.</p>
+                <p style={{ marginTop: 12 }}><strong>High-value and fragile items:</strong> We strongly recommend that fragile, antique, sentimental, or high-value items are stored away or removed from the property before your clean. If you have items of significant value in areas to be cleaned, you must inform us in advance so we can take appropriate precautions. We are not liable for damage to high-value or fragile items that were not declared to us before the clean.</p>
+                <p style={{ marginTop: 12 }}><strong>Resolution:</strong> Where we accept liability for damage, we will offer one of the following at our discretion: repair of the item at our cost; replacement with an equivalent item of similar value; or agreed monetary compensation. We do not accept liability for sentimental value or consequential losses beyond the fair market value of the item at the time of damage. If we do not receive a response from you within 14 days of our resolution offer or any request for further information, the case will be considered closed.</p>
+              </>
             ),
           },
           {

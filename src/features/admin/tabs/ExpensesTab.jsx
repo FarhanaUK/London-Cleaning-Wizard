@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { db, storage } from '../../../firebase/firebase';
 import { doc, updateDoc, addDoc, deleteDoc, collection, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -60,7 +60,6 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
   const [pendingPhotos,     setPendingPhotos]     = useState([]);
   const [photoUploading,    setPhotoUploading]    = useState(false);
   const [lightboxUrl,       setLightboxUrl]       = useState(null);
-  const photoInputRef = useRef(null);
 
   // Budget state (fetched here, not passed from parent)
   const [budgets,      setBudgets]      = useState({});
@@ -1249,7 +1248,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                 ))}
               </div>
               <button
-                onClick={() => setIncidentModal({ mode: 'add', data: { date: today, type: 'Damage - Uninsured', description: '', amount: '', bookingRef: '', clientName: '', notes: '', resolution: '', status: 'open' } })}
+                onClick={() => { setIncidentModal({ mode: 'add', data: { date: today, type: 'Damage - Uninsured', description: '', amount: '', bookingRef: '', clientName: '', notes: '', resolution: '', status: 'open' } }); setPendingPhotos([]); }}
                 style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '8px 18px', borderRadius: 7, border: 'none', cursor: 'pointer', background: BIZ, color: '#fff' }}
               >
                 + Log Incident
@@ -1422,21 +1421,16 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                       ))}
                     </div>
                   )}
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    style={{ display: 'none' }}
-                    onChange={e => { setPendingPhotos(p => [...p, ...Array.from(e.target.files)]); e.target.value = ''; }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => photoInputRef.current?.click()}
-                    style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 16px', borderRadius: 6, border: `1px dashed ${C.border}`, background: C.bg, color: C.text, cursor: 'pointer', marginBottom: 16, width: '100%' }}
-                  >
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 16px', borderRadius: 6, border: `1px dashed ${C.border}`, background: C.bg, color: C.text, cursor: 'pointer', marginBottom: 16, width: '100%', display: 'block', textAlign: 'center', boxSizing: 'border-box' }}>
                     + Add Photos
-                  </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      style={{ display: 'none' }}
+                      onChange={e => { setPendingPhotos(p => [...p, ...Array.from(e.target.files)]); e.target.value = ''; }}
+                    />
+                  </label>
 
                   <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 6 }}>Case Status</label>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
