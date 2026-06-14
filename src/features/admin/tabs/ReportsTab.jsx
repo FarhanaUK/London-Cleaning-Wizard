@@ -39,7 +39,7 @@ const fmtReportMonth = key => {
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supplies = [], marketingSpend = [], isMobile, C }) {
+export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supplies = [], marketingSpend = [], incidents = [], isMobile, C }) {
   const [reportsTaxYear, setReportsTaxYear] = useState(() => currentTaxYear().label);
   const [reportsMode,    setReportsMode]    = useState('month');
   const [momTooltip,     setMomTooltip]     = useState(false);
@@ -159,7 +159,8 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
         if (f.frequency === 'yearly') return s + (rptTyYearlyDate(f) ? amt : 0);
         return s + amt * rptTyMonths(f);
       }, 0);
-  const periodProfit = periodRev - periodLabour - periodExp - periodMktSpend - periodSupExp - periodFixed;
+  const periodIncidents = incidents.filter(i => i.date >= periodStart && i.date <= periodEnd).reduce((s, i) => s + (parseFloat(i.amount)||0), 0);
+  const periodProfit = periodRev - periodLabour - periodExp - periodMktSpend - periodSupExp - periodFixed - periodIncidents;
   const periodMargin = periodRev > 0 ? (periodProfit / periodRev) * 100 : 0;
   const avgJobVal    = periodBookings.length > 0 ? periodRev / periodBookings.length : 0;
 
@@ -266,10 +267,11 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const mktExp   = marketingSpend.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
     const varExp   = expenses.filter(e => e.date >= mStart && e.date <= mEnd && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
     const supExp   = supplies.filter(s => s.purchaseDate && s.purchaseDate >= mStart && s.purchaseDate <= mEnd).reduce((s, sup) => s + (parseFloat(sup.unitCost)||0) * (Number(sup.inStock)||0), 0);
+    const incExp   = incidents.filter(inc => inc.date >= mStart && inc.date <= mEnd).reduce((s, inc) => s + (parseFloat(inc.amount)||0), 0);
     const fixed    = fixedForMonth(mStart, mEnd);
-    const costs    = lab + mktExp + varExp + supExp + fixed;
+    const costs    = lab + mktExp + varExp + supExp + fixed + incExp;
     const isFuture = d > now;
-    return { key, label, rev, lab, mktExp, varExp, supExp, fixed, costs, profit: rev - costs, jobs: bkgs.length, isFuture };
+    return { key, label, rev, lab, mktExp, varExp, supExp, incExp, fixed, costs, profit: rev - costs, jobs: bkgs.length, isFuture };
   }) : [];
   const maxRev = last12.length ? Math.max(...last12.map(m => Math.max(m.rev, m.costs)), 1) : 1;
 
@@ -286,9 +288,10 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const varExp = expenses.filter(e => e.date >= mS && e.date <= mE && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
     const supExp = supplies.filter(s => s.purchaseDate && s.purchaseDate >= mS && s.purchaseDate <= mE).reduce((s, sup) => s + (parseFloat(sup.unitCost)||0) * (Number(sup.inStock)||0), 0);
     const mktExp = marketingSpend.filter(e => e.date >= mS && e.date <= mE).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+    const incExp = incidents.filter(inc => inc.date >= mS && inc.date <= mE).reduce((s, inc) => s + (parseFloat(inc.amount)||0), 0);
     const fixed = fixedForMonth(mS, mE);
-    const costs = lab + varExp + supExp + mktExp + fixed;
-    return { label, mS, mE, rev, lab, varExp, supExp, mktExp, fixed, costs, isFuture };
+    const costs = lab + varExp + supExp + mktExp + fixed + incExp;
+    return { label, mS, mE, rev, lab, varExp, supExp, mktExp, incExp, fixed, costs, isFuture };
   }) : [];
   const maxCalRev  = calMonths12.length ? Math.max(...calMonths12.map(m => Math.max(m.rev, m.costs)), 1) : 1;
   const ytdMonths  = calMonths12.filter(m => !m.isFuture);
@@ -367,7 +370,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5,1fr)', gap: 12, marginBottom: 20 }}>
         {(() => {
-          const totalCosts = periodLabour + periodExp + periodMktSpend + periodSupExp + periodFixed;
+          const totalCosts = periodLabour + periodExp + periodMktSpend + periodSupExp + periodFixed + periodIncidents;
           return [
             { label: 'Revenue',       value: `£${periodRev.toFixed(2)}`,     sub: `${periodBookings.length} jobs`,             color: '#16a34a' },
             { label: 'Total Costs',   value: `£${totalCosts.toFixed(2)}`,    sub: 'all expenses combined',                     color: '#dc2626' },
@@ -387,19 +390,20 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
       {/* ── P&L breakdown — always visible ── */}
       <div style={{ ...RCARD, marginBottom: 16 }}>
         <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Net Profit Breakdown — {periodLabel}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4,1fr) 2px repeat(2,1fr)', gap: 0, alignItems: 'stretch' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4,1fr) 2px repeat(3,1fr)', gap: 0, alignItems: 'stretch' }}>
           {[
-            { label: 'Revenue',          value: periodRev,         color: '#16a34a', sign: '+' },
-            { label: 'Cleaner Pay',      value: periodLabour,      color: '#7c3aed', sign: '-' },
-            { label: 'Variable Costs',   value: periodExp,         color: '#dc2626', sign: '-' },
-            { label: 'Ad Spend',         value: periodMktSpend,    color: '#ec4899', sign: '-' },
+            { label: 'Revenue',            value: periodRev,          color: '#16a34a', sign: '+' },
+            { label: 'Cleaner Pay',        value: periodLabour,       color: '#7c3aed', sign: '-' },
+            { label: 'Variable Costs',     value: periodExp,          color: '#dc2626', sign: '-' },
+            { label: 'Ad Spend',           value: periodMktSpend,     color: '#ec4899', sign: '-' },
             null,
-            { label: 'Supplies',         value: periodSupExp,      color: '#0ea5e9', sign: '-' },
-            { label: 'Direct Debits',    value: periodFixed,       color: '#f97316', sign: '-' },
+            { label: 'Supplies',           value: periodSupExp,       color: '#0ea5e9', sign: '-' },
+            { label: 'Direct Debits',      value: periodFixed,        color: '#f97316', sign: '-' },
+            { label: 'Incidents & Refunds',value: periodIncidents,    color: '#b45309', sign: '-' },
           ].map((item, i) => item === null
             ? <div key="div" style={{ background: C.border, width: 2, margin: '0 8px', display: isMobile ? 'none' : 'block' }} />
             : (
-              <div key={item.label} style={{ padding: '10px 14px', borderRight: isMobile ? 'none' : (i < 3 || i === 5 ? `1px solid ${C.border}` : 'none'), borderBottom: isMobile ? `1px solid ${C.border}` : 'none' }}>
+              <div key={item.label} style={{ padding: '10px 14px', borderRight: isMobile ? 'none' : (i < 3 || i === 5 || i === 6 ? `1px solid ${C.border}` : 'none'), borderBottom: isMobile ? `1px solid ${C.border}` : 'none' }}>
                 <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>{item.label}</div>
                 <div style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: item.color }}>{item.sign === '+' ? '' : '-'}£{item.value.toFixed(2)}</div>
               </div>
@@ -423,6 +427,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
                   <div style={{ flex: 1, background: '#0ea5e9', borderRadius: '3px 3px 0 0', height: `${(m.supExp/maxCalRev)*90}px`, minHeight: m.supExp > 0 ? 2 : 0, opacity: 0.8 }} title={`Supplies £${m.supExp.toFixed(2)}`} />
                   <div style={{ flex: 1, background: '#ec4899', borderRadius: '3px 3px 0 0', height: `${(m.mktExp/maxCalRev)*90}px`, minHeight: m.mktExp > 0 ? 2 : 0, opacity: 0.85 }} title={`Ad spend £${m.mktExp.toFixed(2)}`} />
                   <div style={{ flex: 1, background: '#7c3aed', borderRadius: '3px 3px 0 0', height: `${(m.lab/maxCalRev)*90}px`, minHeight: m.lab > 0 ? 2 : 0, opacity: 0.85 }} title={`Cleaner pay £${m.lab.toFixed(2)}`} />
+                  <div style={{ flex: 1, background: '#b45309', borderRadius: '3px 3px 0 0', height: `${(m.incExp/maxCalRev)*90}px`, minHeight: m.incExp > 0 ? 2 : 0, opacity: 0.9 }} title={`Incidents £${m.incExp.toFixed(2)}`} />
                 </div>
               ))}
             </div>
@@ -439,6 +444,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
                 { color: '#0ea5e9', label: 'Supplies', opacity: 0.8 },
                 { color: '#ec4899', label: 'Ad Spend', opacity: 0.85 },
                 { color: '#7c3aed', label: 'Cleaner Pay', opacity: 0.85 },
+                { color: '#b45309', label: 'Incidents', opacity: 0.9 },
               ].map(({ color, label, opacity = 1 }) => (
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <div style={{ width: 10, height: 10, background: color, borderRadius: 2, opacity }} />
@@ -524,6 +530,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
                   <div style={{ flex: 1, background: '#0ea5e9', borderRadius: '3px 3px 0 0', height: `${(m.supExp/maxRev)*90}px`, minHeight: m.supExp > 0 ? 2 : 0, opacity: 0.8 }} title={`Supplies £${m.supExp.toFixed(2)}`} />
                   <div style={{ flex: 1, background: '#ec4899', borderRadius: '3px 3px 0 0', height: `${(m.mktExp/maxRev)*90}px`, minHeight: m.mktExp > 0 ? 2 : 0, opacity: 0.85 }} title={`Ad spend £${m.mktExp.toFixed(2)}`} />
                   <div style={{ flex: 1, background: '#7c3aed', borderRadius: '3px 3px 0 0', height: `${(m.lab/maxRev)*90}px`, minHeight: m.lab > 0 ? 2 : 0, opacity: 0.85 }} title={`Cleaner pay £${m.lab.toFixed(2)}`} />
+                  <div style={{ flex: 1, background: '#b45309', borderRadius: '3px 3px 0 0', height: `${(m.incExp/maxRev)*90}px`, minHeight: m.incExp > 0 ? 2 : 0, opacity: 0.9 }} title={`Incidents £${m.incExp.toFixed(2)}`} />
                 </div>
               ))}
             </div>
@@ -540,6 +547,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
                 { color: '#0ea5e9', label: 'Supplies', opacity: 0.8 },
                 { color: '#ec4899', label: 'Ad Spend', opacity: 0.85 },
                 { color: '#7c3aed', label: 'Cleaner Pay', opacity: 0.85 },
+                { color: '#b45309', label: 'Incidents', opacity: 0.9 },
               ].map(({ color, label, opacity = 1 }) => (
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <div style={{ width: 10, height: 10, background: color, borderRadius: 2, opacity }} />
@@ -681,6 +689,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
               { label: 'Marketing spend',              value: periodMktSpend,    color: '#ec4899' },
               { label: 'Supplies',                     value: periodSupExp,      color: '#0ea5e9' },
               { label: 'Direct debits',                value: periodFixed,       color: '#f97316' },
+              { label: 'Incidents & Refunds',          value: periodIncidents,   color: '#b45309' },
               { label: 'Net Profit',                   value: periodProfit,      color: periodProfit >= 0 ? '#16a34a' : '#dc2626', bold: true },
             ].map(({ label, value, color, bold }) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 10, marginBottom: 10, borderBottom: `1px solid ${C.border}` }}>
@@ -692,21 +701,53 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
         )}
 
         <div style={RCARD}>
-          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Outstanding Reimbursements — {periodLabel}</div>
-          <div style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: reimbursableTotal > 0 ? '#dc2626' : '#16a34a', marginBottom: 4 }}>£{reimbursableTotal.toFixed(2)}</div>
-          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 12 }}>{reimbursable.length} unpaid item{reimbursable.length !== 1 ? 's' : ''} — money owed back to staff</div>
-          {reimbursable.length === 0
-            ? <div style={{ fontFamily: FONT, fontSize: 13, color: '#16a34a' }}>All reimbursements settled ✓</div>
-            : reimbursable.slice(0, 5).map((e, i, arr) => (
-              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, marginBottom: 8, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
-                <div>
-                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{e.name}</div>
-                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{e.paidBy} · {fmtDate(e.date)}{e.type === 'supply' ? ' · supply' : ''}</div>
+          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Reimbursements &amp; Incident Recovery — {periodLabel}</div>
+
+          {/* Incident payouts — money we still owe to customers */}
+          {(() => {
+            const pendingIncidents = incidents.filter(i => i.status === 'pending_reimbursement');
+            const pendingTotal = pendingIncidents.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+            return (
+              <>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 6 }}>Owed to Customers — Pending Payouts</div>
+                  <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: pendingTotal > 0 ? '#d97706' : '#16a34a', marginBottom: 4 }}>£{pendingTotal.toFixed(2)}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 10 }}>{pendingIncidents.length} case{pendingIncidents.length !== 1 ? 's' : ''} awaiting payment</div>
+                  {pendingIncidents.length === 0
+                    ? <div style={{ fontFamily: FONT, fontSize: 12, color: '#16a34a', marginBottom: 4 }}>No outstanding customer payouts ✓</div>
+                    : pendingIncidents.slice(0, 3).map((inc, i, arr) => (
+                      <div key={inc.id} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 6, marginBottom: 6, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                        <div>
+                          <div style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{inc.description}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{inc.type} · {fmtDate(inc.date)}{inc.clientName ? ` · ${inc.clientName}` : ''}</div>
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#d97706' }}>£{(parseFloat(inc.amount) || 0).toFixed(2)}</div>
+                      </div>
+                    ))
+                  }
                 </div>
-                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>£{e.amount.toFixed(2)}</div>
-              </div>
-            ))
-          }
+              </>
+            );
+          })()}
+
+          {/* Staff reimbursements — money owed back to staff */}
+          <div style={{ paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 6 }}>Owed to Staff</div>
+            <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: reimbursableTotal > 0 ? '#dc2626' : '#16a34a', marginBottom: 4 }}>£{reimbursableTotal.toFixed(2)}</div>
+            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 10 }}>{reimbursable.length} unpaid item{reimbursable.length !== 1 ? 's' : ''}</div>
+            {reimbursable.length === 0
+              ? <div style={{ fontFamily: FONT, fontSize: 12, color: '#16a34a' }}>All staff reimbursements settled ✓</div>
+              : <div>{reimbursable.slice(0, 3).map((e, i, arr) => (
+                <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 6, marginBottom: 6, borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : 'none' }}>
+                  <div>
+                    <div style={{ fontFamily: FONT, fontSize: 12, color: C.text }}>{e.name}</div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{e.paidBy} · {fmtDate(e.date)}{e.type === 'supply' ? ' · supply' : ''}</div>
+                  </div>
+                  <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#dc2626' }}>£{e.amount.toFixed(2)}</div>
+                </div>
+              ))}</div>
+            }
+          </div>
         </div>
       </div>
 

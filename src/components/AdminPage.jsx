@@ -23,6 +23,7 @@ const SignatureTouchTab  = lazy(() => import('../features/admin/tabs/SignatureTo
 const TrashTab           = lazy(() => import('../features/admin/tabs/TrashTab'));
 const MarketingSpendTab  = lazy(() => import('../features/admin/tabs/MarketingSpendTab'));
 const QuotesTab          = lazy(() => import('../features/admin/tabs/QuotesTab'));
+const ActionsTab         = lazy(() => import('../features/admin/tabs/ActionsTab'));
 
 
 // ── Themes ────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ const THEMES = {
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
 const NAV_ITEMS = [
+  { id: 'actions',   label: 'Actions',   icon: '✅' },
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
   { id: 'bookings',  label: 'Bookings',  icon: '📋' },
   { id: 'customers', label: 'Customers', icon: '👥' },
@@ -188,6 +190,8 @@ export default function AdminPage() {
   const [abandonmentStats,      setAbandonmentStats]      = useState([]);
   const [funnelData,            setFunnelData]            = useState([]);
   const [stDistributions,       setStDistributions]       = useState([]);
+  const [savedQuotes,           setSavedQuotes]           = useState([]);
+  const [incidents,             setIncidents]             = useState([]);
   useEffect(() => onAuthStateChanged(auth, async u => {
     setUser(u);
     setAuthLoading(false);
@@ -253,6 +257,50 @@ export default function AdminPage() {
         title: 'Raise your margin to 40%',
         message: `You have ${thisMonthCount} bookings this month. At this volume your overhead is spread across enough jobs that you can push your profit margin to 35-40% without pricing yourself out. Update it in the Quotes Calculator now.`,
         link: 'quotes',
+      });
+    }
+  }, [user, bookings]);
+
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(
+      query(collection(db, 'savedQuotes'), orderBy('createdAt', 'desc')),
+      snap => setSavedQuotes(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || savedQuotes.length === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const overdue = savedQuotes.filter(sq => sq.status === 'quote_sent' && sq.followUpDate && sq.followUpDate <= today);
+    if (overdue.length > 0) {
+      addNotification({
+        id: 'quote_followup_due',
+        icon: '📋',
+        title: `${overdue.length} quote follow-up${overdue.length > 1 ? 's' : ''} due`,
+        message: overdue.map(sq => sq.bizName).join(', ') + (overdue.length === 1 ? ' -- follow up today.' : ' -- follow up with these clients today.'),
+        link: 'actions',
+      });
+    }
+  }, [user, savedQuotes]);
+
+  useEffect(() => {
+    if (!user || !bookings.length) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const in30 = new Date(); in30.setDate(in30.getDate() + 30);
+    const in30str = in30.toISOString().slice(0, 10);
+    const expiring = bookings.filter(b =>
+      b.isContract && b.contractEndDate &&
+      b.contractEndDate >= today && b.contractEndDate <= in30str &&
+      !b.status?.startsWith('cancelled')
+    );
+    if (expiring.length > 0) {
+      addNotification({
+        id: 'contract_expiring',
+        icon: '🏢',
+        title: `${expiring.length} contract${expiring.length > 1 ? 's' : ''} ending soon`,
+        message: expiring.map(b => b.bizName || b.firstName).join(', ') + ' -- discuss renewal.',
+        link: 'actions',
       });
     }
   }, [user, bookings]);
@@ -332,6 +380,55 @@ export default function AdminPage() {
     if (!user) return;
     return onSnapshot(collection(db, 'marketingSpend'), snap => setMarketingSpend(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'incidents'), orderBy('date', 'desc'));
+    return onSnapshot(q, snap => setIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !incidents.length) return;
+    const today = new Date().toISOString().slice(0, 10);
+    incidents.forEach(inc => {
+      if (!inc.createdAt) return;
+      const created = inc.createdAt.slice(0, 10);
+      const days = Math.round((new Date(today) - new Date(created)) / 86400000);
+
+      if (inc.status === 'open') {
+        if (days >= 3 && days <= 6) {
+          addNotification({
+            id: `incident_chase_${inc.id}`,
+            icon: '⚠️',
+            title: 'Incident needs a chase',
+            message: `"${inc.description}" has been open for ${days} days. Follow up for a progress update.`,
+            link: 'expenses',
+            tabKey: 'incidents',
+          });
+        }
+        if (days >= 10) {
+          addNotification({
+            id: `incident_escalate_${inc.id}`,
+            icon: '🔴',
+            title: `Incident unresolved — ${days} days`,
+            message: `"${inc.description}" is still open after ${days} days. Consider escalating or marking as pending reimbursement.`,
+            link: 'expenses',
+            tabKey: 'incidents',
+          });
+        }
+      }
+      if (inc.status === 'pending_reimbursement' && days >= 7) {
+        addNotification({
+          id: `incident_reimb_${inc.id}`,
+          icon: '💰',
+          title: 'Customer payout still pending',
+          message: `${days} days since "${inc.description}" was marked for payout. Confirm payment has been sent.`,
+          link: 'expenses',
+          tabKey: 'incidents',
+        });
+      }
+    });
+  }, [user, incidents]);
 
 
   useEffect(() => {
@@ -533,7 +630,7 @@ export default function AdminPage() {
                 ) : (
                   <div style={{ maxHeight: 360, overflowY: 'auto' }}>
                     {notifs.map(n => (
-                      <div key={n.id} onClick={() => { if (n.link) { setActiveView(n.link); localStorage.setItem('crmActiveView', n.link); setBellOpen(false); } }} style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 10, alignItems: 'flex-start', background: n.read ? 'transparent' : `${C.accent}11`, cursor: n.link ? 'pointer' : 'default' }}>
+                      <div key={n.id} onClick={() => { if (n.link) { setActiveView(n.link); localStorage.setItem('crmActiveView', n.link); if (n.tabKey) localStorage.setItem('expenseTab', n.tabKey); setBellOpen(false); } }} style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 10, alignItems: 'flex-start', background: n.read ? 'transparent' : `${C.accent}11`, cursor: n.link ? 'pointer' : 'default' }}>
                         <span style={{ fontSize: 16, flexShrink: 0 }}>{n.icon || (n.source === 'marketing' ? '🎯' : '🔔')}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           {n.title && <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 2 }}>{n.title}</div>}
@@ -700,22 +797,23 @@ export default function AdminPage() {
           {(() => {
             const activeBookings = bookings.filter(b => !b.deleted);
             return <>
+              {activeView === 'actions'   && <ActionsTab savedQuotes={savedQuotes} bookings={activeBookings} isMobile={isMobile} C={C} onNavigate={setActiveView} />}
               {activeView === 'calendar'  && <CalendarTab bookings={activeBookings} isMobile={isMobile} C={C} />}
               {activeView === 'dashboard' && <DashboardTab bookings={activeBookings} staff={staff} isMobile={isMobile} C={C} />}
               {activeView === 'customers' && <CustomersTab bookings={activeBookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
               {activeView === 'staff'     && <StaffTab staff={staff} bookings={activeBookings} setBookings={setBookings} stDistributions={stDistributions} isMobile={isMobile} C={C} />}
               {activeView === 'myJobs'    && <MyJobsTab staff={staff} bookings={activeBookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
-              {activeView === 'expenses'  && <ExpensesTab expenses={expenses} fixedCosts={fixedCosts} bookings={activeBookings} staff={staff} supplies={supplies} marketingSpend={marketingSpend} isMobile={isMobile} C={C} />}
+              {activeView === 'expenses'  && <ExpensesTab expenses={expenses} fixedCosts={fixedCosts} bookings={activeBookings} staff={staff} supplies={supplies} marketingSpend={marketingSpend} incidents={incidents} isMobile={isMobile} C={C} />}
               {activeView === 'supplies'  && <SuppliesTab supplies={supplies} isMobile={isMobile} C={C} />}
               {activeView === 'sop'       && <SOPTab isMobile={isMobile} C={C} />}
-              {activeView === 'reports'   && <ReportsTab bookings={activeBookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} marketingSpend={marketingSpend} isMobile={isMobile} C={C} />}
+              {activeView === 'reports'   && <ReportsTab bookings={activeBookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} marketingSpend={marketingSpend} incidents={incidents} isMobile={isMobile} C={C} />}
               {activeView === 'bookings'  && <BookingsTab bookings={activeBookings} setBookings={setBookings} staff={staff} isMobile={isMobile} C={C} user={user} schedulerLogs={schedulerLogs} bannerVisible={bannerVisible} welcomeMsg={welcomeMsg} welcomeColor={welcomeColor} />}
               {activeView === 'marketing'       && <MarketingTab abandonmentStats={abandonmentStats} funnelData={funnelData} bookings={activeBookings} isMobile={isMobile} C={C} />}
               {activeView === 'campaigns'      && <CampaignWorkflow funnelData={funnelData} bookings={activeBookings} />}
               {activeView === 'adSpend'        && <MarketingSpendTab isMobile={isMobile} C={C} />}
               {activeView === 'promotions'     && <PromotionsTab isMobile={isMobile} C={C} />}
               {activeView === 'signatureTouch' && <SignatureTouchTab bookings={activeBookings} staff={staff} stDistributions={stDistributions} C={C} />}
-              {activeView === 'quotes'         && <QuotesTab isMobile={isMobile} C={C} expenses={expenses} fixedCosts={fixedCosts} marketingSpend={marketingSpend} supplies={supplies} bookings={bookings} />}
+              {activeView === 'quotes'         && <QuotesTab isMobile={isMobile} C={C} expenses={expenses} fixedCosts={fixedCosts} marketingSpend={marketingSpend} supplies={supplies} bookings={bookings} savedQuotes={savedQuotes} onNavigate={setActiveView} />}
               {activeView === 'trash'          && <TrashTab bookings={bookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
             </>;
           })()}

@@ -2,10 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Bookings — admin read only (writes go through cloud functions with admin SDK)
+    // Bookings — admin read + write (one-off bookings go through cloud functions; contract bookings written directly from admin)
     match /bookings/{bookingId} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow read, write: if request.auth != null;
     }
 
     // Customers — admin read only
@@ -85,6 +84,16 @@ service cloud.firestore {
 
     // Ad spend entries — admin only
     match /marketingSpend/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Saved quotes (contract pipeline) — admin only
+    match /savedQuotes/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Incidents (damage, refunds, unexpected costs) — admin only
+    match /incidents/{id} {
       allow read, write: if request.auth != null;
     }
 

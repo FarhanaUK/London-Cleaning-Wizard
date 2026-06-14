@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { db } from '../../../firebase/firebase';
-import { doc, updateDoc, addDoc, deleteDoc, collection, setDoc, onSnapshot } from 'firebase/firestore';
+import { useState, useEffect, useRef } from 'react';
+import { db, storage } from '../../../firebase/firebase';
+import { doc, updateDoc, addDoc, deleteDoc, collection, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { fmtDate, getTaxYears, currentTaxYear, calcHours } from '../utils';
 
 const FONT = "'Inter', 'Segoe UI', sans-serif";
@@ -14,7 +15,9 @@ const PAID_BY = ['Company Card', 'Cash', 'Personal — Reimbursable', 'Direct De
 const PAID_BY_COLOURS = { 'Company Card':'#6366f1','Cash':'#16a34a','Personal — Reimbursable':'#dc2626','Direct Debit':'#0ea5e9' };
 const HMRC_RATE = 0.45;
 
-export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, supplies = [], marketingSpend = [], isMobile, C }) {
+const INCIDENT_TYPES = ['Damage - Uninsured', 'Customer Refund', 'Unexpected Cost'];
+
+export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, supplies = [], marketingSpend = [], incidents = [], isMobile, C }) {
   const now = new Date();
   const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const lastMo    = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
@@ -46,6 +49,18 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
   const [fixedModal,  setFixedModal]  = useState(null);
   const [fixedSaving, setFixedSaving] = useState(false);
   const [fixedErr,    setFixedErr]    = useState('');
+
+  // Incident state
+  const [incidentModal,     setIncidentModal]     = useState(null);
+  const [incidentSaving,    setIncidentSaving]    = useState(false);
+  const [incidentErr,       setIncidentErr]       = useState('');
+  const [incidentFilter,    setIncidentFilter]    = useState('all');
+  const [closingId,         setClosingId]         = useState(null);
+  const [closingResolution, setClosingResolution] = useState('');
+  const [pendingPhotos,     setPendingPhotos]     = useState([]);
+  const [photoUploading,    setPhotoUploading]    = useState(false);
+  const [lightboxUrl,       setLightboxUrl]       = useState(null);
+  const photoInputRef = useRef(null);
 
   // Budget state (fetched here, not passed from parent)
   const [budgets,      setBudgets]      = useState({});
@@ -238,6 +253,73 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
     finally { setFixedSaving(false); }
   };
 
+  const uploadIncidentPhotos = async (incidentId, files) => {
+    const urls = [];
+    for (const file of files) {
+      const path = `incidents/${incidentId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const fileRef = storageRef(storage, path);
+      await uploadBytes(fileRef, file);
+      urls.push(await getDownloadURL(fileRef));
+    }
+    return urls;
+  };
+
+  const saveIncident = async () => {
+    const d = incidentModal.data;
+    if (!d.date || !d.description?.trim()) { setIncidentErr('Date and description are required.'); return; }
+    setIncidentSaving(true); setIncidentErr('');
+    try {
+      const payload = {
+        date: d.date,
+        type: d.type || 'Unexpected Cost',
+        description: d.description.trim(),
+        amount: parseFloat(d.amount),
+        bookingRef: d.bookingRef?.trim() || '',
+        clientName: d.clientName?.trim() || '',
+        notes: d.notes?.trim() || '',
+        resolution: d.resolution?.trim() || '',
+        status: d.status || 'open',
+      };
+      if (incidentModal.mode === 'add') {
+        const docRef = await addDoc(collection(db, 'incidents'), { ...payload, photos: [], createdAt: new Date().toISOString() });
+        if (pendingPhotos.length > 0) {
+          setPhotoUploading(true);
+          const urls = await uploadIncidentPhotos(docRef.id, pendingPhotos);
+          await updateDoc(docRef, { photos: urls });
+        }
+      } else {
+        const existingPhotos = d.photos || [];
+        let newUrls = [];
+        if (pendingPhotos.length > 0) {
+          setPhotoUploading(true);
+          newUrls = await uploadIncidentPhotos(d.id, pendingPhotos);
+        }
+        await updateDoc(doc(db, 'incidents', d.id), { ...payload, photos: [...existingPhotos, ...newUrls] });
+      }
+      setPendingPhotos([]);
+      setIncidentModal(null);
+    } catch (e) { setIncidentErr(e.message); }
+    finally { setIncidentSaving(false); setPhotoUploading(false); }
+  };
+
+  const deleteIncident = async () => {
+    if (!window.confirm('Delete this incident record?')) return;
+    setIncidentSaving(true);
+    try { await deleteDoc(doc(db, 'incidents', incidentModal.data.id)); setPendingPhotos([]); setIncidentModal(null); }
+    catch (e) { setIncidentErr(e.message); }
+    finally { setIncidentSaving(false); }
+  };
+
+  const closeIncident = async (inc, resolution, status = 'closed') => {
+    await updateDoc(doc(db, 'incidents', inc.id), { status, resolution: resolution?.trim() || '' });
+    setClosingId(null);
+    setClosingResolution('');
+  };
+
+  const reopenIncident = async (inc) => {
+    await updateDoc(doc(db, 'incidents', inc.id), { status: 'open' });
+  };
+
   const saveBudgets = async () => {
     setBudgetSaving(true);
     const clean = {};
@@ -261,6 +343,14 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
           </button>
           <button style={TAB_S(expenseTab==='pnl')} onClick={() => { setExpenseTab('pnl'); localStorage.setItem('expenseTab','pnl'); }}>P&amp;L</button>
           <button style={TAB_S(expenseTab==='hmrc')} onClick={() => { setExpenseTab('hmrc'); localStorage.setItem('expenseTab','hmrc'); }}>HMRC</button>
+          {(() => {
+            const activeCount = incidents.filter(i => i.status === 'open' || i.status === 'pending_reimbursement').length;
+            return (
+              <button style={{ ...TAB_S(expenseTab==='incidents'), borderColor: expenseTab !== 'incidents' && activeCount > 0 ? '#dc262640' : undefined }} onClick={() => { setExpenseTab('incidents'); localStorage.setItem('expenseTab','incidents'); }}>
+                Incidents{activeCount > 0 ? ` (${activeCount})` : ''}
+              </button>
+            );
+          })()}
         </div>
       </div>
 
@@ -270,25 +360,27 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         const mStart = `${thisMonthKey}-01`;
         const mEnd   = new Date(cy, cm, 0).toISOString().split('T')[0];
         const activeMonthlyDDs = fixedCosts.filter(f => f.active && !(f.startDate && f.startDate > mEnd) && !(f.endDate && f.endDate < mStart) && !(f.startDate && f.startDate.slice(0, 7) > thisMonthStr));
-        const summaryVars     = expenses.filter(e => e.date?.startsWith(thisMonthKey)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-        const summaryFixed    = activeMonthlyDDs.reduce((s, f) => { const amt = parseFloat(f.amount) || 0; return s + (f.frequency === 'yearly' ? amt / 12 : amt); }, 0);
-        const summaryAds      = marketingSpend.filter(e => e.date?.startsWith(thisMonthKey)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-        const summarySupplies = supplies.filter(s => s.purchaseDate?.startsWith(thisMonthKey)).reduce((s, sup) => s + (parseFloat(sup.unitCost) || 0) * (Number(sup.inStock) || 0), 0);
-        const summaryTotal    = summaryVars + summaryFixed + summaryAds + summarySupplies;
-        const cashFixed       = activeMonthlyDDs.filter(f => f.frequency !== 'yearly').reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
-        const cashTotal       = summaryVars + cashFixed + summaryAds + summarySupplies;
+        const summaryVars      = expenses.filter(e => e.date?.startsWith(thisMonthKey)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+        const summaryFixed     = activeMonthlyDDs.reduce((s, f) => { const amt = parseFloat(f.amount) || 0; return s + (f.frequency === 'yearly' ? amt / 12 : amt); }, 0);
+        const summaryAds       = marketingSpend.filter(e => e.date?.startsWith(thisMonthKey)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+        const summarySupplies  = supplies.filter(s => s.purchaseDate?.startsWith(thisMonthKey)).reduce((s, sup) => s + (parseFloat(sup.unitCost) || 0) * (Number(sup.inStock) || 0), 0);
+        const summaryIncidents = incidents.filter(i => i.date?.startsWith(thisMonthKey)).reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+        const summaryTotal     = summaryVars + summaryFixed + summaryAds + summarySupplies + summaryIncidents;
+        const cashFixed        = activeMonthlyDDs.filter(f => f.frequency !== 'yearly').reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
+        const cashTotal        = summaryVars + cashFixed + summaryAds + summarySupplies + summaryIncidents;
         const monthLabel = new Date(thisMonthKey + '-01').toLocaleString('en-GB', { month: 'long', year: 'numeric' });
         return (
           <>
             <div style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: 8, border: `1px solid ${C.border}` }}>
               <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>Total Spend — {monthLabel}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5,1fr)', gap: 0 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(6,1fr)', gap: 0 }}>
                 {[
-                  { label: 'Variable Expenses', value: summaryVars,      color: '#dc2626' },
-                  { label: 'Direct Debits',     value: summaryFixed,     color: '#f97316' },
-                  { label: 'Ad Spend',          value: summaryAds,       color: '#ec4899' },
-                  { label: 'Supplies',          value: summarySupplies,  color: '#0ea5e9' },
-                  { label: 'Total',             value: summaryTotal,     color: C.text, bold: true },
+                  { label: 'Variable Expenses',   value: summaryVars,       color: '#dc2626' },
+                  { label: 'Direct Debits',        value: summaryFixed,      color: '#f97316' },
+                  { label: 'Ad Spend',             value: summaryAds,        color: '#ec4899' },
+                  { label: 'Supplies',             value: summarySupplies,   color: '#0ea5e9' },
+                  { label: 'Incidents & Refunds',  value: summaryIncidents,  color: '#b45309' },
+                  { label: 'Total',                value: summaryTotal,      color: C.text, bold: true },
                 ].map((item, i) => (
                   <div key={item.label} style={{ padding: '8px 14px', borderLeft: (!isMobile && i > 0) || (isMobile && i % 2 !== 0) ? `1px solid ${C.border}` : 'none', borderTop: isMobile && i >= 2 ? `1px solid ${C.border}` : 'none' }}>
                     <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>{item.label}</div>
@@ -734,7 +826,8 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         const moVarExp  = expenses.filter(e => e.date >= moStart && e.date <= moEnd && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
         const moSupExp  = supplies.filter(s => s.purchaseDate >= moStart && s.purchaseDate <= moEnd).reduce((s, sup) => s + supCost(sup), 0);
         const moAdSpend = marketingSpend.filter(e => e.date >= moStart && e.date <= moEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
-        const moTotal   = moLabour + moVarExp + moSupExp + moAdSpend + fixedMonthly;
+        const moIncExp  = incidents.filter(i => i.date >= moStart && i.date <= moEnd).reduce((s, i) => s + (parseFloat(i.amount)||0), 0);
+        const moTotal   = moLabour + moVarExp + moSupExp + moAdSpend + fixedMonthly + moIncExp;
         const moProfit  = moRevenue - moTotal;
         const moMargin  = moRevenue > 0 ? (moProfit / moRevenue) * 100 : 0;
         const moLabourPct = moRevenue > 0 ? (moLabour / moRevenue) * 100 : 0;
@@ -757,11 +850,12 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
           const vExp = expenses.filter(e => e.date >= mS && e.date <= mE && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
           const sup = supplies.filter(s => s.purchaseDate >= mS && s.purchaseDate <= mE).reduce((s, su) => s + supCost(su), 0);
           const ads = marketingSpend.filter(e => e.date >= mS && e.date <= mE).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+          const inc = incidents.filter(i => i.date >= mS && i.date <= mE).reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
           const fixed = fixedForMonth(mS, mE);
-          const total = lab + vExp + sup + ads + fixed;
+          const total = lab + vExp + sup + ads + fixed + inc;
           const profit = rev - total;
           const margin = rev > 0 ? (profit / rev) * 100 : 0;
-          return { key, label, bkgCount: bkgs.length, rev, lab, vExp, sup, ads, fixed, total, profit, margin, isCurrent: offset === 0 };
+          return { key, label, bkgCount: bkgs.length, rev, lab, vExp, sup, ads, inc, fixed, total, profit, margin, isCurrent: offset === 0 };
         });
 
         const selectedTY = taxYears.find(t => t.label.replace(' tax year','') === pnlTaxYearLabel) || taxYear;
@@ -777,6 +871,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         const tyVarExp  = expenses.filter(e => e.date >= selectedTY.start && e.date <= selectedTY.end && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
         const tySupExp  = supplies.filter(s => s.purchaseDate >= selectedTY.start && s.purchaseDate <= selectedTY.end).reduce((s, sup) => s + supCost(sup), 0);
         const tyAdSpend = marketingSpend.filter(e => e.date >= selectedTY.start && e.date <= selectedTY.end).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+        const tyIncExp  = incidents.filter(i => i.date >= selectedTY.start && i.date <= selectedTY.end).reduce((s, i) => s + (parseFloat(i.amount)||0), 0);
         const pnlTyMonths = f => {
           if (f.frequency === 'yearly') return 0;
           const effStart = f.startDate && f.startDate > pnlTyStart ? f.startDate : pnlTyStart;
@@ -808,7 +903,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
           if (f.frequency === 'yearly') return s + (pnlTyYearlyDate(f) ? amt : 0);
           return s + amt * pnlTyMonths(f);
         }, 0);
-        const tyTotal   = tyLabour + tyVarExp + tySupExp + tyAdSpend + tyFixed;
+        const tyTotal   = tyLabour + tyVarExp + tySupExp + tyAdSpend + tyFixed + tyIncExp;
         const tyProfit  = tyRevenue - tyTotal;
         const tyMargin  = tyRevenue > 0 ? (tyProfit / tyRevenue) * 100 : 0;
         const tyLabPct  = tyRevenue > 0 ? (tyLabour / tyRevenue) * 100 : 0;
@@ -819,6 +914,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         const varExp    = isTY ? tyVarExp  : moVarExp;
         const supExp    = isTY ? tySupExp  : moSupExp;
         const adSpend   = isTY ? tyAdSpend : moAdSpend;
+        const incExp    = isTY ? tyIncExp  : moIncExp;
         const fixed     = isTY ? tyFixed   : fixedMonthly;
         const totalCosts = isTY ? tyTotal  : moTotal;
         const profit    = isTY ? tyProfit  : moProfit;
@@ -838,7 +934,8 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
           const exp    = expenses.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
           const sup    = supplies.filter(s => s.purchaseDate >= mStart && s.purchaseDate <= mEnd).reduce((s, sup) => s + supCost(sup), 0);
           const ads    = marketingSpend.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
-          const total  = lab + exp + sup + ads + fixedForMonth(mStart, mEnd);
+          const inc    = incidents.filter(i => i.date >= mStart && i.date <= mEnd).reduce((s, i) => s + (parseFloat(i.amount)||0), 0);
+          const total  = lab + exp + sup + ads + fixedForMonth(mStart, mEnd) + inc;
           const isFuture = d > now;
           return { label, rev, total, profit: rev - total, isFuture };
         });
@@ -958,15 +1055,16 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                   </thead>
                   <tbody>
                     {[
-                      { label: 'Revenue',        key: 'rev',    color: '#16a34a', bold: true  },
-                      { label: 'Cleaner Pay',    key: 'lab',    color: '#7c3aed', bold: false },
-                      { label: 'Variable Costs', key: 'vExp',   color: '#dc2626', bold: false },
-                      { label: 'Supplies',       key: 'sup',    color: '#0ea5e9', bold: false },
-                      { label: 'Ad Spend',       key: 'ads',    color: '#ec4899', bold: false },
-                      { label: 'Direct Debits',  key: 'fixed',  color: '#f97316', bold: false, sep: true },
-                      { label: 'Total Costs',    key: 'total',  color: C.text,    bold: true,  sep: true },
-                      { label: 'Net Profit',     key: 'profit', color: null,      bold: true  },
-                      { label: 'Margin',         key: 'margin', color: null,      bold: false, sep: true, isMargin: true },
+                      { label: 'Revenue',              key: 'rev',    color: '#16a34a', bold: true  },
+                      { label: 'Cleaner Pay',          key: 'lab',    color: '#7c3aed', bold: false },
+                      { label: 'Variable Costs',       key: 'vExp',   color: '#dc2626', bold: false },
+                      { label: 'Supplies',             key: 'sup',    color: '#0ea5e9', bold: false },
+                      { label: 'Ad Spend',             key: 'ads',    color: '#ec4899', bold: false },
+                      { label: 'Direct Debits',        key: 'fixed',  color: '#f97316', bold: false },
+                      { label: 'Incidents & Refunds',  key: 'inc',    color: '#b45309', bold: false, sep: true },
+                      { label: 'Total Costs',          key: 'total',  color: C.text,    bold: true,  sep: true },
+                      { label: 'Net Profit',           key: 'profit', color: null,      bold: true  },
+                      { label: 'Margin',               key: 'margin', color: null,      bold: false, sep: true, isMargin: true },
                     ].map(({ label, key, color, bold, sep, isMargin }) => (
                       <tr key={label}>
                         <td style={{ fontSize: 13, color: C.text, fontWeight: bold ? 600 : 400, padding: '9px 12px 9px 0', borderTop: sep ? `2px solid ${C.border}` : `1px solid ${C.border}` }}>{label}</td>
@@ -992,13 +1090,14 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
               <div style={{ background: C.card, borderRadius: 10, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
                 <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 12 }}>{isTY ? `Tax Year ${taxYear.label} Breakdown` : `${threeMonths[2].label} — Margin Analysis`}</div>
                 {isTY && [
-                  ['Revenue',         revenue,     '#16a34a', true],
+                  ['Revenue',              revenue,     '#16a34a', true],
                   ['Cleaner pay',          -labour,     '#7c3aed', false],
-                  ['Variable costs',  -varExp,     '#dc2626', false],
-                  ['Supplies',        -supExp,     '#0ea5e9', false],
-                  ['Ad spend',        -adSpend,    '#ec4899', false],
-                  ['Direct Debits',   -fixed,      '#f97316', false],
-                  ['Total costs',     -totalCosts, C.muted,   false],
+                  ['Variable costs',       -varExp,     '#dc2626', false],
+                  ['Supplies',             -supExp,     '#0ea5e9', false],
+                  ['Ad spend',             -adSpend,    '#ec4899', false],
+                  ['Direct Debits',        -fixed,      '#f97316', false],
+                  ['Incidents & Refunds',  -incExp,     '#b45309', false],
+                  ['Total costs',          -totalCosts, C.muted,   false],
                 ].map(([label, val, col, bold], i, arr) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: label === 'Total costs' ? `2px solid ${C.border}` : i < arr.length-1 ? `1px solid ${C.border}` : 'none', fontFamily: FONT }}>
                     <span style={{ fontSize: 13, color: C.text, fontWeight: bold ? 700 : 400 }}>{label}</span>
@@ -1064,8 +1163,9 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                     const vExp = expenses.filter(e => e.date >= mS && e.date <= mE && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
                     const sup = supplies.filter(s => s.purchaseDate >= mS && s.purchaseDate <= mE).reduce((s, su) => s + supCost(su), 0);
                     const ads = marketingSpend.filter(e => e.date >= mS && e.date <= mE).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+                    const inc = incidents.filter(i => i.date >= mS && i.date <= mE).reduce((s, i) => s + (parseFloat(i.amount)||0), 0);
                     const fixed = fixedForMonth(mS, mE);
-                    const total = lab + vExp + sup + ads + fixed;
+                    const total = lab + vExp + sup + ads + fixed + inc;
                     return { label, rev, total, isFuture };
                   });
                   const pastMonths = calMonths.filter(m => !m.isFuture);
@@ -1105,6 +1205,288 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         );
       })()}
 
+      {/* ── INCIDENTS TAB ── */}
+      {expenseTab === 'incidents' && (() => {
+        const openCases    = incidents.filter(i => i.status === 'open');
+        const pendingCases = incidents.filter(i => i.status === 'pending_reimbursement');
+        const closedCases  = incidents.filter(i => i.status === 'closed');
+        const totalCost    = incidents.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+        const openCost     = [...openCases, ...pendingCases].reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+        const pendingCost  = pendingCases.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+        const filtered     = incidentFilter === 'open' ? openCases : incidentFilter === 'closed' ? closedCases : incidentFilter === 'pending_reimbursement' ? pendingCases : incidents;
+
+        const IM = { fontFamily: FONT, fontSize: 13, padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, color: C.text, outline: 'none', width: '100%', boxSizing: 'border-box', marginBottom: 10 };
+
+        const TYPE_COLOR = {
+          'Damage - Uninsured': '#dc2626',
+          'Customer Refund':    '#d97706',
+          'Unexpected Cost':    '#7c3aed',
+        };
+
+        return (
+          <div>
+            {/* Summary strip */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+              {[
+                { label: 'Open Cases',              value: openCases.length,    color: openCases.length > 0 ? '#dc2626' : C.muted, sub: openCases.length > 0 ? `£${openCases.reduce((s,i)=>s+(parseFloat(i.amount)||0),0).toFixed(2)} outstanding` : 'None open' },
+                { label: 'Pending Payment',          value: pendingCases.length, color: pendingCases.length > 0 ? '#d97706' : C.muted, sub: pendingCases.length > 0 ? `£${pendingCost.toFixed(2)} owed to customers` : 'None pending' },
+                { label: 'Total Cost',              value: `£${totalCost.toFixed(2)}`, color: totalCost > 0 ? '#dc2626' : C.text, isText: true, sub: 'all time losses' },
+                { label: 'This Month',              value: `£${incidents.filter(i => i.date?.startsWith(thisMonthStr)).reduce((s, i) => s + (parseFloat(i.amount)||0), 0).toFixed(2)}`, color: C.text, isText: true, sub: 'incident cost' },
+              ].map(item => (
+                <div key={item.label} style={{ background: C.card, borderRadius: 10, padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: `3px solid ${item.color}` }}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ fontFamily: FONT, fontSize: item.isText ? 22 : 28, fontWeight: 700, color: item.color }}>{item.value}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>{item.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Header + add button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[['all','All'],['open','Open'],['pending_reimbursement','Pending'],['closed','Closed']].map(([v, l]) => (
+                  <button key={v} onClick={() => setIncidentFilter(v)} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 6, border: `1px solid ${C.border}`, background: incidentFilter === v ? C.text : C.card, color: incidentFilter === v ? C.bg : C.text, cursor: 'pointer' }}>{l}</button>
+                ))}
+              </div>
+              <button
+                onClick={() => setIncidentModal({ mode: 'add', data: { date: today, type: 'Damage - Uninsured', description: '', amount: '', bookingRef: '', clientName: '', notes: '', resolution: '', status: 'open' } })}
+                style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '8px 18px', borderRadius: 7, border: 'none', cursor: 'pointer', background: BIZ, color: '#fff' }}
+              >
+                + Log Incident
+              </button>
+            </div>
+
+            {/* List */}
+            {filtered.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '60px 0', fontFamily: FONT, fontSize: 14, color: C.muted }}>
+                {incidentFilter === 'open' ? 'No open cases.' : incidentFilter === 'closed' ? 'No closed cases yet.' : 'No incidents logged yet. Use the button above to record a damage, refund, or unexpected cost.'}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {filtered.map(inc => {
+                const isOpen    = inc.status === 'open';
+                const isPending = inc.status === 'pending_reimbursement';
+                const isClosed  = inc.status === 'closed';
+                const typeColor = TYPE_COLOR[inc.type] || C.muted;
+                const isClosing = closingId === inc.id;
+                const borderColor = isOpen ? '#fca5a580' : isPending ? '#fde68a80' : C.border;
+                const leftColor   = isOpen ? '#dc2626'   : isPending ? '#d97706'   : '#16a34a';
+
+                return (
+                  <div key={inc.id} style={{ background: C.card, border: `1px solid ${borderColor}`, borderLeft: `4px solid ${leftColor}`, borderRadius: 8, padding: '14px 18px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {/* Top row: type badge + status + amount */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.05em', background: typeColor + '20', color: typeColor }}>{inc.type}</span>
+                          <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.05em', background: isOpen ? '#fef2f2' : isPending ? '#fffbeb' : '#f0fdf4', color: isOpen ? '#dc2626' : isPending ? '#d97706' : '#16a34a' }}>
+                            {isOpen ? 'Open' : isPending ? 'Pending Payment' : 'Closed'}
+                          </span>
+                          <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{inc.date}</span>
+                          <span style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: '#dc2626', marginLeft: 'auto' }}>£{parseFloat(inc.amount || 0).toFixed(2)}</span>
+                        </div>
+                        {/* Description */}
+                        <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>{inc.description}</div>
+                        {/* Client / booking ref */}
+                        {(inc.clientName || inc.bookingRef) && (
+                          <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 3 }}>
+                            {inc.clientName && <span>Client: <strong>{inc.clientName}</strong></span>}
+                            {inc.clientName && inc.bookingRef && <span> · </span>}
+                            {inc.bookingRef && <span>Job ref: <strong>{inc.bookingRef}</strong></span>}
+                          </div>
+                        )}
+                        {/* Notes */}
+                        {inc.notes && <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 3 }}>{inc.notes}</div>}
+                        {/* Resolution (if closed) */}
+                        {!isOpen && inc.resolution && (
+                          <div style={{ fontFamily: FONT, fontSize: 12, color: '#16a34a', marginTop: 4, background: '#f0fdf4', borderRadius: 5, padding: '4px 10px', display: 'inline-block' }}>
+                            Resolution: {inc.resolution}
+                          </div>
+                        )}
+                        {/* Photos */}
+                        {(inc.photos || []).length > 0 && (
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                            {inc.photos.map((url, pi) => (
+                              <img
+                                key={pi}
+                                src={url}
+                                alt={`Damage photo ${pi + 1}`}
+                                onClick={() => setLightboxUrl(url)}
+                                style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 6, border: `1px solid ${C.border}`, cursor: 'pointer' }}
+                                title="Click to view full size"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                        <button onClick={() => { setIncidentModal({ mode: 'edit', data: { ...inc } }); setPendingPhotos([]); }} style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '5px 12px', borderRadius: 5, border: `1px solid ${C.border}`, background: C.card, color: C.text, cursor: 'pointer' }}>Edit</button>
+                        {!isClosed ? (
+                          <button onClick={() => { setClosingId(inc.id); setClosingResolution(inc.resolution || ''); }} style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 5, border: '1px solid #16a34a40', background: '#f0fdf4', color: '#16a34a', cursor: 'pointer' }}>Update Status</button>
+                        ) : (
+                          <button onClick={() => reopenIncident(inc)} style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '5px 12px', borderRadius: 5, border: `1px solid ${C.border}`, background: C.card, color: C.muted, cursor: 'pointer' }}>Reopen</button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Inline status update form */}
+                    {isClosing && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 6 }}>Notes / resolution:</div>
+                        <textarea
+                          value={closingResolution}
+                          onChange={e => setClosingResolution(e.target.value)}
+                          placeholder="Add any notes or resolution details (optional)"
+                          rows={2}
+                          style={{ fontFamily: FONT, fontSize: 13, padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text, outline: 'none', width: '100%', boxSizing: 'border-box', resize: 'vertical', marginBottom: 10 }}
+                        />
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 8 }}>Update status to:</div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button onClick={() => closeIncident(inc, closingResolution, 'pending_reimbursement')} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 6, border: '1px solid #d97706', background: '#fffbeb', color: '#92400e', cursor: 'pointer' }}>Pending Payment</button>
+                          <button onClick={() => closeIncident(inc, closingResolution, 'closed')} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 6, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer' }}>Close Case</button>
+                          <button onClick={() => { setClosingId(null); setClosingResolution(''); }} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, color: C.text, cursor: 'pointer' }}>Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Add/Edit modal */}
+            {incidentModal && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px', width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 16px 48px rgba(0,0,0,0.25)' }}>
+                  <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 20 }}>
+                    {incidentModal.mode === 'add' ? 'Log Incident / Unexpected Cost' : 'Edit Incident'}
+                  </div>
+
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Type</label>
+                  <select value={incidentModal.data.type} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, type: e.target.value } }))} style={IM}>
+                    {INCIDENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Date</label>
+                  <input type="date" value={incidentModal.data.date} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, date: e.target.value } }))} style={IM} />
+
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Description *</label>
+                  <input type="text" value={incidentModal.data.description} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, description: e.target.value } }))} placeholder="e.g. Cracked tile in bathroom during deep clean" style={IM} />
+
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Amount (£) <span style={{ fontWeight: 400 }}>— leave blank if not yet known</span></label>
+                  <input type="number" min="0" step="0.01" value={incidentModal.data.amount} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, amount: e.target.value } }))} placeholder="e.g. 150.00 — can update later" style={IM} />
+
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Client Name</label>
+                  <input type="text" value={incidentModal.data.clientName} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, clientName: e.target.value } }))} placeholder="e.g. Jane Smith" style={IM} />
+
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Job / Booking Reference</label>
+                  <input type="text" value={incidentModal.data.bookingRef} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, bookingRef: e.target.value } }))} placeholder="e.g. LCW-2026-001 or booking date" style={IM} />
+
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Notes</label>
+                  <textarea value={incidentModal.data.notes} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, notes: e.target.value } }))} placeholder="Any additional context, photos taken, etc." rows={2} style={{ ...IM, resize: 'vertical' }} />
+
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Resolution</label>
+                  <textarea value={incidentModal.data.resolution} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, resolution: e.target.value } }))} placeholder="How was this resolved? (can fill in later)" rows={2} style={{ ...IM, resize: 'vertical' }} />
+
+                  {/* Photos */}
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 6 }}>Damage Photos</label>
+                  {/* Existing photos (edit mode) */}
+                  {incidentModal.mode === 'edit' && (incidentModal.data.photos || []).length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {incidentModal.data.photos.map((url, pi) => (
+                        <div key={pi} style={{ position: 'relative' }}>
+                          <img src={url} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 6, border: `1px solid ${C.border}` }} />
+                          <button
+                            onClick={() => setIncidentModal(m => ({ ...m, data: { ...m.data, photos: m.data.photos.filter((_, j) => j !== pi) } }))}
+                            style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: '#dc2626', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Remove photo"
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* New photo previews */}
+                  {pendingPhotos.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {pendingPhotos.map((f, pi) => (
+                        <div key={pi} style={{ position: 'relative' }}>
+                          <img src={URL.createObjectURL(f)} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 6, border: `2px dashed ${C.border}` }} />
+                          <button
+                            onClick={() => setPendingPhotos(p => p.filter((_, j) => j !== pi))}
+                            style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: '#dc2626', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Remove"
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={e => { setPendingPhotos(p => [...p, ...Array.from(e.target.files)]); e.target.value = ''; }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 16px', borderRadius: 6, border: `1px dashed ${C.border}`, background: C.bg, color: C.text, cursor: 'pointer', marginBottom: 16, width: '100%' }}
+                  >
+                    + Add Photos
+                  </button>
+
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 6 }}>Case Status</label>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                    {[
+                      { v: 'open',                  l: 'Open',                  border: '#dc2626', bg: '#fef2f2', col: '#dc2626' },
+                      { v: 'pending_reimbursement', l: 'Pending Payment', border: '#d97706', bg: '#fffbeb', col: '#92400e' },
+                      { v: 'closed',                l: 'Closed',                border: '#16a34a', bg: '#f0fdf4', col: '#16a34a' },
+                    ].map(({ v, l, border, bg, col }) => {
+                      const active = incidentModal.data.status === v;
+                      return (
+                        <button key={v} onClick={() => setIncidentModal(m => ({ ...m, data: { ...m.data, status: v } }))}
+                          style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 6, border: `1px solid ${active ? border : C.border}`, background: active ? bg : C.card, color: active ? col : C.muted, cursor: 'pointer' }}>
+                          {l}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {incidentErr && <div style={{ fontFamily: FONT, fontSize: 12, color: '#dc2626', marginBottom: 10 }}>{incidentErr}</div>}
+                  {photoUploading && <div style={{ fontFamily: FONT, fontSize: 12, color: BIZ, marginBottom: 10 }}>Uploading photos…</div>}
+
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={saveIncident} disabled={incidentSaving || photoUploading} style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '9px 20px', borderRadius: 7, border: 'none', background: BIZ, color: '#fff', cursor: incidentSaving ? 'not-allowed' : 'pointer', opacity: incidentSaving ? 0.7 : 1 }}>
+                        {photoUploading ? 'Uploading…' : incidentSaving ? 'Saving…' : incidentModal.mode === 'add' ? 'Log Incident' : 'Save Changes'}
+                      </button>
+                      <button onClick={() => { setIncidentModal(null); setIncidentErr(''); setPendingPhotos([]); }} style={{ fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '9px 18px', borderRadius: 7, border: `1px solid ${C.border}`, background: C.card, color: C.text, cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                    {incidentModal.mode === 'edit' && (
+                      <button onClick={deleteIncident} disabled={incidentSaving} style={{ fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '9px 14px', borderRadius: 7, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', cursor: 'pointer' }}>Delete</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Lightbox */}
+            {lightboxUrl && (
+              <div
+                onClick={() => setLightboxUrl(null)}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, cursor: 'zoom-out' }}
+              >
+                <img src={lightboxUrl} alt="Damage photo" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 8, boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }} />
+                <button onClick={() => setLightboxUrl(null)} style={{ position: 'absolute', top: 20, right: 24, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', borderRadius: '50%', width: 36, height: 36, lineHeight: 1 }}>✕</button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* ── HMRC TAB ── */}
       {expenseTab === 'hmrc' && (() => {
         const HMRC_CATS = [
@@ -1123,9 +1505,9 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         const tyExp = expenses.filter(e => e.date >= selectedHmrcTY.start && e.date <= selectedHmrcTY.end);
         const tyTotal = tyExp.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
 
-        const tySuppliesHMRC = supplies.filter(s => s.purchaseDate >= selectedHmrcTY.start && s.purchaseDate <= hmrcCap)
+        const tySuppliesHMRC = supplies.filter(s => s.purchaseDate >= selectedHmrcTY.start && s.purchaseDate <= selectedHmrcTY.end)
           .reduce((s, sup) => s + (parseFloat(sup.unitCost)||0) * (Number(sup.inStock)||0), 0);
-        const tyAdSpendHMRC = marketingSpend.filter(e => e.date >= selectedHmrcTY.start && e.date <= hmrcCap)
+        const tyAdSpendHMRC = marketingSpend.filter(e => e.date >= selectedHmrcTY.start && e.date <= selectedHmrcTY.end)
           .reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
 
         // Per-item actual fixed cost for the tax year (cash basis, capped at hmrcCap)
@@ -1159,11 +1541,11 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
           }
           return amt * count;
         };
-        const activeFixed = fixedCosts.filter(f => f.active && !(f.startDate && f.startDate > hmrcCap));
+        const activeFixed = fixedCosts.filter(f => f.active && !(f.startDate && f.startDate.slice(0,7) > hmrcEndOfCap.slice(0,7)));
         const fixedActual = activeFixed.reduce((s, f) => s + hmrcFixedItem(f), 0);
 
         const tyLabourHMRC = bookings
-          .filter(b => b.cleanDate >= selectedHmrcTY.start && b.cleanDate <= selectedHmrcTY.end && b.status !== 'cancelled')
+          .filter(b => b.cleanDate >= selectedHmrcTY.start && b.cleanDate <= selectedHmrcTY.end && !b.status?.startsWith('cancelled'))
           .reduce((s, b) => {
             const hrs1 = calcHours(b.actualStart, b.actualFinish) || 0;
             const member = staff.find(m => m.name === b.assignedStaff);
@@ -1173,7 +1555,10 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
             const hrs2 = b.secondCleaner ? (calcHours(b.actualStart2, b.actualFinish2) || 0) : 0;
             return s + hrs1 * rate + hrs2 * rate2;
           }, 0);
-        const grandTotal = tyTotal + tySuppliesHMRC + tyAdSpendHMRC + fixedActual + tyLabourHMRC;
+        const tyIncidentsHMRC = incidents
+          .filter(i => i.date >= selectedHmrcTY.start && i.date <= selectedHmrcTY.end && i.amount)
+          .reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+        const grandTotal = tyTotal + tySuppliesHMRC + tyAdSpendHMRC + fixedActual + tyLabourHMRC + tyIncidentsHMRC;
         const tyStartYear = parseInt(hmrcTaxYearLabel.split('/')[0]);
 
         const exportHMRC = () => {
@@ -1190,6 +1575,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
           if (tyAdSpendHMRC > 0) rows.push(['Box 25', 'Ad spend / marketing', tyAdSpendHMRC.toFixed(2)]);
           activeFixed.forEach(f => { if (hmrcFixedItem(f) > 0) rows.push(['Direct Debit', f.name, hmrcFixedItem(f).toFixed(2)]); });
           if (tyLabourHMRC > 0) rows.push(['Box 30', 'Cleaner pay (from job times)', tyLabourHMRC.toFixed(2)]);
+          if (tyIncidentsHMRC > 0) rows.push(['Box 30', 'Damage payments & customer refunds', tyIncidentsHMRC.toFixed(2)]);
           rows.push(['Box 31 TOTAL', `Total Allowable Expenses - Tax Year ${hmrcTaxYearLabel}${isCurrentTaxYear ? ' (actual to date)' : ''}`, grandTotal.toFixed(2)]);
           const csv = '﻿' + rows.map(r => r.map(csvField).join(',')).join('\n');
           const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv); a.download = `hmrc-sa103-${hmrcTaxYearLabel.replace('/','_')}.csv`; a.click();
@@ -1227,7 +1613,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                 </div>
                 {isCurrentTaxYear && (
                   <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, padding: '6px 10px', marginTop: 8, display: 'inline-block' }}>
-                    Actual costs to date only — figures will grow as the tax year progresses. Not a full-year projection.
+                    Tax year in progress — includes all entries dated within this tax year. Direct debits are counted up to end of current month.
                   </div>
                 )}
               </div>
@@ -1325,6 +1711,29 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                     <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>Do not duplicate if also logged under Staff Costs expenses.</div>
                   </div>
                   <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{tyLabourHMRC.toFixed(2)}</div>
+                </div>
+              </div>
+            )}
+
+            {tyIncidentsHMRC > 0 && (
+              <div style={{ background: C.card, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 16 }}>
+                <div style={{ padding: '12px 20px', background: C.bg, borderBottom: `2px solid ${C.border}`, display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Damage Payments &amp; Customer Refunds</div>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Amount</div>
+                </div>
+                {incidents.filter(i => i.date >= selectedHmrcTY.start && i.date <= hmrcCap && i.amount).map((inc, idx, arr) => (
+                  <div key={inc.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 20px', borderBottom: idx < arr.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#1e40af', background: '#eff6ff', borderRadius: 4, padding: '2px 7px', flexShrink: 0 }}>Box 30</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 13, color: C.text }}>{inc.description}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>{inc.type} · {inc.date}{inc.clientName ? ` · ${inc.clientName}` : ''}</div>
+                    </div>
+                    <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{(parseFloat(inc.amount) || 0).toFixed(2)}</div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 20px', background: C.bg, borderTop: `2px solid ${C.border}` }}>
+                  <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.muted }}>Incidents subtotal</div>
+                  <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{tyIncidentsHMRC.toFixed(2)}</div>
                 </div>
               </div>
             )}

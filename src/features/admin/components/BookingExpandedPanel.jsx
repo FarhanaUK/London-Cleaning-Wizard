@@ -1,6 +1,8 @@
 import { calcHours, toInputTime, fmtDuration } from '../utils';
 import DoNotContactToggle from './DoNotContactToggle';
 import { useState } from 'react';
+import { db } from '../../../firebase/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const FIELD_STYLE = C => ({ width: '100%', padding: '8px 12px', fontFamily: FONT, fontSize: 13, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, outline: 'none', boxSizing: 'border-box' });
@@ -79,12 +81,55 @@ export default function BookingExpandedPanel({
   const isManualDeposit = b.stripeDepositIntentId === 'manual';
   const isCancelled     = b.status?.startsWith('cancelled');
 
+  const contractMonths = (() => {
+    if (!b.isContract || !b.contractStartDate) return [];
+    const result = [];
+    const end = b.contractEndDate ? new Date(b.contractEndDate + 'T00:00:00') : (() => { const d = new Date(b.contractStartDate + 'T00:00:00'); d.setFullYear(d.getFullYear() + 1); return d; })();
+    let cur = new Date(b.contractStartDate + 'T00:00:00');
+    cur = new Date(cur.getFullYear(), cur.getMonth(), 1);
+    while (cur <= end) {
+      result.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`);
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    return result;
+  })();
+
+  const [savingPayment, setSavingPayment] = useState(null);
+
+  const toggleMonthPaid = async (month, paid) => {
+    setSavingPayment(month);
+    const updated = { ...(b.monthlyPayments || {}) };
+    if (paid) updated[month] = 'paid'; else delete updated[month];
+    setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: updated } : x));
+    try {
+      await updateDoc(doc(db, 'bookings', b.id), { monthlyPayments: updated, updatedAt: new Date().toISOString() });
+    } catch {
+      setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: b.monthlyPayments || {} } : x));
+    }
+    setSavingPayment(null);
+  };
+
   return (
     <div style={{ padding: isMobile ? '0 14px 16px' : '0 18px 18px', borderTop: `1px solid ${C.border}` }}>
 
       {/* Details grid */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(auto-fill,minmax(200px,1fr))', gap: '8px 16px', marginTop: 16, marginBottom: 16 }}>
-        {[
+        {(b.isContract ? [
+          { l: 'Booked On',       v: fmtCreatedAt(b.createdAt) },
+          { l: 'Business',        v: b.bizName },
+          { l: 'Contact',         v: b.contactName || `${b.firstName} ${b.lastName}`.trim() },
+          { l: 'Email',           v: b.email },
+          { l: 'Phone',           v: b.phone },
+          b.addr1 && { l: 'Address',  v: b.addr1 },
+          { l: 'Service Type',    v: b.clientType === 'airbnb' ? 'Airbnb / Short-let' : 'Commercial Cleaning' },
+          { l: 'Contract',        v: b.contractLabel },
+          { l: 'Frequency',       v: b.frequencyLabel || b.frequency },
+          { l: 'Start Date',      v: fmtDate(b.contractStartDate) },
+          { l: 'End Date',        v: b.contractEndDate ? fmtDate(b.contractEndDate) : 'Open ended' },
+          { l: 'Price per Visit', v: `£${parseFloat(b.pricePerVisit || b.total || 0).toFixed(2)}` },
+          b.monthlyValue > 0 && { l: 'Monthly Value', v: `£${parseFloat(b.monthlyValue).toFixed(2)}/month` },
+          b.addonsList && { l: 'Add-ons', v: b.addonsList },
+        ] : [
           { l: 'Booked On',        v: fmtCreatedAt(b.createdAt) },
           { l: 'Booking Ref',      v: b.bookingRef },
           { l: 'Phone',            v: b.phone },
@@ -99,11 +144,10 @@ export default function BookingExpandedPanel({
           { l: 'Keys',             v: b.keys || '—' },
           { l: 'Frequency',        v: b.frequency || 'one-off' },
           { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : 'None' },
-          // supplies row disabled
           !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
           (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
           { l: 'Marketing Opt-in', v: b.marketingOptOut ? '✕ Opted out at booking' : '✓ Opted in at booking' },
-          { l: 'Media Consent', v: b.mediaConsent ? '✓ Consented to photos/videos on social media' : '✕ No consent given' },
+          { l: 'Media Consent',    v: b.mediaConsent ? '✓ Consented to photos/videos on social media' : '✕ No consent given' },
           { l: 'Total',            v: `£${parseFloat(b.total).toFixed(2)}` },
           (b.launchDiscount || b.mediaConsentDiscount) && { l: 'Original price', v: `£${parseFloat(b.originalTotal || (b.total + (b.mediaConsentDiscount || 0))).toFixed(2)}` },
           b.launchDiscount && { l: 'Launch offer',      v: `-£${parseFloat(b.launchDiscount).toFixed(2)}`, launch: true },
@@ -114,13 +158,61 @@ export default function BookingExpandedPanel({
           b.stripeDepositIntentId   && { l: 'Stripe Deposit PI',   v: b.stripeDepositIntentId },
           b.stripeRemainingIntentId && { l: 'Stripe Remaining PI', v: b.stripeRemainingIntentId },
           b.stripeCustomerId        && { l: 'Stripe Customer ID',  v: b.stripeCustomerId },
-        ].filter(Boolean).map((r, i) => (
+        ]).filter(Boolean).map((r, i) => (
           <div key={i}>
             <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 2 }}>{r.l}</div>
             <div style={{ fontFamily: FONT, fontSize: 13, color: r.highlight ? '#fff' : r.launch ? '#b45309' : r.grn ? '#16a34a' : C.text, ...(r.highlight ? { background: C.danger, display: 'inline-block', padding: '2px 8px', borderRadius: 4 } : {}) }}>{r.v}</div>
           </div>
         ))}
       </div>
+
+      {/* Monthly payment tracker — contracts only */}
+      {b.isContract && contractMonths.length > 0 && (() => {
+        const payments = b.monthlyPayments || {};
+        const paidCount = contractMonths.filter(m => payments[m] === 'paid').length;
+        const totalMV   = parseFloat(b.monthlyValue || 0);
+        const todayM    = new Date().toISOString().slice(0, 7);
+        return (
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted }}>Monthly Payments</div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>
+                {paidCount}/{contractMonths.length} paid &nbsp;·&nbsp;
+                <span style={{ color: '#16a34a', fontWeight: 600 }}>£{(paidCount * totalMV).toFixed(2)} received</span>
+                {paidCount < contractMonths.length && (
+                  <> &nbsp;·&nbsp; <span style={{ color: '#d97706', fontWeight: 600 }}>£{((contractMonths.length - paidCount) * totalMV).toFixed(2)} outstanding</span></>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {contractMonths.map(m => {
+                const isPaid   = payments[m] === 'paid';
+                const isCur    = m === todayM;
+                const label    = new Date(m + '-15').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+                const isSaving = savingPayment === m;
+                return (
+                  <div key={m} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 6, background: isPaid ? '#f0fdf4' : isCur ? '#fffbeb' : C.card, border: `1px solid ${isPaid ? '#86efac' : isCur ? '#fde68a' : C.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: isCur ? 600 : 400 }}>{label}</div>
+                      {isCur && <span style={{ fontFamily: FONT, fontSize: 10, color: '#92400e', fontWeight: 600, background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>This month</span>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {totalMV > 0 && <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>£{totalMV.toFixed(2)}</div>}
+                      <button
+                        disabled={isSaving}
+                        onClick={() => toggleMonthPaid(m, !isPaid)}
+                        style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 5, cursor: isSaving ? 'not-allowed' : 'pointer', border: `1px solid ${isPaid ? '#86efac' : '#fde68a'}`, background: isPaid ? '#dcfce7' : '#fff8eb', color: isPaid ? '#166534' : '#92400e' }}
+                      >
+                        {isSaving ? '…' : isPaid ? '✓ Paid' : 'Mark Paid'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Notes */}
       {b.notes && (
@@ -129,8 +221,8 @@ export default function BookingExpandedPanel({
         </div>
       )}
 
-      {/* Hours worked */}
-      <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
+      {/* Hours worked — not shown for contracts */}
+      {!b.isContract && <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
         <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 10 }}>Hours Worked</div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           {[{ label: 'Actual Start', field: 'actualStart' }, { label: 'Actual Finish', field: 'actualFinish' }].map(({ label, field }) => (
@@ -146,7 +238,7 @@ export default function BookingExpandedPanel({
             {b.assignedStaff && rate === null && <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>N/A rate</span>}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Cancellation details */}
       {isCancelled && (
@@ -171,8 +263,8 @@ export default function BookingExpandedPanel({
         </div>
       )}
 
-      {/* Signature Touch toggle — standard package only */}
-      {(b.package === 'standard' || b.packageId === 'standard') && (
+      {/* Signature Touch toggle — standard package only, not shown for contracts */}
+      {!b.isContract && (b.package === 'standard' || b.packageId === 'standard') && (
         <div style={{ padding: '10px 14px', background: b.signatureTouch !== false ? '#f0fdf4' : '#fef9f0', borderRadius: 6, marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ flex: 1 }}>
@@ -329,8 +421,8 @@ export default function BookingExpandedPanel({
           </div>
         )}
 
-        {/* Pending deposit actions */}
-        {b.status === 'pending_deposit' && (
+        {/* Pending deposit actions — not shown for contracts (invoiced monthly) */}
+        {!b.isContract && b.status === 'pending_deposit' && (
           <>
             {b.isAutoRecurring && (
               <div style={{ width: '100%', background: '#f0fdf4', border: '1px solid rgba(22,101,52,0.2)', borderRadius: 6, padding: '12px 16px', marginBottom: 4 }}>
@@ -377,8 +469,8 @@ export default function BookingExpandedPanel({
           </div>
         )}
 
-        {/* Deposit paid — complete job */}
-        {b.status === 'deposit_paid' && (
+        {/* Deposit paid — complete job — not shown for contracts */}
+        {!b.isContract && b.status === 'deposit_paid' && (
           <>
             {isManualDeposit && (
               <div style={{ width: '100%', background: '#fef2f2', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 6, padding: '12px 16px' }}>
@@ -397,8 +489,8 @@ export default function BookingExpandedPanel({
           </>
         )}
 
-        {/* Payment failed */}
-        {b.status === 'payment_failed' && (
+        {/* Payment failed — not shown for contracts */}
+        {!b.isContract && b.status === 'payment_failed' && (
           <>
             <div style={{ fontFamily: FONT, fontSize: 12, color: '#16a34a', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
               ✓ Deposit paid — £{parseFloat(b.deposit).toFixed(2)}
@@ -419,15 +511,15 @@ export default function BookingExpandedPanel({
           </>
         )}
 
-        {/* Fully paid confirmation */}
-        {b.status === 'fully_paid' && (
+        {/* Fully paid confirmation — not shown for contracts */}
+        {!b.isContract && b.status === 'fully_paid' && (
           <div style={{ fontFamily: FONT, fontSize: 12, color: '#16a34a', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
             ✓ Job complete — full payment received
           </div>
         )}
 
-        {/* Stop recurring */}
-        {b.isAutoRecurring && !stoppedRecurring.has(b.id) && (
+        {/* Stop recurring — not for contracts */}
+        {!b.isContract && b.isAutoRecurring && !stoppedRecurring.has(b.id) && (
           <button onClick={() => handleStopRecurring(b)} disabled={stoppingRecurring === b.id}
             style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: C.warning, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
             {stoppingRecurring === b.id ? 'Stopping…' : '⏹ Stop Recurring'}
@@ -438,7 +530,7 @@ export default function BookingExpandedPanel({
         {!isCancelled && b.status !== 'fully_paid' && (
           <button onClick={() => handleCancel(b)} disabled={cancelling === b.id}
             style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: C.danger, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
-            {cancelling === b.id ? 'Cancelling…' : '✕ Cancel Booking'}
+            {cancelling === b.id ? 'Cancelling…' : b.isContract ? '✕ Cancel Contract' : '✕ Cancel Booking'}
           </button>
         )}
 

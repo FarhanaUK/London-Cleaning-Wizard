@@ -137,7 +137,14 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
   const LABEL = { fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, marginBottom: 4 };
   const VALUE = { fontFamily: FONT, fontSize: isMobile ? 20 : 24, fontWeight: 600, color: C.text };
   const searchTerm = searchQuery.trim().toLowerCase();
-  const displayedBookings = (preset === 'all' ? bookings : bookings.filter(b => b.cleanDate >= dateFrom && b.cleanDate <= dateTo))
+  const displayedBookings = (preset === 'all' ? bookings : bookings.filter(b => {
+    if (b.isContract) {
+      const start = b.contractStartDate || b.cleanDate;
+      const end   = b.contractEndDate;
+      return start <= dateTo && (!end || end >= dateFrom);
+    }
+    return b.cleanDate >= dateFrom && b.cleanDate <= dateTo;
+  }))
     .filter(b => {
       if (!searchTerm) return true;
       return (
@@ -146,6 +153,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
         (b.firstName  || '').toLowerCase().includes(searchTerm) ||
         (b.lastName   || '').toLowerCase().includes(searchTerm) ||
         (`${b.firstName} ${b.lastName}`).toLowerCase().includes(searchTerm) ||
+        (b.bizName    || '').toLowerCase().includes(searchTerm) ||
         (b.phone      || '').includes(searchTerm) ||
         (b.postcode   || '').toLowerCase().includes(searchTerm) ||
         (b.addr1      || '').toLowerCase().includes(searchTerm) ||
@@ -159,8 +167,9 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
       if (statusFilter === 'cancelled')           return b.status?.startsWith('cancelled') && (b.frequency === 'one-off' || !b.frequency);
       if (statusFilter === 'cancelled-recurring') return b.status?.startsWith('cancelled') && b.frequency && b.frequency !== 'one-off';
       if (statusFilter === 'refunded')            return b.status === 'cancelled_full_refund' || b.status === 'cancelled_partial_refund';
-      if (statusFilter === 'phone')               return b.isPhoneBooking === true;
+      if (statusFilter === 'phone')               return b.isPhoneBooking === true && !b.isContract;
       if (statusFilter === 'website')             return !b.isPhoneBooking;
+      if (statusFilter === 'contracts')           return b.isContract === true;
       return b.status === statusFilter;
     })
     .filter(b => {
@@ -378,6 +387,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
           <option value="cancelled">Cancelled</option>
           <option value="cancelled-recurring">Cancelled Recurring</option>
           <option value="refunded">Refunded</option>
+          <option value="contracts">Contracts</option>
           <option value="phone">Phone Bookings</option>
           <option value="website">Website Bookings</option>
         </select>
@@ -508,12 +518,23 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                 />
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontFamily: FONT, fontSize: isMobile ? 14 : 15, fontWeight: 600, color: C.text }}>{b.firstName} {b.lastName}</span>
+                    <span style={{ fontFamily: FONT, fontSize: isMobile ? 14 : 15, fontWeight: 600, color: C.text }}>
+                      {b.isContract && b.bizName ? b.bizName : `${b.firstName} ${b.lastName}`}
+                    </span>
                     {b.bookingRef && <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: '1px 7px' }}>{b.bookingRef}</span>}
                   </div>
                   <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-                    {b.packageName} · {b.size} &nbsp;·&nbsp; {fmtDate(b.cleanDate)} at {b.cleanTime}<br />
+                    {b.isContract
+                      ? <>{b.contractLabel} · {b.frequencyLabel} · starts {fmtDate(b.contractStartDate)}<br /></>
+                      : <>{b.packageName} · {b.size} &nbsp;·&nbsp; {fmtDate(b.cleanDate)} at {b.cleanTime}<br /></>
+                    }
                     {b.addr1}, {b.postcode}
+                    {b.isContract && b.monthlyValue > 0 && (
+                      <> &nbsp;·&nbsp; <span style={{ fontWeight: 600, color: C.text }}>£{b.monthlyValue.toFixed(2)}/month</span></>
+                    )}
+                    {b.isContract && b.contractEndDate && (
+                      <> &nbsp;·&nbsp; ends {fmtDate(b.contractEndDate)}</>
+                    )}
                   </div>
                   {b.cancelledAt && (
                     <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 3 }}>
@@ -522,16 +543,19 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  {b.isAutoRecurring && (
+                  {b.isContract && (
+                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 99, background: '#fef3c7', color: '#92400e' }}>Contract</span>
+                  )}
+                  {(b.isAutoRecurring || (b.isContract && b.frequency && b.frequency !== 'one-off')) && (
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#dcfce7', color: '#166534' }}>Recurring</span>
                   )}
-                  {b.isPhoneBooking && !b.isAutoRecurring && (
+                  {b.isPhoneBooking && !b.isAutoRecurring && !b.isContract && (
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#eff6ff', color: '#1d4ed8' }}>Phone</span>
                   )}
                   {b.assignedStaff && (
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#f5f3ff', color: '#6d28d9' }}>👤 {[b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ')}</span>
                   )}
-                  <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: sc.bg, color: sc.color }}>{b.isContract && !b.status ? 'Active' : sc.label}</span>
                   <span style={{ fontSize: 14, color: C.muted, padding: '0 4px' }}>{isOpen ? '▲' : '▼'}</span>
                 </div>
               </div>

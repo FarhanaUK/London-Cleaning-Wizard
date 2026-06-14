@@ -1,4 +1,7 @@
 import { useState, useMemo } from 'react';
+import { db } from '../../../firebase/firebase';
+import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import emailjs from '@emailjs/browser';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -111,7 +114,7 @@ function BreakdownRow({ label, value, C, accent, large, last }) {
   );
 }
 
-export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [], marketingSpend = [], supplies = [], bookings = [] }) {
+export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [], marketingSpend = [], supplies = [], bookings = [], savedQuotes = [], onNavigate }) {
   const [clientType,   setClientType]   = useState('airbnb');
   const [bedrooms,     setBedrooms]     = useState('2');
   const [extraBaths,   setExtraBaths]   = useState('1');
@@ -128,7 +131,30 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   const [travelCost,   setTravelCost]   = useState('5');
   const [minMargin,    setMinMargin]    = useState('25');
   const [targetVisits, setTargetVisits] = useState('15');
-  const [clientName,   setClientName]   = useState('');
+
+  const [bizName,       setBizName]       = useState('');
+  const [contactName,   setContactName]   = useState('');
+  const [clientEmail,   setClientEmail]   = useState('');
+  const [clientPhone,   setClientPhone]   = useState('');
+  const [clientAddress, setClientAddress] = useState('');
+  const [quoteNotes,    setQuoteNotes]    = useState('');
+
+  const [followUpDate,  setFollowUpDate]  = useState('');
+  const [showSavePanel, setShowSavePanel] = useState(false);
+  const [saving,        setSaving]        = useState(false);
+  const [saveError,     setSaveError]     = useState('');
+  const [savedOk,       setSavedOk]       = useState(false);
+
+  const [quoteSearch,   setQuoteSearch]   = useState('');
+  const [statusFilter,  setStatusFilter]  = useState('all');
+
+  const [showBookPanel,   setShowBookPanel]   = useState(false);
+  const [contractStart,   setContractStart]   = useState('');
+  const [booking,         setBooking]         = useState(false);
+  const [bookError,       setBookError]       = useState('');
+  const [bookedOk,        setBookedOk]        = useState(false);
+  const [loadedQuoteId,   setLoadedQuoteId]   = useState(null);
+
   const [copied,         setCopied]         = useState(false);
   const [showSOP,        setShowSOP]        = useState(false);
 
@@ -224,8 +250,151 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
   const marginColor = q.pct < 25 ? C.danger : q.pct < 30 ? C.warning : C.success;
 
+  const handleSaveQuote = async () => {
+    if (!bizName.trim())    { setSaveError('Enter a business name first.'); return; }
+    if (!clientEmail.trim()) { setSaveError('Enter the client email to send the quote.'); return; }
+    if (!followUpDate)       { setSaveError('Set a follow-up date.'); return; }
+    setSaving(true); setSaveError('');
+    try {
+      const addonList = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+      const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
+      const now = new Date().toISOString();
+      await addDoc(collection(db, 'savedQuotes'), {
+        bizName: bizName.trim(), contactName: contactName.trim(),
+        email: clientEmail.trim(), phone: clientPhone.trim(),
+        address: clientAddress.trim(), notes: quoteNotes.trim(),
+        clientType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths,
+        addons, frequency, contract, numCleaners, cleanerRate, suppliesCost, travelCost, minMargin,
+        pricePerVisit: q.price, monthlyValue: q.mRev, contractValue: q.cVal,
+        contractLabel: q.ct.label, frequencyLabel: q.freq.label,
+        status: 'quote_sent', followUpDate, createdAt: now, updatedAt: now,
+      });
+      const templateId = import.meta.env.VITE_EMAILJS_CONTRACT_QUOTE_TEMPLATE;
+      if (templateId) {
+        try {
+          await emailjs.send(
+            import.meta.env.VITE_EMAILJS_SERVICE_ID,
+            templateId,
+            {
+              to_name: contactName.trim() || bizName.trim(),
+              to_email: clientEmail.trim(),
+              business_name: bizName.trim(),
+              service_type: clientType === 'airbnb' ? 'Airbnb / Short-let Cleaning' : 'Commercial Cleaning',
+              property_detail: clientType === 'airbnb'
+                ? `${bedrooms === 'studio' ? 'Studio' : `${bedrooms}-bed`}, ${extraBaths} bathroom${extraBaths !== '1' ? 's' : ''}`
+                : `${sqm}sqm ${intensity}, ${commBaths} bathroom${commBaths !== '1' ? 's' : ''}`,
+              frequency: q.freq.label, contract_type: q.ct.label,
+              addons_list: selectedAddons.length ? selectedAddons.map(a => `${a.label} (£${a.price})`).join(', ') : 'None',
+              price_per_visit: `£${gbp(q.price)}`,
+              monthly_value: q.mRev > 0 ? `£${gbp(q.mRev)}/month` : 'N/A',
+              contract_total: q.cVal > 0 ? `£${gbp(q.cVal)}` : 'N/A',
+              notes: quoteNotes.trim() || '',
+              reply_to: 'bookings@londoncleaningwizard.com',
+            },
+            import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+          );
+        } catch (emailErr) {
+          console.error('Email send failed:', emailErr);
+          setSaveError('Quote saved but email failed to send. Check your EmailJS template.');
+        }
+      } else {
+        setSaveError('Quote saved. Email not sent -- add VITE_EMAILJS_CONTRACT_QUOTE_TEMPLATE to your .env to enable emails.');
+      }
+      setSavedOk(true); setShowSavePanel(false); setFollowUpDate('');
+      setTimeout(() => setSavedOk(false), 4000);
+    } catch (err) {
+      setSaveError('Failed to save quote. Check your connection.');
+      console.error(err);
+    } finally { setSaving(false); }
+  };
+
+  const loadQuote = sq => {
+    setBizName(sq.bizName || ''); setContactName(sq.contactName || '');
+    setClientEmail(sq.email || ''); setClientPhone(sq.phone || '');
+    setClientAddress(sq.address || ''); setQuoteNotes(sq.notes || '');
+    setClientType(sq.clientType || 'airbnb'); setBedrooms(sq.bedrooms || '2');
+    setExtraBaths(sq.extraBaths || '1'); setSqm(sq.sqm || '80');
+    setIntensity(sq.intensity || 'office'); setComplexity(sq.complexity || 'normal');
+    setCommBaths(sq.commBaths || '1'); setAddons(sq.addons || []);
+    setFrequency(sq.frequency || 'weekly'); setContract(sq.contract || 'monthly');
+    setNumCleaners(sq.numCleaners || '1'); setCleanerRate(sq.cleanerRate || '17');
+    setSuppliesCost(sq.suppliesCost || '5'); setTravelCost(sq.travelCost || '5');
+    setMinMargin(sq.minMargin || '25');
+    setLoadedQuoteId(sq.id || null);
+    setQuoteSearch('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const updateQuoteStatus = (id, status) =>
+    updateDoc(doc(db, 'savedQuotes', id), { status, updatedAt: new Date().toISOString() });
+
+  const handleBookContract = async () => {
+    if (!bizName.trim())    { setBookError('Enter a business name first.'); return; }
+    if (!clientEmail.trim()) { setBookError('Enter the client email.'); return; }
+    if (!contractStart)      { setBookError('Set a contract start date.'); return; }
+    setBooking(true); setBookError('');
+    try {
+      const ct = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
+      const startD = new Date(contractStart + 'T00:00:00');
+      const endD   = new Date(startD);
+      endD.setMonth(endD.getMonth() + ct.months);
+      const contractEnd = endD.toISOString().slice(0, 10);
+      const nameParts   = contactName.trim().split(' ');
+      const firstName   = nameParts[0] || bizName.trim();
+      const lastName    = nameParts.slice(1).join(' ') || '';
+      const addonList   = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+      const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
+      const now = new Date().toISOString();
+      await addDoc(collection(db, 'bookings'), {
+        firstName, lastName,
+        email: clientEmail.trim(),
+        phone: clientPhone.trim(),
+        addr1: clientAddress.trim(),
+        postcode: clientAddress.trim().split(' ').slice(-2).join(' '),
+        cleanDate: contractStart,
+        cleanTime: '09:00',
+        frequency,
+        bathrooms: parseInt(clientType === 'airbnb' ? extraBaths : commBaths, 10) || 1,
+        hasPets: false,
+        notes: quoteNotes.trim(),
+        source: 'Contract Quote',
+        isPhoneBooking: true,
+        stripeDepositIntentId: 'manual',
+        stripeCustomerId: '',
+        total: q.price,
+        deposit: 0,
+        remaining: q.price,
+        packageId: clientType,
+        status: 'scheduled',
+        isContract: true,
+        contractType: contract,
+        contractLabel: ct.label,
+        contractStartDate: contractStart,
+        contractEndDate: contractEnd,
+        pricePerVisit: q.price,
+        monthlyValue: q.mRev,
+        frequencyLabel: q.freq.label,
+        bizName: bizName.trim(),
+        contactName: contactName.trim(),
+        clientType,
+        addonsList: selectedAddons.map(a => a.label).join(', '),
+        monthlyPayments: {},
+        createdAt: now,
+        updatedAt: now,
+      });
+      if (loadedQuoteId) {
+        await updateDoc(doc(db, 'savedQuotes', loadedQuoteId), { status: 'booked', updatedAt: now });
+      }
+      setBookedOk(true); setShowBookPanel(false); setContractStart(''); setLoadedQuoteId(null);
+      setTimeout(() => { setBookedOk(false); if (onNavigate) onNavigate('bookings'); }, 1500);
+    } catch (err) {
+      setBookError('Something went wrong. Try again.');
+      console.error(err);
+    } finally { setBooking(false); }
+  };
+
   const copyQuote = () => {
-    const name = clientName ? `${clientName} -- ` : '';
+    const name = bizName ? `${bizName} -- ` : '';
     const type = clientType === 'airbnb'
       ? `${bedrooms === 'studio' ? 'Studio' : `${bedrooms}-bed`} Airbnb`
       : `Commercial (${sqm} sqm)`;
@@ -280,15 +449,35 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         {/* ── Left column: Inputs ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-          {/* Client name */}
+          {/* Client details */}
           <Card C={C}>
-            <SectionLabel C={C}>Client (optional)</SectionLabel>
-            <input
-              value={clientName}
-              onChange={e => setClientName(e.target.value)}
-              placeholder="e.g. Riverside Stays, Oakwood Office, 14 Oak Street..."
-              style={inputStyle}
-            />
+            <SectionLabel C={C}>Client Details</SectionLabel>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div style={{ gridColumn: 'span 2' }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Business / property name <span style={{ color: C.danger }}>*</span></div>
+                <input value={bizName} onChange={e => setBizName(e.target.value)} placeholder="e.g. Riverside Stays, Oakwood Office..." style={inputStyle} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Contact name</div>
+                <input value={contactName} onChange={e => setContactName(e.target.value)} placeholder="First & last name" style={inputStyle} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Phone</div>
+                <input value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="07..." style={inputStyle} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Email <span style={{ color: C.danger }}>*</span></div>
+                <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="client@email.com" style={inputStyle} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Address</div>
+                <input value={clientAddress} onChange={e => setClientAddress(e.target.value)} placeholder="Street, postcode" style={inputStyle} />
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Notes</div>
+                <input value={quoteNotes} onChange={e => setQuoteNotes(e.target.value)} placeholder="Special requirements, access info, key holding..." style={inputStyle} />
+              </div>
+            </div>
           </Card>
 
           {/* Property type + sizing */}
@@ -658,20 +847,100 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
             })}
           </Card>
 
-          {/* Copy button */}
-          <button
-            onClick={copyQuote}
-            style={{
-              fontFamily: FONT, fontSize: 13, fontWeight: 600,
-              padding: '11px', borderRadius: 8, cursor: 'pointer',
-              border: `1px solid ${C.accent}`,
-              background: copied ? C.success : `${C.accent}18`,
-              color: copied ? '#fff' : C.text,
-              width: '100%', transition: 'all 0.2s',
-            }}
-          >
-            {copied ? 'Copied to clipboard' : 'Copy quote summary'}
-          </button>
+          {/* Action buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {bookedOk && (
+              <div style={{ background: `${C.success}18`, border: `1px solid ${C.success}40`, borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.success, fontWeight: 600 }}>
+                Contract booked. Taking you to Bookings...
+              </div>
+            )}
+            <button
+              onClick={() => { setShowBookPanel(s => !s); setBookError(''); setShowSavePanel(false); }}
+              style={{
+                fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '11px', borderRadius: 8,
+                cursor: 'pointer', border: 'none',
+                background: showBookPanel ? C.text : C.text,
+                color: '#fff', width: '100%', transition: 'all 0.2s',
+              }}
+            >
+              Book this contract
+            </button>
+            {showBookPanel && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Contract start date <span style={{ color: C.danger }}>*</span></div>
+                  <input type="date" value={contractStart} onChange={e => setContractStart(e.target.value)} min={new Date().toISOString().slice(0, 10)} style={inputStyle} />
+                </div>
+                {contractStart && (
+                  <div style={{ fontSize: 11, color: C.muted }}>
+                    Contract ends: {(() => {
+                      const ct = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
+                      const d = new Date(contractStart + 'T00:00:00');
+                      d.setMonth(d.getMonth() + ct.months);
+                      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                    })()}
+                  </div>
+                )}
+                {bookError && <div style={{ fontSize: 11, color: C.danger }}>{bookError}</div>}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={handleBookContract} disabled={booking}
+                    style={{ flex: 1, fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '9px', borderRadius: 6, cursor: booking ? 'wait' : 'pointer', border: 'none', background: C.text, color: '#fff' }}
+                  >{booking ? 'Creating...' : 'Confirm booking'}</button>
+                  <button
+                    onClick={() => { setShowBookPanel(false); setBookError(''); }}
+                    style={{ fontFamily: FONT, fontSize: 12, padding: '9px 14px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${C.border}`, background: C.bg, color: C.muted }}
+                  >Cancel</button>
+                </div>
+              </div>
+            )}
+            {savedOk && (
+              <div style={{ background: `${C.success}18`, border: `1px solid ${C.success}40`, borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.success, fontWeight: 600 }}>
+                Quote saved and email sent.
+              </div>
+            )}
+            <button
+              onClick={() => { setShowSavePanel(s => !s); setSaveError(''); }}
+              style={{
+                fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '11px', borderRadius: 8,
+                cursor: 'pointer', border: `1px solid ${C.accent}`,
+                background: showSavePanel ? C.accent : `${C.accent}18`,
+                color: showSavePanel ? '#fff' : C.text, width: '100%', transition: 'all 0.2s',
+              }}
+            >
+              Save quote + send email
+            </button>
+            {showSavePanel && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Follow-up date <span style={{ color: C.danger }}>*</span></div>
+                  <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} style={inputStyle} />
+                </div>
+                {saveError && <div style={{ fontSize: 11, color: C.danger }}>{saveError}</div>}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={handleSaveQuote} disabled={saving}
+                    style={{ flex: 1, fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '9px', borderRadius: 6, cursor: saving ? 'wait' : 'pointer', border: 'none', background: C.accent, color: '#fff' }}
+                  >{saving ? 'Sending...' : 'Confirm & send'}</button>
+                  <button
+                    onClick={() => { setShowSavePanel(false); setSaveError(''); }}
+                    style={{ fontFamily: FONT, fontSize: 12, padding: '9px 14px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${C.border}`, background: C.bg, color: C.muted }}
+                  >Cancel</button>
+                </div>
+                <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.5 }}>
+                  Saves the quote to your list and emails it to {clientEmail || 'the client'}. Status will be set to "Quote Sent".
+                </div>
+              </div>
+            )}
+            <button
+              onClick={copyQuote}
+              style={{
+                fontFamily: FONT, fontSize: 12, padding: '9px', borderRadius: 8, cursor: 'pointer',
+                border: `1px solid ${C.border}`, background: copied ? C.success : C.bg,
+                color: copied ? '#fff' : C.muted, width: '100%', transition: 'all 0.2s',
+              }}
+            >{copied ? 'Copied' : 'Copy summary to clipboard'}</button>
+          </div>
 
           {/* Industry notes */}
           <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, lineHeight: 1.7, padding: '2px 4px' }}>
@@ -848,6 +1117,109 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
                 </div>
               </div>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* ── Saved Quotes ── */}
+      <div style={{ marginTop: '1.25rem' }}>
+        <Card C={C}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Saved Quotes</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                {savedQuotes.filter(sq => !['booked', 'lost'].includes(sq.status)).length} active
+              </div>
+            </div>
+            <input
+              value={quoteSearch} onChange={e => setQuoteSearch(e.target.value)}
+              placeholder="Search by business name..."
+              style={{ ...inputStyle, width: isMobile ? '100%' : 220 }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+            {[
+              { id: 'all',           label: 'All' },
+              { id: 'quote_sent',    label: 'Quote Sent' },
+              { id: 'follow_up_due', label: 'Follow-up Due' },
+              { id: 'booked',        label: 'Booked' },
+              { id: 'lost',          label: 'Lost' },
+            ].map(f => (
+              <button key={f.id} onClick={() => setStatusFilter(f.id)} style={{
+                fontFamily: FONT, fontSize: 11, padding: '4px 10px', borderRadius: 5, cursor: 'pointer',
+                border: `1px solid ${statusFilter === f.id ? C.accent : C.border}`,
+                background: statusFilter === f.id ? `${C.accent}18` : C.bg,
+                color: statusFilter === f.id ? C.text : C.muted, fontWeight: statusFilter === f.id ? 600 : 400,
+              }}>{f.label}</button>
+            ))}
+          </div>
+
+          {savedQuotes.length === 0 ? (
+            <div style={{ fontSize: 12, color: C.muted, textAlign: 'center', padding: '24px 0' }}>
+              No saved quotes yet. Fill in client details above and click "Save quote + send email".
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {savedQuotes
+                .filter(sq => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const isDue = sq.status === 'quote_sent' && sq.followUpDate && sq.followUpDate <= today;
+                  const eff = isDue ? 'follow_up_due' : sq.status;
+                  if (statusFilter !== 'all' && eff !== statusFilter) return false;
+                  if (quoteSearch.trim() && !sq.bizName?.toLowerCase().includes(quoteSearch.toLowerCase())) return false;
+                  return true;
+                })
+                .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+                .map(sq => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const isDue = sq.status === 'quote_sent' && sq.followUpDate && sq.followUpDate <= today;
+                  const eff = isDue ? 'follow_up_due' : sq.status;
+                  const ss = {
+                    quote_sent:    { bg: `${C.accent}18`,  color: C.accent,   label: 'Quote Sent' },
+                    follow_up_due: { bg: `${C.warning}18`, color: C.warning,  label: 'Follow-up Due' },
+                    booked:        { bg: `${C.success}18`, color: C.success,  label: 'Booked' },
+                    lost:          { bg: `${C.danger}18`,  color: C.danger,   label: 'Lost' },
+                  }[eff] || { bg: `${C.accent}18`, color: C.accent, label: 'Quote Sent' };
+                  return (
+                    <div key={sq.id} style={{
+                      padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`,
+                      background: sq.status === 'lost' ? `${C.danger}06` : C.bg,
+                      opacity: sq.status === 'lost' ? 0.7 : 1,
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{sq.bizName}</span>
+                            <span style={{ fontSize: 10, fontWeight: 600, color: ss.color, background: ss.bg, borderRadius: 4, padding: '2px 7px' }}>{ss.label}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
+                            {sq.contactName && <span>{sq.contactName} · </span>}
+                            <span>£{gbp(sq.pricePerVisit)}/visit · </span>
+                            <span>{sq.contractLabel} · </span>
+                            <span>{sq.frequencyLabel}</span>
+                          </div>
+                          {sq.followUpDate && !['booked', 'lost'].includes(sq.status) && (
+                            <div style={{ fontSize: 10, color: isDue ? C.danger : C.muted, marginTop: 3, fontWeight: isDue ? 600 : 400 }}>
+                              Follow-up: {new Date(sq.followUpDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              {isDue && ' -- overdue'}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+                          <button onClick={() => loadQuote(sq)} style={{ fontFamily: FONT, fontSize: 11, padding: '5px 10px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${C.border}`, background: C.card, color: C.text }}>Load</button>
+                          {!['booked', 'lost'].includes(sq.status) && (
+                            <button onClick={() => updateQuoteStatus(sq.id, 'booked')} style={{ fontFamily: FONT, fontSize: 11, padding: '5px 10px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${C.success}40`, background: `${C.success}10`, color: C.success, fontWeight: 600 }}>Booked</button>
+                          )}
+                          {!['lost', 'booked'].includes(sq.status) && (
+                            <button onClick={() => updateQuoteStatus(sq.id, 'lost')} style={{ fontFamily: FONT, fontSize: 11, padding: '5px 10px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${C.danger}40`, background: `${C.danger}10`, color: C.danger }}>Lost</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           )}
         </Card>

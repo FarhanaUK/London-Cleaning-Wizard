@@ -86,12 +86,59 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
 
   const calPackages = PACKAGES.map(p => p.name);
 
+  const calMM = String(calMonth + 1).padStart(2, '0');
+  const monthStart = `${calYear}-${calMM}-01`;
+  const monthEnd   = `${calYear}-${calMM}-${String(daysInMonth).padStart(2, '0')}`;
+
+  const advanceByFreq = (d, freq) => {
+    const n = new Date(d);
+    if (freq === 'monthly')      { n.setMonth(n.getMonth() + 1); }
+    else if (freq === 'fortnightly') { n.setDate(n.getDate() + 14); }
+    else if (freq === 'thrice')  { n.setDate(n.getDate() + 2); }
+    else if (freq === 'twice')   { n.setDate(n.getDate() + 3); }
+    else if (freq === 'daily')   {
+      n.setDate(n.getDate() + 1);
+      if (n.getDay() === 6) n.setDate(n.getDate() + 2);
+      if (n.getDay() === 0) n.setDate(n.getDate() + 1);
+    } else { n.setDate(n.getDate() + 7); } // weekly default
+    return n;
+  };
+
   const bookingsByDate = {};
   bookings.forEach(b => {
-    if (!b.cleanDate) return;
-    if (calPackageFilter && b.packageName !== calPackageFilter) return;
-    if (!bookingsByDate[b.cleanDate]) bookingsByDate[b.cleanDate] = [];
-    bookingsByDate[b.cleanDate].push(b);
+    if (!b.cleanDate && !b.contractStartDate) return;
+
+    if (b.isContract && b.contractStartDate && b.frequency) {
+      const contractStart = b.contractStartDate;
+      const contractEnd   = b.contractEndDate || `${calYear + 2}-12-31`;
+      if (contractEnd < monthStart || contractStart > monthEnd) return;
+
+      // Walk from contract start to first occurrence in or after month start
+      let cur = new Date(contractStart + 'T00:00:00');
+      const msEnd = new Date(Math.min(new Date(contractEnd + 'T00:00:00'), new Date(monthEnd + 'T00:00:00')));
+      while (cur.toISOString().slice(0, 10) < monthStart) {
+        const next = advanceByFreq(cur, b.frequency);
+        if (next <= cur) break;
+        cur = next;
+      }
+      while (cur <= msEnd) {
+        const dateStr = cur.toISOString().slice(0, 10);
+        if (dateStr >= monthStart && dateStr <= monthEnd) {
+          if (!bookingsByDate[dateStr]) bookingsByDate[dateStr] = [];
+          if (!bookingsByDate[dateStr].some(x => x.id === b.id)) {
+            bookingsByDate[dateStr].push(b);
+          }
+        }
+        const next = advanceByFreq(cur, b.frequency);
+        if (next <= cur) break;
+        cur = next;
+      }
+    } else {
+      if (!b.cleanDate) return;
+      if (calPackageFilter && b.packageName !== calPackageFilter) return;
+      if (!bookingsByDate[b.cleanDate]) bookingsByDate[b.cleanDate] = [];
+      bookingsByDate[b.cleanDate].push(b);
+    }
   });
 
   const prefix       = `${String(calYear)}-${String(calMonth + 1).padStart(2, '0')}`;
