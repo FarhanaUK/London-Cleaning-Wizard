@@ -275,6 +275,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
         amount: parseFloat(d.amount),
         bookingRef: d.bookingRef?.trim() || '',
         clientName: d.clientName?.trim() || '',
+        cleanerName: d.cleanerName?.trim() || '',
         notes: d.notes?.trim() || '',
         resolution: d.resolution?.trim() || '',
         status: d.status || 'open',
@@ -1248,7 +1249,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                 ))}
               </div>
               <button
-                onClick={() => { setIncidentModal({ mode: 'add', data: { date: today, type: 'Damage - Uninsured', description: '', amount: '', bookingRef: '', clientName: '', notes: '', resolution: '', status: 'open' } }); setPendingPhotos([]); }}
+                onClick={() => { setIncidentModal({ mode: 'add', data: { date: today, type: 'Damage - Uninsured', description: '', amount: '', bookingRef: '', clientName: '', cleanerName: '', notes: '', resolution: '', status: 'open' } }); setPendingPhotos([]); }}
                 style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '8px 18px', borderRadius: 7, border: 'none', cursor: 'pointer', background: BIZ, color: '#fff' }}
               >
                 + Log Incident
@@ -1288,11 +1289,13 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                         {/* Description */}
                         <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>{inc.description}</div>
                         {/* Client / booking ref */}
-                        {(inc.clientName || inc.bookingRef) && (
+                        {(inc.clientName || inc.bookingRef || inc.cleanerName) && (
                           <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 3 }}>
                             {inc.clientName && <span>Client: <strong>{inc.clientName}</strong></span>}
-                            {inc.clientName && inc.bookingRef && <span> · </span>}
+                            {inc.clientName && (inc.bookingRef || inc.cleanerName) && <span> · </span>}
                             {inc.bookingRef && <span>Job ref: <strong>{inc.bookingRef}</strong></span>}
+                            {inc.bookingRef && inc.cleanerName && <span> · </span>}
+                            {inc.cleanerName && <span>Cleaner: <strong>{inc.cleanerName}</strong></span>}
                           </div>
                         )}
                         {/* Notes */}
@@ -1379,6 +1382,12 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
 
                   <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Client Name</label>
                   <input type="text" value={incidentModal.data.clientName} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, clientName: e.target.value } }))} placeholder="e.g. Jane Smith" style={IM} />
+
+                  <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Cleaner Responsible</label>
+                  <select value={incidentModal.data.cleanerName || ''} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, cleanerName: e.target.value } }))} style={IM}>
+                    <option value="">-- Select cleaner (optional)</option>
+                    {(staff || []).filter(s => s.status !== 'Inactive').map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
 
                   <label style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 4 }}>Job / Booking Reference</label>
                   <input type="text" value={incidentModal.data.bookingRef} onChange={e => setIncidentModal(m => ({ ...m, data: { ...m.data, bookingRef: e.target.value } }))} placeholder="e.g. LCW-2026-001 or booking date" style={IM} />
