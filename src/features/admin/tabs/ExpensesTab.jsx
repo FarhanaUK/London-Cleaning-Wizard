@@ -1428,7 +1428,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                       accept="image/*"
                       multiple
                       style={{ display: 'none' }}
-                      onChange={e => { setPendingPhotos(p => [...p, ...Array.from(e.target.files)]); e.target.value = ''; }}
+                      onChange={e => { const files = Array.from(e.target.files); setPendingPhotos(p => [...p, ...files]); e.target.value = ''; }}
                     />
                   </label>
 
