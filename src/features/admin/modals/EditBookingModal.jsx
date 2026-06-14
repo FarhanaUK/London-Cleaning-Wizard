@@ -6,10 +6,31 @@ const FIELD  = C => ({ width: '100%', padding: '8px 12px', fontFamily: FONT, fon
 const LABEL  = { fontFamily: FONT, fontSize: 11, color: undefined, marginBottom: 4 };
 const SECTION = { fontFamily: FONT, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', margin: '20px 0 12px' };
 
+const AIRBNB_ADDONS = [
+  { id: 'oven',    label: 'Oven deep clean',  price: 40 },
+  { id: 'fridge',  label: 'Inside fridge',    price: 18 },
+  { id: 'laundry', label: 'Laundry & fold',   price: 20 },
+  { id: 'linen',   label: 'Linen change',     price: 12 },
+  { id: 'windows', label: 'Internal windows', price: 20 },
+  { id: 'patio',   label: 'Balcony / patio',  price: 30 },
+];
+const COMMERCIAL_ADDONS = [
+  { id: 'windows',    label: 'Internal windows',                price: 20 },
+  { id: 'patio',      label: 'Entrance / patio',                price: 30 },
+  { id: 'kitchen',    label: 'Kitchen / break room deep clean', price: 50 },
+  { id: 'fridge',     label: 'Fridge clean',                    price: 18 },
+  { id: 'oven',       label: 'Oven / grill deep clean',         price: 40 },
+  { id: 'toilets',    label: 'Toilet deep clean & descale',     price: 35 },
+  { id: 'appliances', label: 'Microwave & appliances',          price: 15 },
+];
+
 export default function EditBookingModal({ editBooking, editData, setEditData, editScope, setEditScope, editSaving, editErr, onClose, onSave, qualifiesForRecurring, isMobile, C }) {
   if (!editBooking) return null;
 
-  const currentPkg = PACKAGES.find(p => p.id === editData.packageId);
+  const currentPkg   = PACKAGES.find(p => p.id === editData.packageId);
+  const clientType   = editBooking.clientType || editData.clientType;
+  const contractAddonList = clientType === 'airbnb' ? AIRBNB_ADDONS : clientType === 'commercial' ? COMMERCIAL_ADDONS : null;
+  const isContractBooking = !!(editBooking.isContract || editBooking.isContractVisit || contractAddonList);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,20,16,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
@@ -67,7 +88,24 @@ export default function EditBookingModal({ editBooking, editData, setEditData, e
             </div>
           </FieldRow>
         )}
-        {currentPkg?.showAddons && (
+        {isContractBooking && contractAddonList && (
+          <FieldRow label="Add-ons" C={C}>
+            {contractAddonList.map(a => (
+              <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer', fontFamily: FONT, fontSize: 13, color: C.text }}>
+                <input type="checkbox"
+                  checked={(editData.addons||[]).some(x => x.id === a.id) || (editData.addonsList||'').toLowerCase().includes(a.label.toLowerCase())}
+                  onChange={e => setEditData(p => ({
+                    ...p,
+                    addons: e.target.checked
+                      ? [...(p.addons||[]).filter(x => x.id !== a.id), { id: a.id, name: a.label, price: a.price }]
+                      : (p.addons||[]).filter(x => x.id !== a.id),
+                  }))} />
+                {a.label} — £{a.price}
+              </label>
+            ))}
+          </FieldRow>
+        )}
+        {!isContractBooking && currentPkg?.showAddons && (
           <FieldRow label="Add-ons" C={C}>
             {ADDONS.filter(a => !(a.id === 'microwave' && editData.packageId === 'standard')).map(a => {
               const isSmall = ['studio', '1bed'].includes(editData.sizeId);
