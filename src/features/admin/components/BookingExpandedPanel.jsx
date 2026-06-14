@@ -96,6 +96,7 @@ export default function BookingExpandedPanel({
   })();
 
   const [savingPayment, setSavingPayment] = useState(null);
+  const [expandedMonth, setExpandedMonth] = useState(null);
 
   const toggleMonthPaid = async (month, paid) => {
     setSavingPayment(month);
@@ -191,22 +192,89 @@ export default function BookingExpandedPanel({
                 const isCur    = m === todayM;
                 const label    = new Date(m + '-15').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
                 const isSaving = savingPayment === m;
+                const isExpanded = expandedMonth === m;
+                const monthVisits = contractVisits.filter(v => v.cleanDate?.startsWith(m)).sort((a, z) => (a.cleanDate || '').localeCompare(z.cleanDate || ''));
                 return (
-                  <div key={m} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 6, background: isPaid ? '#f0fdf4' : isCur ? '#fffbeb' : C.card, border: `1px solid ${isPaid ? '#86efac' : isCur ? '#fde68a' : C.border}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: isCur ? 600 : 400 }}>{label}</div>
-                      {isCur && <span style={{ fontFamily: FONT, fontSize: 10, color: '#92400e', fontWeight: 600, background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>This month</span>}
+                  <div key={m} style={{ borderRadius: 6, overflow: 'hidden', border: `1px solid ${isPaid ? '#86efac' : isCur ? '#fde68a' : C.border}` }}>
+                    <div
+                      onClick={() => setExpandedMonth(isExpanded ? null : m)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: isPaid ? '#f0fdf4' : isCur ? '#fffbeb' : C.card, cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, width: 10 }}>{isExpanded ? '▾' : '▸'}</span>
+                        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: isCur ? 600 : 400 }}>{label}</div>
+                        {isCur && <span style={{ fontFamily: FONT, fontSize: 10, color: '#92400e', fontWeight: 600, background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>This month</span>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {totalMV > 0 && <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>£{totalMV.toFixed(2)}</div>}
+                        <button
+                          disabled={isSaving}
+                          onClick={e => { e.stopPropagation(); toggleMonthPaid(m, !isPaid); }}
+                          style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 5, cursor: isSaving ? 'not-allowed' : 'pointer', border: `1px solid ${isPaid ? '#86efac' : '#fde68a'}`, background: isPaid ? '#dcfce7' : '#fff8eb', color: isPaid ? '#166534' : '#92400e' }}
+                        >
+                          {isSaving ? '…' : isPaid ? '✓ Paid' : 'Mark Paid'}
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {totalMV > 0 && <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>£{totalMV.toFixed(2)}</div>}
-                      <button
-                        disabled={isSaving}
-                        onClick={() => toggleMonthPaid(m, !isPaid)}
-                        style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 5, cursor: isSaving ? 'not-allowed' : 'pointer', border: `1px solid ${isPaid ? '#86efac' : '#fde68a'}`, background: isPaid ? '#dcfce7' : '#fff8eb', color: isPaid ? '#166534' : '#92400e' }}
-                      >
-                        {isSaving ? '…' : isPaid ? '✓ Paid' : 'Mark Paid'}
-                      </button>
-                    </div>
+                    {isExpanded && (
+                      <div style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {monthVisits.length === 0 ? (
+                          <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, padding: '4px 0' }}>No visits scheduled this month.</div>
+                        ) : monthVisits.map(v => {
+                          const vOnHoliday = (staff || []).filter(s => s.status === 'Active' && (s.holidays || []).includes(v.cleanDate));
+                          const vAvailable = (staff || []).filter(s => s.status === 'Active' && !(s.holidays || []).includes(v.cleanDate));
+                          const vTotal = parseFloat(v.total || v.pricePerVisit || 0);
+                          const vAddons = v.addons?.length ? v.addons : [];
+                          return (
+                            <div key={v.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 12px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                <div>
+                                  <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{fmtDate(v.cleanDate)}{v.cleanTime ? ` · ${v.cleanTime}` : ''}</div>
+                                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>{v.bookingRef || v.id}</div>
+                                  {vAddons.length > 0 && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>Add-ons: {vAddons.map(a => a.name || a.label).join(', ')}</div>}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{vTotal.toFixed(2)}</div>
+                                  <button
+                                    onClick={() => openEdit(v)}
+                                    style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '5px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
+                                  >
+                                    ✏️ Edit
+                                  </button>
+                                </div>
+                              </div>
+                              {staff?.length > 0 && (
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                                  <select
+                                    value={v.assignedStaff || ''}
+                                    onChange={e => handleAssignStaff(v, e.target.value, !!v.secondCleaner)}
+                                    style={{ fontFamily: FONT, fontSize: 12, padding: '5px 8px', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
+                                  >
+                                    <option value="">👤 Assign cleaner…</option>
+                                    {vAvailable.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                    {vOnHoliday.map(s => <option key={s.id} value={s.name} disabled>🏖 {s.name} (holiday)</option>)}
+                                  </select>
+                                  <select
+                                    value={v.secondCleaner || ''}
+                                    onChange={e => handleAssignSecondCleaner(v, e.target.value)}
+                                    style={{ fontFamily: FONT, fontSize: 12, padding: '5px 8px', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
+                                  >
+                                    <option value="">+2nd cleaner (optional)</option>
+                                    {vAvailable.filter(s => s.name !== v.assignedStaff).map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                    {vOnHoliday.filter(s => s.name !== v.assignedStaff).map(s => <option key={s.id} value={s.name} disabled>🏖 {s.name} (holiday)</option>)}
+                                  </select>
+                                  {v.assignedStaff && (
+                                    <div style={{ fontFamily: FONT, fontSize: 11, color: '#16a34a' }}>
+                                      ✓ {[v.assignedStaff, v.secondCleaner].filter(Boolean).join(' & ')}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -214,82 +282,6 @@ export default function BookingExpandedPanel({
           </div>
         );
       })()}
-
-      {/* Contract visit cards */}
-      {b.isContract && contractVisits.length > 0 && (
-        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 14 }}>
-          <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 10 }}>
-            Visit Schedule ({contractVisits.length} visits)
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {contractVisits.map(v => {
-              const vDate   = v.cleanDate ? v.cleanDate.split('-').reverse().join('/') : '—';
-              const isPast  = v.cleanDate && v.cleanDate < new Date().toISOString().slice(0,10);
-              const isDone  = v.status === 'completed';
-              const activeV = staff?.filter(s => s.status === 'Active') || [];
-              const onHolV  = activeV.filter(s => (s.holidays||[]).includes(v.cleanDate));
-              const availV  = activeV.filter(s => !(s.holidays||[]).includes(v.cleanDate));
-              return (
-                <div key={v.id} style={{ background: C.card, border: `1px solid ${isDone ? '#86efac' : C.border}`, borderRadius: 6, overflow: 'hidden' }}>
-                  {/* Visit header */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: isDone ? '#f0fdf4' : isPast ? '#fef9f0' : C.bg, borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text }}>{vDate}</span>
-                      {v.bookingRef && <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: '1px 6px' }}>{v.bookingRef}</span>}
-                      {isDone && <span style={{ fontFamily: FONT, fontSize: 10, color: '#166534', background: '#dcfce7', borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>Completed</span>}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {v.total > 0 && <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: C.text }}>£{parseFloat(v.total).toFixed(2)}</span>}
-                      <button
-                        onClick={() => openEdit(v)}
-                        style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '4px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
-                      >✏️ Edit</button>
-                    </div>
-                  </div>
-                  {/* Cleaner assignment */}
-                  <div style={{ padding: '8px 12px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <select
-                      value={v.assignedStaff || ''}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setBookings(all => all.map(x => x.id === v.id ? { ...x, assignedStaff: val } : x));
-                        fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: v.id, assignedStaff: val }) }).catch(() => {});
-                      }}
-                      style={{ fontFamily: FONT, fontSize: 12, padding: '5px 8px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
-                    >
-                      <option value="">👤 Assign cleaner…</option>
-                      {availV.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                      {onHolV.map(s => <option key={s.id} value={s.name} disabled>🏖 {s.name} (holiday)</option>)}
-                    </select>
-                    <select
-                      value={v.secondCleaner || ''}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setBookings(all => all.map(x => x.id === v.id ? { ...x, secondCleaner: val } : x));
-                        fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: v.id, secondCleaner: val }) }).catch(() => {});
-                      }}
-                      style={{ fontFamily: FONT, fontSize: 12, padding: '5px 8px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
-                    >
-                      <option value="">+2nd cleaner</option>
-                      {availV.filter(s => s.name !== v.assignedStaff).map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                      {onHolV.filter(s => s.name !== v.assignedStaff).map(s => <option key={s.id} value={s.name} disabled>🏖 {s.name} (holiday)</option>)}
-                    </select>
-                    {v.assignedStaff && (
-                      <button
-                        onClick={async () => {
-                          const res = await fetch(import.meta.env.VITE_CF_NOTIFY_CLEANER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: v.id, cleanerName: v.assignedStaff, secondCleaner: v.secondCleaner || '' }) });
-                          if (res.ok) alert(`Notified ${[v.assignedStaff, v.secondCleaner].filter(Boolean).join(' & ')}`);
-                        }}
-                        style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '5px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
-                      >✉ Notify</button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Notes */}
       {b.notes && (
