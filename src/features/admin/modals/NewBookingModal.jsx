@@ -172,8 +172,8 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
           );
         })}
 
-        {/* Property type — not applicable for Airbnb */}
-        {nbPkg?.id !== 'airbnb' && (
+        {/* Property type — not applicable for Airbnb or hourly packages */}
+        {nbPkg?.id !== 'airbnb' && !nbPkg?.isHourly && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontFamily: FONT, fontSize: 11, color: '#8b7355', marginBottom: 4 }}>Property Type</div>
             <select value={nb.propertyType} onChange={e => setNb(p => ({ ...p, propertyType: e.target.value, sizeId: e.target.value === 'house' && p.sizeId === 'studio' ? '' : p.sizeId }))} style={{ ...INPUT, marginBottom: 0 }}>
@@ -206,15 +206,15 @@ export default function NewBookingModal({ isOpen, onClose, isMobile, C, api, ini
             const isDeep = e.target.value === 'deep';
             setNb(p => ({ ...p, packageId: e.target.value, sizeId: '', addons: [], frequency: pkg?.showFreq ? p.frequency : 'one-off', supplies: isDeep ? 'cleaner' : p.supplies, suppliesFee: isDeep ? DEEP_SUPPLIES_FEE : undefined }));
           }} style={{ ...INPUT, marginBottom: 0 }}>
-            {PACKAGES.filter(p => p.id !== 'office_cleaning').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {PACKAGES.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: nbSubmitted && !nb.sizeId ? C.danger : '#8b7355', marginBottom: 4 }}>Size *</div>
           <select value={nb.sizeId} onChange={e => setNb(p => ({ ...p, sizeId: e.target.value }))} style={{ ...INPUT, marginBottom: 0, borderColor: nbSubmitted && !nb.sizeId ? C.danger : undefined }}>
             <option value="">— Select size —</option>
-            {(nbPkg?.sizes || []).filter(s => !(nbPkg?.id !== 'airbnb' && nb.propertyType === 'house' && s.id === 'studio')).map(s => {
-              const price = Math.round(s.basePrice * (nbPkg?.id !== 'airbnb' && nb.propertyType === 'house' ? 1.10 : 1.0));
+            {(nbPkg?.sizes || []).filter(s => !(!nbPkg?.isHourly && nbPkg?.id !== 'airbnb' && nb.propertyType === 'house' && s.id === 'studio')).map(s => {
+              const price = Math.round(s.basePrice * (!nbPkg?.isHourly && nbPkg?.id !== 'airbnb' && nb.propertyType === 'house' ? 1.10 : 1.0));
               return <option key={s.id} value={s.id}>{s.label} — £{price}</option>;
             })}
           </select>
