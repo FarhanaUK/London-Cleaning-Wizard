@@ -1195,7 +1195,22 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 {savedQuotes.filter(sq => !['booked', 'lost'].includes(sq.status)).length} active
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              {savedQuotes.length > 0 && (() => {
+                const visibleIds = savedQuotes.map(sq => sq.id);
+                const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedQuotes.has(id));
+                return (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontFamily: FONT, fontSize: 11, color: C.muted }}>
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={() => setSelectedQuotes(allSelected ? new Set() : new Set(visibleIds))}
+                      style={{ accentColor: C.danger }}
+                    />
+                    Select all
+                  </label>
+                );
+              })()}
               {selectedQuotes.size > 0 && (
                 <button
                   onClick={deleteSelected}
@@ -1203,15 +1218,6 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                   style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${C.danger}40`, background: `${C.danger}10`, color: C.danger }}
                 >
                   {deletingQuotes ? 'Deleting…' : `Delete selected (${selectedQuotes.size})`}
-                </button>
-              )}
-              {savedQuotes.length > 0 && (
-                <button
-                  onClick={deleteAll}
-                  disabled={deletingQuotes}
-                  style={{ fontFamily: FONT, fontSize: 11, padding: '5px 12px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${C.border}`, background: C.card, color: C.muted }}
-                >
-                  Delete all
                 </button>
               )}
             </div>
