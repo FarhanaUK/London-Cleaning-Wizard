@@ -150,6 +150,12 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
   const [showBookPanel,   setShowBookPanel]   = useState(false);
   const [contractStart,   setContractStart]   = useState('');
+  const [contractTime,    setContractTime]    = useState('09:00');
+  const [keyType,         setKeyType]         = useState('client_present');
+  const [lockboxCode,     setLockboxCode]     = useState('');
+  const [bParking,        setBParking]        = useState('');
+  const [bFloor,          setBFloor]          = useState('');
+  const [bMediaConsent,   setBMediaConsent]   = useState(false);
   const [booking,         setBooking]         = useState(false);
   const [bookError,       setBookError]       = useState('');
   const [bookedOk,        setBookedOk]        = useState(false);
@@ -373,6 +379,13 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       const addonList   = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
       const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
       const now = new Date().toISOString();
+      const keysLabel = {
+        client_present: 'Client / host present',
+        spare_key:      'Spare key held by us',
+        lockbox:        `Lockbox / key safe${lockboxCode ? ` — code: ${lockboxCode}` : ''}`,
+        concierge:      'Concierge / building reception',
+        management:     'Management company / agent',
+      }[keyType] || keyType;
       await addDoc(collection(db, 'bookings'), {
         firstName, lastName,
         email: clientEmail.trim(),
@@ -380,10 +393,15 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         addr1: clientAddress.trim(),
         postcode: clientAddress.trim().split(' ').slice(-2).join(' '),
         cleanDate: contractStart,
-        cleanTime: '09:00',
+        cleanTime: contractTime,
         frequency,
         bathrooms: parseInt(clientType === 'airbnb' ? extraBaths : commBaths, 10) || 1,
         hasPets: false,
+        floor: bFloor.trim(),
+        parking: bParking.trim(),
+        keys: keysLabel,
+        mediaConsent: bMediaConsent,
+        ...(bMediaConsent ? { mediaConsentDiscount: 10 } : {}),
         notes: quoteNotes.trim(),
         source: 'Contract Quote',
         isPhoneBooking: true,
@@ -393,19 +411,24 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         deposit: 0,
         remaining: q.price,
         packageId: clientType,
+        packageName: clientType === 'airbnb' ? 'Airbnb Turnaround' : 'Commercial Cleaning',
         status: 'scheduled',
         isContract: true,
         contractType: contract,
         contractLabel: ct.label,
         contractStartDate: contractStart,
         contractEndDate: contractEnd,
-        pricePerVisit: q.price,
+        pricePerVisit: q.cleanPrice,
+        totalPerVisit: q.price,
+        monthlyBaseValue: q.freq.vpm * q.cleanPrice,
         monthlyValue: q.mRev,
         frequencyLabel: q.freq.label,
         bizName: bizName.trim(),
         contactName: contactName.trim(),
         clientType,
+        addons: selectedAddons.map(a => ({ id: a.id, name: a.label, price: a.price })),
         addonsList: selectedAddons.map(a => a.label).join(', '),
+        addonTotal: q.addonTotal,
         monthlyPayments: {},
         createdAt: now,
         updatedAt: now,
@@ -929,13 +952,48 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               Book this contract
             </button>
             {showBookPanel && (
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Contract start date <span style={{ color: C.danger }}>*</span></div>
-                  <input type="date" value={contractStart} onChange={e => setContractStart(e.target.value)} min={new Date().toISOString().slice(0, 10)} style={inputStyle} />
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                {/* Pricing summary */}
+                <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.muted, marginBottom: 8 }}>Pricing Summary</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
+                    <span>Base per visit</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.cleanPrice)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
+                    <span>Monthly base ({q.freq.label})</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.freq.vpm * q.cleanPrice)}/mo</span>
+                  </div>
+                  {q.addonTotal > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
+                      <span>Add-ons per visit</span><span style={{ color: C.text, fontWeight: 600 }}>+£{gbp(q.addonTotal)}</span>
+                    </div>
+                  )}
+                  {bMediaConsent && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16a34a', marginBottom: 4 }}>
+                      <span>Media consent discount (1st visit)</span><span style={{ fontWeight: 600 }}>-£10.00</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text, borderTop: `1px solid ${C.border}`, paddingTop: 6, marginTop: 4 }}>
+                    <span>Total per visit</span><span>£{gbp(q.price)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginTop: 4 }}>
+                    <span>Est. monthly total</span><span style={{ fontWeight: 600 }}>£{gbp(q.mRev)}/mo</span>
+                  </div>
+                </div>
+
+                {/* Date & time */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Start date <span style={{ color: C.danger }}>*</span></div>
+                    <input type="date" value={contractStart} onChange={e => setContractStart(e.target.value)} min={new Date().toISOString().slice(0, 10)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Clean time</div>
+                    <input type="time" value={contractTime} onChange={e => setContractTime(e.target.value)} style={inputStyle} />
+                  </div>
                 </div>
                 {contractStart && (
-                  <div style={{ fontSize: 11, color: C.muted }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: -4 }}>
                     Contract ends: {(() => {
                       const ct = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
                       const d = new Date(contractStart + 'T00:00:00');
@@ -944,6 +1002,59 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                     })()}
                   </div>
                 )}
+
+                {/* Key access */}
+                <div>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Key access</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {[
+                      { id: 'client_present', label: 'Client / host present' },
+                      { id: 'spare_key',      label: 'Spare key held by us' },
+                      { id: 'lockbox',        label: 'Lockbox / key safe' },
+                      { id: 'concierge',      label: 'Concierge / building reception' },
+                      { id: 'management',     label: 'Management company / agent' },
+                    ].map(opt => (
+                      <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: FONT, fontSize: 12, color: C.text }}>
+                        <input type="radio" name="keyType" value={opt.id} checked={keyType === opt.id} onChange={() => setKeyType(opt.id)} style={{ accentColor: C.accent }} />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                  {keyType === 'lockbox' && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Lockbox code</div>
+                      <input value={lockboxCode} onChange={e => setLockboxCode(e.target.value)} placeholder="e.g. 1234" style={inputStyle} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Parking & floor */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Parking</div>
+                    <input value={bParking} onChange={e => setBParking(e.target.value)} placeholder="e.g. Free on street" style={inputStyle} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Floor / lift</div>
+                    <input value={bFloor} onChange={e => setBFloor(e.target.value)} placeholder="e.g. 3rd floor, lift available" style={inputStyle} />
+                  </div>
+                </div>
+
+                {/* Media consent */}
+                <div style={{ padding: '10px 12px', background: bMediaConsent ? '#f0fdf4' : C.bg, border: `1px solid ${bMediaConsent ? '#86efac' : C.border}`, borderRadius: 6 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={bMediaConsent} onChange={e => setBMediaConsent(e.target.checked)} style={{ marginTop: 2, accentColor: '#16a34a' }} />
+                    <div>
+                      <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: bMediaConsent ? '#166534' : C.text }}>
+                        Media consent — photos/videos for social media
+                      </div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: bMediaConsent ? '#16a34a' : C.muted, marginTop: 2 }}>
+                        {bMediaConsent ? '£10 discount applied to first visit' : 'Client consents to before/after photos being used on social media'}
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
                 {bookError && <div style={{ fontSize: 11, color: C.danger }}>{bookError}</div>}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
