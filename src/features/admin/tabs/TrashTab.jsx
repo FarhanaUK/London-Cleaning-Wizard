@@ -11,10 +11,10 @@ const fmtDeletedAt = ts => {
 };
 
 export default function TrashTab({ bookings, setBookings, isMobile, C }) {
-  const [restoring,      setRestoring]      = useState(null);
-  const [deleting,       setDeleting]       = useState(null);
-  const [deletingAll,    setDeletingAll]    = useState(false);
-  const [err,            setErr]            = useState('');
+  const [restoring,   setRestoring]   = useState(null);
+  const [deleting,    setDeleting]    = useState(null);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [err,         setErr]         = useState('');
 
   const trashedBookings = bookings
     .filter(b => b.deleted)

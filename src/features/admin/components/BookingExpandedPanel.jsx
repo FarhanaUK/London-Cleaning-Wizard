@@ -7,6 +7,8 @@ import { doc, updateDoc } from 'firebase/firestore';
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const FIELD_STYLE = C => ({ width: '100%', padding: '8px 12px', fontFamily: FONT, fontSize: 13, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, outline: 'none', boxSizing: 'border-box' });
 
+const ADDON_HOURS = { oven: 0.5, fridge: 0.33, laundry: 0.5, linen: 0.33, windows: 0.5, patio: 0.33, kitchen: 0.75, toilets: 0.5, appliances: 0.25 };
+
 const fmtCreatedAt = ts => {
   if (!ts) return '—';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -39,6 +41,8 @@ export default function BookingExpandedPanel({
   const hrs            = calcHours(b.actualStart || b.cleanTime, b.actualFinish);
   const [notifying, setNotifying] = useState(false);
   const [notifySent, setNotifySent] = useState(null); // { cleaner, at }
+  const [visitNotifying, setVisitNotifying]   = useState({});
+  const [visitNotifySent, setVisitNotifySent] = useState({});
   const [sigTouchOptingOut, setSigTouchOptingOut] = useState(false);
   const [sigTouchNote,      setSigTouchNote]      = useState('');
   const [sigTouchOtherNote, setSigTouchOtherNote] = useState('');
@@ -53,6 +57,18 @@ export default function BookingExpandedPanel({
       if (res.ok) setNotifySent({ cleaner: [b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & '), at: new Date() });
     } catch (e) {}
     setNotifying(false);
+  };
+
+  const handleNotifyVisit = async (v) => {
+    setVisitNotifying(prev => ({ ...prev, [v.id]: true }));
+    try {
+      const res = await fetch(import.meta.env.VITE_CF_NOTIFY_CLEANER, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: v.id, cleanerName: v.assignedStaff, secondCleaner: v.secondCleaner || '', bookingRef: b.bookingRef || '' }),
+      });
+      if (res.ok) setVisitNotifySent(prev => ({ ...prev, [v.id]: { cleaner: [v.assignedStaff, v.secondCleaner].filter(Boolean).join(' & '), at: new Date() } }));
+    } catch (e) {}
+    setVisitNotifying(prev => ({ ...prev, [v.id]: false }));
   };
 
   const fmtNotifyTime = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -312,7 +328,7 @@ export default function BookingExpandedPanel({
                           const vDiscount   = parseFloat(v.mediaConsentDiscount || 0);
                           const vTotal      = parseFloat(v.total || v.totalPerVisit || vBase + vAddonTotal) - vDiscount;
                           const vDurBase    = parseFloat(v.visitDurationBase || b.visitDurationBase || 0);
-                          const vAddonHrs   = vAddons.reduce((s, a) => s + (a.h || 0), 0);
+                          const vAddonHrs   = vAddons.reduce((s, a) => s + (a.h ?? ADDON_HOURS[a.id] ?? 0), 0);
                           const vCleaners   = b.numCleaners || 1;
                           const vDur        = vDurBase > 0 ? fmtDuration(vDurBase + vAddonHrs / vCleaners) : null;
                           return (
@@ -390,6 +406,22 @@ export default function BookingExpandedPanel({
                                   {v.assignedStaff && (
                                     <div style={{ fontFamily: FONT, fontSize: 11, color: '#16a34a' }}>
                                       ✓ {[v.assignedStaff, v.secondCleaner].filter(Boolean).join(' & ')}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {v.assignedStaff && v.status !== 'completed' && (
+                                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                  <button
+                                    onClick={() => handleNotifyVisit(v)}
+                                    disabled={visitNotifying[v.id]}
+                                    style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '5px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: visitNotifying[v.id] ? 'not-allowed' : 'pointer' }}
+                                  >
+                                    {visitNotifying[v.id] ? 'Sending…' : '✉ Notify Customer'}
+                                  </button>
+                                  {(visitNotifySent[v.id] || v.lastNotifiedAt) && (
+                                    <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>
+                                      ✓ Sent{visitNotifySent[v.id]?.cleaner ? ` for ${visitNotifySent[v.id].cleaner}` : v.lastNotifiedCleaner ? ` for ${v.lastNotifiedCleaner}` : ''}
                                     </div>
                                   )}
                                 </div>
@@ -574,7 +606,7 @@ export default function BookingExpandedPanel({
         onChange={saveDoNotContact}
       />
 
-      {/* Notify Customer — shown prominently before other action buttons */}
+      {/* Notify Customer — shown before action buttons */}
       {b.assignedStaff && !isCancelled && (
         <div style={{ marginBottom: 8 }}>
           <button onClick={handleNotifyCleaner} disabled={notifying}
@@ -622,13 +654,16 @@ export default function BookingExpandedPanel({
               <button
                 onClick={() => {
                   const who = [b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ');
-                  if (window.confirm(`Apply ${who} to all future bookings in this series?`)) {
+                  const msg = b.isContract
+                    ? `Apply ${who} to all visits in this contract?`
+                    : `Apply ${who} to all future bookings in this series?`;
+                  if (window.confirm(msg)) {
                     handleApplyCleanersToAll(b);
                   }
                 }}
                 style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '6px 10px', background: 'none', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
-                Apply to all future
+                {b.isContract ? 'Apply to all bookings' : 'Apply to all future'}
               </button>
             )}
           </div>

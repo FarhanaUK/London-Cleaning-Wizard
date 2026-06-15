@@ -208,6 +208,10 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
 
   const handleAssignStaff = (booking, staffName, clearSecondCleaner = false) => {
     if (!staffName) return;
+    if (booking.isContractVisit) {
+      assignStaff({ booking, staffName, scope: 'single', clearSecondCleaner: false });
+      return;
+    }
     const isRecurringSeries = booking.isAutoRecurring || (booking.frequency && booking.frequency !== 'one-off');
     if (isRecurringSeries) {
       setStaffAssignPending({ booking, staffName, clearSecondCleaner });
@@ -248,6 +252,10 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
   };
 
   const handleAssignSecondCleaner = (booking, secondCleanerName) => {
+    if (booking.isContractVisit) {
+      applySecondCleaner({ booking, secondCleanerName, scope: 'single' });
+      return;
+    }
     const isRecurringSeries = booking.isAutoRecurring || (booking.frequency && booking.frequency !== 'one-off');
     if (isRecurringSeries) {
       setSecondCleanerPending({ booking, secondCleanerName });
@@ -285,9 +293,11 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
   const handleApplyCleanersToAll = (b) => {
     const now = new Date();
     const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
-    const targets = bookings.filter(x =>
-      x.email === b.email && x.frequency === b.frequency && x.frequency !== 'one-off' && x.cleanDate >= todayStr
-    );
+    const targets = b.isContract
+      ? bookings.filter(x => x.contractId === b.id && x.isContractVisit && !x.deleted)
+      : bookings.filter(x =>
+          x.email === b.email && x.frequency === b.frequency && x.frequency !== 'one-off' && x.cleanDate >= todayStr
+        );
     if (!targets.length) return;
     const update = { assignedStaff: b.assignedStaff, secondCleaner: b.secondCleaner || '' };
     setBookings(prev => prev.map(x => targets.find(t => t.id === x.id) ? { ...x, ...update } : x));

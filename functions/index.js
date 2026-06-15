@@ -1665,7 +1665,7 @@ exports.emailDepositLink = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res)
 // ── 10b. Notify customer of assigned cleaner ─────────────────
 exports.notifyCleanerAssigned = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
-  const { bookingId, cleanerName, secondCleaner: reqSecondCleaner } = req.body;
+  const { bookingId, cleanerName, secondCleaner: reqSecondCleaner, bookingRef: reqBookingRef } = req.body;
   if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
   const db   = admin.firestore();
   const snap = await db.collection('bookings').doc(bookingId).get();
@@ -1675,6 +1675,14 @@ exports.notifyCleanerAssigned = onRequest({ secrets:[EMAILJS_KEY] }, async (req,
   if (!assignedCleaner) { res.status(400).json({ error: 'No cleaner assigned to this booking' }); return; }
   // Prefer the value passed from the client (reflects current UI state) over stale Firestore data
   const secondCleaner = reqSecondCleaner !== undefined ? reqSecondCleaner : (b.secondCleaner || '');
+  // For contract visits, fall back to the passed bookingRef or look up the master contract
+  let bookingRef = reqBookingRef || b.bookingRef || '';
+  if (!bookingRef && b.isContractVisit && b.contractId) {
+    try {
+      const masterSnap = await db.collection('bookings').doc(b.contractId).get();
+      if (masterSnap.exists) bookingRef = masterSnap.data().bookingRef || '';
+    } catch {}
+  }
   const hasSecond = !!secondCleaner;
   const template  = hasSecond ? process.env.EMAILJS_CLEANER_2_TEMPLATE : process.env.EMAILJS_CLEANER_TEMPLATE;
   if (!template) { res.status(500).json({ error: 'Cleaner notification template not configured' }); return; }
@@ -1698,11 +1706,11 @@ exports.notifyCleanerAssigned = onRequest({ secrets:[EMAILJS_KEY] }, async (req,
     cleaner_photo:   cleanerPhoto,
     cleaner_name_2:  secondCleaner,
     cleaner_photo_2: cleanerPhoto2,
-    booking_ref:     b.bookingRef,
+    booking_ref:     bookingRef,
     date:            b.cleanDate.split('-').reverse().join('/'),
     time:            b.cleanTime,
     package_name:    b.packageName,
-    address:         `${b.addr1}, ${b.postcode}`,
+    address:         [b.addr1, b.postcode].filter(Boolean).join(', '),
   }, EMAILJS_KEY.value());
   await snap.ref.update({ lastNotifiedCleaner: combinedName, lastNotifiedAt: new Date() });
   res.json({ success: true });
@@ -1878,7 +1886,15 @@ exports.trashBooking = onRequest(async (req, res) => {
       console.error('Failed to delete calendar event on trash:', e.message);
     }
   }
-  await snap.ref.update({ deleted: true, deletedAt: new Date(), calendarEventId: null });
+  const now = new Date();
+  await snap.ref.update({ deleted: true, deletedAt: now, calendarEventId: null });
+  // Cascade to contract visits so they disappear from all views
+  if (b.isContract) {
+    const visitsSnap = await db.collection('bookings').where('contractId', '==', bookingId).get();
+    if (!visitsSnap.empty) {
+      await Promise.all(visitsSnap.docs.map(d => d.ref.update({ deleted: true, deletedAt: now })));
+    }
+  }
   res.json({ success: true });
 });
 
@@ -1932,6 +1948,18 @@ exports.deleteBooking = onRequest(async (req, res) => {
   }
   await snap.ref.delete();
 
+  // Cascade permanent deletion to contract visits
+  if (b.isContract) {
+    try {
+      const visitsSnap = await db.collection('bookings').where('contractId', '==', bookingId).get();
+      if (!visitsSnap.empty) {
+        await Promise.all(visitsSnap.docs.map(d => d.ref.delete()));
+      }
+    } catch (e) {
+      console.error('Failed to delete contract visits:', e.message);
+    }
+  }
+
   // If this was a recurring booking, disable the scheduler for this customer
   if (b.email && (b.isAutoRecurring || b.freq)) {
     try {
@@ -1948,7 +1976,41 @@ exports.deleteBooking = onRequest(async (req, res) => {
   res.json({ success: true });
 });
 
-// ── 14b. Stop recurring series ────────────────────────────────
+// ── 14b. Clean up orphaned contract visits ────────────────────
+exports.cleanupOrphanedVisits = onRequest(async (req, res) => {
+  if (!guard(req, res)) return;
+  const db = admin.firestore();
+
+  // Get all contract visits that are not deleted
+  const visitsSnap = await db.collection('bookings')
+    .where('isContractVisit', '==', true)
+    .get();
+  const activeVisits = visitsSnap.docs.filter(d => !d.data().deleted);
+  if (activeVisits.length === 0) { res.json({ fixed: 0 }); return; }
+
+  // Get unique contractIds referenced by those visits
+  const contractIds = [...new Set(activeVisits.map(d => d.data().contractId).filter(Boolean))];
+
+  // Look up each master — check if it exists and is not deleted
+  const masterSnaps = await Promise.all(contractIds.map(id => db.collection('bookings').doc(id).get()));
+
+  // A contractId is orphaned if its master is gone or has deleted: true
+  const orphanedContractIds = new Set();
+  masterSnaps.forEach((snap, i) => {
+    if (!snap.exists || snap.data().deleted) {
+      orphanedContractIds.add(contractIds[i]);
+    }
+  });
+
+  const orphans = activeVisits.filter(d => orphanedContractIds.has(d.data().contractId));
+  if (orphans.length === 0) { res.json({ fixed: 0 }); return; }
+
+  // Permanently delete the orphaned visits so they vanish from all views
+  await Promise.all(orphans.map(d => d.ref.delete()));
+  res.json({ fixed: orphans.length });
+});
+
+// ── 14c. Stop recurring series ────────────────────────────────
 exports.stopRecurringSeries = onRequest({ secrets: [EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
   const { email, fromDate } = req.body;

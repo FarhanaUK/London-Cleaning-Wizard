@@ -80,7 +80,7 @@ export default function EditContractVisitModal({ visit, data, setData, scope, se
               onChange={e => setData(p => ({
                 ...p,
                 addons: e.target.checked
-                  ? [...(p.addons || []).filter(x => x.id !== a.id), { id: a.id, name: a.label, price: a.price }]
+                  ? [...(p.addons || []).filter(x => x.id !== a.id), { id: a.id, name: a.label, price: a.price, h: a.h || 0 }]
                   : (p.addons || []).filter(x => x.id !== a.id),
               }))}
             />
