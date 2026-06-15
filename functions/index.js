@@ -30,6 +30,37 @@ async function sendEmail(templateId, params, privateKey) {
   );
 }
 
+async function sendContractReceipt(b, periodKey, amount, prevAddons, addonsFromVisits, paymentRef, emailjsKey) {
+  const template = process.env.EMAILJS_CONTRACT_RECEIPT_TEMPLATE;
+  if (!template) return;
+  const start = new Date(periodKey + 'T12:00:00');
+  const end   = new Date(start); end.setMonth(end.getMonth() + 1); end.setDate(end.getDate() - 1);
+  const prev  = new Date(start); prev.setMonth(prev.getMonth() - 1);
+  const fmt   = (d, y) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(y ? { year: 'numeric' } : {}), timeZone: 'Europe/London' });
+  const period      = `${fmt(start)} – ${fmt(end, true)}`;
+  const addonsPeriod = `${fmt(prev)} – ${fmt(new Date(start.getTime() - 86400000), true)}`;
+  const addonsList  = addonsFromVisits.length > 0 ? [...new Set(addonsFromVisits)].join(', ') : 'None';
+  const base        = parseFloat(b.monthlyBaseValue || 0);
+  await sendEmail(template, {
+    to_name:              b.contactName || b.firstName,
+    to_email:             b.email,
+    business_name:        b.bizName || `${b.firstName} ${b.lastName}`.trim(),
+    booking_ref:          b.bookingRef || '',
+    package_name:         b.packageName || '',
+    period,
+    address:              [b.addr1, b.postcode].filter(Boolean).join(', '),
+    base_charge:          `£${base.toFixed(2)}`,
+    addons_period:        addonsPeriod,
+    addons_list:          addonsList,
+    addons_charge:        `£${prevAddons.toFixed(2)}`,
+    total_charged:        `£${amount.toFixed(2)}`,
+    payment_ref:          paymentRef,
+    intro_text:           `Your monthly contract payment has been collected — thank you. Please find your payment breakdown below for the period ${period}.`,
+    payment_note_display: 'none',
+    payment_note:         '',
+  }, emailjsKey).catch(() => {});
+}
+
 // Cache calendar clients per scope so auth is only initialised once per container instance
 const _calCache = {};
 async function getCalendarClient(scope) {
@@ -3290,7 +3321,7 @@ exports.sendReengagementEmails = onSchedule({ schedule: 'every monday 10:00', se
 
 // ── Contract monthly auto-charge (Daily scheduler) ────────────
 exports.chargeContractMonthly = onSchedule(
-  { schedule: '0 9 * * *', timeZone: 'Europe/London', secrets: [STRIPE_KEY] },
+  { schedule: '0 9 * * *', timeZone: 'Europe/London', secrets: [STRIPE_KEY, EMAILJS_KEY] },
   async () => {
     const db     = admin.firestore();
     const stripe = new Stripe(STRIPE_KEY.value());
@@ -3350,6 +3381,11 @@ exports.chargeContractMonthly = onSchedule(
       }
       if (!pmId) {
         await doc.ref.update({ [`monthlyPayments.${periodKey}`]: 'failed', [`monthlyPaymentErrors.${periodKey}`]: 'No saved payment method found.' });
+        const noCardTpl = process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE;
+        if (noCardTpl) {
+          const name = b.contactName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
+          await sendEmail(noCardTpl, { to_email: 'bookings@londoncleaningwizard.com', booking_ref: b.bookingRef, customer_name: name, customer_email: b.email, customer_phone: b.phone || '', amount: `£${amount.toFixed(2)}`, date: periodKey.split('-').reverse().join('/'), error_message: 'No saved payment method found.' }, EMAILJS_KEY.value()).catch(() => {});
+        }
         return;
       }
 
@@ -3368,19 +3404,30 @@ exports.chargeContractMonthly = onSchedule(
             [`monthlyPayments.${periodKey}`]:       'paid',
             [`monthlyPaymentIntents.${periodKey}`]: pi.id,
           });
+          const addonsFromVisits = visitsSnap.docs.flatMap(d => (d.data().addons || []).map(a => a.name || a.id || '').filter(Boolean));
+          await sendContractReceipt(b, periodKey, amount, prevAddons, addonsFromVisits, pi.id, EMAILJS_KEY.value());
         }
       } catch (e) {
         await doc.ref.update({
           [`monthlyPayments.${periodKey}`]:     'failed',
           [`monthlyPaymentErrors.${periodKey}`]: e.message || 'Charge failed.',
         });
+        const failedTpl = process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE;
+        if (failedTpl) {
+          const errMsg = e.message || 'Charge failed.';
+          const name   = b.contactName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
+          const amt    = `£${amount.toFixed(2)}`;
+          const date   = periodKey.split('-').reverse().join('/');
+          await sendEmail(failedTpl, { to_email: 'bookings@londoncleaningwizard.com', booking_ref: b.bookingRef, customer_name: name, customer_email: b.email, customer_phone: b.phone || '', amount: amt, date, error_message: errMsg }, EMAILJS_KEY.value()).catch(() => {});
+          await sendEmail(failedTpl, { to_email: b.email, to_name: b.contactName || b.firstName, booking_ref: b.bookingRef, customer_name: name, customer_email: b.email, customer_phone: b.phone || '', amount: amt, date, error_message: errMsg }, EMAILJS_KEY.value()).catch(() => {});
+        }
       }
     }));
   }
 );
 
 // ── Retry a failed contract monthly charge ────────────────────
-exports.retryContractCharge = onRequest({ secrets: [STRIPE_KEY] }, async (req, res) => {
+exports.retryContractCharge = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
   const { bookingId, periodKey } = req.body;
   if (!bookingId || !periodKey) { res.status(400).json({ error: 'Missing bookingId or periodKey' }); return; }

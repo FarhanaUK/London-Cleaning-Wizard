@@ -123,8 +123,15 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const collectedAmt = b => {
     if (b.isContractVisit) {
       const master = contractMasterMap[b.contractId];
-      const key = b.cleanDate?.slice(0, 7);
-      return key && master?.monthlyPayments?.[key] === 'paid' ? parseFloat(b.total || 0) : 0;
+      if (!master?.monthlyPayments) return 0;
+      const payments = master.monthlyPayments;
+      const periodKey = Object.keys(payments).sort().find(k => {
+        const next = new Date(k + 'T12:00:00');
+        next.setMonth(next.getMonth() + 1);
+        const nextStr = next.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+        return b.cleanDate >= k && b.cleanDate < nextStr;
+      });
+      return periodKey && payments[periodKey] === 'paid' ? parseFloat(b.total || 0) : 0;
     }
     if (b.status === 'fully_paid')  return parseFloat(b.total)   || 0;
     if (b.status === 'deposit_paid') return parseFloat(b.deposit) || 0;

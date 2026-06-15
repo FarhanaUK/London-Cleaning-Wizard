@@ -327,9 +327,14 @@ export default function BookingExpandedPanel({
                           const vAddonTotal = parseFloat(v.addonTotal || vAddons.reduce((s, a) => s + (a.price || 0), 0));
                           const vDiscount   = parseFloat(v.mediaConsentDiscount || 0);
                           const vTotal      = parseFloat(v.total || v.totalPerVisit || vBase + vAddonTotal) - vDiscount;
-                          const vDurBase    = parseFloat(v.visitDurationBase || b.visitDurationBase || 0);
-                          const vAddonHrs   = vAddons.reduce((s, a) => s + (a.h ?? ADDON_HOURS[a.id] ?? 0), 0);
                           const vCleaners   = b.numCleaners || 1;
+                          const vAddonHrs   = vAddons.reduce((s, a) => s + (a.h ?? ADDON_HOURS[a.id] ?? 0), 0);
+                          const masterAddonHrs = (b.addons || []).reduce((s, a) => s + (a.h ?? ADDON_HOURS[a.id] ?? 0), 0);
+                          const vDurBase    = parseFloat(
+                            v.visitDurationBase ||
+                            b.visitDurationBase ||
+                            (b.visitDuration ? b.visitDuration - masterAddonHrs / vCleaners : 0)
+                          );
                           const vDur        = vDurBase > 0 ? fmtDuration(vDurBase + vAddonHrs / vCleaners) : null;
                           return (
                             <div key={v.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 12px' }}>
