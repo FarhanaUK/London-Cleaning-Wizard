@@ -659,6 +659,39 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               </div>
             </div>
 
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, marginTop: 4 }}>
+              Contract type
+              <span style={{ marginLeft: 8, color: C.faint || C.muted }}>Longer contracts get a discount -- the calculator adjusts your margin automatically</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {CONTRACTS.map(ct => (
+                <label
+                  key={ct.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                    padding: '9px 12px', borderRadius: 7,
+                    background: contract === ct.id ? `${C.accent}14` : C.bg,
+                    border: `1px solid ${contract === ct.id ? C.accent : C.border}`,
+                  }}
+                >
+                  <input
+                    type="radio" name="contract"
+                    checked={contract === ct.id}
+                    onChange={() => setContract(ct.id)}
+                    style={{ accentColor: C.accent, flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{ct.label}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{ct.note}</div>
+                  </div>
+                  {ct.disc > 0 && (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.success, background: `${C.success}18`, borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                      -{ct.disc * 100}%
+                    </span>
+                  )}
+                </label>
+              ))}
+            </div>
           </Card>
 
           {/* Costs & margin settings */}
@@ -801,43 +834,6 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               {q.pct >= 25 && q.pct < 30 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.warning }}>minimum</span>}
               {q.pct >= 30 && q.pct < 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>healthy</span>}
               {q.pct >= 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>excellent</span>}
-            </div>
-          </Card>
-
-          {/* Discount schedule */}
-          <Card C={C}>
-            <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>
-              Contract type
-              <span style={{ marginLeft: 8, color: C.faint || C.muted }}>Longer contracts get a discount</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {CONTRACTS.map(ct => (
-                <label
-                  key={ct.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-                    padding: '9px 12px', borderRadius: 7,
-                    background: contract === ct.id ? `${C.accent}14` : C.bg,
-                    border: `1px solid ${contract === ct.id ? C.accent : C.border}`,
-                  }}
-                >
-                  <input
-                    type="radio" name="contract"
-                    checked={contract === ct.id}
-                    onChange={() => setContract(ct.id)}
-                    style={{ accentColor: C.accent, flexShrink: 0 }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{ct.label}</div>
-                    <div style={{ fontSize: 11, color: C.muted }}>{ct.note}</div>
-                  </div>
-                  {ct.disc > 0 && (
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.success, background: `${C.success}18`, borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
-                      -{ct.disc * 100}%
-                    </span>
-                  )}
-                </label>
-              ))}
             </div>
           </Card>
 
