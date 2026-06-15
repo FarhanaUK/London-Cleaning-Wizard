@@ -284,7 +284,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 ? `${bedrooms === 'studio' ? 'Studio' : `${bedrooms}-bed`}, ${extraBaths} bathroom${extraBaths !== '1' ? 's' : ''}`
                 : `${sqm}sqm ${intensity}, ${commBaths} bathroom${commBaths !== '1' ? 's' : ''}`,
               frequency: q.freq.label, contract_type: q.ct.label,
-              addons_list: selectedAddons.length ? selectedAddons.map(a => `${a.label} (£${a.price})`).join(', ') : 'None',
+              addons_list: selectedAddons.length ? selectedAddons.map(a => `${a.label} — £${a.price}`).join('\n') : 'None',
+              base_price_per_visit: `£${gbp(q.cleanPrice)}`,
+              addon_total: selectedAddons.length ? `£${gbp(q.addonTotal)}` : '',
               price_per_visit: `£${gbp(q.price)}`,
               monthly_value: q.mRev > 0 ? `£${gbp(q.mRev)}/month` : 'N/A',
               contract_total: q.cVal > 0 ? `£${gbp(q.cVal)}` : 'N/A',
@@ -589,11 +591,10 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
             </div>
           </Card>
 
-          {/* Frequency, cleaners, contract */}
+          {/* Frequency & cleaners only — contract moved to right column */}
           <Card C={C}>
-            <SectionLabel C={C}>Frequency & contract</SectionLabel>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+            <SectionLabel C={C}>Frequency & cleaners</SectionLabel>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>How often</div>
                 <select value={frequency} onChange={e => setFrequency(e.target.value)} style={inputStyle}>
@@ -606,43 +607,6 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                   {[1,2,3,4].map(n => <option key={n} value={n}>{n} cleaner{n > 1 ? 's' : ''}</option>)}
                 </select>
               </div>
-            </div>
-
-            <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>
-              Contract type
-              <span style={{ marginLeft: 8, color: C.faint || C.muted }}>Longer contracts get a discount -- the calculator adjusts your margin automatically</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {CONTRACTS.map(ct => (
-                <label
-                  key={ct.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-                    padding: '9px 12px', borderRadius: 7,
-                    background: contract === ct.id ? `${C.accent}14` : C.bg,
-                    border: `1px solid ${contract === ct.id ? C.accent : C.border}`,
-                  }}
-                >
-                  <input
-                    type="radio" name="contract"
-                    checked={contract === ct.id}
-                    onChange={() => setContract(ct.id)}
-                    style={{ accentColor: C.accent, flexShrink: 0 }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{ct.label}</div>
-                    <div style={{ fontSize: 11, color: C.muted }}>{ct.note}</div>
-                  </div>
-                  {ct.disc > 0 && (
-                    <span style={{
-                      fontSize: 12, fontWeight: 700, color: C.success,
-                      background: `${C.success}18`, borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap',
-                    }}>
-                      -{ct.disc * 100}%
-                    </span>
-                  )}
-                </label>
-              ))}
             </div>
           </Card>
 
@@ -723,22 +687,88 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         {/* ── Right column: Live quote ── */}
         <div style={{ position: isMobile ? 'static' : 'sticky', top: 20, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
+          {/* Contract type / discount schedule */}
+          <Card C={C}>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>
+              Contract type
+              <span style={{ marginLeft: 8, color: C.faint || C.muted }}>Longer contracts get a discount</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {CONTRACTS.map(ct => (
+                <label
+                  key={ct.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                    padding: '9px 12px', borderRadius: 7,
+                    background: contract === ct.id ? `${C.accent}14` : C.bg,
+                    border: `1px solid ${contract === ct.id ? C.accent : C.border}`,
+                  }}
+                >
+                  <input
+                    type="radio" name="contract"
+                    checked={contract === ct.id}
+                    onChange={() => setContract(ct.id)}
+                    style={{ accentColor: C.accent, flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{ct.label}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{ct.note}</div>
+                  </div>
+                  {ct.disc > 0 && (
+                    <span style={{
+                      fontSize: 12, fontWeight: 700, color: C.success,
+                      background: `${C.success}18`, borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap',
+                    }}>
+                      -{ct.disc * 100}%
+                    </span>
+                  )}
+                </label>
+              ))}
+            </div>
+          </Card>
+
           {/* Big price card */}
           <Card C={C} style={{ border: `1px solid ${q.pct < 20 ? C.danger : C.border}` }}>
-            <div style={{ textAlign: 'center', padding: '0.5rem 0 0.75rem' }}>
-              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Quote per visit
-              </div>
-              <div style={{ fontFamily: FONT, fontSize: 46, fontWeight: 800, color: C.text, lineHeight: 1.1, marginTop: 6 }}>
-                £{gbp(q.price)}
-              </div>
-              {q.ct.disc > 0 && (
-                <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 4 }}>
-                  <span style={{ textDecoration: 'line-through', marginRight: 6 }}>£{gbp(q.basePrice)}</span>
-                  <span style={{ color: C.success }}>{q.ct.disc * 100}% {q.ct.label} discount applied</span>
+            <div style={{ padding: '0.5rem 0 0.75rem' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  Quote per visit
                 </div>
-              )}
-              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.8 }}>
+                <div style={{ fontFamily: FONT, fontSize: 46, fontWeight: 800, color: C.text, lineHeight: 1.1, marginTop: 6 }}>
+                  £{gbp(q.cleanPrice)}
+                </div>
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>base clean · no add-ons</div>
+                {q.ct.disc > 0 && (
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 4 }}>
+                    <span style={{ textDecoration: 'line-through', marginRight: 6 }}>£{gbp(q.basePrice)}</span>
+                    <span style={{ color: C.success }}>{q.ct.disc * 100}% {q.ct.label} discount applied</span>
+                  </div>
+                )}
+              </div>
+
+              {q.addonTotal > 0 && (() => {
+                const addonList = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+                const selected  = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
+                return (
+                  <div style={{ marginTop: 12, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                    <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                      Add-ons — per visit if used every time
+                    </div>
+                    {selected.map(a => (
+                      <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>
+                        <span>+ {a.label}</span>
+                        <span style={{ color: C.text, fontWeight: 600 }}>+£{a.price} &rarr; £{gbp(q.cleanPrice + a.price)}/visit</span>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                      <span>All add-ons included</span>
+                      <span>£{gbp(q.price)}/visit</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 10, lineHeight: 1.8 }}>
                 <div>
                   <span style={{ fontWeight: 600, color: C.text }}>Cleaner gets:</span>{' '}
                   {fmtH(q.visitDur)}{parseInt(numCleaners, 10) > 1 ? ` each (${fmtH(totalHours)} total)` : ''}
@@ -764,7 +794,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           </Card>
 
           {/* Cost breakdown */}
-          <Card C={C}>
+          <Card C={C} style={{ borderColor: '#fbbf24' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, padding: '4px 8px', background: '#fef3c7', borderRadius: 5, width: 'fit-content' }}>
+              <span style={{ fontSize: 11 }}>🔒</span>
+              <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Internal only — do not share with client</span>
+            </div>
             <SectionLabel C={C}>Per visit breakdown</SectionLabel>
             <BreakdownRow
               label="Bathrooms"
@@ -788,7 +822,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
           {/* Monthly + contract value */}
           {q.freq.vpm > 0 && (
-            <Card C={C}>
+            <Card C={C} style={{ borderColor: '#fbbf24' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, padding: '4px 8px', background: '#fef3c7', borderRadius: 5, width: 'fit-content' }}>
+                <span style={{ fontSize: 11 }}>🔒</span>
+                <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Internal only — do not share with client</span>
+              </div>
               <SectionLabel C={C}>Monthly value ({q.freq.label})</SectionLabel>
               <BreakdownRow label="Revenue"         value={`£${gbp(q.mRev)}`}    C={C} accent />
               <BreakdownRow label="Your costs"      value={`£${gbp(q.mCost)}`}   C={C} />
