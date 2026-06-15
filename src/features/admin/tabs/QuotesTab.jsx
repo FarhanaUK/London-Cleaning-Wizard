@@ -955,31 +955,58 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
                 {/* Pricing summary */}
-                <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.muted, marginBottom: 8 }}>Pricing Summary</div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
-                    <span>Base per visit</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.cleanPrice)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
-                    <span>Monthly base ({q.freq.label})</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.freq.vpm * q.cleanPrice)}/mo</span>
-                  </div>
-                  {q.addonTotal > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
-                      <span>Add-ons per visit</span><span style={{ color: C.text, fontWeight: 600 }}>+£{gbp(q.addonTotal)}</span>
+                {(() => {
+                  const firstVisitTotal = q.price - (bMediaConsent ? 10 : 0);
+                  const month1Total     = q.mRev - (bMediaConsent ? 10 : 0);
+                  return (
+                    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 12px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.muted, marginBottom: 8 }}>Pricing Summary</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
+                        <span>Base per visit</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.cleanPrice)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
+                        <span>Monthly base ({q.freq.label})</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.freq.vpm * q.cleanPrice)}/mo</span>
+                      </div>
+                      {q.addonTotal > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
+                          <span>Add-ons per visit</span><span style={{ color: C.text, fontWeight: 600 }}>+£{gbp(q.addonTotal)}</span>
+                        </div>
+                      )}
+                      {bMediaConsent && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16a34a', marginBottom: 4 }}>
+                          <span>Media consent discount (1st visit only)</span><span style={{ fontWeight: 600 }}>-£10.00</span>
+                        </div>
+                      )}
+                      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {bMediaConsent ? (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text }}>
+                              <span>1st visit total</span><span>£{gbp(firstVisitTotal)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
+                              <span>Subsequent visits</span><span style={{ fontWeight: 600 }}>£{gbp(q.price)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
+                              <span>Month 1 total</span><span style={{ fontWeight: 600, color: '#16a34a' }}>£{gbp(month1Total)}/mo</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
+                              <span>Month 2+ total</span><span style={{ fontWeight: 600 }}>£{gbp(q.mRev)}/mo</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text }}>
+                              <span>Total per visit</span><span>£{gbp(q.price)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
+                              <span>Est. monthly total</span><span style={{ fontWeight: 600 }}>£{gbp(q.mRev)}/mo</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  {bMediaConsent && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16a34a', marginBottom: 4 }}>
-                      <span>Media consent discount (1st visit)</span><span style={{ fontWeight: 600 }}>-£10.00</span>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text, borderTop: `1px solid ${C.border}`, paddingTop: 6, marginTop: 4 }}>
-                    <span>Total per visit</span><span>£{gbp(q.price)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginTop: 4 }}>
-                    <span>Est. monthly total</span><span style={{ fontWeight: 600 }}>£{gbp(q.mRev)}/mo</span>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* Date & time */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
