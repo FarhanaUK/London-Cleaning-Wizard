@@ -1,6 +1,6 @@
 import { calcHours, toInputTime, fmtDuration } from '../utils';
 import DoNotContactToggle from './DoNotContactToggle';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '../../../firebase/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 
@@ -21,12 +21,15 @@ export default function BookingExpandedPanel({
   setBookings,
   contractVisits = [],
   openEdit,
+  openEditVisit,
   completing, handleComplete,
   cancelling, handleCancel,
   deleting, handleDelete,
   markingDeposit, depositErr, handleMarkDepositPaid,
   generatingLink, depositLinks, linkErr, emailingLink, emailedLinks,
   handleGenerateLink, handleEmailDepositLink,
+  generatingContractLink, contractLinks, contractLinkErr, handleGenerateContractLink,
+  retryingContractCharge, retryContractErr, handleRetryContractCharge,
   stoppingRecurring, stoppedRecurring, handleStopRecurring,
   staffAssignPending, handleAssignStaff, handleAssignSecondCleaner, handleApplyCleanersToAll,
   completeErr, cancelErr, stopRecurringErr,
@@ -82,21 +85,41 @@ export default function BookingExpandedPanel({
   const isManualDeposit = b.stripeDepositIntentId === 'manual';
   const isCancelled     = b.status?.startsWith('cancelled');
 
-  const contractMonths = (() => {
+  const contractPeriods = (() => {
     if (!b.isContract || !b.contractStartDate) return [];
     const result = [];
-    const end = b.contractEndDate ? new Date(b.contractEndDate + 'T00:00:00') : (() => { const d = new Date(b.contractStartDate + 'T00:00:00'); d.setFullYear(d.getFullYear() + 1); return d; })();
-    let cur = new Date(b.contractStartDate + 'T00:00:00');
-    cur = new Date(cur.getFullYear(), cur.getMonth(), 1);
-    while (cur <= end) {
-      result.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`);
-      cur.setMonth(cur.getMonth() + 1);
+    const endDate = b.contractEndDate ? new Date(b.contractEndDate + 'T12:00:00') : (() => { const d = new Date(b.contractStartDate + 'T12:00:00'); d.setFullYear(d.getFullYear() + 1); return d; })();
+    let cur = new Date(b.contractStartDate + 'T12:00:00');
+    while (cur <= endDate) {
+      const start = cur.toISOString().slice(0, 10);
+      const next = new Date(cur);
+      next.setMonth(next.getMonth() + 1);
+      const end = new Date(next);
+      end.setDate(end.getDate() - 1);
+      result.push({ key: start, start, end: end.toISOString().slice(0, 10) });
+      cur = next;
     }
     return result;
   })();
+  const contractMonths = contractPeriods.map(p => p.key);
 
   const [savingPayment, setSavingPayment] = useState(null);
   const [expandedMonth, setExpandedMonth] = useState(null);
+
+  // Auto-assign LCW-XXXXXX ref via CF for contracts created before this was in place
+  useEffect(() => {
+    if (b.isContract && !b.bookingRef) {
+      fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: b.id }),
+      })
+        .then(r => r.json())
+        .then(({ bookingRef }) => {
+          if (bookingRef) setBookings(all => all.map(x => x.id === b.id ? { ...x, bookingRef } : x));
+        })
+        .catch(() => {});
+    }
+  }, [b.id]);
 
   const toggleMonthPaid = async (month, paid) => {
     setSavingPayment(month);
@@ -118,6 +141,7 @@ export default function BookingExpandedPanel({
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(auto-fill,minmax(200px,1fr))', gap: '8px 16px', marginTop: 16, marginBottom: 16 }}>
         {(b.isContract ? [
           { l: 'Booked On',       v: fmtCreatedAt(b.createdAt) },
+          { l: 'Booking Ref',     v: b.bookingRef },
           { l: 'Business',        v: b.bizName },
           { l: 'Contact',         v: b.contactName || `${b.firstName} ${b.lastName}`.trim() },
           { l: 'Email',           v: b.email },
@@ -128,9 +152,13 @@ export default function BookingExpandedPanel({
           { l: 'Frequency',       v: b.frequencyLabel || b.frequency },
           { l: 'Start Date',      v: fmtDate(b.contractStartDate) },
           { l: 'End Date',        v: b.contractEndDate ? fmtDate(b.contractEndDate) : 'Open ended' },
-          { l: 'Price per Visit', v: `£${parseFloat(b.pricePerVisit || b.total || 0).toFixed(2)}` },
-          b.monthlyValue > 0 && { l: 'Monthly Value', v: `£${parseFloat(b.monthlyValue).toFixed(2)}/month` },
+          { l: 'Keys',           v: b.keys || '—' },
+          b.floor   && { l: 'Floor / Lift', v: b.floor },
+          b.parking && { l: 'Parking',      v: b.parking },
+          { l: 'Media Consent',  v: b.mediaConsent ? '✓ Consented' : '✕ No consent' },
+          { l: 'Base per Visit', v: `£${parseFloat(b.pricePerVisit || 0).toFixed(2)}` },
           b.addonsList && { l: 'Add-ons', v: b.addonsList },
+          b.monthlyBaseValue > 0 && { l: 'Monthly', v: `£${parseFloat(b.monthlyBaseValue).toFixed(2)}/month` },
         ] : [
           { l: 'Booked On',        v: fmtCreatedAt(b.createdAt) },
           { l: 'Booking Ref',      v: b.bookingRef },
@@ -170,79 +198,175 @@ export default function BookingExpandedPanel({
 
       {/* Monthly payment tracker — contracts only */}
       {b.isContract && contractMonths.length > 0 && (() => {
-        const payments = b.monthlyPayments || {};
-        const paidCount = contractMonths.filter(m => payments[m] === 'paid').length;
-        const totalMV   = parseFloat(b.monthlyValue || 0);
-        const todayM    = new Date().toISOString().slice(0, 7);
+        const payments   = b.monthlyPayments || {};
+        const paidCount  = contractMonths.filter(m => payments[m] === 'paid').length;
+        const todayISO   = new Date().toISOString().slice(0, 10);
+        const fixedMonthlyBase = parseFloat(b.monthlyBaseValue || b.pricePerVisit || 0);
+        const visitsInPeriod   = (start, end) => contractVisits.filter(v => v.cleanDate >= start && v.cleanDate <= end);
+        const prevMonthAddons     = m => {
+          const idx = contractMonths.indexOf(m);
+          if (idx <= 0) return 0;
+          const prev = contractPeriods[idx - 1];
+          return visitsInPeriod(prev.start, prev.end).reduce((s, v) => s + parseFloat(v.addonTotal || 0), 0);
+        };
+        const periodMediaDiscount = m => {
+          const p = contractPeriods[contractMonths.indexOf(m)];
+          if (!p) return 0;
+          return visitsInPeriod(p.start, p.end).reduce((s, v) => s + parseFloat(v.mediaConsentDiscount || 0), 0);
+        };
+        const monthCharge        = m => fixedMonthlyBase + prevMonthAddons(m) - periodMediaDiscount(m);
+        const lastPeriod         = contractPeriods[contractPeriods.length - 1];
+        const fmtBillingDate     = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        const finalSettlement    = lastPeriod ? visitsInPeriod(lastPeriod.start, lastPeriod.end).reduce((s, v) => s + parseFloat(v.addonTotal || 0), 0) : 0;
+        const finalSettlementPaid = payments['final_settlement'] === 'paid';
+        const received    = contractMonths.filter(m => payments[m] === 'paid').reduce((s, m) => s + monthCharge(m), 0) + (finalSettlement > 0 && finalSettlementPaid ? finalSettlement : 0);
+        const outstanding = contractMonths.filter(m => payments[m] !== 'paid').reduce((s, m) => s + monthCharge(m), 0) + (finalSettlement > 0 && !finalSettlementPaid ? finalSettlement : 0);
         return (
           <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted }}>Monthly Payments</div>
               <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>
-                {paidCount}/{contractMonths.length} paid &nbsp;·&nbsp;
-                <span style={{ color: '#16a34a', fontWeight: 600 }}>£{(paidCount * totalMV).toFixed(2)} received</span>
-                {paidCount < contractMonths.length && (
-                  <> &nbsp;·&nbsp; <span style={{ color: '#d97706', fontWeight: 600 }}>£{((contractMonths.length - paidCount) * totalMV).toFixed(2)} outstanding</span></>
+                {paidCount + (finalSettlement > 0 && finalSettlementPaid ? 1 : 0)}/{contractMonths.length + (finalSettlement > 0 ? 1 : 0)} paid &nbsp;·&nbsp;
+                <span style={{ color: '#16a34a', fontWeight: 600 }}>£{received.toFixed(2)} received</span>
+                {outstanding > 0 && (
+                  <> &nbsp;·&nbsp; <span style={{ color: '#d97706', fontWeight: 600 }}>£{outstanding.toFixed(2)} outstanding</span></>
                 )}
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {contractMonths.map(m => {
-                const isPaid   = payments[m] === 'paid';
-                const isCur    = m === todayM;
-                const label    = new Date(m + '-15').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-                const isSaving = savingPayment === m;
+                const isPaid     = payments[m] === 'paid';
+                const isFailed   = payments[m] === 'failed';
+                const periodIdx  = contractMonths.indexOf(m);
+                const period     = contractPeriods[periodIdx];
+                const fmtBD      = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                const isCur      = period ? todayISO >= period.start && todayISO <= period.end : false;
+                const label      = period ? `${fmtBD(period.start)} - ${fmtBD(period.end)}` : m;
+                const isSaving   = savingPayment === m;
                 const isExpanded = expandedMonth === m;
-                const monthVisits = contractVisits.filter(v => v.cleanDate?.startsWith(m)).sort((a, z) => (a.cleanDate || '').localeCompare(z.cleanDate || ''));
+                const monthVisits = period ? visitsInPeriod(period.start, period.end).sort((a, z) => (a.cleanDate || '').localeCompare(z.cleanDate || '')) : [];
+                const charge       = monthCharge(m);
+                const carryFwd     = prevMonthAddons(m);
+                const mediaDiscount = periodMediaDiscount(m);
+                const prevPeriod = periodIdx > 0 ? contractPeriods[periodIdx - 1] : null;
+                const prevLabel  = prevPeriod ? `${fmtBD(prevPeriod.start)} - ${fmtBD(prevPeriod.end)}` : null;
+                const retryKey = `${b.id}_${m}`;
+                const isRetrying = retryingContractCharge === retryKey;
                 return (
-                  <div key={m} style={{ borderRadius: 6, overflow: 'hidden', border: `1px solid ${isPaid ? '#86efac' : isCur ? '#fde68a' : C.border}` }}>
+                  <div key={m} style={{ borderRadius: 6, overflow: 'hidden', border: `1px solid ${isPaid ? '#86efac' : isFailed ? '#fca5a5' : isCur ? '#fde68a' : C.border}` }}>
                     <div
                       onClick={() => setExpandedMonth(isExpanded ? null : m)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: isPaid ? '#f0fdf4' : isCur ? '#fffbeb' : C.card, cursor: 'pointer', userSelect: 'none' }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: isPaid ? '#f0fdf4' : isFailed ? '#fef2f2' : isCur ? '#fffbeb' : C.card, cursor: 'pointer', userSelect: 'none' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted, width: 10 }}>{isExpanded ? '▾' : '▸'}</span>
-                        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: isCur ? 600 : 400 }}>{label}</div>
-                        {isCur && <span style={{ fontFamily: FONT, fontSize: 10, color: '#92400e', fontWeight: 600, background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>This month</span>}
+                        <div style={{ fontFamily: FONT, fontSize: 13, color: isFailed ? C.danger : C.text, fontWeight: isCur ? 600 : 400 }}>{label}</div>
+                        {isCur && !isFailed && <span style={{ fontFamily: FONT, fontSize: 10, color: '#92400e', fontWeight: 600, background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>This month</span>}
+                        {isFailed && <span style={{ fontFamily: FONT, fontSize: 10, color: '#991b1b', fontWeight: 600, background: '#fee2e2', padding: '1px 6px', borderRadius: 4 }}>Payment failed</span>}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {totalMV > 0 && <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>£{totalMV.toFixed(2)}</div>}
-                        <button
-                          disabled={isSaving}
-                          onClick={e => { e.stopPropagation(); toggleMonthPaid(m, !isPaid); }}
-                          style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 5, cursor: isSaving ? 'not-allowed' : 'pointer', border: `1px solid ${isPaid ? '#86efac' : '#fde68a'}`, background: isPaid ? '#dcfce7' : '#fff8eb', color: isPaid ? '#166534' : '#92400e' }}
-                        >
-                          {isSaving ? '…' : isPaid ? '✓ Paid' : 'Mark Paid'}
-                        </button>
+                        {charge > 0 && <div style={{ fontFamily: FONT, fontSize: 12, color: isFailed ? C.danger : C.muted }}>£{charge.toFixed(2)}</div>}
+                        {isFailed ? (
+                          <button
+                            disabled={isRetrying}
+                            onClick={e => { e.stopPropagation(); handleRetryContractCharge(b, m); }}
+                            style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 5, cursor: isRetrying ? 'not-allowed' : 'pointer', border: '1px solid #fca5a5', background: '#fef2f2', color: '#991b1b' }}
+                          >
+                            {isRetrying ? '…' : '↺ Retry Charge'}
+                          </button>
+                        ) : (
+                          <button
+                            disabled={isSaving}
+                            onClick={e => { e.stopPropagation(); toggleMonthPaid(m, !isPaid); }}
+                            style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 5, cursor: isSaving ? 'not-allowed' : 'pointer', border: `1px solid ${isPaid ? '#86efac' : '#fde68a'}`, background: isPaid ? '#dcfce7' : '#fff8eb', color: isPaid ? '#166534' : '#92400e' }}
+                          >
+                            {isSaving ? '…' : isPaid ? '✓ Paid' : 'Mark Paid'}
+                          </button>
+                        )}
                       </div>
                     </div>
+                    {isFailed && retryContractErr[retryKey] && (
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, padding: '4px 10px', background: '#fef2f2' }}>{retryContractErr[retryKey]}</div>
+                    )}
                     {isExpanded && (
                       <div style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Monthly base: £{fixedMonthlyBase.toFixed(2)}</div>
+                          {carryFwd > 0
+                            ? <div style={{ fontFamily: FONT, fontSize: 11, color: '#92400e' }}>+ £{carryFwd.toFixed(2)} add-ons carried forward from {prevLabel}</div>
+                            : <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>No add-ons carried forward</div>
+                          }
+                          {mediaDiscount > 0 && (
+                            <div style={{ fontFamily: FONT, fontSize: 11, color: '#16a34a' }}>- £{mediaDiscount.toFixed(2)} media consent discount (1st visit)</div>
+                          )}
+                          <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, marginTop: 4, borderTop: `1px solid ${C.border}`, paddingTop: 4 }}>Total charge: £{charge.toFixed(2)}</div>
+                        </div>
                         {monthVisits.length === 0 ? (
                           <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, padding: '4px 0' }}>No visits scheduled this month.</div>
                         ) : monthVisits.map(v => {
-                          const vOnHoliday = (staff || []).filter(s => s.status === 'Active' && (s.holidays || []).includes(v.cleanDate));
-                          const vAvailable = (staff || []).filter(s => s.status === 'Active' && !(s.holidays || []).includes(v.cleanDate));
-                          const vTotal = parseFloat(v.total || v.pricePerVisit || 0);
-                          const vAddons = v.addons?.length ? v.addons : [];
+                          const vOnHoliday  = (staff || []).filter(s => s.status === 'Active' && (s.holidays || []).includes(v.cleanDate));
+                          const vAvailable  = (staff || []).filter(s => s.status === 'Active' && !(s.holidays || []).includes(v.cleanDate));
+                          const vBase       = parseFloat(v.pricePerVisit || 0);
+                          const vAddons     = v.addons?.length ? v.addons : [];
+                          const vAddonTotal = parseFloat(v.addonTotal || vAddons.reduce((s, a) => s + (a.price || 0), 0));
+                          const vDiscount   = parseFloat(v.mediaConsentDiscount || 0);
+                          const vTotal      = parseFloat(v.total || v.totalPerVisit || vBase + vAddonTotal) - vDiscount;
+                          const vDurBase    = parseFloat(v.visitDurationBase || b.visitDurationBase || 0);
+                          const vAddonHrs   = vAddons.reduce((s, a) => s + (a.h || 0), 0);
+                          const vCleaners   = b.numCleaners || 1;
+                          const vDur        = vDurBase > 0 ? fmtDuration(vDurBase + vAddonHrs / vCleaners) : null;
                           return (
                             <div key={v.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 12px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: vAddons.length > 0 ? 6 : 8 }}>
                                 <div>
                                   <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{fmtDate(v.cleanDate)}{v.cleanTime ? ` · ${v.cleanTime}` : ''}</div>
-                                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>{v.bookingRef || v.id}</div>
-                                  {vAddons.length > 0 && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>Add-ons: {vAddons.map(a => a.name || a.label).join(', ')}</div>}
+                                  {vDur && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>⏱ {vDur}{vCleaners > 1 ? ` each (${fmtDuration((vDurBase + vAddonHrs / vCleaners) * vCleaners)} total)` : ''}</div>}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{vTotal.toFixed(2)}</div>
+                                  <div style={{ textAlign: 'right' }}>
+                                    {vAddons.length > 0 && (
+                                      <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted }}>
+                                        Base £{vBase.toFixed(2)} + add-ons £{vAddonTotal.toFixed(2)}
+                                      </div>
+                                    )}
+                                    {v.mediaConsentDiscount > 0 && (
+                                      <div style={{ fontFamily: FONT, fontSize: 10, color: '#16a34a' }}>
+                                        Media consent -£{parseFloat(v.mediaConsentDiscount).toFixed(2)}
+                                      </div>
+                                    )}
+                                    <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{vTotal.toFixed(2)}</div>
+                                  </div>
+                                  {v.status === 'completed' ? (
+                                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '5px 10px', background: '#dcfce7', color: '#166534', borderRadius: 5, border: '1px solid #86efac' }}>✓ Done</span>
+                                  ) : (
+                                    <button
+                                      disabled={completing === v.id}
+                                      onClick={e => { e.stopPropagation(); handleComplete(v); }}
+                                      style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '5px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: completing === v.id ? 'not-allowed' : 'pointer' }}
+                                    >
+                                      {completing === v.id ? '...' : 'Mark Done'}
+                                    </button>
+                                  )}
                                   <button
-                                    onClick={() => openEdit(v)}
+                                    onClick={() => openEditVisit(v)}
                                     style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '5px 10px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer' }}
                                   >
                                     ✏️ Edit
                                   </button>
                                 </div>
                               </div>
+                              {vAddons.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                                  {vAddons.map(a => (
+                                    <span key={a.id || a.name} style={{ fontFamily: FONT, fontSize: 11, color: C.text, background: `${C.accent}14`, border: `1px solid ${C.accent}40`, borderRadius: 4, padding: '2px 7px' }}>
+                                      {a.name || a.label} · £{a.price}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {vAddons.length === 0 && (
+                                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 8 }}>No add-ons</div>
+                              )}
                               {staff?.length > 0 && (
                                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                                   <select
@@ -278,6 +402,26 @@ export default function BookingExpandedPanel({
                   </div>
                 );
               })}
+              {finalSettlement > 0 && (
+                <div style={{ borderRadius: 6, overflow: 'hidden', border: `1px solid ${finalSettlementPaid ? '#86efac' : '#fca5a5'}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: finalSettlementPaid ? '#f0fdf4' : '#fef2f2' }}>
+                    <div>
+                      <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: 500 }}>Final add-ons settlement</div>
+                      {lastPeriod && <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>Add-ons from {fmtBillingDate(lastPeriod.start)} - {fmtBillingDate(lastPeriod.end)}</div>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>£{finalSettlement.toFixed(2)}</div>
+                      <button
+                        disabled={savingPayment === 'final_settlement'}
+                        onClick={e => { e.stopPropagation(); toggleMonthPaid('final_settlement', !finalSettlementPaid); }}
+                        style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 5, cursor: savingPayment === 'final_settlement' ? 'not-allowed' : 'pointer', border: `1px solid ${finalSettlementPaid ? '#86efac' : '#fca5a5'}`, background: finalSettlementPaid ? '#dcfce7' : '#fef2f2', color: finalSettlementPaid ? '#166534' : '#dc2626' }}
+                      >
+                        {savingPayment === 'final_settlement' ? '…' : finalSettlementPaid ? '✓ Paid' : 'Mark Paid'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -487,6 +631,40 @@ export default function BookingExpandedPanel({
                 Apply to all future
               </button>
             )}
+          </div>
+        )}
+
+        {/* Contract first payment link */}
+        {b.isContract && !b.stripeCustomerId && (
+          <>
+            <button onClick={() => handleGenerateContractLink(b)} disabled={generatingContractLink === b.id}
+              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.accent, color: C.text, border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+              {generatingContractLink === b.id ? 'Generating…' : '🔗 Generate First Payment Link'}
+            </button>
+            {contractLinks[b.id] && (
+              <div style={{ width: '100%', marginTop: 4, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '12px 14px' }}>
+                <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 8 }}>
+                  Payment link — send to client
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  <input readOnly value={contractLinks[b.id]} style={{ width: '100%', padding: '8px 12px', fontFamily: FONT, fontSize: 11, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, outline: 'none', boxSizing: 'border-box' }} />
+                  <button onClick={() => navigator.clipboard.writeText(contractLinks[b.id])}
+                    style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '8px 14px', background: C.text, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}>
+                    Copy
+                  </button>
+                </div>
+                <button onClick={() => handleEmailDepositLink(b)} disabled={emailingLink === b.id || emailedLinks[b.id]}
+                  style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '8px 16px', width: '100%', background: emailedLinks[b.id] ? '#16a34a' : '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: emailedLinks[b.id] ? 'default' : 'pointer' }}>
+                  {emailingLink === b.id ? 'Sending…' : emailedLinks[b.id] ? '✓ Email Sent to Client' : '✉ Email Link to Client'}
+                </button>
+              </div>
+            )}
+            {contractLinkErr && <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, width: '100%' }}>{contractLinkErr}</div>}
+          </>
+        )}
+        {b.isContract && b.stripeCustomerId && (
+          <div style={{ fontFamily: FONT, fontSize: 12, color: '#16a34a', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+            ✓ First payment received — card saved for monthly charges
           </div>
         )}
 

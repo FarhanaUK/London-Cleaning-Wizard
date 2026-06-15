@@ -82,6 +82,7 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
       const res  = await fetch(import.meta.env.VITE_CF_COMPLETE_JOB, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: booking.id }) });
       const data = await res.json();
       if (!res.ok) setCompleteErr(data.error || 'Failed to charge remaining balance.');
+      else setBookings(all => all.map(x => x.id === booking.id ? { ...x, status: data.status || 'completed' } : x));
     } catch { setCompleteErr('Something went wrong. Please try again.'); }
     finally { setCompleting(null); }
   };
@@ -134,7 +135,37 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
   const handleCancel = async (booking) => {
     const hoursUntil = (new Date(booking.cleanDateUTC) - new Date()) / 3600000;
     let msg;
-    if (booking.isAutoRecurring) {
+    if (booking.isContract) {
+      const contractVisits  = bookings.filter(bk => bk.contractId === booking.id);
+      const payments        = booking.monthlyPayments || {};
+      const fixedBase       = parseFloat(booking.monthlyBaseValue || 0);
+      const firstPeriodBase = parseFloat(booking.firstMonthCharge || booking.monthlyBaseValue || 0);
+      const paidKeys        = Object.keys(payments).filter(k => k !== 'final_settlement' && payments[k] === 'paid');
+      let totalRefund      = 0;
+      let uncompletedCount = 0;
+      for (const key of paidKeys) {
+        const nextDate = new Date(key + 'T12:00:00'); nextDate.setMonth(nextDate.getMonth() + 1);
+        const periodEnd    = new Date(nextDate); periodEnd.setDate(periodEnd.getDate() - 1);
+        const periodEndStr = periodEnd.toISOString().slice(0, 10);
+        const allInPeriod  = contractVisits.filter(v => v.cleanDate >= key && v.cleanDate <= periodEndStr && !v.status?.startsWith('cancelled'));
+        const uncompleted  = allInPeriod.filter(v => v.status !== 'completed');
+        // Month 1 may have had a media consent discount — use firstMonthCharge for it
+        const periodBasis  = key === booking.contractStartDate ? firstPeriodBase : fixedBase;
+        if (uncompleted.length > 0 && allInPeriod.length > 0 && periodBasis > 0) {
+          totalRefund      += (uncompleted.length / allInPeriod.length) * periodBasis;
+          uncompletedCount += uncompleted.length;
+        }
+      }
+      if (paidKeys.length === 0) {
+        msg = `No payments collected — contract will be cancelled with no refund required.`;
+      } else if (contractVisits.length === 0) {
+        msg = `Warning: Visit records could not be found for this contract. A proportional refund may be owed for uncompleted visits in paid periods.\n\nPlease verify and process any refund manually in Stripe after cancelling.`;
+      } else if (uncompletedCount > 0 && totalRefund > 0) {
+        msg = `${uncompletedCount} visit${uncompletedCount !== 1 ? 's' : ''} in paid periods are not marked as completed.\n\nA refund of £${totalRefund.toFixed(2)} (proportional to the monthly fee) will be automatically issued via Stripe.`;
+      } else {
+        msg = `All visits in paid periods are completed — no refund required.`;
+      }
+    } else if (booking.isAutoRecurring) {
       msg = hoursUntil >= 48
         ? `No charge — more than 48 hours notice given.`
         : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(booking.total * 0.3).toFixed(2)} (30% of £${booking.total}) will be charged to the customer's saved card.`;

@@ -3,7 +3,10 @@ import { todayUK } from '../../../utils/time';
 import { useBookingActions, fmtDate } from '../hooks/useBookingActions';
 import NewBookingModal from '../modals/NewBookingModal';
 import EditBookingModal from '../modals/EditBookingModal';
+import EditContractVisitModal from '../modals/EditContractVisitModal';
 import BookingExpandedPanel from '../components/BookingExpandedPanel';
+import { db } from '../../../firebase/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -68,6 +71,102 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
 
   // New Booking modal state
   const [showNewBooking, setShowNewBooking] = useState(false);
+
+  // Contract first payment link state
+  const [contractLinks,          setContractLinks]          = useState({});
+  const [generatingContractLink, setGeneratingContractLink] = useState(null);
+  const [contractLinkErr,        setContractLinkErr]        = useState('');
+
+  const [retryingContractCharge, setRetryingContractCharge] = useState(null); // `${bookingId}_${periodKey}`
+  const [retryContractErr,       setRetryContractErr]       = useState({});
+
+  const handleRetryContractCharge = async (b, periodKey) => {
+    const key = `${b.id}_${periodKey}`;
+    setRetryingContractCharge(key); setRetryContractErr(prev => ({ ...prev, [key]: '' }));
+    try {
+      const res  = await fetch(import.meta.env.VITE_CF_RETRY_CONTRACT_CHARGE, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: b.id, periodKey }) });
+      const data = await res.json();
+      if (!res.ok) setRetryContractErr(prev => ({ ...prev, [key]: data.error || 'Retry failed.' }));
+      else setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: { ...(x.monthlyPayments || {}), [periodKey]: 'paid' } } : x));
+    } catch { setRetryContractErr(prev => ({ ...prev, [key]: 'Something went wrong.' })); }
+    finally { setRetryingContractCharge(null); }
+  };
+
+  const handleGenerateContractLink = async (b) => {
+    setGeneratingContractLink(b.id); setContractLinkErr('');
+    try {
+      const res  = await fetch(import.meta.env.VITE_CF_GENERATE_CONTRACT_PAYMENT_LINK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: b.id }) });
+      const data = await res.json();
+      if (!res.ok) setContractLinkErr(data.error || 'Failed to generate link.');
+      else setContractLinks(prev => ({ ...prev, [b.id]: `${window.location.origin}/pay-deposit?bookingId=${b.id}` }));
+    } catch { setContractLinkErr('Something went wrong. Please try again.'); }
+    finally { setGeneratingContractLink(null); }
+  };
+
+  // Contract visit edit state
+  const [editVisit,       setEditVisit]       = useState(null);
+  const [editVisitData,   setEditVisitData]   = useState({});
+  const [editVisitScope,  setEditVisitScope]  = useState('this');
+  const [editVisitSaving, setEditVisitSaving] = useState(false);
+  const [editVisitErr,    setEditVisitErr]    = useState('');
+
+  const openEditVisit = v => {
+    setEditVisit(v);
+    setEditVisitScope('this');
+    setEditVisitData({
+      cleanDate:    v.cleanDate    || '',
+      cleanTime:    v.cleanTime    || '',
+      contactName:  v.contactName  || `${v.firstName || ''} ${v.lastName || ''}`.trim(),
+      phone:        v.phone        || '',
+      addons:       v.addons       || [],
+      keys:         v.keys         || '',
+      floor:        v.floor        || '',
+      parking:      v.parking      || '',
+      doNotContact: v.doNotContact ?? false,
+      notes:        v.notes        || '',
+    });
+    setEditVisitErr('');
+  };
+
+  const closeEditVisit = () => { setEditVisit(null); setEditVisitData({}); setEditVisitErr(''); };
+
+  const handleEditVisitSave = async () => {
+    setEditVisitSaving(true); setEditVisitErr('');
+    try {
+      const addonTotal   = (editVisitData.addons || []).reduce((s, a) => s + (a.price || 0), 0);
+      const addonsList   = (editVisitData.addons || []).map(a => a.name).join(', ');
+      const basePerVisit = parseFloat(editVisit.pricePerVisit || 0);
+      const newTotal     = basePerVisit + addonTotal;
+      const now          = new Date().toISOString();
+      const updates = { ...editVisitData, addonTotal, addonsList, total: newTotal, totalPerVisit: newTotal, updatedAt: now };
+
+      if (editVisitScope === 'this') {
+        await updateDoc(doc(db, 'bookings', editVisit.id), updates);
+        setBookings(all => all.map(x => x.id === editVisit.id ? { ...x, ...updates } : x));
+      } else {
+        // Apply to this visit and all future visits in the same contract
+        const futureVisits = bookings.filter(v =>
+          v.contractId === editVisit.contractId &&
+          v.isContractVisit &&
+          (v.cleanDate || '') >= (editVisit.cleanDate || '')
+        );
+        // For future visits, don't overwrite their individual cleanDate
+        const { cleanDate, ...updatesWithoutDate } = updates;
+        await Promise.all(futureVisits.map(v =>
+          updateDoc(doc(db, 'bookings', v.id), v.id === editVisit.id ? updates : updatesWithoutDate)
+        ));
+        setBookings(all => all.map(x => {
+          if (x.contractId === editVisit.contractId && x.isContractVisit && (x.cleanDate || '') >= (editVisit.cleanDate || '')) {
+            return { ...x, ...(x.id === editVisit.id ? updates : updatesWithoutDate) };
+          }
+          return x;
+        }));
+      }
+      closeEditVisit();
+    } catch (e) {
+      setEditVisitErr('Failed to save. Try again.');
+    } finally { setEditVisitSaving(false); }
+  };
 
   const exportCSV = () => {
     const headers = [
@@ -178,9 +277,11 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
       if (freqFilter === 'cancelled-recurring') return b.status?.startsWith('cancelled') && b.frequency && b.frequency !== 'one-off';
       return (b.frequency || 'one-off') === freqFilter;
     })
-    .sort((a, b) => a.cleanDate === b.cleanDate
-      ? (a.cleanTime || '').localeCompare(b.cleanTime || '')
-      : a.cleanDate.localeCompare(b.cleanDate));
+    .sort((a, b) => {
+      const aCreated = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+      const bCreated = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+      return bCreated - aCreated;
+    });
 
   const PAGE_SIZE   = 10;
   const totalPages  = Math.max(1, Math.ceil(displayedBookings.length / PAGE_SIZE));
@@ -530,8 +631,8 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                       : <>{b.packageName} · {b.size} &nbsp;·&nbsp; {fmtDate(b.cleanDate)} at {b.cleanTime}<br /></>
                     }
                     {b.addr1}, {b.postcode}
-                    {b.isContract && b.monthlyValue > 0 && (
-                      <> &nbsp;·&nbsp; <span style={{ fontWeight: 600, color: C.text }}>£{b.monthlyValue.toFixed(2)}/month</span></>
+                    {b.isContract && b.monthlyBaseValue > 0 && (
+                      <> &nbsp;·&nbsp; <span style={{ fontWeight: 600, color: C.text }}>£{parseFloat(b.monthlyBaseValue).toFixed(2)}/month</span></>
                     )}
                     {b.isContract && b.contractEndDate && (
                       <> &nbsp;·&nbsp; ends {fmtDate(b.contractEndDate)}</>
@@ -557,7 +658,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#f5f3ff', color: '#6d28d9' }}>👤 {[b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ')}</span>
                   )}
                   {b.isContract
-                    ? <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: b.status?.startsWith('cancelled') ? '#f5f5f5' : '#f0fdf4', color: b.status?.startsWith('cancelled') ? '#5a5a5a' : '#166534' }}>{b.status?.startsWith('cancelled') ? 'Inactive' : 'Active'}</span>
+                    ? <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: b.status?.startsWith('cancelled') ? '#f5f5f5' : '#f0fdf4', color: b.status?.startsWith('cancelled') ? '#5a5a5a' : '#166534' }}>{b.status?.startsWith('cancelled') ? 'Cancelled' : 'Active'}</span>
                     : <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: sc.bg, color: sc.color }}>{sc.label}</span>
                   }
                   <span style={{ fontSize: 14, color: C.muted, padding: '0 4px' }}>{isOpen ? '▲' : '▼'}</span>
@@ -570,6 +671,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                   b={b} C={C} isMobile={isMobile} staff={staff} setBookings={setBookings}
                   contractVisits={b.isContract ? bookings.filter(v => v.contractId === b.id).sort((a,z) => (a.cleanDate||'').localeCompare(z.cleanDate||'')) : []}
                   openEdit={openEdit}
+                  openEditVisit={openEditVisit}
                   completing={completing} handleComplete={handleComplete}
                   cancelling={cancelling} handleCancel={handleCancel}
                   deleting={deleting} handleDelete={handleDelete}
@@ -577,6 +679,10 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                   generatingLink={generatingLink} depositLinks={depositLinks} linkErr={linkErr}
                   emailingLink={emailingLink} emailedLinks={emailedLinks}
                   handleGenerateLink={handleGenerateLink} handleEmailDepositLink={handleEmailDepositLink}
+                  generatingContractLink={generatingContractLink} contractLinks={contractLinks}
+                  contractLinkErr={contractLinkErr} handleGenerateContractLink={handleGenerateContractLink}
+                  retryingContractCharge={retryingContractCharge} retryContractErr={retryContractErr}
+                  handleRetryContractCharge={handleRetryContractCharge}
                   stoppingRecurring={stoppingRecurring} stoppedRecurring={stoppedRecurring} handleStopRecurring={handleStopRecurring}
                   staffAssignPending={staffAssignPending} handleAssignStaff={handleAssignStaff}
                   handleAssignSecondCleaner={handleAssignSecondCleaner}
@@ -621,6 +727,15 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
         api={bookingApi}
       />
 
+
+      {/* Edit Contract Visit Modal */}
+      <EditContractVisitModal
+        visit={editVisit} data={editVisitData} setData={setEditVisitData}
+        scope={editVisitScope} setScope={setEditVisitScope}
+        saving={editVisitSaving} err={editVisitErr}
+        onClose={closeEditVisit} onSave={handleEditVisitSave}
+        isMobile={isMobile} C={C}
+      />
 
       {/* Edit Booking Modal */}
       <EditBookingModal

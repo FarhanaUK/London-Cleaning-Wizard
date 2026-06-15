@@ -664,8 +664,14 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
   if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
   const b = snap.data();
 
-  if (b.status === 'fully_paid') {
-    res.status(400).json({ error: 'This booking has already been fully paid.' }); return;
+  if (b.status === 'fully_paid' || b.status === 'completed') {
+    res.status(400).json({ error: 'This booking has already been completed.' }); return;
+  }
+
+  // ── Contract visit — mark completed, no Stripe charge ────────
+  if (b.contractId) {
+    await snap.ref.update({ status: 'completed', completedAt: new Date() });
+    res.json({ success: true, status: 'completed' }); return;
   }
 
   // ── Manual payment — skip Stripe, mark complete ──────────────
@@ -1072,6 +1078,105 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
       } catch (e) { console.error('Failed to cancel recurring series on pending_deposit cancellation:', e.message); }
     }
     res.json({ success: true, status: 'cancelled_no_refund', refundAmount: 0 }); return;
+  }
+
+  // ── Contract cancellation ────────────────────────────────────
+  if (b.isContract) {
+    const visitsSnap = await db.collection('bookings').where('contractId', '==', snap.id).get();
+    const contractVisits = visitsSnap.docs.map(d => ({ ref: d.ref, ...d.data() }));
+
+    const payments       = b.monthlyPayments       || {};
+    const paymentIntents = b.monthlyPaymentIntents  || {};
+    const paidKeys       = Object.keys(payments).filter(k => k !== 'final_settlement' && payments[k] === 'paid');
+
+    let totalRefundAmt   = 0;
+    let uncompletedCount = 0;
+
+    for (const key of paidKeys) {
+      const nextDate = new Date(key + 'T12:00:00');
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      const periodEnd    = new Date(nextDate); periodEnd.setDate(periodEnd.getDate() - 1);
+      const periodEndStr = periodEnd.toISOString().slice(0, 10);
+
+      const allInPeriod       = contractVisits.filter(v => v.cleanDate >= key && v.cleanDate <= periodEndStr && !v.status?.startsWith('cancelled'));
+      const periodUncompleted = allInPeriod.filter(v => v.status !== 'completed');
+      uncompletedCount += periodUncompleted.length;
+
+      if (periodUncompleted.length > 0 && allInPeriod.length > 0) {
+        // Use the actual amount charged from Stripe so discounts (media consent etc.) are reflected
+        let periodBasis = 0;
+        let hasPI = false;
+        if (paymentIntents[key]) {
+          try {
+            const pi = await stripe.paymentIntents.retrieve(paymentIntents[key]);
+            periodBasis = pi.amount / 100;
+            hasPI = true;
+          } catch (e) {
+            console.error(`Could not retrieve PI for period ${key}:`, e.message);
+          }
+        }
+        // Fallback: use the booking's recorded monthly value (for manually-marked paid periods)
+        if (!periodBasis) {
+          periodBasis = key === b.contractStartDate
+            ? parseFloat(b.firstMonthCharge || b.monthlyBaseValue || 0)
+            : parseFloat(b.monthlyBaseValue || 0);
+        }
+        if (periodBasis > 0) {
+          const periodPence = Math.round((periodUncompleted.length / allInPeriod.length) * periodBasis * 100);
+          totalRefundAmt   += periodPence / 100;
+          if (hasPI) {
+            try {
+              await stripe.refunds.create({ payment_intent: paymentIntents[key], amount: periodPence, reason: 'requested_by_customer' });
+            } catch (e) {
+              if (!e.message?.includes('already been refunded')) console.error(`Contract refund failed for period ${key}:`, e.message);
+            }
+          }
+          // If no PI, the refund is logged in the response and must be processed manually in Stripe
+        }
+      }
+    }
+
+    const refundAmt = totalRefundAmt;
+    const status    = refundAmt > 0 ? 'cancelled_partial_refund' : 'cancelled_no_refund';
+
+    // Cancel all future / incomplete visits
+    try {
+      const todayStr  = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+      const batch     = db.batch();
+      let   batchSize = 0;
+      for (const v of contractVisits) {
+        if (v.cleanDate >= todayStr && v.status !== 'completed' && !v.status?.startsWith('cancelled')) {
+          batch.update(v.ref, { status: 'cancelled_no_refund', cancelledAt: new Date(), cancellationReason: 'Contract cancelled' });
+          batchSize++;
+        }
+      }
+      if (batchSize > 0) await batch.commit();
+    } catch (e) { console.error('Failed to cancel contract visits:', e.message); }
+
+    await snap.ref.update({ status, cancelledAt: new Date(), cancellationReason: clean(reason||''), refundAmount: refundAmt });
+
+    // Send cancellation emails
+    try {
+      const name     = b.contactName || b.bizName || b.firstName || '';
+      const refundMsg = refundAmt > 0
+        ? `A refund of £${refundAmt.toFixed(2)} has been issued for ${uncompletedCount} uncompleted visit${uncompletedCount !== 1 ? 's' : ''} and will be returned to your original payment method within 5–10 business days.`
+        : paidKeys.length === 0
+          ? 'No payment was collected — no refund required.'
+          : 'All scheduled visits in paid periods were completed — no refund required.';
+      const cancelData = {
+        booking_ref:    b.bookingRef || snap.id,
+        package_name:   b.contractLabel || 'Contract Cleaning',
+        date:           b.contractStartDate?.split('-').reverse().join('/') || '—',
+        time:           b.cleanTime || '—',
+        address:        `${b.addr1||''}, ${b.postcode||''}`.trim().replace(/^,\s*/, ''),
+        refund_amount:  refundAmt > 0 ? `£${refundAmt.toFixed(2)}` : 'No refund',
+        refund_message: refundMsg,
+      };
+      await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE, { ...cancelData, to_name: name, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
+      await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE, { ...cancelData, to_email: 'bookings@londoncleaningwizard.com', customer_name: name, customer_email: b.email, customer_phone: b.phone||'', notice_given: `Contract cancelled — ${uncompletedCount} uncompleted visit${uncompletedCount !== 1 ? 's' : ''}, £${refundAmt.toFixed(2)} refunded` }, EMAILJS_KEY.value()).catch(() => {});
+    } catch (e) { console.error('Contract cancel email failed:', e.message); }
+
+    res.json({ success: true, status, refundAmount: refundAmt }); return;
   }
 
   // ── Standard booking cancellation ───────────────────────────
@@ -1486,7 +1591,40 @@ exports.generateDepositLink = onRequest({ secrets:[STRIPE_KEY] }, async (req, re
   res.json({ success: true });
 });
 
-// ── 10a. Email deposit link to customer ──────────────────────
+// ── 10a. Generate contract first payment link ─────────────────
+exports.generateContractPaymentLink = onRequest({ secrets:[STRIPE_KEY] }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId } = req.body;
+  if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
+  const db     = admin.firestore();
+  const stripe = new Stripe(STRIPE_KEY.value());
+  const snap   = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
+  const b = snap.data();
+  if (!b.isContract) { res.status(400).json({ error: 'Not a contract booking.' }); return; }
+  if (b.stripeCustomerId) { res.status(400).json({ error: 'First payment already collected.' }); return; }
+  const amount   = b.firstMonthCharge || b.monthlyBaseValue || b.monthlyValue || 0;
+  const name     = b.bizName || b.contactName || `${b.firstName} ${b.lastName}`.trim();
+  const customer = await stripe.customers.create({
+    email: b.email, name,
+    metadata: { bookingRef: b.bookingRef, contractId: bookingId },
+  });
+  const intent = await stripe.paymentIntents.create({
+    amount:             Math.round(amount * 100),
+    currency:           'gbp',
+    customer:           customer.id,
+    setup_future_usage: 'off_session',
+    metadata:           { bookingRef: b.bookingRef, bookingId, isContract: 'true' },
+  });
+  await snap.ref.update({
+    pendingDepositClientSecret: intent.client_secret,
+    pendingDepositCustomerId:   customer.id,
+    pendingDepositPIId:         intent.id,
+  });
+  res.json({ success: true });
+});
+
+// ── 10b. Email deposit link to customer ──────────────────────
 exports.emailDepositLink = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
   const { bookingId } = req.body;
@@ -1496,7 +1634,17 @@ exports.emailDepositLink = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res)
   if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
   const b = snap.data();
   const paymentLink = `https://londoncleaningwizard.com/pay-deposit?bookingId=${bookingId}`;
-  await sendEmail(process.env.EMAILJS_DEPOSIT_LINK_TEMPLATE, {
+  const emailData = b.isContract ? {
+    to_name:        b.contactName || b.bizName || b.firstName,
+    to_email:       b.email,
+    booking_ref:    b.bookingRef || bookingId,
+    package_name:   b.contractLabel || 'Contract Cleaning',
+    clean_date:     b.contractStartDate ? b.contractStartDate.split('-').reverse().join('/') : '',
+    clean_time:     b.cleanTime || '',
+    address:        `${b.addr1 || ''}, ${b.postcode || ''}`.trim().replace(/^,\s*/, ''),
+    deposit_amount: parseFloat(b.firstMonthCharge || b.monthlyBaseValue || 0).toFixed(2),
+    payment_link:   paymentLink,
+  } : {
     to_name:        b.firstName,
     to_email:       b.email,
     booking_ref:    b.bookingRef,
@@ -1506,7 +1654,11 @@ exports.emailDepositLink = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res)
     address:        `${b.addr1}, ${b.postcode}`,
     deposit_amount: parseFloat(b.deposit).toFixed(2),
     payment_link:   paymentLink,
-  }, EMAILJS_KEY.value());
+  };
+  const linkTemplate = b.isContract
+    ? (process.env.EMAILJS_CONTRACT_PAYMENT_LINK_TEMPLATE || process.env.EMAILJS_DEPOSIT_LINK_TEMPLATE)
+    : process.env.EMAILJS_DEPOSIT_LINK_TEMPLATE;
+  await sendEmail(linkTemplate, emailData, EMAILJS_KEY.value());
   res.json({ success: true });
 });
 
@@ -1565,6 +1717,28 @@ exports.getDepositDetails = onRequest(async (req, res) => {
   const snap = await db.collection('bookings').doc(bookingId).get();
   if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
   const b = snap.data();
+  if (b.isContract) {
+    if (!b.pendingDepositClientSecret) {
+      res.status(400).json({ error: 'This payment link has expired or the first payment has already been made.' }); return;
+    }
+    res.json({
+      isContract:   true,
+      firstName:    b.contactName || b.bizName || b.firstName,
+      packageName:  b.contractLabel || 'Contract Cleaning',
+      size:         b.frequencyLabel || b.frequency || '',
+      cleanDate:    b.contractStartDate ? b.contractStartDate.split('-').reverse().join('/') : '',
+      cleanTime:    b.cleanTime || '',
+      deposit:      b.firstMonthCharge || b.monthlyBaseValue || 0,
+      total:        b.firstMonthCharge || b.monthlyBaseValue || 0,
+      remaining:    0,
+      bookingRef:   b.bookingRef,
+      clientSecret: b.pendingDepositClientSecret,
+      bizName:      b.bizName || '',
+      frequency:    b.frequency || '',
+      freqSaving:   0,
+    });
+    return;
+  }
   if (b.status !== 'pending_deposit' || !b.pendingDepositClientSecret) {
     res.status(400).json({ error: 'This payment link has expired or the deposit has already been paid.' }); return;
   }
@@ -1604,6 +1778,21 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
     res.status(400).json({ error: 'Payment not confirmed by Stripe.' }); return;
   }
   const customerId = b.pendingDepositCustomerId || pi.customer;
+  if (b.isContract) {
+    const pmId = typeof pi.payment_method === 'string' ? pi.payment_method : (pi.payment_method?.id || null);
+    await snap.ref.update({
+      stripeCustomerId:                                    customerId,
+      stripePaymentMethodId:                               pmId,
+      depositPaidAt:                                       new Date(),
+      [`monthlyPayments.${b.contractStartDate}`]:          'paid',
+      [`monthlyPaymentIntents.${b.contractStartDate}`]:    paymentIntentId,
+      pendingDepositClientSecret:                          admin.firestore.FieldValue.delete(),
+      pendingDepositCustomerId:                            admin.firestore.FieldValue.delete(),
+      pendingDepositPIId:                                  admin.firestore.FieldValue.delete(),
+    });
+    res.json({ success: true, isContract: true });
+    return;
+  }
   const updateData = {
     status:               'deposit_paid',
     stripeDepositIntentId: paymentIntentId,
@@ -3035,6 +3224,174 @@ exports.sendReengagementEmails = onSchedule({ schedule: 'every monday 10:00', se
       unsubscribe_url: `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(doc.id)}`,
     }, EMAILJS_KEY.value());
   }));
+});
+
+// ── Contract monthly auto-charge (Daily scheduler) ────────────
+exports.chargeContractMonthly = onSchedule(
+  { schedule: '0 9 * * *', timeZone: 'Europe/London', secrets: [STRIPE_KEY] },
+  async () => {
+    const db     = admin.firestore();
+    const stripe = new Stripe(STRIPE_KEY.value());
+
+    const todayUKStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }); // YYYY-MM-DD
+    const todayUK    = new Date(todayUKStr + 'T12:00:00');
+    const todayDay   = todayUK.getDate();
+
+    const snap = await db.collection('bookings')
+      .where('isContract', '==', true)
+      .where('stripeCustomerId', '>', '')
+      .get();
+
+    await Promise.allSettled(snap.docs.map(async doc => {
+      const b = doc.data();
+
+      // Stop if contract has ended or been cancelled
+      if (b.contractEndDate && todayUKStr > b.contractEndDate) return;
+      if (b.status && b.status.startsWith('cancelled')) return;
+
+      // Only charge on the billing anniversary day
+      const startDay = new Date(b.contractStartDate + 'T12:00:00').getDate();
+      const daysInMonth = new Date(todayUK.getFullYear(), todayUK.getMonth() + 1, 0).getDate();
+      const billingDay  = Math.min(startDay, daysInMonth);
+      if (todayDay !== billingDay) return;
+
+      // Period key = today (the billing start date for this period)
+      const periodKey = todayUKStr;
+      const payments  = b.monthlyPayments || {};
+
+      // Skip if already paid or failed (failed = manual retry required)
+      if (payments[periodKey] === 'paid' || payments[periodKey] === 'failed') return;
+
+      // Calculate charge: fixed base + previous period's add-ons
+      const fixedBase = parseFloat(b.monthlyBaseValue || 0);
+
+      const yesterday    = new Date(todayUK); yesterday.setDate(yesterday.getDate() - 1);
+      const prevEnd      = yesterday.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+      const prevStartDate = new Date(todayUK); prevStartDate.setMonth(prevStartDate.getMonth() - 1);
+      const prevStart    = prevStartDate.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+      const visitsSnap = await db.collection('bookings')
+        .where('contractId', '==', doc.id)
+        .where('cleanDate', '>=', prevStart)
+        .where('cleanDate', '<=', prevEnd)
+        .get();
+
+      const prevAddons = visitsSnap.docs.reduce((s, d) => s + parseFloat(d.data().addonTotal || 0), 0);
+      const amount     = fixedBase + prevAddons;
+      if (amount <= 0) return;
+
+      // Get payment method (saved at first payment, fall back to listing)
+      let pmId = b.stripePaymentMethodId;
+      if (!pmId) {
+        const pms = await stripe.paymentMethods.list({ customer: b.stripeCustomerId, type: 'card' });
+        pmId = pms.data[0]?.id;
+      }
+      if (!pmId) {
+        await doc.ref.update({ [`monthlyPayments.${periodKey}`]: 'failed', [`monthlyPaymentErrors.${periodKey}`]: 'No saved payment method found.' });
+        return;
+      }
+
+      try {
+        const pi = await stripe.paymentIntents.create({
+          amount:         Math.round(amount * 100),
+          currency:       'gbp',
+          customer:       b.stripeCustomerId,
+          payment_method: pmId,
+          confirm:        true,
+          off_session:    true,
+          metadata:       { contractId: doc.id, period: periodKey, prevAddons: prevAddons.toFixed(2) },
+        });
+        if (pi.status === 'succeeded') {
+          await doc.ref.update({
+            [`monthlyPayments.${periodKey}`]:       'paid',
+            [`monthlyPaymentIntents.${periodKey}`]: pi.id,
+          });
+        }
+      } catch (e) {
+        await doc.ref.update({
+          [`monthlyPayments.${periodKey}`]:     'failed',
+          [`monthlyPaymentErrors.${periodKey}`]: e.message || 'Charge failed.',
+        });
+      }
+    }));
+  }
+);
+
+// ── Retry a failed contract monthly charge ────────────────────
+exports.retryContractCharge = onRequest({ secrets: [STRIPE_KEY] }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId, periodKey } = req.body;
+  if (!bookingId || !periodKey) { res.status(400).json({ error: 'Missing bookingId or periodKey' }); return; }
+
+  const db     = admin.firestore();
+  const stripe = new Stripe(STRIPE_KEY.value());
+  const snap   = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
+  const b = snap.data();
+  if (!b.isContract || !b.stripeCustomerId) { res.status(400).json({ error: 'Not a contract with a saved card.' }); return; }
+
+  const fixedBase = parseFloat(b.monthlyBaseValue || 0);
+  const periodDate = new Date(periodKey + 'T12:00:00');
+  const prevEndDate = new Date(periodDate); prevEndDate.setDate(prevEndDate.getDate() - 1);
+  const prevStartDate = new Date(periodDate); prevStartDate.setMonth(prevStartDate.getMonth() - 1);
+  const prevStart = prevStartDate.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+  const prevEnd   = prevEndDate.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+  const visitsSnap = await db.collection('bookings')
+    .where('contractId', '==', bookingId)
+    .where('cleanDate', '>=', prevStart)
+    .where('cleanDate', '<=', prevEnd)
+    .get();
+
+  const prevAddons = visitsSnap.docs.reduce((s, d) => s + parseFloat(d.data().addonTotal || 0), 0);
+  const amount     = fixedBase + prevAddons;
+
+  let pmId = b.stripePaymentMethodId;
+  if (!pmId) {
+    const pms = await stripe.paymentMethods.list({ customer: b.stripeCustomerId, type: 'card' });
+    pmId = pms.data[0]?.id;
+  }
+  if (!pmId) { res.status(400).json({ error: 'No saved payment method found.' }); return; }
+
+  try {
+    const pi = await stripe.paymentIntents.create({
+      amount:         Math.round(amount * 100),
+      currency:       'gbp',
+      customer:       b.stripeCustomerId,
+      payment_method: pmId,
+      confirm:        true,
+      off_session:    true,
+      metadata:       { contractId: bookingId, period: periodKey, retry: 'true' },
+    });
+    if (pi.status === 'succeeded') {
+      await snap.ref.update({
+        [`monthlyPayments.${periodKey}`]:       'paid',
+        [`monthlyPaymentIntents.${periodKey}`]: pi.id,
+        [`monthlyPaymentErrors.${periodKey}`]:  admin.firestore.FieldValue.delete(),
+      });
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: 'Payment did not succeed.' });
+    }
+  } catch (e) {
+    await snap.ref.update({ [`monthlyPaymentErrors.${periodKey}`]: e.message || 'Charge failed.' });
+    res.status(400).json({ error: e.message || 'Charge failed.' });
+  }
+});
+
+// ── Assign booking ref to a contract master (LCW-XXXXXX format) ─────────────
+exports.assignContractRef = onRequest(async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId } = req.body;
+  if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
+  const db   = admin.firestore();
+  const snap = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
+  const b = snap.data();
+  if (b.bookingRef) { res.json({ bookingRef: b.bookingRef }); return; }
+  const ref = `LCW-${Date.now().toString().slice(-6)}`;
+  await snap.ref.update({ bookingRef: ref });
+  res.json({ bookingRef: ref });
 });
 
 // ── Firestore trigger: clean up calendar event when booking is deleted ──────

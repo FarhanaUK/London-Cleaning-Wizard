@@ -101,37 +101,61 @@ function PaymentForm({ details, bookingId }) {
       <FullOverlay show={loading} title={overlay} sub={overlaySub} />
 
       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, color: '#1a1410', marginBottom: 6 }}>
-        Pay Your Deposit
+        {details.isContract ? 'First Month Payment' : 'Pay Your Deposit'}
       </div>
       <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#8b7355', fontWeight: 300, marginBottom: 32 }}>
-        Secure your booking by paying your 30% deposit below.
+        {details.isContract
+          ? 'Pay your first month to activate your cleaning contract. Your card will be saved for future monthly charges.'
+          : 'Secure your booking by paying your 30% deposit below.'}
       </div>
 
       {/* Summary */}
       <div style={{ border: '1px solid rgba(200,184,154,0.3)', padding: '16px 20px', marginBottom: 24 }}>
         <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8b7355', marginBottom: 12 }}>
-          Booking Summary
+          {details.isContract ? 'Contract Summary' : 'Booking Summary'}
         </div>
-        {[
-          { l: `${details.packageName} · ${details.size}`, v: `£${details.originalTotal || details.total}` },
-          details.launchDiscount && { l: 'Launch offer — 50% off first clean', v: `-£${parseFloat(details.launchDiscount).toFixed(2)}`, grn: true },
-          details.mediaConsentDiscount && { l: 'Photo consent discount', v: `-£${parseFloat(details.mediaConsentDiscount).toFixed(2)}`, grn: true },
-          { l: 'Clean Date', v: details.cleanDate },
-          { l: 'Clean Time', v: details.cleanTime },
-        ].filter(Boolean).map((row, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '0.5px solid rgba(200,184,154,0.15)', fontFamily: "'Jost',sans-serif" }}>
-            <span style={{ color: row.grn ? '#16a34a' : '#6b5e56', fontWeight: row.grn ? 400 : 300 }}>{row.l}</span>
-            <span style={{ color: row.grn ? '#16a34a' : '#2c2420', fontWeight: 500 }}>{row.v}</span>
-          </div>
-        ))}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 13, fontFamily: "'Jost',sans-serif" }}>
-          <span style={{ color: '#8b7355', fontWeight: 300 }}>Deposit due today (30%)</span>
-          <span style={{ color: '#c8b89a', fontWeight: 600, fontSize: 16 }}>£{details.deposit}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 12, fontFamily: "'Jost',sans-serif" }}>
-          <span style={{ color: '#8b7355', fontWeight: 300 }}>Balance due on completion</span>
-          <span style={{ color: '#8b7355', fontWeight: 300 }}>£{details.remaining}</span>
-        </div>
+        {details.isContract ? (
+          <>
+            {[
+              { l: `${details.packageName}`, v: '' },
+              { l: 'Frequency', v: details.size },
+              { l: 'Contract start', v: details.cleanDate },
+              { l: 'Time', v: details.cleanTime },
+            ].filter(r => r.v).map((row, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '0.5px solid rgba(200,184,154,0.15)', fontFamily: "'Jost',sans-serif" }}>
+                <span style={{ color: '#6b5e56', fontWeight: 300 }}>{row.l}</span>
+                <span style={{ color: '#2c2420', fontWeight: 500 }}>{row.v}</span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 13, fontFamily: "'Jost',sans-serif" }}>
+              <span style={{ color: '#8b7355', fontWeight: 300 }}>First month due today</span>
+              <span style={{ color: '#c8b89a', fontWeight: 600, fontSize: 16 }}>£{parseFloat(details.deposit).toFixed(2)}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            {[
+              { l: `${details.packageName} · ${details.size}`, v: `£${details.originalTotal || details.total}` },
+              details.launchDiscount && { l: 'Launch offer — 50% off first clean', v: `-£${parseFloat(details.launchDiscount).toFixed(2)}`, grn: true },
+              details.mediaConsentDiscount && { l: 'Photo consent discount', v: `-£${parseFloat(details.mediaConsentDiscount).toFixed(2)}`, grn: true },
+              { l: 'Clean Date', v: details.cleanDate },
+              { l: 'Clean Time', v: details.cleanTime },
+            ].filter(Boolean).map((row, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '0.5px solid rgba(200,184,154,0.15)', fontFamily: "'Jost',sans-serif" }}>
+                <span style={{ color: row.grn ? '#16a34a' : '#6b5e56', fontWeight: row.grn ? 400 : 300 }}>{row.l}</span>
+                <span style={{ color: row.grn ? '#16a34a' : '#2c2420', fontWeight: 500 }}>{row.v}</span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 13, fontFamily: "'Jost',sans-serif" }}>
+              <span style={{ color: '#8b7355', fontWeight: 300 }}>Deposit due today (30%)</span>
+              <span style={{ color: '#c8b89a', fontWeight: 600, fontSize: 16 }}>£{details.deposit}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 12, fontFamily: "'Jost',sans-serif" }}>
+              <span style={{ color: '#8b7355', fontWeight: 300 }}>Balance due on completion</span>
+              <span style={{ color: '#8b7355', fontWeight: 300 }}>£{details.remaining}</span>
+            </div>
+          </>
+        )}
         {details.freqSaving > 0 && (
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: '0.5px solid rgba(200,184,154,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: "'Jost',sans-serif" }}>

@@ -47,9 +47,9 @@ const FREQUENCY = [
   { id: 'oneoff',      label: 'One-off',      vpm: 0    },
   { id: 'daily',       label: 'Daily (M-F)',  vpm: 22   },
   { id: 'thrice',      label: '3x per week',  vpm: 13   },
-  { id: 'twice',       label: '2x per week',  vpm: 8.6  },
-  { id: 'weekly',      label: 'Weekly',       vpm: 4.33 },
-  { id: 'fortnightly', label: 'Fortnightly',  vpm: 2.17 },
+  { id: 'twice',       label: '2x per week',  vpm: 104/12 },
+  { id: 'weekly',      label: 'Weekly',       vpm: 52/12  },
+  { id: 'fortnightly', label: 'Fortnightly',  vpm: 26/12  },
   { id: 'monthly',     label: 'Monthly',      vpm: 1    },
 ];
 
@@ -362,6 +362,27 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     return next;
   });
 
+  const generateVisitDates = (startDate, endDate, freq) => {
+    const dates = [];
+    const start = new Date(startDate + 'T12:00:00');
+    const end   = new Date(endDate   + 'T12:00:00');
+    let d = new Date(start);
+    if (freq === 'daily') {
+      while (d <= end) { if (d.getDay() >= 1 && d.getDay() <= 5) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+    } else if (freq === 'thrice') {
+      while (d <= end) { if ([1,3,5].includes(d.getDay())) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+    } else if (freq === 'twice') {
+      while (d <= end) { if ([1,4].includes(d.getDay())) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+    } else if (freq === 'weekly') {
+      while (d <= end) { dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 7); }
+    } else if (freq === 'fortnightly') {
+      while (d <= end) { dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 14); }
+    } else if (freq === 'monthly') {
+      while (d <= end) { dates.push(d.toISOString().slice(0, 10)); d.setMonth(d.getMonth() + 1); }
+    }
+    return dates;
+  };
+
   const handleBookContract = async () => {
     if (!bizName.trim())    { setBookError('Enter a business name first.'); return; }
     if (!clientEmail.trim()) { setBookError('Enter the client email.'); return; }
@@ -378,6 +399,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       const lastName    = nameParts.slice(1).join(' ') || '';
       const addonList   = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
       const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
+      const nClean          = parseInt(numCleaners, 10) || 1;
+      const addonHrs        = selectedAddons.reduce((s, a) => s + (a.h || 0), 0);
+      const visitDurationBase = q.visitDur - addonHrs / nClean;
       const now = new Date().toISOString();
       const keysLabel = {
         client_present: 'Client / host present',
@@ -386,7 +410,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         concierge:      'Concierge / building reception',
         management:     'Management company / agent',
       }[keyType] || keyType;
-      await addDoc(collection(db, 'bookings'), {
+      const masterRef = await addDoc(collection(db, 'bookings'), {
         firstName, lastName,
         email: clientEmail.trim(),
         phone: clientPhone.trim(),
@@ -422,17 +446,59 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         totalPerVisit: q.price,
         monthlyBaseValue: q.freq.vpm * q.cleanPrice,
         monthlyValue: q.mRev,
+        firstMonthCharge: parseFloat((q.freq.vpm * q.cleanPrice - (bMediaConsent ? 10 : 0)).toFixed(2)),
         frequencyLabel: q.freq.label,
         bizName: bizName.trim(),
         contactName: contactName.trim(),
         clientType,
-        addons: selectedAddons.map(a => ({ id: a.id, name: a.label, price: a.price })),
+        numCleaners: nClean,
+        visitDuration: q.visitDur,
+        visitDurationBase,
+        addons: selectedAddons.map(a => ({ id: a.id, name: a.label, price: a.price, h: a.h || 0 })),
         addonsList: selectedAddons.map(a => a.label).join(', '),
         addonTotal: q.addonTotal,
         monthlyPayments: {},
         createdAt: now,
         updatedAt: now,
       });
+      const visitDates = generateVisitDates(contractStart, contractEnd, frequency);
+      const visitBase = {
+        contractId: masterRef.id,
+        isContractVisit: true,
+        firstName, lastName,
+        email: clientEmail.trim(),
+        phone: clientPhone.trim(),
+        addr1: clientAddress.trim(),
+        cleanTime: contractTime,
+        floor: bFloor.trim(),
+        parking: bParking.trim(),
+        keys: keysLabel,
+        bizName: bizName.trim(),
+        clientType,
+        packageName: clientType === 'airbnb' ? 'Airbnb Turnaround' : 'Commercial Cleaning',
+        numCleaners: nClean,
+        visitDurationBase,
+        addons: selectedAddons.map(a => ({ id: a.id, name: a.label, price: a.price, h: a.h || 0 })),
+        addonsList: selectedAddons.map(a => a.label).join(', '),
+        addonTotal: q.addonTotal,
+        pricePerVisit: q.cleanPrice,
+        totalPerVisit: q.price,
+        total: q.price,
+        status: 'scheduled',
+        frequency,
+        createdAt: now,
+        updatedAt: now,
+      };
+      // Assign LCW-XXXXXX ref via Cloud Function (same format as regular bookings)
+      fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: masterRef.id }),
+      }).catch(() => {});
+      await Promise.all(visitDates.map((date, i) => addDoc(collection(db, 'bookings'), {
+        ...visitBase,
+        cleanDate: date,
+        ...(i === 0 && bMediaConsent ? { mediaConsentDiscount: 10 } : {}),
+      })));
       if (loadedQuoteId) {
         await updateDoc(doc(db, 'savedQuotes', loadedQuoteId), { status: 'booked', updatedAt: now });
       }
@@ -837,6 +903,46 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
             </div>
           </Card>
 
+          {/* Contract discount schedule */}
+          <Card C={C}>
+            <SectionLabel C={C}>Discount schedule</SectionLabel>
+            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 10 }}>
+              Clean price per visit. Add-ons are charged on top at fixed rates.
+            </div>
+            {CONTRACTS.map(ct => {
+              const ctPrice  = q.basePrice * (1 - ct.disc);
+              const isActive = ct.id === contract;
+              return (
+                <div
+                  key={ct.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '6px 8px', borderRadius: 6, marginBottom: 4,
+                    background: isActive ? `${C.accent}14` : C.bg,
+                    border: `1px solid ${isActive ? C.accent : C.border}`,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: isActive ? 700 : 400, color: C.text }}>
+                      {ct.label}
+                    </span>
+                    {ct.disc > 0 && (
+                      <span style={{
+                        fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.success,
+                        background: `${C.success}18`, borderRadius: 4, padding: '1px 6px',
+                      }}>
+                        -{ct.disc * 100}%
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: isActive ? C.accent : C.text }}>
+                    £{gbp(ctPrice)}/visit
+                  </span>
+                </div>
+              );
+            })}
+          </Card>
+
           {/* Cost breakdown */}
           <Card C={C} style={{ borderColor: '#fbbf24' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, padding: '4px 8px', background: '#fef3c7', borderRadius: 5, width: 'fit-content' }}>
@@ -888,46 +994,6 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               )}
             </Card>
           )}
-
-          {/* Contract discount schedule */}
-          <Card C={C}>
-            <SectionLabel C={C}>Discount schedule</SectionLabel>
-            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 10 }}>
-              Clean price per visit. Add-ons are charged on top at fixed rates.
-            </div>
-            {CONTRACTS.map(ct => {
-              const ctPrice  = q.basePrice * (1 - ct.disc);
-              const isActive = ct.id === contract;
-              return (
-                <div
-                  key={ct.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '6px 8px', borderRadius: 6, marginBottom: 4,
-                    background: isActive ? `${C.accent}14` : C.bg,
-                    border: `1px solid ${isActive ? C.accent : C.border}`,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: isActive ? 700 : 400, color: C.text }}>
-                      {ct.label}
-                    </span>
-                    {ct.disc > 0 && (
-                      <span style={{
-                        fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.success,
-                        background: `${C.success}18`, borderRadius: 4, padding: '1px 6px',
-                      }}>
-                        -{ct.disc * 100}%
-                      </span>
-                    )}
-                  </div>
-                  <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: isActive ? C.accent : C.text }}>
-                    £{gbp(ctPrice)}/visit
-                  </span>
-                </div>
-              );
-            })}
-          </Card>
 
           {/* Action buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
