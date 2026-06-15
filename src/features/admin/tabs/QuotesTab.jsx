@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { db } from '../../../firebase/firebase';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import emailjs from '@emailjs/browser';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
@@ -157,6 +157,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
   const [copied,         setCopied]         = useState(false);
   const [showSOP,        setShowSOP]        = useState(false);
+  const [selectedQuotes, setSelectedQuotes] = useState(new Set());
+  const [deletingQuotes, setDeletingQuotes] = useState(false);
 
   const toggleAddon = id =>
     setAddons(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -329,6 +331,30 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
   const updateQuoteStatus = (id, status) =>
     updateDoc(doc(db, 'savedQuotes', id), { status, updatedAt: new Date().toISOString() });
+
+  const deleteQuote = id => deleteDoc(doc(db, 'savedQuotes', id));
+
+  const deleteSelected = async () => {
+    if (!selectedQuotes.size) return;
+    setDeletingQuotes(true);
+    await Promise.all([...selectedQuotes].map(id => deleteDoc(doc(db, 'savedQuotes', id))));
+    setSelectedQuotes(new Set());
+    setDeletingQuotes(false);
+  };
+
+  const deleteAll = async () => {
+    if (!window.confirm(`Delete all ${savedQuotes.length} saved quotes? This cannot be undone.`)) return;
+    setDeletingQuotes(true);
+    await Promise.all(savedQuotes.map(sq => deleteDoc(doc(db, 'savedQuotes', sq.id))));
+    setSelectedQuotes(new Set());
+    setDeletingQuotes(false);
+  };
+
+  const toggleSelectQuote = id => setSelectedQuotes(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const handleBookContract = async () => {
     if (!bizName.trim())    { setBookError('Enter a business name first.'); return; }
@@ -591,10 +617,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
             </div>
           </Card>
 
-          {/* Frequency & cleaners only — contract moved to right column */}
+          {/* Frequency, cleaners, contract */}
           <Card C={C}>
-            <SectionLabel C={C}>Frequency & cleaners</SectionLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <SectionLabel C={C}>Frequency & contract</SectionLabel>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               <div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>How often</div>
                 <select value={frequency} onChange={e => setFrequency(e.target.value)} style={inputStyle}>
@@ -608,6 +635,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 </select>
               </div>
             </div>
+
           </Card>
 
           {/* Costs & margin settings */}
@@ -687,46 +715,6 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         {/* ── Right column: Live quote ── */}
         <div style={{ position: isMobile ? 'static' : 'sticky', top: 20, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-          {/* Contract type / discount schedule */}
-          <Card C={C}>
-            <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>
-              Contract type
-              <span style={{ marginLeft: 8, color: C.faint || C.muted }}>Longer contracts get a discount</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {CONTRACTS.map(ct => (
-                <label
-                  key={ct.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-                    padding: '9px 12px', borderRadius: 7,
-                    background: contract === ct.id ? `${C.accent}14` : C.bg,
-                    border: `1px solid ${contract === ct.id ? C.accent : C.border}`,
-                  }}
-                >
-                  <input
-                    type="radio" name="contract"
-                    checked={contract === ct.id}
-                    onChange={() => setContract(ct.id)}
-                    style={{ accentColor: C.accent, flexShrink: 0 }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{ct.label}</div>
-                    <div style={{ fontSize: 11, color: C.muted }}>{ct.note}</div>
-                  </div>
-                  {ct.disc > 0 && (
-                    <span style={{
-                      fontSize: 12, fontWeight: 700, color: C.success,
-                      background: `${C.success}18`, borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap',
-                    }}>
-                      -{ct.disc * 100}%
-                    </span>
-                  )}
-                </label>
-              ))}
-            </div>
-          </Card>
-
           {/* Big price card */}
           <Card C={C} style={{ border: `1px solid ${q.pct < 20 ? C.danger : C.border}` }}>
             <div style={{ padding: '0.5rem 0 0.75rem' }}>
@@ -790,6 +778,43 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               {q.pct >= 25 && q.pct < 30 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.warning }}>minimum</span>}
               {q.pct >= 30 && q.pct < 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>healthy</span>}
               {q.pct >= 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>excellent</span>}
+            </div>
+          </Card>
+
+          {/* Discount schedule */}
+          <Card C={C}>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>
+              Contract type
+              <span style={{ marginLeft: 8, color: C.faint || C.muted }}>Longer contracts get a discount</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {CONTRACTS.map(ct => (
+                <label
+                  key={ct.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                    padding: '9px 12px', borderRadius: 7,
+                    background: contract === ct.id ? `${C.accent}14` : C.bg,
+                    border: `1px solid ${contract === ct.id ? C.accent : C.border}`,
+                  }}
+                >
+                  <input
+                    type="radio" name="contract"
+                    checked={contract === ct.id}
+                    onChange={() => setContract(ct.id)}
+                    style={{ accentColor: C.accent, flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{ct.label}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{ct.note}</div>
+                  </div>
+                  {ct.disc > 0 && (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.success, background: `${C.success}18`, borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                      -{ct.disc * 100}%
+                    </span>
+                  )}
+                </label>
+              ))}
             </div>
           </Card>
 
@@ -1170,6 +1195,26 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 {savedQuotes.filter(sq => !['booked', 'lost'].includes(sq.status)).length} active
               </div>
             </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              {selectedQuotes.size > 0 && (
+                <button
+                  onClick={deleteSelected}
+                  disabled={deletingQuotes}
+                  style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${C.danger}40`, background: `${C.danger}10`, color: C.danger }}
+                >
+                  {deletingQuotes ? 'Deleting…' : `Delete selected (${selectedQuotes.size})`}
+                </button>
+              )}
+              {savedQuotes.length > 0 && (
+                <button
+                  onClick={deleteAll}
+                  disabled={deletingQuotes}
+                  style={{ fontFamily: FONT, fontSize: 11, padding: '5px 12px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${C.border}`, background: C.card, color: C.muted }}
+                >
+                  Delete all
+                </button>
+              )}
+            </div>
             <input
               value={quoteSearch} onChange={e => setQuoteSearch(e.target.value)}
               placeholder="Search by business name..."
@@ -1220,30 +1265,39 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                     booked:        { bg: `${C.success}18`, color: C.success,  label: 'Booked' },
                     lost:          { bg: `${C.danger}18`,  color: C.danger,   label: 'Lost' },
                   }[eff] || { bg: `${C.accent}18`, color: C.accent, label: 'Quote Sent' };
+                  const isSelected = selectedQuotes.has(sq.id);
                   return (
                     <div key={sq.id} style={{
-                      padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`,
-                      background: sq.status === 'lost' ? `${C.danger}06` : C.bg,
+                      padding: '10px 12px', borderRadius: 8, border: `1px solid ${isSelected ? C.danger : C.border}`,
+                      background: isSelected ? `${C.danger}06` : sq.status === 'lost' ? `${C.danger}06` : C.bg,
                       opacity: sq.status === 'lost' ? 0.7 : 1,
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{sq.bizName}</span>
-                            <span style={{ fontSize: 10, fontWeight: 600, color: ss.color, background: ss.bg, borderRadius: 4, padding: '2px 7px' }}>{ss.label}</span>
-                          </div>
-                          <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
-                            {sq.contactName && <span>{sq.contactName} · </span>}
-                            <span>£{gbp(sq.pricePerVisit)}/visit · </span>
-                            <span>{sq.contractLabel} · </span>
-                            <span>{sq.frequencyLabel}</span>
-                          </div>
-                          {sq.followUpDate && !['booked', 'lost'].includes(sq.status) && (
-                            <div style={{ fontSize: 10, color: isDue ? C.danger : C.muted, marginTop: 3, fontWeight: isDue ? 600 : 400 }}>
-                              Follow-up: {new Date(sq.followUpDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                              {isDue && ' -- overdue'}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flex: 1, minWidth: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectQuote(sq.id)}
+                            style={{ marginTop: 3, accentColor: C.danger, flexShrink: 0 }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{sq.bizName}</span>
+                              <span style={{ fontSize: 10, fontWeight: 600, color: ss.color, background: ss.bg, borderRadius: 4, padding: '2px 7px' }}>{ss.label}</span>
                             </div>
-                          )}
+                            <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
+                              {sq.contactName && <span>{sq.contactName} · </span>}
+                              <span>£{gbp(sq.pricePerVisit)}/visit · </span>
+                              <span>{sq.contractLabel} · </span>
+                              <span>{sq.frequencyLabel}</span>
+                            </div>
+                            {sq.followUpDate && !['booked', 'lost'].includes(sq.status) && (
+                              <div style={{ fontSize: 10, color: isDue ? C.danger : C.muted, marginTop: 3, fontWeight: isDue ? 600 : 400 }}>
+                                Follow-up: {new Date(sq.followUpDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                {isDue && ' -- overdue'}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
                           <button onClick={() => loadQuote(sq)} style={{ fontFamily: FONT, fontSize: 11, padding: '5px 10px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${C.border}`, background: C.card, color: C.text }}>Load</button>
@@ -1253,6 +1307,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                           {!['lost', 'booked'].includes(sq.status) && (
                             <button onClick={() => updateQuoteStatus(sq.id, 'lost')} style={{ fontFamily: FONT, fontSize: 11, padding: '5px 10px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${C.danger}40`, background: `${C.danger}10`, color: C.danger }}>Lost</button>
                           )}
+                          <button onClick={() => deleteQuote(sq.id)} style={{ fontFamily: FONT, fontSize: 11, padding: '5px 10px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${C.border}`, background: C.card, color: C.muted }}>Delete</button>
                         </div>
                       </div>
                     </div>
