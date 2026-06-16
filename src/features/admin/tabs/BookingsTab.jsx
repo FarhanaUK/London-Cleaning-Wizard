@@ -637,6 +637,12 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                     {b.isContract && b.contractEndDate && (
                       <> &nbsp;·&nbsp; ends {fmtDate(b.contractEndDate)}</>
                     )}
+                    {b.isContract && (() => {
+                      const paidCount = Object.values(b.monthlyPayments || {}).filter(v => v === 'paid').length;
+                      return paidCount > 0
+                        ? <> &nbsp;·&nbsp; <span style={{ fontWeight: 600, color: '#16a34a' }}>{paidCount} month{paidCount !== 1 ? 's' : ''} paid</span></>
+                        : <> &nbsp;·&nbsp; <span style={{ color: C.muted }}>no payments yet</span></>;
+                    })()}
                   </div>
                   {b.cancelledAt && (
                     <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 3 }}>
@@ -657,6 +663,16 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                   {b.assignedStaff && (
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#f5f3ff', color: '#6d28d9' }}>👤 {[b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ')}</span>
                   )}
+                  {b.isContract && (() => {
+                    const paidCount   = Object.values(b.monthlyPayments || {}).filter(v => v === 'paid').length;
+                    const startD      = new Date((b.contractStartDate || b.cleanDate) + 'T12:00:00');
+                    const endD        = b.contractEndDate ? new Date(b.contractEndDate + 'T12:00:00') : null;
+                    const totalMonths = endD ? (endD.getFullYear() - startD.getFullYear()) * 12 + (endD.getMonth() - startD.getMonth()) : 0;
+                    if (b.status?.startsWith('cancelled')) return null;
+                    if (totalMonths > 0 && paidCount >= totalMonths) return <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 99, background: '#f0fdf4', color: '#166534' }}>Fully Paid</span>;
+                    if (totalMonths > 0 && paidCount > 0) return <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 99, background: '#fff7ed', color: '#c2410c' }}>{paidCount}/{totalMonths} paid</span>;
+                    return null;
+                  })()}
                   {b.isContract
                     ? <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: b.status?.startsWith('cancelled') ? '#f5f5f5' : '#f0fdf4', color: b.status?.startsWith('cancelled') ? '#5a5a5a' : '#166534' }}>{b.status?.startsWith('cancelled') ? 'Cancelled' : 'Active'}</span>
                     : <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: sc.bg, color: sc.color }}>{sc.label}</span>
@@ -751,10 +767,10 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.22)' }}>
             <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 8 }}>
-              Assign {staffAssignPending.staffName}?
+              {staffAssignPending.staffName ? `Assign ${staffAssignPending.staffName}?` : 'Remove cleaner?'}
             </div>
             <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, marginBottom: 22, lineHeight: 1.5 }}>
-              This is a recurring booking for <strong>{staffAssignPending.booking.firstName} {staffAssignPending.booking.lastName}</strong>. Apply this assignment to just this date, or to all future bookings in this series?
+              This is a recurring booking for <strong>{staffAssignPending.booking.firstName} {staffAssignPending.booking.lastName}</strong>. {staffAssignPending.staffName ? 'Apply this assignment to just this date, or to all future bookings in this series?' : 'Remove the cleaner from just this date, or all future bookings in this series?'}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button onClick={handleConfirmAssignThis} style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '12px 16px', background: C.accent, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>

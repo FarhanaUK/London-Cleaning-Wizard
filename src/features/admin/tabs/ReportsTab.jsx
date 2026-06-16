@@ -107,6 +107,24 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const contractMasterMap = {};
   bookings.filter(b => b.isContract).forEach(b => { contractMasterMap[b.id] = b; });
 
+  // Sum contract monthly base revenue for paid periods whose billing date falls within [pStart, pEnd]
+  const contractRevForWindow = (pStart, pEnd) =>
+    bookings.filter(b => b.isContract).reduce((s, master) => {
+      const payments = master.monthlyPayments || {};
+      const paidRev = Object.entries(payments).reduce((ps, [key, val]) => {
+        if (val !== 'paid' || key < pStart || key > pEnd) return ps;
+        return ps + parseFloat(master.monthlyBaseValue || 0);
+      }, 0);
+      // Deduct refund if the cancellation date falls within this reporting window
+      let refundDeduction = 0;
+      if (master.refundAmount > 0 && master.cancelledAt) {
+        const raw = master.cancelledAt?.toDate ? master.cancelledAt.toDate() : new Date(master.cancelledAt);
+        const cancelDate = raw.toISOString().slice(0, 10);
+        if (cancelDate >= pStart && cancelDate <= pEnd) refundDeduction = parseFloat(master.refundAmount || 0);
+      }
+      return s + paidRev - refundDeduction;
+    }, 0);
+
   const bookingLabour = b => {
     const m1 = staff.find(m => m.name === b.assignedStaff);
     const r1 = m1 && m1.hourlyRate !== 'N/A' ? parseFloat(m1.hourlyRate) : 0;
@@ -121,23 +139,13 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
 
   // ── KPIs ──
   const collectedAmt = b => {
-    if (b.isContractVisit) {
-      const master = contractMasterMap[b.contractId];
-      if (!master?.monthlyPayments) return 0;
-      const payments = master.monthlyPayments;
-      const periodKey = Object.keys(payments).sort().find(k => {
-        const next = new Date(k + 'T12:00:00');
-        next.setMonth(next.getMonth() + 1);
-        const nextStr = next.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
-        return b.cleanDate >= k && b.cleanDate < nextStr;
-      });
-      return periodKey && payments[periodKey] === 'paid' ? parseFloat(b.total || 0) : 0;
-    }
-    if (b.status === 'fully_paid')  return parseFloat(b.total)   || 0;
+    if (b.isContractVisit) return 0; // contract revenue counted per paid period on the master
+    if (b.status === 'fully_paid')   return parseFloat(b.total)   || 0;
+    if (b.status === 'completed')    return parseFloat(b.total)   || 0;
     if (b.status === 'deposit_paid') return parseFloat(b.deposit) || 0;
     return 0;
   };
-  const periodRev      = periodBookings.reduce((s, b) => s + collectedAmt(b), 0);
+  const periodRev      = periodBookings.reduce((s, b) => s + collectedAmt(b), 0) + contractRevForWindow(periodStart, periodEnd);
   const periodLabour   = periodBookings.reduce((s, b) => s + bookingLabour(b), 0);
   const periodExp      = expenses.filter(e => e.date >= periodStart && e.date <= periodEnd && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
   const periodMktSpend = marketingSpend.filter(e => e.date >= periodStart && e.date <= periodEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
@@ -213,17 +221,40 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const pkgBreakdown = Object.entries(pkgMap).sort((a, b) => b[1].rev - a[1].rev);
 
   // ── Staff performance ──
+  // Contract visits assigned to a cleaner in the period — use pricePerVisit for revenue attribution
+  const contractVisitsInPeriod = bookings.filter(b =>
+    b.isContractVisit && b.cleanDate >= periodStart && b.cleanDate <= periodEnd
+  );
+
+  // Split revenue by actual hours for shared jobs; fall back to 50/50 if no hours logged
+  const revenueShare = (booking, totalRev, cleanerName) => {
+    if (!booking.secondCleaner || !booking.assignedStaff) return totalRev;
+    const h1 = calcHours(booking.actualStart,  booking.actualFinish)  || 0;
+    const h2 = calcHours(booking.actualStart2, booking.actualFinish2) || 0;
+    const totalH = h1 + h2;
+    const isPrimary = booking.assignedStaff === cleanerName;
+    if (totalH === 0) return totalRev / 2;
+    return (isPrimary ? h1 : h2) / totalH * totalRev;
+  };
+
   const staffPerf = staff.filter(s => s.status === 'Active').map(s => {
     const sRate  = s.hourlyRate !== 'N/A' ? parseFloat(s.hourlyRate) : 0;
-    const sJobs  = periodBookings.filter(b => b.assignedStaff === s.name || b.secondCleaner === s.name);
-    const sHours = sJobs.reduce((t, b) => {
-      const isPrimary = b.assignedStaff === s.name;
-      const h = isPrimary ? calcHours(b.actualStart, b.actualFinish) : calcHours(b.actualStart2, b.actualFinish2);
-      return t + (h || 0);
-    }, 0);
+    const sJobs  = periodBookings.filter(b => !b.isContractVisit && (b.assignedStaff === s.name || b.secondCleaner === s.name));
+    const sContractVisits = contractVisitsInPeriod.filter(v => v.assignedStaff === s.name || v.secondCleaner === s.name);
+    const sHours = [
+      ...sJobs.map(b => {
+        const isPrimary = b.assignedStaff === s.name;
+        return isPrimary ? calcHours(b.actualStart, b.actualFinish) : calcHours(b.actualStart2, b.actualFinish2);
+      }),
+      ...sContractVisits.map(v => {
+        const isPrimary = v.assignedStaff === s.name;
+        return isPrimary ? calcHours(v.actualStart, v.actualFinish) : calcHours(v.actualStart2, v.actualFinish2);
+      }),
+    ].reduce((t, h) => t + (h || 0), 0);
     const sCost  = sHours * sRate;
-    const sRev   = sJobs.reduce((t, b) => t + collectedAmt(b), 0);
-    return { name: s.name, jobs: sJobs.length, hours: sHours, cost: sCost, rev: sRev };
+    const sRev   = sJobs.reduce((t, b) => t + revenueShare(b, collectedAmt(b), s.name), 0)
+                 + sContractVisits.reduce((t, v) => t + revenueShare(v, parseFloat(v.total || v.totalPerVisit || 0), s.name), 0);
+    return { name: s.name, jobs: sJobs.length + sContractVisits.length, hours: sHours, cost: sCost, rev: sRev };
   }).sort((a, b) => b.jobs - a.jobs);
 
   // ── Reimbursable expenses + supplies ──
@@ -235,13 +266,28 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   // ── Frequency breakdown ──
   const FREQ_ID_TO_LABEL = { 'one-off': 'One-off', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly' };
   const freqMap = {};
-  periodBookings.forEach(b => {
+  periodBookings.filter(b => !b.isContractVisit).forEach(b => {
     const f = FREQ_ID_TO_LABEL[b.frequency] || b.frequency || 'One-off';
     if (!freqMap[f]) freqMap[f] = { count: 0, rev: 0 };
     freqMap[f].count += 1;
     freqMap[f].rev   += collectedAmt(b);
   });
-  const freqBreakdown = Object.entries(freqMap).sort((a, b) => b[1].count - a[1].count);
+  // Contract visits — grouped by frequency, value only for completed visits (subtract media consent discount)
+  contractVisitsInPeriod.forEach(v => {
+    const master = bookings.find(b => b.id === v.contractId);
+    const freq   = FREQ_ID_TO_LABEL[master?.frequency] || master?.frequency || 'Contract';
+    const key    = `${freq} (Contract)`;
+    if (!freqMap[key]) freqMap[key] = { count: 0, rev: 0 };
+    freqMap[key].count += 1;
+    if (v.status === 'completed') {
+      const vBase     = parseFloat(v.pricePerVisit || v.basePerVisit || 0);
+      const vAddons   = (v.addons || []).reduce((s, a) => s + parseFloat(a.price || 0), 0);
+      const vDiscount = parseFloat(v.mediaConsentDiscount || 0);
+      freqMap[key].rev += vBase + vAddons - vDiscount;
+    }
+  });
+  const totalFreqJobs  = Object.values(freqMap).reduce((s, v) => s + v.count, 0);
+  const freqBreakdown  = Object.entries(freqMap).sort((a, b) => b[1].count - a[1].count);
 
   // ── Revenue by postcode (top 8) ──
   const postcodeMap = {};
@@ -254,13 +300,39 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const topPostcodes = Object.entries(postcodeMap).sort((a, b) => b[1].rev - a[1].rev).slice(0, 8);
   const maxPcRev     = Math.max(...topPostcodes.map(([, v]) => v.rev), 1);
 
-  // ── Profit per job (top 8) ──
-  const jobProfits = periodBookings.map(b => {
-    const rev    = collectedAmt(b);
-    const labour = bookingLabour(b);
-    const profit = rev - labour;
-    return { ref: b.bookingRef||'—', name: `${b.firstName||''} ${b.lastName||''}`.trim(), date: b.cleanDate, rev, labour, profit };
-  }).sort((a, b) => b.profit - a.profit).slice(0, 8);
+  // ── Profit per job (top 8, includes paid contract periods) ──
+  const contractVisitsByContract = {};
+  bookings.filter(b => b.isContractVisit).forEach(b => {
+    if (!contractVisitsByContract[b.contractId]) contractVisitsByContract[b.contractId] = [];
+    contractVisitsByContract[b.contractId].push(b);
+  });
+
+  const contractJobEntries = bookings.filter(b => b.isContract).flatMap(master => {
+    const payments = master.monthlyPayments || {};
+    return Object.entries(payments)
+      .filter(([key, val]) => val === 'paid' && key >= periodStart && key <= periodEnd)
+      .map(([key]) => {
+        const periodEnd2 = new Date(key + 'T12:00:00');
+        periodEnd2.setMonth(periodEnd2.getMonth() + 1);
+        periodEnd2.setDate(periodEnd2.getDate() - 1);
+        const pEnd = periodEnd2.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+        const visitsInPeriod = (contractVisitsByContract[master.id] || []).filter(v => v.cleanDate >= key && v.cleanDate <= pEnd);
+        const labour = visitsInPeriod.reduce((s, v) => s + bookingLabour(v), 0);
+        const type   = master.clientType === 'airbnb' ? 'Airbnb / Short-let' : 'Commercial Cleaning';
+        const rev    = parseFloat(master.monthlyBaseValue || 0);
+        return { ref: master.bookingRef || '—', name: `${master.bizName || master.contactName || ''} · ${type}`, date: key, rev, labour, profit: rev - labour };
+      });
+  });
+
+  const jobProfits = [
+    ...periodBookings.filter(b => !b.isContractVisit).map(b => {
+      const rev    = collectedAmt(b);
+      const labour = bookingLabour(b);
+      const profit = rev - labour;
+      return { ref: b.bookingRef||'—', name: `${b.firstName||''} ${b.lastName||''}`.trim(), date: b.cleanDate, rev, labour, profit };
+    }),
+    ...contractJobEntries,
+  ].sort((a, b) => b.profit - a.profit).slice(0, 8);
 
   // ── Tax-year-only: 12 monthly bars + MoM + supplies trend ──
   const fixedForMonth = (mS, mE) =>
@@ -279,7 +351,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const mEnd   = key === curMonthKey ? curMonthEnd : taxEnd;
     const label  = d.toLocaleString('en-GB', { month: 'short' });
     const bkgs   = activeBookings.filter(b => b.cleanDate >= mStart && b.cleanDate <= mEnd);
-    const rev      = bkgs.reduce((s, b) => s + collectedAmt(b), 0);
+    const rev      = bkgs.reduce((s, b) => s + collectedAmt(b), 0) + contractRevForWindow(mStart, mEnd);
     const lab      = bkgs.reduce((s, b) => s + bookingLabour(b), 0);
     const mktExp   = marketingSpend.filter(e => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
     const varExp   = expenses.filter(e => e.date >= mStart && e.date <= mEnd && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
@@ -300,7 +372,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     const label = new Date(calYear, i, 1).toLocaleString('en-GB', { month: 'short' });
     const isFuture = new Date(calYear, i, 1) > now;
     const bkgs = activeBookings.filter(b => b.cleanDate >= mS && b.cleanDate <= mE);
-    const rev = bkgs.reduce((s, b) => s + collectedAmt(b), 0);
+    const rev = bkgs.reduce((s, b) => s + collectedAmt(b), 0) + contractRevForWindow(mS, mE);
     const lab = bkgs.reduce((s, b) => s + bookingLabour(b), 0);
     const varExp = expenses.filter(e => e.date >= mS && e.date <= mE && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
     const supExp = supplies.filter(s => s.purchaseDate && s.purchaseDate >= mS && s.purchaseDate <= mE).reduce((s, sup) => s + (parseFloat(sup.unitCost)||0) * (Number(sup.inStock)||0), 0);
@@ -324,7 +396,9 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const momData = last12.filter(m => !m.isFuture).map(m => {
     const d       = new Date(m.key + '-01');
     const prevKey = `${d.getFullYear()-1}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const prevRev = activeBookings.filter(b => b.cleanDate?.startsWith(prevKey)).reduce((s, b) => s + collectedAmt(b), 0);
+    const prevStart = `${prevKey}-01`;
+    const prevEnd   = `${prevKey}-31`;
+    const prevRev = activeBookings.filter(b => b.cleanDate?.startsWith(prevKey)).reduce((s, b) => s + collectedAmt(b), 0) + contractRevForWindow(prevStart, prevEnd);
     const growth  = prevRev > 0 ? ((m.rev - prevRev) / prevRev) * 100 : null;
     return { label: m.label, rev: m.rev, prevRev, growth };
   });
@@ -632,12 +706,13 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
       {/* Staff performance */}
       {staffPerf.length > 0 && staff.filter(s => s.status === 'Active').length > 0 && (
         <div style={{ ...RCARD, marginBottom: 16 }}>
-          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 14 }}>Staff Performance — {periodLabel}</div>
+          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Staff Performance — {periodLabel}</div>
+          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 14 }}>Cost % = for every £1 of revenue this cleaner brought in, how much did I pay them?</div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT, fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: `2px solid ${C.border}` }}>
-                  {['Cleaner','Jobs','Hours Worked','Subcontractor Cost','Revenue Generated','Cost %'].map(h => (
+                  {['Cleaner','Jobs','Hours Worked','Subcontractor Cost','Revenue Generated / Value','Cost %'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '6px 10px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted }}>{h}</th>
                   ))}
                 </tr>
@@ -812,8 +887,8 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
                   <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#16a34a' }}>£{rev.toFixed(2)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{count} job{count !== 1 ? 's' : ''} · avg £{(rev/count).toFixed(2)}</span>
-                  <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{periodBookings.length > 0 ? `${((count/periodBookings.length)*100).toFixed(0)}% of jobs` : ''}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{count} job{count !== 1 ? 's' : ''}{rev > 0 ? ` · avg £${(rev/count).toFixed(2)}` : ''}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{totalFreqJobs > 0 ? `${((count/totalFreqJobs)*100).toFixed(0)}% of all visits` : ''}</span>
                 </div>
               </div>
             ))
