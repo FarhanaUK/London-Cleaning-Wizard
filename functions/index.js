@@ -3730,3 +3730,63 @@ exports.sendContractRenewalEmails = onSchedule({ schedule: 'every day 09:00', se
   }
 });
 
+// ── Contract payment reminder — runs daily at 9am, sends email 7 days before payment due ──
+exports.sendContractPaymentReminders = onSchedule({ schedule: 'every day 09:00', secrets: [EMAILJS_KEY] }, async () => {
+  const template = process.env.EMAILJS_PAYMENT_REMINDER_TEMPLATE;
+  if (!template) return;
+
+  const db      = admin.firestore();
+  const today   = new Date();
+  const target  = new Date(today);
+  target.setDate(target.getDate() + 7);
+  const targetStr = target.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+  const snap = await db.collection('bookings')
+    .where('isContract', '==', true)
+    .get();
+
+  const fmtD = s => { const [y,m,d] = s.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); };
+
+  for (const doc of snap.docs) {
+    const b = doc.data();
+    if (b.status?.startsWith('cancelled')) continue;
+    if (b.contractEndDate && b.contractEndDate < targetStr) continue;
+
+    // Work out the next unpaid period start date
+    const paidKeys = Object.keys(b.monthlyPayments || {}).filter(k => b.monthlyPayments[k] === 'paid').sort();
+    let nextDue;
+    if (paidKeys.length === 0) {
+      nextDue = b.contractStartDate || b.cleanDate;
+    } else {
+      const last = new Date(paidKeys[paidKeys.length - 1] + 'T12:00:00');
+      last.setMonth(last.getMonth() + 1);
+      nextDue = last.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    }
+
+    if (nextDue !== targetStr) continue;
+    if (b.paymentReminderSentFor === nextDue) continue; // already sent for this period
+
+    const name         = b.contactName || b.firstName || b.bizName || '';
+    const businessName = b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
+    const amount       = `£${parseFloat(b.monthlyBaseValue || 0).toFixed(2)}`;
+
+    try {
+      await sendEmail(template, {
+        to_name:       name,
+        to_email:      b.email,
+        business_name: businessName,
+        booking_ref:   b.bookingRef || '',
+        service:       b.packageName || b.contractLabel || '',
+        frequency:     b.frequencyLabel || b.frequency || '',
+        amount,
+        due_date:      fmtD(nextDue),
+      }, EMAILJS_KEY.value());
+
+      await doc.ref.update({ paymentReminderSentFor: nextDue, paymentReminderSentAt: new Date().toISOString() });
+      console.log(`[contractReminder] Sent payment reminder for contract ${doc.id} (${businessName}), due ${nextDue}`);
+    } catch (e) {
+      console.error(`[contractReminder] Failed for ${doc.id}:`, e.message);
+    }
+  }
+});
+

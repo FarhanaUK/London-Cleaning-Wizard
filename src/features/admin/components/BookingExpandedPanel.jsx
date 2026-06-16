@@ -380,6 +380,7 @@ export default function BookingExpandedPanel({
                         <div style={{ fontFamily: FONT, fontSize: 13, color: isFailed ? C.danger : C.text, fontWeight: isCur ? 600 : 400 }}>{label}</div>
                         {isCur && !isFailed && <span style={{ fontFamily: FONT, fontSize: 10, color: '#92400e', fontWeight: 600, background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>This month</span>}
                         {isFailed && <span style={{ fontFamily: FONT, fontSize: 10, color: '#991b1b', fontWeight: 600, background: '#fee2e2', padding: '1px 6px', borderRadius: 4 }}>Payment failed</span>}
+                        {b.paymentReminderSentFor === m && !isPaid && <span style={{ fontFamily: FONT, fontSize: 10, color: '#1d4ed8', fontWeight: 500, background: '#eff6ff', padding: '1px 6px', borderRadius: 4 }}>Reminder sent</span>}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         {charge > 0 && <div style={{ fontFamily: FONT, fontSize: 12, color: isFailed ? C.danger : C.muted }}>£{charge.toFixed(2)}</div>}
