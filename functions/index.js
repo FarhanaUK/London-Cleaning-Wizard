@@ -3730,6 +3730,64 @@ exports.sendContractRenewalEmails = onSchedule({ schedule: 'every day 09:00', se
   }
 });
 
+// ── Contract renewal confirmation — runs daily at 9am, fires on day 1 of new term ──
+exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:00', secrets: [EMAILJS_KEY] }, async () => {
+  const template = process.env.EMAILJS_CONTRACT_RENEWAL_CONFIRMATION_TEMPLATE;
+  if (!template) return;
+
+  const db       = admin.firestore();
+  const today    = new Date();
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+  // Find contracts whose end date was yesterday — today is day 1 of the new term
+  const snap = await db.collection('bookings')
+    .where('isContract', '==', true)
+    .where('contractEndDate', '==', yesterdayStr)
+    .get();
+
+  const fmtD = s => { const [y,m,d] = s.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); };
+
+  for (const doc of snap.docs) {
+    const b = doc.data();
+    if (b.status?.startsWith('cancelled')) continue;
+    if (b.renewalConfirmationSent) continue;
+
+    const name         = b.contactName || b.firstName || b.bizName || '';
+    const businessName = b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
+
+    // Calculate original duration in months
+    const startD    = new Date((b.contractStartDate || b.cleanDate) + 'T12:00:00');
+    const endD      = new Date(b.contractEndDate + 'T12:00:00');
+    const durationMonths = (endD.getFullYear() - startD.getFullYear()) * 12 + (endD.getMonth() - startD.getMonth());
+
+    // New end date = old end date + same duration
+    const newEndD = new Date(endD); newEndD.setMonth(newEndD.getMonth() + durationMonths);
+    const newEndStr = newEndD.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+    const monthlyAmount = `£${parseFloat(b.monthlyBaseValue || 0).toFixed(2)}`;
+
+    try {
+      await sendEmail(template, {
+        to_name:          name,
+        to_email:         b.email,
+        business_name:    businessName,
+        booking_ref:      b.bookingRef || '',
+        service:          b.packageName || b.contractLabel || '',
+        frequency:        b.frequencyLabel || b.frequency || '',
+        extension_months: String(durationMonths),
+        new_end_date:     fmtD(newEndStr),
+        monthly_amount:   monthlyAmount,
+      }, EMAILJS_KEY.value());
+
+      await doc.ref.update({ renewalConfirmationSent: true, renewalConfirmationSentAt: new Date().toISOString() });
+      console.log(`[contractRenewalConfirm] Sent for ${doc.id} (${businessName}), new end ${newEndStr}`);
+    } catch (e) {
+      console.error(`[contractRenewalConfirm] Failed for ${doc.id}:`, e.message);
+    }
+  }
+});
+
 // ── Contract payment reminder — runs daily at 9am, sends email 7 days before payment due ──
 exports.sendContractPaymentReminders = onSchedule({ schedule: 'every day 09:00', secrets: [EMAILJS_KEY] }, async () => {
   const template = process.env.EMAILJS_PAYMENT_REMINDER_TEMPLATE;
