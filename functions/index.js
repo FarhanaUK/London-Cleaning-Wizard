@@ -3768,7 +3768,23 @@ exports.sendContractPaymentReminders = onSchedule({ schedule: 'every day 09:00',
 
     const name         = b.contactName || b.firstName || b.bizName || '';
     const businessName = b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
-    const amount       = `£${parseFloat(b.monthlyBaseValue || 0).toFixed(2)}`;
+    const fixedBase    = parseFloat(b.monthlyBaseValue || 0);
+
+    // Previous period = the period just before nextDue (already closed)
+    const nextDueDate  = new Date(nextDue + 'T12:00:00');
+    const prevEnd      = new Date(nextDueDate); prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart    = new Date(nextDueDate); prevStart.setMonth(prevStart.getMonth() - 1);
+    const prevStartStr = prevStart.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    const prevEndStr   = prevEnd.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+    const visitsSnap   = await db.collection('bookings').where('contractId', '==', doc.id).get();
+    const prevAddons   = visitsSnap.docs
+      .map(d => d.data())
+      .filter(v => v.cleanDate >= prevStartStr && v.cleanDate <= prevEndStr)
+      .reduce((s, v) => s + parseFloat(v.addonTotal || 0), 0);
+
+    const totalAmount  = fixedBase + prevAddons;
+    const amount       = `£${totalAmount.toFixed(2)}`;
 
     try {
       await sendEmail(template, {
