@@ -1121,64 +1121,131 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     const visitsSnap = await db.collection('bookings').where('contractId', '==', snap.id).get();
     const contractVisits = visitsSnap.docs.map(d => ({ ref: d.ref, ...d.data() }));
 
+    const today         = new Date();
+    const contractStart = new Date((b.contractStartDate || b.cleanDate) + 'T12:00:00');
+    const daysSince     = Math.floor((today - contractStart) / (1000 * 60 * 60 * 24));
+    const hasCleans     = contractVisits.some(v => v.status === 'completed');
+
     const payments       = b.monthlyPayments       || {};
     const paymentIntents = b.monthlyPaymentIntents  || {};
-    const paidKeys       = Object.keys(payments).filter(k => k !== 'final_settlement' && payments[k] === 'paid');
+    const paidKeys       = Object.keys(payments)
+      .filter(k => k !== 'final_settlement' && payments[k] === 'paid')
+      .sort();
 
-    let totalRefundAmt   = 0;
+    const monthlyBase = parseFloat(b.monthlyBaseValue || 0);
+
+    let totalMonths = 0;
+    if (b.contractEndDate) {
+      const endDate = new Date(b.contractEndDate + 'T12:00:00');
+      totalMonths = (endDate.getFullYear() - contractStart.getFullYear()) * 12 + (endDate.getMonth() - contractStart.getMonth());
+    }
+    const unpaidMonths = Math.max(0, totalMonths - paidKeys.length);
+
+    const getPeriodEnd = key => {
+      const e = new Date(key + 'T12:00:00'); e.setMonth(e.getMonth() + 1); e.setDate(e.getDate() - 1);
+      return e.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    };
+    const getPeriodBasis = async key => {
+      if (paymentIntents[key]) {
+        try { const pi = await stripe.paymentIntents.retrieve(paymentIntents[key]); return { basis: pi.amount / 100, hasPI: true }; } catch (e) { console.error(`PI retrieve failed for ${key}:`, e.message); }
+      }
+      const basis = key === (b.contractStartDate || b.cleanDate) ? parseFloat(b.firstMonthCharge || b.monthlyBaseValue || 0) : monthlyBase;
+      return { basis, hasPI: false };
+    };
+
+    let refundAmt    = 0;
+    let chargeAmt    = 0;
+    let tier         = 3;
     let uncompletedCount = 0;
+    const summaryLines = [];
 
-    for (const key of paidKeys) {
-      const nextDate = new Date(key + 'T12:00:00');
-      nextDate.setMonth(nextDate.getMonth() + 1);
-      const periodEnd    = new Date(nextDate); periodEnd.setDate(periodEnd.getDate() - 1);
-      const periodEndStr = periodEnd.toISOString().slice(0, 10);
+    // ── Tier 1: ≤14 days, no cleans → full refund ────────────────
+    if (!hasCleans && daysSince <= 14) {
+      tier = 1;
+      for (const key of paidKeys) {
+        const { basis, hasPI } = await getPeriodBasis(key);
+        if (basis > 0 && hasPI) {
+          try { await stripe.refunds.create({ payment_intent: paymentIntents[key], amount: Math.round(basis * 100), reason: 'requested_by_customer' }); } catch (e) { if (!e.message?.includes('already been refunded')) console.error(`Tier 1 refund failed for ${key}:`, e.message); }
+        }
+        refundAmt += basis;
+      }
+      summaryLines.push(`Tier 1: cancelled within 14 days, no cleans. Full refund of £${refundAmt.toFixed(2)}.`);
 
-      const allInPeriod       = contractVisits.filter(v => v.cleanDate >= key && v.cleanDate <= periodEndStr && !v.status?.startsWith('cancelled'));
-      const periodUncompleted = allInPeriod.filter(v => v.status !== 'completed');
-      uncompletedCount += periodUncompleted.length;
-
-      if (periodUncompleted.length > 0 && allInPeriod.length > 0) {
-        // Use the actual amount charged from Stripe so discounts (media consent etc.) are reflected
-        let periodBasis = 0;
-        let hasPI = false;
-        if (paymentIntents[key]) {
-          try {
-            const pi = await stripe.paymentIntents.retrieve(paymentIntents[key]);
-            periodBasis = pi.amount / 100;
-            hasPI = true;
-          } catch (e) {
-            console.error(`Could not retrieve PI for period ${key}:`, e.message);
+    // ── Tier 2: >14 days, no cleans → £75 admin fee ──────────────
+    } else if (!hasCleans && daysSince > 14) {
+      tier = 2;
+      let totalPaid = 0;
+      for (const key of paidKeys) { const { basis } = await getPeriodBasis(key); totalPaid += basis; }
+      const netRefund = Math.max(0, totalPaid - 75);
+      refundAmt = netRefund;
+      if (netRefund > 0 && paidKeys.length > 0 && paymentIntents[paidKeys[0]]) {
+        try { await stripe.refunds.create({ payment_intent: paymentIntents[paidKeys[0]], amount: Math.round(netRefund * 100), reason: 'requested_by_customer' }); } catch (e) { if (!e.message?.includes('already been refunded')) console.error(`Tier 2 refund failed:`, e.message); }
+      }
+      if (totalPaid === 0 && b.stripeCustomerId) {
+        try {
+          const pms = await stripe.paymentMethods.list({ customer: b.stripeCustomerId, type: 'card' });
+          const pm = pms.data[0];
+          if (pm) {
+            await stripe.paymentIntents.create({ amount: 7500, currency: 'gbp', customer: b.stripeCustomerId, payment_method: pm.id, confirm: true, off_session: true, metadata: { contractId: snap.id, type: 'admin_fee_tier2' } });
+            chargeAmt = 75;
           }
-        }
-        // Fallback: use the booking's recorded monthly value (for manually-marked paid periods)
-        if (!periodBasis) {
-          periodBasis = key === b.contractStartDate
-            ? parseFloat(b.firstMonthCharge || b.monthlyBaseValue || 0)
-            : parseFloat(b.monthlyBaseValue || 0);
-        }
-        if (periodBasis > 0) {
-          const periodPence = Math.round((periodUncompleted.length / allInPeriod.length) * periodBasis * 100);
-          totalRefundAmt   += periodPence / 100;
+        } catch (e) { console.error('Tier 2 admin fee charge failed:', e.message); }
+      }
+      summaryLines.push(`Tier 2: cancelled after 14 days, no cleans. £75 admin fee deducted. Refund: £${refundAmt.toFixed(2)}.`);
+
+    // ── Tier 3: cleans done → termination fee + unpaid add-ons ──
+    } else {
+      tier = 3;
+
+      // Step 1: Refund unserved visits in last paid month only
+      if (paidKeys.length > 0) {
+        const lastKey = paidKeys[paidKeys.length - 1];
+        const lastEnd = getPeriodEnd(lastKey);
+        const inLast  = contractVisits.filter(v => v.cleanDate >= lastKey && v.cleanDate <= lastEnd && !v.status?.startsWith('cancelled'));
+        const unservedInLast = inLast.filter(v => v.status !== 'completed');
+        uncompletedCount = unservedInLast.length;
+        if (unservedInLast.length > 0 && inLast.length > 0) {
+          const { basis, hasPI } = await getPeriodBasis(lastKey);
+          const periodRefundAmt = (unservedInLast.length / inLast.length) * basis;
+          refundAmt += periodRefundAmt;
           if (hasPI) {
-            try {
-              await stripe.refunds.create({ payment_intent: paymentIntents[key], amount: periodPence, reason: 'requested_by_customer' });
-            } catch (e) {
-              if (!e.message?.includes('already been refunded')) console.error(`Contract refund failed for period ${key}:`, e.message);
-            }
+            try { await stripe.refunds.create({ payment_intent: paymentIntents[lastKey], amount: Math.round(periodRefundAmt * 100), reason: 'requested_by_customer' }); } catch (e) { if (!e.message?.includes('already been refunded')) console.error(`Tier 3 refund failed for ${lastKey}:`, e.message); }
           }
-          // If no PI, the refund is logged in the response and must be processed manually in Stripe
+          summaryLines.push(`Refund £${periodRefundAmt.toFixed(2)} for ${unservedInLast.length} unserved visit${unservedInLast.length !== 1 ? 's' : ''} in last paid month.`);
         }
+      }
+
+      // Step 2: Add-ons from completed visits in unpaid periods
+      const unpaidPeriodAddons = contractVisits
+        .filter(v => v.status === 'completed' && !paidKeys.some(k => v.cleanDate >= k && v.cleanDate <= getPeriodEnd(k)))
+        .reduce((s, v) => s + parseFloat(v.addonTotal || 0), 0);
+
+      // Step 3: 50% termination fee on unpaid months base
+      const termFee = 0.5 * unpaidMonths * monthlyBase;
+      chargeAmt = termFee + unpaidPeriodAddons;
+
+      summaryLines.push(`Early termination fee: £${termFee.toFixed(2)} (50% x ${unpaidMonths} unpaid month${unpaidMonths !== 1 ? 's' : ''} x £${monthlyBase.toFixed(2)} base).`);
+      if (unpaidPeriodAddons > 0) summaryLines.push(`Add-ons from completed visits in unpaid periods: £${unpaidPeriodAddons.toFixed(2)}.`);
+
+      if (chargeAmt > 0 && b.stripeCustomerId) {
+        try {
+          const pms = await stripe.paymentMethods.list({ customer: b.stripeCustomerId, type: 'card' });
+          const pm = pms.data[0];
+          if (pm) {
+            await stripe.paymentIntents.create({
+              amount: Math.round(chargeAmt * 100), currency: 'gbp',
+              customer: b.stripeCustomerId, payment_method: pm.id,
+              confirm: true, off_session: true,
+              metadata: { contractId: snap.id, bookingRef: b.bookingRef || '', type: 'early_termination_fee', termFee: termFee.toFixed(2), unpaidAddons: unpaidPeriodAddons.toFixed(2) },
+            });
+          }
+        } catch (e) { console.error('Tier 3 termination charge failed:', e.message); }
       }
     }
 
-    const refundAmt = totalRefundAmt;
-    const status    = refundAmt > 0 ? 'cancelled_partial_refund' : 'cancelled_no_refund';
-
-    // Cancel all non-completed, non-cancelled visits (past and future)
+    // Cancel all non-completed, non-cancelled visits
     try {
-      const batch     = db.batch();
-      let   batchSize = 0;
+      const batch = db.batch(); let batchSize = 0;
       for (const v of contractVisits) {
         if (v.status !== 'completed' && !v.status?.startsWith('cancelled')) {
           batch.update(v.ref, { status: 'cancelled_no_refund', cancelledAt: new Date(), cancellationReason: 'Contract cancelled' });
@@ -1188,30 +1255,38 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
       if (batchSize > 0) await batch.commit();
     } catch (e) { console.error('Failed to cancel contract visits:', e.message); }
 
-    await snap.ref.update({ status, cancelledAt: new Date(), cancellationReason: clean(reason||''), refundAmount: refundAmt });
+    const status = refundAmt > 0 ? 'cancelled_partial_refund' : 'cancelled_no_refund';
+    await snap.ref.update({ status, cancelledAt: new Date(), cancellationReason: clean(reason||''), refundAmount: refundAmt, chargeAmount: chargeAmt, cancellationTier: tier });
 
     // Send cancellation emails
     try {
-      const name     = b.contactName || b.bizName || b.firstName || '';
-      const refundMsg = refundAmt > 0
-        ? `A refund of £${refundAmt.toFixed(2)} has been issued for ${uncompletedCount} uncompleted visit${uncompletedCount !== 1 ? 's' : ''} and will be returned to your original payment method within 5–10 business days.`
-        : paidKeys.length === 0
-          ? 'No payment was collected — no refund required.'
-          : 'All scheduled visits in paid periods were completed — no refund required.';
+      const name = b.contactName || b.bizName || b.firstName || '';
+      let refundMsg = '';
+      if (tier === 1) {
+        refundMsg = `A full refund of £${refundAmt.toFixed(2)} has been issued and will be returned to your original payment method within 5–10 business days.`;
+      } else if (tier === 2) {
+        refundMsg = `A £75 administration fee applies. ${refundAmt > 0 ? `Remaining balance of £${refundAmt.toFixed(2)} will be refunded within 5–10 business days.` : 'No further refund is applicable.'}`;
+      } else {
+        refundMsg = uncompletedCount > 0
+          ? `A refund of £${refundAmt.toFixed(2)} has been issued for ${uncompletedCount} unserved visit${uncompletedCount !== 1 ? 's' : ''} in your last paid month.`
+          : 'All visits in paid periods were completed — no refund applies.';
+        if (chargeAmt > 0) refundMsg += ` An early termination charge of £${chargeAmt.toFixed(2)} will be applied to your saved payment method.`;
+      }
       const cancelData = {
         booking_ref:    b.bookingRef || snap.id,
         package_name:   b.contractLabel || 'Contract Cleaning',
-        date:           b.contractStartDate?.split('-').reverse().join('/') || '—',
+        date:           (b.contractStartDate || b.cleanDate)?.split('-').reverse().join('/') || '—',
         time:           b.cleanTime || '—',
         address:        `${b.addr1||''}, ${b.postcode||''}`.trim().replace(/^,\s*/, ''),
-        refund_amount:  refundAmt > 0 ? `£${refundAmt.toFixed(2)}` : 'No refund',
+        refund_amount:  refundAmt > 0 ? `£${refundAmt.toFixed(2)}` : chargeAmt > 0 ? `£${chargeAmt.toFixed(2)} charge` : 'No refund',
         refund_message: refundMsg,
       };
       await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE, { ...cancelData, to_name: name, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
-      await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE, { ...cancelData, to_email: 'bookings@londoncleaningwizard.com', customer_name: name, customer_email: b.email, customer_phone: b.phone||'', notice_given: `Contract cancelled — ${uncompletedCount} uncompleted visit${uncompletedCount !== 1 ? 's' : ''}, £${refundAmt.toFixed(2)} refunded` }, EMAILJS_KEY.value()).catch(() => {});
+      const adminNotice = [`Tier ${tier} cancellation.`, ...summaryLines, uncompletedCount > 0 ? `${uncompletedCount} uncompleted visit${uncompletedCount !== 1 ? 's' : ''}.` : ''].filter(Boolean).join(' ');
+      await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE, { ...cancelData, to_email: 'bookings@londoncleaningwizard.com', customer_name: name, customer_email: b.email, customer_phone: b.phone||'', notice_given: adminNotice }, EMAILJS_KEY.value()).catch(() => {});
     } catch (e) { console.error('Contract cancel email failed:', e.message); }
 
-    res.json({ success: true, status, refundAmount: refundAmt }); return;
+    res.json({ success: true, status, refundAmount: refundAmt, chargeAmount: chargeAmt, tier }); return;
   }
 
   // ── Standard booking cancellation ───────────────────────────

@@ -901,11 +901,26 @@ export default function SOPTab({ isMobile, C }) {
           </div>
         ))}
 
-        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '14px 0 8px' }}>Step 2: Early termination fee on remaining unpaid months</div>
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '14px 0 8px' }}>Step 2: Charge add-ons from completed visits in unpaid months</div>
+        {[
+          'Check whether any completed visits fall within months that have NOT yet been paid.',
+          'These are services already delivered — the customer owes for the add-ons even though the monthly payment hasn\'t been taken yet.',
+          'Add up the addonTotal from each of those completed visits.',
+          'This amount is charged separately to the customer\'s saved card via Stripe.',
+          'Example: customer had an oven clean (£45) in an unpaid month — they owe £45 regardless of cancellation.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '14px 0 8px' }}>Step 3: Early termination fee on remaining unpaid months</div>
         {[
           'Count the number of months remaining in the contract that have NOT yet been paid.',
           'Early termination fee = 50% × (remaining unpaid months × monthly base rate, excluding add-ons).',
           'Example: 4 unpaid months remain at £320/month base. Fee = 50% × (4 × £320) = £640.',
+          'This is charged to the customer\'s saved card via Stripe as a single transaction alongside the Step 2 add-ons.',
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
             <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
@@ -913,20 +928,18 @@ export default function SOPTab({ isMobile, C }) {
           </div>
         ))}
 
-        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '14px 0 8px' }}>Step 3: Net settlement</div>
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '14px 0 8px' }}>Step 4: Settlement summary</div>
         {[
-          'If the Step 1 refund is greater than the Step 2 fee: pay the difference to the customer.',
-          'If the Step 2 fee is greater than the Step 1 refund: charge the difference to the customer via Stripe.',
+          'The Step 1 refund is processed against the original payment — returned to the customer\'s original payment method.',
+          'The Step 2 + Step 3 charges are processed as a new charge to the customer\'s saved card.',
+          'These are two separate Stripe transactions. The admin panel shows the net for your reference but Stripe processes them independently.',
+          'Example: £160 refund for unserved visits. £45 add-ons + £640 termination fee = £685 charged. Customer receives £160 back and is charged £685 separately.',
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
             <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
             <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
           </div>
         ))}
-
-        <div style={{ background: '#fef9ef', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', marginTop: 12, fontFamily: FONT, fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
-          <strong>Verify before automating:</strong> This calculation was agreed in principle but has not yet been confirmed by a financial or legal advisor. Before the system handles this automatically, confirm the per-visit refund formula is correct and the 50% early termination fee is enforceable under the contract Terms and Conditions. Review once the T&Cs contract section has been drafted.
-        </div>
       </Section>
     </div>
   );
