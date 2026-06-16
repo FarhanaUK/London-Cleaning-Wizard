@@ -3633,6 +3633,132 @@ exports.markContractMonthPaid = onRequest({ secrets: [EMAILJS_KEY] }, async (req
   res.json({ success: true, amount });
 });
 
+// ── Contract type upgrade — extends end date, generates new visits, sends email ──
+exports.upgradeContract = onRequest({ secrets: [EMAILJS_KEY] }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId, newContractType, newContractLabel, newMonths, newMonthlyRate } = req.body;
+  if (!bookingId || !newMonths || !newMonthlyRate) { res.status(400).json({ error: 'Missing required fields.' }); return; }
+
+  const db   = admin.firestore();
+  const snap = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) { res.status(404).json({ error: 'Booking not found.' }); return; }
+  const b = snap.data();
+  if (!b.isContract) { res.status(400).json({ error: 'Not a contract.' }); return; }
+
+  const today      = new Date();
+  const todayStr   = today.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+  const newEndD    = new Date(today); newEndD.setMonth(newEndD.getMonth() + parseInt(newMonths));
+  const newEndStr  = newEndD.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+  const oldEndStr  = b.contractEndDate;
+
+  // Generate visits from day after old end date to new end date
+  const genStart   = (() => { const d = new Date(oldEndStr + 'T12:00:00'); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA', { timeZone: 'Europe/London' }); })();
+  const freq       = b.frequency || '';
+
+  const genVisitDates = (startDate, endDate, freq) => {
+    const dates = []; const end = new Date(endDate + 'T12:00:00'); let d = new Date(startDate + 'T12:00:00');
+    if (freq === 'daily')        { while (d <= end) { if (d.getDay() >= 1 && d.getDay() <= 5) dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 1); } }
+    else if (freq === 'thrice')  { while (d <= end) { if ([1,3,5].includes(d.getDay())) dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 1); } }
+    else if (freq === 'twice')   { while (d <= end) { if ([1,4].includes(d.getDay())) dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 1); } }
+    else if (freq === 'weekly')  { while (d <= end) { dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 7); } }
+    else if (freq === 'fortnightly') { while (d <= end) { dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 14); } }
+    else if (freq === 'monthly') { while (d <= end) { dates.push(d.toLocaleDateString('en-CA')); d.setMonth(d.getMonth() + 1); } }
+    return dates;
+  };
+
+  // Get last visit as template
+  const visitsSnap     = await db.collection('bookings').where('contractId', '==', bookingId).get();
+  const existingVisits = visitsSnap.docs.map(d => d.data()).sort((a,z) => a.cleanDate.localeCompare(z.cleanDate));
+  const lastVisit      = existingVisits[existingVisits.length - 1];
+
+  let visitCount = 0;
+  if (lastVisit && genStart <= newEndStr) {
+    let actualStart = genStart;
+    if (['weekly', 'fortnightly', 'monthly'].includes(freq) && lastVisit.cleanDate) {
+      const ld = new Date(lastVisit.cleanDate + 'T12:00:00');
+      if (freq === 'weekly')      ld.setDate(ld.getDate() + 7);
+      else if (freq === 'fortnightly') ld.setDate(ld.getDate() + 14);
+      else if (freq === 'monthly')     ld.setMonth(ld.getMonth() + 1);
+      actualStart = ld.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    }
+
+    const newDates = genVisitDates(actualStart, newEndStr, freq);
+    const { cleanDate: _cd, status: _st, createdAt: _ca, updatedAt: _ua, calendarEventId: _ev, ...visitTemplate } = lastVisit;
+    const now = new Date().toISOString();
+
+    const batch = db.batch();
+    const newRefs = newDates.map(date => {
+      const ref = db.collection('bookings').doc();
+      batch.set(ref, { ...visitTemplate, cleanDate: date, status: 'scheduled', createdAt: now, updatedAt: now });
+      return { ref, date };
+    });
+    await batch.commit();
+    visitCount = newDates.length;
+
+    try {
+      const cal = await getCalendarClient();
+      for (const { ref, date } of newRefs) {
+        const slotStart = toUTCISO(date, visitTemplate.cleanTime || '9:00 AM');
+        const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+        const calEvent  = await cal.events.insert({
+          calendarId: process.env.GOOGLE_CALENDAR_ID,
+          resource: {
+            summary: `${visitTemplate.packageName || 'Contract Visit'} — ${visitTemplate.bizName || ''}`,
+            description: [
+              `Ref: ${b.bookingRef || ''}`, `Business: ${visitTemplate.bizName || ''}`,
+              `Contact: ${visitTemplate.firstName || ''} ${visitTemplate.lastName || ''}`,
+              `Email: ${visitTemplate.email || ''}`, `Phone: ${visitTemplate.phone || ''}`,
+              `Address: ${visitTemplate.addr1 || ''}`, `Cleaners: ${visitTemplate.numCleaners || 1}`,
+              `Duration: ${visitTemplate.visitDurationBase || '—'}h`,
+              `Add-ons: ${(visitTemplate.addons || []).map(a => a.name).join(', ') || 'None'}`,
+              `Cleaner: ${visitTemplate.assignedStaff || 'Unassigned'}`,
+              `Keys: ${visitTemplate.keys || 'N/A'}`, `Parking: ${visitTemplate.parking || '—'}`,
+              `↑ Auto-generated on contract upgrade`,
+            ].join('\n'),
+            start: { dateTime: slotStart, timeZone: 'Europe/London' },
+            end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
+            colorId: '5',
+          },
+        });
+        await ref.update({ calendarEventId: calEvent.data.id });
+      }
+    } catch (calErr) {
+      console.error(`[upgradeContract] Calendar events failed:`, calErr.message);
+    }
+  }
+
+  // Update master contract
+  await snap.ref.update({
+    contractEndDate:  newEndStr,
+    contractType:     newContractType || b.contractType,
+    contractLabel:    newContractLabel || b.contractLabel,
+    monthlyBaseValue: parseFloat(newMonthlyRate),
+    updatedAt:        new Date().toISOString(),
+  });
+
+  // Send upgrade confirmation email
+  const fmtD = s => { const [y,m,d] = s.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); };
+  const name         = b.contactName || b.firstName || b.bizName || '';
+  const businessName = b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
+  const template     = process.env.EMAILJS_CONTRACT_UPGRADE_TEMPLATE;
+  if (template) {
+    await sendEmail(template, {
+      to_name:       name,
+      to_email:      b.email,
+      business_name: businessName,
+      booking_ref:   b.bookingRef || '',
+      service:       b.packageName || b.contractLabel || '',
+      frequency:     b.frequencyLabel || b.frequency || '',
+      old_contract:  b.contractLabel || '',
+      new_contract:  newContractLabel || '',
+      new_end_date:  fmtD(newEndStr),
+      monthly_amount: `£${parseFloat(newMonthlyRate).toFixed(2)}`,
+    }, EMAILJS_KEY.value()).catch(e => console.error('[upgradeContract] Email failed:', e.message));
+  }
+
+  res.json({ success: true, newEndDate: newEndStr, visitsGenerated: visitCount });
+});
+
 // ── Assign booking ref to a contract master (LCW-XXXXXX format) ─────────────
 exports.assignContractRef = onRequest(async (req, res) => {
   if (!guard(req, res)) return;

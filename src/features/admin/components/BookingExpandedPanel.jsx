@@ -46,7 +46,40 @@ export default function BookingExpandedPanel({
   const [sigTouchOptingOut, setSigTouchOptingOut] = useState(false);
   const [sigTouchNote,      setSigTouchNote]      = useState('');
   const [sigTouchOtherNote, setSigTouchOtherNote] = useState('');
-  const [cancelModal, setCancelModal] = useState(null);
+  const [cancelModal,  setCancelModal]  = useState(null);
+  const [upgradeModal, setUpgradeModal] = useState(null); // { newType, newLabel, newMonths, newRate, newEndDate }
+  const [upgrading,    setUpgrading]    = useState(false);
+  const [upgradeErr,   setUpgradeErr]   = useState('');
+
+  const CONTRACT_OPTIONS = [
+    { id: 'monthly', label: 'Monthly rolling',  months: 1  },
+    { id: '3mo',     label: '3-month',          months: 3  },
+    { id: '6mo',     label: '6-month',          months: 6  },
+    { id: 'annual',  label: 'Annual contract',  months: 12 },
+  ];
+  const currentMonths = CONTRACT_OPTIONS.find(c => c.id === b.contractType)?.months || 0;
+  const upgradeOptions = CONTRACT_OPTIONS.filter(c => c.months > currentMonths);
+
+  const calcUpgradeEndDate = months => {
+    const d = new Date(); d.setMonth(d.getMonth() + months);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+  };
+
+  const handleUpgradeContract = async () => {
+    if (!upgradeModal?.newType || !upgradeModal?.newRate) { setUpgradeErr('Select a contract type and enter the new monthly rate.'); return; }
+    setUpgrading(true); setUpgradeErr('');
+    try {
+      const res = await fetch(import.meta.env.VITE_CF_UPGRADE_CONTRACT, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: b.id, newContractType: upgradeModal.newType, newContractLabel: upgradeModal.newLabel, newMonths: upgradeModal.newMonths, newMonthlyRate: upgradeModal.newRate }),
+      });
+      if (!res.ok) throw new Error('Upgrade failed.');
+      const data = await res.json();
+      setBookings(all => all.map(x => x.id === b.id ? { ...x, contractEndDate: data.newEndDate, contractType: upgradeModal.newType, contractLabel: upgradeModal.newLabel, monthlyBaseValue: parseFloat(upgradeModal.newRate) } : x));
+      setUpgradeModal(null);
+    } catch (e) { setUpgradeErr(e.message); }
+    setUpgrading(false);
+  };
 
   const buildContractCancelInfo = () => {
     const today       = new Date();
@@ -974,6 +1007,15 @@ export default function BookingExpandedPanel({
           </button>
         )}
 
+        {/* Contract upgrade */}
+        {b.isContract && !isCancelled && upgradeOptions.length > 0 && (
+          <button
+            onClick={() => { setUpgradeErr(''); setUpgradeModal({ newType: '', newLabel: '', newMonths: 0, newRate: b.monthlyBaseValue || '', newEndDate: '' }); }}
+            style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: '#1d4ed8', border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
+            ↑ Upgrade Contract
+          </button>
+        )}
+
         {/* Cancel */}
         {!isCancelled && b.status !== 'fully_paid' && (
           <button
@@ -1015,6 +1057,59 @@ export default function BookingExpandedPanel({
                 </button>
                 <button
                   onClick={() => setCancelModal(null)}
+                  style={{ flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '10px 0', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer' }}>
+                  Go Back
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Contract upgrade modal */}
+        {upgradeModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 420, width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
+              <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 }}>Upgrade Contract</div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 20 }}>Current: {b.contractLabel || b.contractType || '—'}</div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>New contract type</div>
+                <select
+                  value={upgradeModal.newType}
+                  onChange={e => {
+                    const opt = CONTRACT_OPTIONS.find(c => c.id === e.target.value);
+                    if (!opt) return;
+                    const newEndDate = calcUpgradeEndDate(opt.months);
+                    setUpgradeModal(m => ({ ...m, newType: opt.id, newLabel: opt.label, newMonths: opt.months, newEndDate }));
+                  }}
+                  style={{ width: '100%', padding: '8px 10px', fontFamily: FONT, fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 6, background: C.bg, color: C.text }}>
+                  <option value=''>Select…</option>
+                  {upgradeOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>New monthly base rate (£)</div>
+                <input
+                  type='number' step='0.01' value={upgradeModal.newRate}
+                  onChange={e => setUpgradeModal(m => ({ ...m, newRate: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 10px', fontFamily: FONT, fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 6, background: C.bg, color: C.text, boxSizing: 'border-box' }} />
+              </div>
+
+              {upgradeModal.newEndDate && (
+                <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '8px 12px', marginBottom: 16 }}>
+                  New end date: <strong>{upgradeModal.newEndDate.split('-').reverse().join('/')}</strong>
+                </div>
+              )}
+
+              {upgradeErr && <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginBottom: 12 }}>{upgradeErr}</div>}
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={handleUpgradeContract} disabled={upgrading}
+                  style={{ flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '10px 0', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, cursor: upgrading ? 'not-allowed' : 'pointer' }}>
+                  {upgrading ? 'Upgrading…' : 'Confirm Upgrade'}
+                </button>
+                <button onClick={() => setUpgradeModal(null)}
                   style={{ flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '10px 0', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer' }}>
                   Go Back
                 </button>
