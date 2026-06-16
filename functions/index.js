@@ -3730,23 +3730,35 @@ exports.sendContractRenewalEmails = onSchedule({ schedule: 'every day 09:00', se
   }
 });
 
-// ── Contract renewal confirmation — runs daily at 9am, fires on day 1 of new term ──
+// ── Contract renewal confirmation + visit generation — runs daily at 9am, fires on day 1 of new term ──
 exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:00', secrets: [EMAILJS_KEY] }, async () => {
   const template = process.env.EMAILJS_CONTRACT_RENEWAL_CONFIRMATION_TEMPLATE;
   if (!template) return;
 
-  const db       = admin.firestore();
-  const today    = new Date();
+  const db        = admin.firestore();
+  const today     = new Date();
   const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
 
-  // Find contracts whose end date was yesterday — today is day 1 of the new term
   const snap = await db.collection('bookings')
     .where('isContract', '==', true)
     .where('contractEndDate', '==', yesterdayStr)
     .get();
 
   const fmtD = s => { const [y,m,d] = s.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); };
+
+  const genVisitDates = (startDate, endDate, freq) => {
+    const dates = [];
+    const end   = new Date(endDate + 'T12:00:00');
+    let d       = new Date(startDate + 'T12:00:00');
+    if (freq === 'daily')       { while (d <= end) { if (d.getDay() >= 1 && d.getDay() <= 5) dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 1); } }
+    else if (freq === 'thrice') { while (d <= end) { if ([1,3,5].includes(d.getDay())) dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 1); } }
+    else if (freq === 'twice')  { while (d <= end) { if ([1,4].includes(d.getDay())) dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 1); } }
+    else if (freq === 'weekly') { while (d <= end) { dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 7); } }
+    else if (freq === 'fortnightly') { while (d <= end) { dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 14); } }
+    else if (freq === 'monthly') { while (d <= end) { dates.push(d.toLocaleDateString('en-CA')); d.setMonth(d.getMonth() + 1); } }
+    return dates;
+  };
 
   for (const doc of snap.docs) {
     const b = doc.data();
@@ -3756,18 +3768,15 @@ exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:
     const name         = b.contactName || b.firstName || b.bizName || '';
     const businessName = b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
 
-    // Calculate original duration in months
-    const startD    = new Date((b.contractStartDate || b.cleanDate) + 'T12:00:00');
-    const endD      = new Date(b.contractEndDate + 'T12:00:00');
+    const startD         = new Date((b.contractStartDate || b.cleanDate) + 'T12:00:00');
+    const endD           = new Date(b.contractEndDate + 'T12:00:00');
     const durationMonths = (endD.getFullYear() - startD.getFullYear()) * 12 + (endD.getMonth() - startD.getMonth());
-
-    // New end date = old end date + same duration
-    const newEndD = new Date(endD); newEndD.setMonth(newEndD.getMonth() + durationMonths);
-    const newEndStr = newEndD.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
-
-    const monthlyAmount = `£${parseFloat(b.monthlyBaseValue || 0).toFixed(2)}`;
+    const newEndD        = new Date(endD); newEndD.setMonth(newEndD.getMonth() + durationMonths);
+    const newEndStr      = newEndD.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    const monthlyAmount  = `£${parseFloat(b.monthlyBaseValue || 0).toFixed(2)}`;
 
     try {
+      // Send confirmation email
       await sendEmail(template, {
         to_name:          name,
         to_email:         b.email,
@@ -3780,8 +3789,46 @@ exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:
         monthly_amount:   monthlyAmount,
       }, EMAILJS_KEY.value());
 
-      await doc.ref.update({ renewalConfirmationSent: true, renewalConfirmationSentAt: new Date().toISOString() });
-      console.log(`[contractRenewalConfirm] Sent for ${doc.id} (${businessName}), new end ${newEndStr}`);
+      // Generate new visits for the new term
+      const visitsSnap     = await db.collection('bookings').where('contractId', '==', doc.id).get();
+      const existingVisits = visitsSnap.docs.map(d => d.data()).sort((a,z) => a.cleanDate.localeCompare(z.cleanDate));
+      const lastVisit      = existingVisits[existingVisits.length - 1];
+      const freq           = b.frequency || '';
+
+      if (lastVisit) {
+        // For fixed-interval frequencies, start from last visit + interval to preserve the exact day pattern
+        let genStart = today.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+        if (['weekly', 'fortnightly', 'monthly'].includes(freq) && lastVisit.cleanDate) {
+          const ld = new Date(lastVisit.cleanDate + 'T12:00:00');
+          if (freq === 'weekly')      ld.setDate(ld.getDate() + 7);
+          else if (freq === 'fortnightly') ld.setDate(ld.getDate() + 14);
+          else if (freq === 'monthly')     ld.setMonth(ld.getMonth() + 1);
+          genStart = ld.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+        }
+
+        const newDates = genVisitDates(genStart, newEndStr, freq);
+        const { cleanDate: _cd, status: _st, createdAt: _ca, updatedAt: _ua, calendarEventId: _ev, ...visitTemplate } = lastVisit;
+        const now = new Date().toISOString();
+
+        const batch = db.batch();
+        newDates.forEach(date => {
+          const ref = db.collection('bookings').doc();
+          batch.set(ref, { ...visitTemplate, cleanDate: date, status: 'scheduled', createdAt: now, updatedAt: now });
+        });
+        await batch.commit();
+        console.log(`[contractRenewalConfirm] Generated ${newDates.length} visits for ${doc.id}`);
+      }
+
+      // Update master: new end date, reset renewal flags for next cycle
+      await doc.ref.update({
+        contractEndDate:           newEndStr,
+        renewalConfirmationSent:   admin.firestore.FieldValue.delete(),
+        renewalConfirmationSentAt: admin.firestore.FieldValue.delete(),
+        renewalEmailSent:          admin.firestore.FieldValue.delete(),
+        renewalEmailSentAt:        admin.firestore.FieldValue.delete(),
+        updatedAt:                 now,
+      });
+      console.log(`[contractRenewalConfirm] Renewed ${doc.id} (${businessName}) → new end ${newEndStr}`);
     } catch (e) {
       console.error(`[contractRenewalConfirm] Failed for ${doc.id}:`, e.message);
     }
