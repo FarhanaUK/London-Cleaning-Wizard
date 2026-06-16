@@ -516,14 +516,16 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
     console.error('Failed to create calendar event:', e.message);
   }
 
-  // Pre-create all recurring follow-up bookings within the 28-day window
+  // Pre-create all recurring follow-up bookings within the 35-day window
+  // 35 days (not 28) so monthly bookings always get at least 1 follow-up pre-created
   if (d.frequency && d.frequency !== 'one-off') {
     try {
       // Discount applies from 2nd clean onwards — use recurringTotal (full pre-discount price) if available
       const freqSave     = FREQ_SAVINGS[d.frequency] || 0;
       const discountedTotal = Math.max(0, (d.recurringTotal || d.total) - freqSave);
+      console.log(`[pre-create] Starting: freq=${d.frequency} email=${d.email} firstClean=${d.cleanDate} cutoff will be +35d discountedTotal=${discountedTotal}`);
 
-      const LEAD   = 28;
+      const LEAD   = 35;
       const firstClean = new Date(d.cleanDate + 'T12:00:00');
       const cutoff = new Date(firstClean); cutoff.setDate(cutoff.getDate() + LEAD);
 
@@ -543,9 +545,11 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
         if (nextDate > cutoff) break;
 
         const nextStr   = nextDate.toISOString().slice(0, 10);
+        console.log(`[pre-create] Checking ${nextStr} for ${d.email}`);
         const existSnap = await db.collection('bookings')
           .where('email', '==', d.email.toLowerCase())
           .where('cleanDate', '==', nextStr).get();
+        console.log(`[pre-create] existSnap empty=${existSnap.empty} count=${existSnap.size}`);
 
         if (existSnap.empty) {
           const rRef = `LCW-${Date.now().toString().slice(-6)}`;
@@ -576,6 +580,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
             createdAt: new Date(),
           };
           await db.collection('bookings').doc(rId).set(recurringData);
+          console.log(`[pre-create] Created booking for ${nextStr}`);
           try {
             const cal      = await getCalendarClient();
             const slotStart = toUTCISO(nextStr, d.cleanTime);
@@ -624,7 +629,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
         });
       }
     } catch (recurErr) {
-      console.error('Failed to pre-create recurring bookings:', recurErr.message);
+      console.error('[pre-create] FAILED:', recurErr.message, recurErr.code);
     }
   }
 
@@ -1170,13 +1175,12 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     const refundAmt = totalRefundAmt;
     const status    = refundAmt > 0 ? 'cancelled_partial_refund' : 'cancelled_no_refund';
 
-    // Cancel all future / incomplete visits
+    // Cancel all non-completed, non-cancelled visits (past and future)
     try {
-      const todayStr  = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
       const batch     = db.batch();
       let   batchSize = 0;
       for (const v of contractVisits) {
-        if (v.cleanDate >= todayStr && v.status !== 'completed' && !v.status?.startsWith('cancelled')) {
+        if (v.status !== 'completed' && !v.status?.startsWith('cancelled')) {
           batch.update(v.ref, { status: 'cancelled_no_refund', cancelledAt: new Date(), cancellationReason: 'Contract cancelled' });
           batchSize++;
         }
@@ -2995,6 +2999,102 @@ exports.convertToRecurring = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
     console.error('Calendar event failed for convertToRecurring:', calErr.message);
   }
 
+  // Pre-create all recurring follow-up bookings within the 35-day window
+  // 35 days (not 28) so monthly bookings always get at least 1 follow-up pre-created
+  try {
+    const LEAD       = 35;
+    const firstClean = new Date(cleanDate + 'T12:00:00');
+    const cutoff     = new Date(firstClean); cutoff.setDate(cutoff.getDate() + LEAD);
+    let   lastDate   = new Date(cleanDate + 'T12:00:00');
+
+    while (true) {
+      const nextDate = new Date(lastDate);
+      if (frequency === 'weekly')           nextDate.setDate(nextDate.getDate() + 7);
+      else if (frequency === 'fortnightly') nextDate.setDate(nextDate.getDate() + 14);
+      else if (frequency === 'monthly') {
+        const originalDay = lastDate.getDate();
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        const daysInMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+        nextDate.setDate(Math.min(originalDay, daysInMonth));
+      }
+      if (nextDate > cutoff) break;
+
+      const nextStr   = nextDate.toISOString().slice(0, 10);
+      const existSnap = await db.collection('bookings')
+        .where('email', '==', email.toLowerCase())
+        .where('cleanDate', '==', nextStr)
+        .get();
+
+      if (existSnap.empty) {
+        const rRef = `LCW-${Date.now().toString().slice(-6)}`;
+        const rId  = db.collection('bookings').doc().id;
+        const recurringData = {
+          bookingRef: rRef, bookingId: rId,
+          email: email.toLowerCase(),
+          firstName: lb.firstName || '', lastName: lb.lastName || '',
+          phone: lb.phone || '', addr1: lb.addr1 || '', postcode: lb.postcode || '',
+          propertyType: lb.propertyType || 'flat',
+          floor: lb.floor || '', parking: lb.parking || '',
+          keys: lb.keys || '', notes: lb.notes || '',
+          hasPets: lb.hasPets || false, petTypes: lb.petTypes || '',
+          signatureTouch: lb.signatureTouch !== false,
+          signatureTouchNotes: lb.signatureTouchNotes || '',
+          package: pkgId, packageName: pkgName,
+          size: lb.size, frequency,
+          addons: lb.addons || [],
+          supplies: lb.supplies || '', suppliesFee: lb.suppliesFee || 0,
+          bathrooms: lb.bathrooms || null,
+          isAirbnb: false,
+          cleanDate: nextStr, cleanTime,
+          cleanDateUTC: toUTCISO(nextStr, cleanTime),
+          total, deposit: 0, remaining: total,
+          stripeDepositIntentId: 'auto-recurring',
+          stripeCustomerId: c.stripeCustomerId || lb.stripeCustomerId || '',
+          status: 'scheduled',
+          isPhoneBooking: false,
+          isAutoRecurring: true,
+          convertedFromOneOff: true,
+          source: lb.source || '',
+          assignedStaff: c.assignedStaff || lb.assignedStaff || '',
+          recurringId: profileUpdates.recurringId || '',
+          mediaConsent: lb.mediaConsent === true,
+          createdAt: new Date(),
+        };
+        await db.collection('bookings').doc(rId).set(recurringData);
+        try {
+          const cal      = await getCalendarClient();
+          const slotStart = toUTCISO(nextStr, cleanTime);
+          const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+          const calEvent  = await cal.events.insert({
+            calendarId: process.env.GOOGLE_CALENDAR_ID,
+            resource: {
+              summary: `${pkgName} — ${lb.firstName} ${lb.lastName} (recurring)`,
+              description: [
+                `Ref: ${rRef}`,
+                `Customer: ${lb.firstName} ${lb.lastName}`,
+                `Email: ${email}`, `Phone: ${lb.phone || '—'}`,
+                `Address: ${lb.addr1}, ${lb.postcode}`,
+                `Frequency: ${frequency}`,
+                `Cleaner: ${c.assignedStaff || lb.assignedStaff || 'Unassigned'}`,
+                `Total: £${total.toFixed(2)} | No deposit — full amount charged on completion`,
+                `⚙️ Auto-created at conversion time (pre-scheduled)`,
+              ].join('\n'),
+              start: { dateTime: slotStart, timeZone: 'Europe/London' },
+              end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
+              colorId: '5',
+            },
+          });
+          await db.collection('bookings').doc(rId).update({ calendarEventId: calEvent.data.id });
+        } catch (calErr) {
+          console.error('Calendar event failed for pre-scheduled converted recurring:', calErr.message);
+        }
+      }
+      lastDate = nextDate;
+    }
+  } catch (preCreateErr) {
+    console.error('Pre-create follow-ups failed in convertToRecurring:', preCreateErr.message);
+  }
+
   if (process.env.EMAILJS_CONFIRM_TEMPLATE) {
     await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE, {
       to_name:      lb.firstName,
@@ -3478,14 +3578,59 @@ exports.retryContractCharge = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, 
         [`monthlyPaymentIntents.${periodKey}`]: pi.id,
         [`monthlyPaymentErrors.${periodKey}`]:  admin.firestore.FieldValue.delete(),
       });
+      const addonsFromVisits = visitsSnap.docs.flatMap(d => (d.data().addons || []).map(a => a.name || a.id || '').filter(Boolean));
+      await sendContractReceipt(b, periodKey, amount, prevAddons, addonsFromVisits, pi.id, EMAILJS_KEY.value());
       res.json({ success: true });
     } else {
       res.status(400).json({ error: 'Payment did not succeed.' });
     }
   } catch (e) {
     await snap.ref.update({ [`monthlyPaymentErrors.${periodKey}`]: e.message || 'Charge failed.' });
+    const failedTpl = process.env.EMAILJS_PAYMENT_FAILED_TEMPLATE;
+    if (failedTpl) {
+      const errMsg = e.message || 'Charge failed.';
+      const name   = b.contactName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
+      const amt    = `£${amount.toFixed(2)}`;
+      const date   = periodKey.split('-').reverse().join('/');
+      await sendEmail(failedTpl, { to_email: 'bookings@londoncleaningwizard.com', booking_ref: b.bookingRef, customer_name: name, customer_email: b.email, customer_phone: b.phone || '', amount: amt, date, error_message: errMsg }, EMAILJS_KEY.value()).catch(() => {});
+      await sendEmail(failedTpl, { to_email: b.email, to_name: b.contactName || b.firstName, booking_ref: b.bookingRef, customer_name: name, customer_email: b.email, customer_phone: b.phone || '', amount: amt, date, error_message: errMsg }, EMAILJS_KEY.value()).catch(() => {});
+    }
     res.status(400).json({ error: e.message || 'Charge failed.' });
   }
+});
+
+// ── Manual mark-paid for a contract month (sends receipt email) ──────────────
+exports.markContractMonthPaid = onRequest({ secrets: [EMAILJS_KEY] }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId, periodKey } = req.body;
+  if (!bookingId || !periodKey) { res.status(400).json({ error: 'Missing bookingId or periodKey' }); return; }
+
+  const db   = admin.firestore();
+  const snap = await db.collection('bookings').doc(bookingId).get();
+  if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
+  const b = snap.data();
+  if (!b.isContract) { res.status(400).json({ error: 'Not a contract booking.' }); return; }
+
+  const fixedBase     = parseFloat(b.monthlyBaseValue || 0);
+  const periodDate    = new Date(periodKey + 'T12:00:00');
+  const prevEndDate   = new Date(periodDate); prevEndDate.setDate(prevEndDate.getDate() - 1);
+  const prevStartDate = new Date(periodDate); prevStartDate.setMonth(prevStartDate.getMonth() - 1);
+  const prevStart     = prevStartDate.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+  const prevEnd       = prevEndDate.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+  const visitsSnap = await db.collection('bookings')
+    .where('contractId', '==', bookingId)
+    .get();
+
+  const prevVisits       = visitsSnap.docs.map(d => d.data()).filter(v => v.cleanDate >= prevStart && v.cleanDate <= prevEnd);
+  const prevAddons       = prevVisits.reduce((s, v) => s + parseFloat(v.addonTotal || 0), 0);
+  const amount           = fixedBase + prevAddons;
+  const addonsFromVisits = prevVisits.flatMap(v => (v.addons || []).map(a => a.name || a.id || '').filter(Boolean));
+
+  await snap.ref.update({ [`monthlyPayments.${periodKey}`]: 'paid', updatedAt: new Date().toISOString() });
+  await sendContractReceipt(b, periodKey, amount, prevAddons, addonsFromVisits, 'manual', EMAILJS_KEY.value());
+
+  res.json({ success: true, amount });
 });
 
 // ── Assign booking ref to a contract master (LCW-XXXXXX format) ─────────────
@@ -3515,6 +3660,72 @@ exports.onBookingDeleted = onDocumentDeleted('bookings/{bookingId}', async (even
   } catch (e) {
     if (e?.code !== 410 && e?.status !== 410 && e?.code !== 404 && e?.status !== 404) {
       console.error('onBookingDeleted: calendar delete failed:', e.message);
+    }
+  }
+});
+
+// ── Contract renewal reminder — runs daily at 9am, sends email 30 days before end ──
+exports.sendContractRenewalEmails = onSchedule({ schedule: 'every day 09:00', secrets: [EMAILJS_KEY] }, async () => {
+  const template = process.env.EMAILJS_CONTRACT_RENEWAL_TEMPLATE;
+  if (!template) return;
+
+  const db     = admin.firestore();
+  const today  = new Date();
+  const target = new Date(today);
+  target.setDate(target.getDate() + 30);
+  const targetStr = target.toISOString().slice(0, 10);
+
+  const snap = await db.collection('bookings')
+    .where('isContract', '==', true)
+    .where('contractEndDate', '==', targetStr)
+    .get();
+
+  for (const doc of snap.docs) {
+    const b = doc.data();
+    if (b.status?.startsWith('cancelled')) continue;
+    if (b.renewalEmailSent) continue;
+
+    const name         = b.contactName || b.firstName || b.bizName || '';
+    const businessName = b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
+    const fmtD         = s => { const [y,m,d] = s.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); };
+    const endDate      = fmtD(b.contractEndDate);
+
+    const renewalDate  = (() => {
+      const d = new Date(b.contractEndDate + 'T12:00:00');
+      d.setDate(d.getDate() + 1);
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    })();
+
+    const cancelDeadline = (() => {
+      const d = new Date(b.contractEndDate + 'T12:00:00');
+      d.setDate(d.getDate() - 14);
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    })();
+
+    const price = b.monthlyBaseValue
+      ? `£${parseFloat(b.monthlyBaseValue).toFixed(2)}/month`
+      : b.pricePerVisit
+        ? `£${parseFloat(b.pricePerVisit).toFixed(2)} per visit`
+        : 'same as current contract';
+
+    try {
+      await sendEmail(template, {
+        to_name:           name,
+        to_email:          b.email,
+        business_name:     businessName,
+        booking_ref:       b.bookingRef || '',
+        service:           b.packageName || b.contractLabel || '',
+        frequency:         b.frequencyLabel || b.frequency || '',
+        renewal_price:     price,
+        contract_end_date: endDate,
+        renewal_date:      renewalDate,
+        cancel_deadline:   cancelDeadline,
+      }, EMAILJS_KEY.value());
+
+      await doc.ref.update({ renewalEmailSent: true, renewalEmailSentAt: new Date().toISOString() });
+      console.log(`[contractRenewal] Sent renewal email for contract ${doc.id} (${businessName})`);
+    } catch (e) {
+      console.error(`[contractRenewal] Failed for ${doc.id}:`, e.message);
     }
   }
 });

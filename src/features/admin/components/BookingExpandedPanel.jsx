@@ -46,6 +46,89 @@ export default function BookingExpandedPanel({
   const [sigTouchOptingOut, setSigTouchOptingOut] = useState(false);
   const [sigTouchNote,      setSigTouchNote]      = useState('');
   const [sigTouchOtherNote, setSigTouchOtherNote] = useState('');
+  const [cancelModal, setCancelModal] = useState(null);
+
+  const buildContractCancelInfo = () => {
+    const today       = new Date();
+    const startDate   = new Date((b.contractStartDate || b.cleanDate) + 'T12:00:00');
+    const daysSince   = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
+    const completed   = (contractVisits || []).filter(v => v.status === 'completed');
+    const hasCleans   = completed.length > 0;
+    const fmtGBP      = n => `£${Math.abs(n).toFixed(2)}`;
+
+    // Natural expiry
+    if (b.contractEndDate && today > new Date(b.contractEndDate + 'T23:59:59')) {
+      return { tier: 'expired', lines: ['This contract has already ended. No financial action required.'], action: 'Mark as cancelled?' };
+    }
+
+    // No cleans done
+    if (!hasCleans) {
+      const paidCount  = Object.values(b.monthlyPayments || {}).filter(v => v === 'paid').length;
+      const totalPaid  = paidCount * parseFloat(b.monthlyBaseValue || 0);
+      if (daysSince <= 14) {
+        return { tier: 1, lines: [`Within the 14-day cooling-off period (day ${daysSince} of 14).`, `Full refund: ${fmtGBP(totalPaid)}. No cancellation fee.`], action: 'Proceed with full refund?' };
+      } else {
+        const refund = Math.max(0, totalPaid - 75);
+        return { tier: 2, lines: [`Cooling-off period has passed (${daysSince} days since start). No cleans completed.`, `£75 admin fee applies. Refund: ${fmtGBP(refund)}.`], action: 'Proceed — charge £75 and refund the rest?' };
+      }
+    }
+
+    // Tier 3 — cleans done
+    const paidKeys      = Object.entries(b.monthlyPayments || {}).filter(([,v]) => v === 'paid').map(([k]) => k).sort();
+    const paidCount     = paidKeys.length;
+    const contractStart = new Date((b.contractStartDate || b.cleanDate) + 'T12:00:00');
+    const contractEnd   = new Date(b.contractEndDate + 'T12:00:00');
+    const totalMonths   = (contractEnd.getFullYear() - contractStart.getFullYear()) * 12 + (contractEnd.getMonth() - contractStart.getMonth());
+    const unpaidMonths  = Math.max(0, totalMonths - paidCount);
+    const monthlyBase   = parseFloat(b.monthlyBaseValue || 0);
+    const termFee       = 0.5 * unpaidMonths * monthlyBase;
+
+    const sumAddons = visits => (visits || []).reduce((s, v) => s + (v.addons || []).reduce((t, a) => t + parseFloat(a.price || 0), 0), 0);
+    const periodRange = key => {
+      const e = new Date(key + 'T12:00:00'); e.setMonth(e.getMonth() + 1); e.setDate(e.getDate() - 1);
+      return { start: key, end: e.toISOString().slice(0, 10) };
+    };
+
+    let refundAmt = 0, unservedCount = 0, totalInPeriod = 0, unbilledAddons = 0;
+    if (paidKeys.length > 0) {
+      const curKey  = paidKeys[paidKeys.length - 1];
+      const prevKey = paidKeys.length > 1 ? paidKeys[paidKeys.length - 2] : null;
+
+      const { start: cs, end: ce } = periodRange(curKey);
+      const inCurrent  = (contractVisits || []).filter(v => v.cleanDate >= cs && v.cleanDate <= ce);
+      const unserved   = inCurrent.filter(v => v.status !== 'completed');
+      totalInPeriod    = inCurrent.length;
+      unservedCount    = unserved.length;
+
+      // Actual payment for current period = base + add-ons from previous period's completed visits
+      let prevAddons = 0;
+      if (prevKey) {
+        const { start: ps, end: pe } = periodRange(prevKey);
+        prevAddons = sumAddons((contractVisits || []).filter(v => v.cleanDate >= ps && v.cleanDate <= pe && v.status === 'completed'));
+      }
+      const currentPeriodPayment = monthlyBase + prevAddons;
+      refundAmt = totalInPeriod > 0 ? (currentPeriodPayment / totalInPeriod) * unservedCount : 0;
+
+      // Add-ons from completed visits this month — not yet billed, still owed by customer
+      unbilledAddons = sumAddons(inCurrent.filter(v => v.status === 'completed'));
+    }
+
+    const net = refundAmt - termFee - unbilledAddons;
+    const lines = [
+      `${completed.length} clean${completed.length !== 1 ? 's' : ''} completed.`,
+      unservedCount > 0
+        ? `${unservedCount} of ${totalInPeriod} visits unserved this month — refund: ${fmtGBP(refundAmt)}.`
+        : 'No unserved visits in current paid month.',
+      unbilledAddons > 0
+        ? `Unbilled add-ons from completed visits this month (still owed): ${fmtGBP(unbilledAddons)}.`
+        : null,
+      unpaidMonths > 0
+        ? `${unpaidMonths} unpaid month${unpaidMonths !== 1 ? 's' : ''} remaining — 50% early termination fee: ${fmtGBP(termFee)}.`
+        : 'No remaining unpaid months.',
+      net >= 0 ? `Net: refund ${fmtGBP(net)} to customer.` : `Net: charge ${fmtGBP(Math.abs(net))} to customer.`,
+    ].filter(Boolean);
+    return { tier: 3, lines, action: 'Proceed with cancellation?' };
+  };
 
   const handleNotifyCleaner = async () => {
     setNotifying(true);
@@ -84,6 +167,13 @@ export default function BookingExpandedPanel({
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingId: b.id, [field]: val }),
     }).catch(() => setBookings(all => all.map(x => x.id === b.id ? { ...x, [field]: prev } : x)));
+  };
+
+  const saveVisitField = (visit, field, val) => {
+    const prev = visit[field];
+    setBookings(all => all.map(x => x.id === visit.id ? { ...x, [field]: val } : x));
+    updateDoc(doc(db, 'bookings', visit.id), { [field]: val })
+      .catch(() => setBookings(all => all.map(x => x.id === visit.id ? { ...x, [field]: prev } : x)));
   };
 
   const saveDoNotContact = next => {
@@ -143,7 +233,15 @@ export default function BookingExpandedPanel({
     if (paid) updated[month] = 'paid'; else delete updated[month];
     setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: updated } : x));
     try {
-      await updateDoc(doc(db, 'bookings', b.id), { monthlyPayments: updated, updatedAt: new Date().toISOString() });
+      if (paid) {
+        const res = await fetch(import.meta.env.VITE_CF_MARK_CONTRACT_MONTH_PAID, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId: b.id, periodKey: month }),
+        });
+        if (!res.ok) throw new Error('CF failed');
+      } else {
+        await updateDoc(doc(db, 'bookings', b.id), { monthlyPayments: updated, updatedAt: new Date().toISOString() });
+      }
     } catch {
       setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: b.monthlyPayments || {} } : x));
     }
@@ -166,11 +264,12 @@ export default function BookingExpandedPanel({
           { l: 'Service Type',    v: b.clientType === 'airbnb' ? 'Airbnb / Short-let' : 'Commercial Cleaning' },
           { l: 'Contract',        v: b.contractLabel },
           { l: 'Frequency',       v: b.frequencyLabel || b.frequency },
-          { l: 'Start Date',      v: fmtDate(b.contractStartDate) },
+          { l: 'Contract Start Date', v: fmtDate(b.contractStartDate || b.cleanDate) },
           { l: 'End Date',        v: b.contractEndDate ? fmtDate(b.contractEndDate) : 'Open ended' },
           { l: 'Keys',           v: b.keys || '—' },
-          b.floor   && { l: 'Floor / Lift', v: b.floor },
-          b.parking && { l: 'Parking',      v: b.parking },
+          b.floor      && { l: 'Floor / Lift', v: b.floor },
+          b.parking    && { l: 'Parking',      v: b.parking },
+          b.bathrooms  && { l: 'Bathrooms',    v: b.bathrooms },
           { l: 'Media Consent',  v: b.mediaConsent ? '✓ Consented' : '✕ No consent' },
           { l: 'Base per Visit', v: `£${parseFloat(b.pricePerVisit || 0).toFixed(2)}` },
           b.addonsList && { l: 'Add-ons', v: b.addonsList },
@@ -189,11 +288,13 @@ export default function BookingExpandedPanel({
           b.airbnbListing && { l: 'Airbnb Listing', v: b.airbnbListing },
           { l: 'Keys',             v: b.keys || '—' },
           { l: 'Frequency',        v: b.frequency || 'one-off' },
-          { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : 'None' },
-          !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
-          (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
-          { l: 'Marketing Opt-in', v: b.marketingOptOut ? '✕ Opted out at booking' : '✓ Opted in at booking' },
-          { l: 'Media Consent',    v: b.mediaConsent ? '✓ Consented to photos/videos on social media' : '✕ No consent given' },
+          b.isContractVisit && b.numCleaners && { l: 'No. of Cleaners', v: b.numCleaners },
+          b.isContractVisit && b.visitDurationBase && { l: 'Visit Duration', v: `${b.visitDurationBase}h` },
+          { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : (b.addonsList || 'None') },
+          !b.isContractVisit && !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
+          !b.isContractVisit && (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
+          !b.isContractVisit && { l: 'Marketing Opt-in', v: b.marketingOptOut ? '✕ Opted out at booking' : '✓ Opted in at booking' },
+          !b.isContractVisit && { l: 'Media Consent',    v: b.mediaConsent ? '✓ Consented to photos/videos on social media' : '✕ No consent given' },
           { l: 'Total',            v: `£${parseFloat(b.total).toFixed(2)}` },
           (b.launchDiscount || b.mediaConsentDiscount) && { l: 'Original price', v: `£${parseFloat(b.originalTotal || (b.total + (b.mediaConsentDiscount || 0))).toFixed(2)}` },
           b.launchDiscount && { l: 'Launch offer',      v: `-£${parseFloat(b.launchDiscount).toFixed(2)}`, launch: true },
@@ -358,7 +459,11 @@ export default function BookingExpandedPanel({
                                     <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.text }}>£{vTotal.toFixed(2)}</div>
                                   </div>
                                   {v.status === 'completed' ? (
-                                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '5px 10px', background: '#dcfce7', color: '#166534', borderRadius: 5, border: '1px solid #86efac' }}>✓ Done</span>
+                                    <button
+                                      onClick={async e => { e.stopPropagation(); await updateDoc(doc(db, 'bookings', v.id), { status: '' }); setBookings(all => all.map(x => x.id === v.id ? { ...x, status: '' } : x)); }}
+                                      title="Click to undo"
+                                      style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '5px 10px', background: '#dcfce7', color: '#166534', borderRadius: 5, border: '1px solid #86efac', cursor: 'pointer' }}
+                                    >✓ Done</button>
                                   ) : (
                                     <button
                                       disabled={completing === v.id}
@@ -415,8 +520,34 @@ export default function BookingExpandedPanel({
                                   )}
                                 </div>
                               )}
-                              {v.assignedStaff && v.status !== 'completed' && (
-                                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                              {v.assignedStaff && (
+                                <div style={{ marginTop: 8 }}>
+                                  {/* Actual hours for this visit */}
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+                                    {[
+                                      { name: v.assignedStaff, sf: 'actualStart',  ff: 'actualFinish'  },
+                                      ...(v.secondCleaner ? [{ name: v.secondCleaner, sf: 'actualStart2', ff: 'actualFinish2' }] : []),
+                                    ].map(({ name, sf, ff }) => {
+                                      const vH = calcHours(v[sf] || (sf === 'actualStart' ? v.cleanTime : null), v[ff]);
+                                      return (
+                                        <div key={sf} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                          {v.secondCleaner && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.text, minWidth: 90 }}>{name}</div>}
+                                          <div>
+                                            <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Actual Start</div>
+                                            <input type="time" value={toInputTime(v[sf])} onChange={ev => saveVisitField(v, sf, ev.target.value)}
+                                              style={{ fontFamily: FONT, fontSize: 12, padding: '4px 8px', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, width: 110 }} />
+                                          </div>
+                                          <div>
+                                            <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 2 }}>Actual Finish</div>
+                                            <input type="time" value={toInputTime(v[ff])} onChange={ev => saveVisitField(v, ff, ev.target.value)}
+                                              style={{ fontFamily: FONT, fontSize: 12, padding: '4px 8px', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, width: 110 }} />
+                                          </div>
+                                          {vH !== null && <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text }}>⏱ {fmtDuration(vH)}</span>}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                                   <button
                                     onClick={() => handleNotifyVisit(v)}
                                     disabled={visitNotifying[v.id]}
@@ -429,6 +560,7 @@ export default function BookingExpandedPanel({
                                       ✓ Sent{visitNotifySent[v.id]?.cleaner ? ` for ${visitNotifySent[v.id].cleaner}` : v.lastNotifiedCleaner ? ` for ${v.lastNotifiedCleaner}` : ''}
                                     </div>
                                   )}
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -471,23 +603,35 @@ export default function BookingExpandedPanel({
         </div>
       )}
 
-      {/* Hours worked — not shown for contracts */}
+      {/* Hours worked — shown for regular bookings and contract visits (not master contract docs) */}
       {!b.isContract && <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
         <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 10 }}>Hours Worked</div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          {[{ label: 'Actual Start', field: 'actualStart' }, { label: 'Actual Finish', field: 'actualFinish' }].map(({ label, field }) => (
-            <div key={field}>
-              <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 3 }}>{label}</div>
-              <input type="time" value={toInputTime(b[field])} onChange={e => saveField(field, e.target.value)}
-                style={{ ...FIELD_STYLE(C), marginBottom: 0, width: 120 }} />
+        {[
+          { name: b.assignedStaff, sf: 'actualStart',  ff: 'actualFinish'  },
+          ...(b.secondCleaner ? [{ name: b.secondCleaner, sf: 'actualStart2', ff: 'actualFinish2' }] : []),
+        ].map(({ name, sf, ff }) => {
+          const member = staff?.find(s => s.name === name);
+          const r      = member?.hourlyRate !== 'N/A' ? parseFloat(member?.hourlyRate) : null;
+          const h      = calcHours(b[sf] || (sf === 'actualStart' ? b.cleanTime : null), b[ff]);
+          const e      = r !== null && h !== null ? h * r : null;
+          return (
+            <div key={sf} style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: b.secondCleaner ? 8 : 0 }}>
+              {b.secondCleaner && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.text, minWidth: 90, paddingBottom: 6 }}>{name}</div>}
+              {[{ label: 'Actual Start', field: sf }, { label: 'Actual Finish', field: ff }].map(({ label, field }) => (
+                <div key={field}>
+                  <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginBottom: 3 }}>{label}</div>
+                  <input type="time" value={toInputTime(b[field])} onChange={ev => saveField(field, ev.target.value)}
+                    style={{ ...FIELD_STYLE(C), marginBottom: 0, width: 120 }} />
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                {h !== null && <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>⏱ {fmtDuration(h)}</span>}
+                {e !== null && <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#16a34a' }}>£{e.toFixed(2)}</span>}
+                {name && r === null && <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>N/A rate</span>}
+              </div>
             </div>
-          ))}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            {hrs !== null && <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>⏱ {fmtDuration(hrs)}</span>}
-            {earned !== null && <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#16a34a' }}>£{earned.toFixed(2)}</span>}
-            {b.assignedStaff && rate === null && <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>N/A rate</span>}
-          </div>
-        </div>
+          );
+        })}
       </div>}
 
       {/* Cancellation details */}
@@ -513,8 +657,8 @@ export default function BookingExpandedPanel({
         </div>
       )}
 
-      {/* Signature Touch toggle — standard package only, not shown for contracts */}
-      {!b.isContract && (b.package === 'standard' || b.packageId === 'standard') && (
+      {/* Signature Touch toggle — standard package only, not shown for contracts or contract visits */}
+      {!b.isContract && !b.isContractVisit && (b.package === 'standard' || b.packageId === 'standard') && (
         <div style={{ padding: '10px 14px', background: b.signatureTouch !== false ? '#f0fdf4' : '#fef9f0', borderRadius: 6, marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ flex: 1 }}>
@@ -798,6 +942,22 @@ export default function BookingExpandedPanel({
           </>
         )}
 
+        {/* Scheduled recurring — charge on completion */}
+        {!b.isContract && b.status === 'scheduled' && (
+          <>
+            <div style={{ width: '100%', background: '#f0fdf4', border: '1px solid rgba(22,101,52,0.2)', borderRadius: 6, padding: '12px 16px' }}>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: '#166534', marginBottom: 4 }}>🔄 Recurring booking — no deposit required</div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: '#14532d', lineHeight: 1.6 }}>
+                The full amount of £{parseFloat(b.total || 0).toFixed(2)} will be charged automatically to the customer's saved card when you mark this complete.
+              </div>
+            </div>
+            <button onClick={() => handleComplete(b)} disabled={completing === b.id}
+              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', background: '#2c2420', color: '#fff', border: 'none', borderRadius: 6, cursor: completing === b.id ? 'not-allowed' : 'pointer' }}>
+              {completing === b.id ? 'Charging…' : `✓ Mark as Complete — Charge £${parseFloat(b.total || 0).toFixed(2)}`}
+            </button>
+          </>
+        )}
+
         {/* Fully paid confirmation — not shown for contracts */}
         {!b.isContract && b.status === 'fully_paid' && (
           <div style={{ fontFamily: FONT, fontSize: 12, color: '#16a34a', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -815,10 +975,51 @@ export default function BookingExpandedPanel({
 
         {/* Cancel */}
         {!isCancelled && b.status !== 'fully_paid' && (
-          <button onClick={() => handleCancel(b)} disabled={cancelling === b.id}
+          <button
+            onClick={() => b.isContract ? setCancelModal(buildContractCancelInfo()) : handleCancel(b)}
+            disabled={cancelling === b.id}
             style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: C.danger, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
             {cancelling === b.id ? 'Cancelling…' : b.isContract ? '✕ Cancel Contract' : '✕ Cancel Booking'}
           </button>
+        )}
+
+        {/* Contract cancellation confirmation modal */}
+        {cancelModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 440, width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
+              <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.danger, marginBottom: 6 }}>
+                Cancel Contract
+              </div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                {cancelModal.tier === 1 ? 'Tier 1 — Cooling-off period'
+                  : cancelModal.tier === 2 ? 'Tier 2 — Admin fee applies'
+                  : cancelModal.tier === 3 ? 'Tier 3 — Early termination'
+                  : cancelModal.tier === 'expired' ? 'Contract already ended'
+                  : ''}
+              </div>
+              {cancelModal.lines.map((line, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                  <div style={{ color: C.accent, flexShrink: 0, fontWeight: 700 }}>·</div>
+                  <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6 }}>{line}</div>
+                </div>
+              ))}
+              <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, marginTop: 18, marginBottom: 20 }}>
+                {cancelModal.action}
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => { setCancelModal(null); handleCancel(b); }}
+                  style={{ flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '10px 0', background: C.danger, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+                  Confirm Cancel
+                </button>
+                <button
+                  onClick={() => setCancelModal(null)}
+                  style={{ flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '10px 0', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer' }}>
+                  Go Back
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Delete */}

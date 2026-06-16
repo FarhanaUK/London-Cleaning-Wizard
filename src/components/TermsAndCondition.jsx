@@ -52,7 +52,7 @@ export default function TermsAndConditions() {
             color: "#8b7355",
             letterSpacing: "0.06em",
           }}>
-            Last Updated: May 2026
+            Last Updated: June 2026
           </p>
         </div>
 
@@ -108,7 +108,7 @@ export default function TermsAndConditions() {
               <>
                 <p>Bookings for recurring office, commercial, and Airbnb or serviced apartment arrangements are handled via our quote form, by phone, or by email rather than through the standard online booking form. We will ask for details about the property, including type, size, frequency, and access arrangements, before confirming any booking.</p>
                 <p style={{ marginTop: 16 }}><strong>Photos and video:</strong> We may request photos or a short video of the property before confirming a quote. Providing accurate information is the client's responsibility. If the actual condition of the property differs significantly from what was described or shown, we reserve the right to adjust the price, reduce the scope, or refuse the clean. In all such cases the deposit will be retained to cover our costs.</p>
-                <p style={{ marginTop: 16 }}><strong>Recurring commercial arrangements:</strong> We offer recurring booking arrangements for commercial clients (weekly, fortnightly, or monthly) on the same terms as residential recurring bookings. No deposit is taken from the second clean onwards, and payment is charged automatically on completion of each clean. There are no fixed-term contracts. Arrangements can be ended by either party with 48 hours written notice.</p>
+                <p style={{ marginTop: 16 }}><strong>Recurring commercial arrangements:</strong> We offer two types of recurring arrangement for commercial clients. Standard recurring bookings (weekly, fortnightly, or monthly) operate with no fixed term and can be ended by either party with 48 hours written notice. No deposit is taken from the second clean onwards, and payment is charged automatically on completion of each clean. Fixed-term service contracts are also available for commercial and Airbnb clients — see Section 6a for full terms.</p>
               </>
             ),
           },
@@ -145,6 +145,28 @@ export default function TermsAndConditions() {
               <>
                 <p>If a recurring booking is selected, the first clean is charged at the standard first-clean rate. Any discounts apply from the second visit onwards.</p>
                 <p style={{ marginTop: 16 }}>If two consecutive cleans are missed or cancelled, the recurring arrangement and any associated discount will be cancelled. Future bookings will revert to standard pricing.</p>
+              </>
+            ),
+          },
+          {
+            title: "6a. Fixed-Term Service Contracts",
+            content: (
+              <>
+                <p>London Cleaning Wizard offers fixed-term service contracts for commercial clients and Airbnb or short-let hosts who require a scheduled recurring cleaning arrangement over an agreed period (for example, 3, 6, or 12 months). These contracts are separate from standard recurring bookings and carry different terms as set out in this section.</p>
+                <p style={{ marginTop: 16 }}><strong>Contract start date:</strong> The contract is formed and begins on the date the booking is created and the deposit is paid. By completing payment the client accepts these Terms and Conditions in full, including the cancellation and auto-renewal terms below. No separate signed document is required.</p>
+                <p style={{ marginTop: 16 }}><strong>Lock-in:</strong> Fixed-term contracts run for the full agreed duration. Clients commit to the contract for the entirety of the term at the time of booking.</p>
+                <p style={{ marginTop: 16 }}><strong>Monthly payments:</strong> After the initial deposit, the contract is billed monthly. Payment is charged automatically at the start of each monthly period. Failure to pay may result in suspension of the service and the outstanding balance being referred to debt recovery.</p>
+
+                <p style={{ marginTop: 20 }}><strong>Cancellation policy:</strong> The applicable terms depend on when the cancellation is made relative to the contract start date and the first clean.</p>
+                <ul style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+                  <li><strong>Within 14 days of the contract start date, before the first clean:</strong> The client may cancel and receive a full refund of any amounts paid. This is the statutory cooling-off period.</li>
+                  <li><strong>After 14 days from the contract start date, before the first clean:</strong> A £75 administration and cancellation fee will be charged. All other amounts paid will be refunded.</li>
+                  <li><strong>After the first clean has taken place:</strong> An early termination fee of 50% of the total value of all remaining unpaid months (based on the monthly base rate, excluding add-ons) will be charged. Any unserved visits within the current paid month will be refunded on a pro-rata basis calculated by dividing the monthly payment by the number of visits scheduled in that month and multiplying by the number of unserved visits. The refund and the termination fee will be offset against each other and the net amount settled accordingly.</li>
+                </ul>
+
+                <p style={{ marginTop: 16 }}><strong>Auto-renewal:</strong> Unless cancelled, a fixed-term contract will automatically renew at the end of its term for the same duration and at the same price. An email notice will be sent to the client 30 days before the contract end date confirming the renewal date, the price, the cancellation deadline, and how to cancel. The cancellation deadline is 14 days before the contract end date, in line with standard service contract practice. If the client does not cancel before this deadline, the contract will renew and new visits will be generated for the next term.</p>
+                <p style={{ marginTop: 16 }}><strong>How to cancel a renewal:</strong> To prevent auto-renewal, the client must reply to the renewal notice email or call us on 020 8137 0026 no later than 14 days before the contract end date, quoting their booking reference. Cancellation requests received after this deadline cannot be accepted and the contract will be treated as renewed.</p>
+                <p style={{ marginTop: 16 }}><strong>How to cancel a contract:</strong> All cancellations must be made by phone call on 020 8137 0026. Cancellation requests made by email, text, or any other method will not constitute valid notice and will not waive any applicable charges.</p>
               </>
             ),
           },

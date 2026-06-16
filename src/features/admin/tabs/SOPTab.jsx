@@ -740,6 +740,194 @@ export default function SOPTab({ isMobile, C }) {
           <strong>14-day no-response rule:</strong> Once you have communicated your resolution offer, if the customer has not responded at all after 14 days, send one final written message: "We have not heard back regarding our proposed resolution. If we do not receive a response by [date 7 days from now], we will consider this matter closed." If there is still no response after that, close the incident in the system. The 14 days only starts once your offer has been sent, not from the incident date. If the customer is actively in dialogue with you at any point, the case stays open.
         </div>
       </Section>
+
+      <Section title="Contract Auto-Renewal" C={C}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+          Contracts auto-renew at the end of their term. You do not need to contact the customer manually — the system handles it. Here is exactly what happens and when.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 10 }}>30 days before contract end date</div>
+        {[
+          'The system automatically sends the customer an email letting them know their contract is due to renew.',
+          'The email states: the contract end date, the renewal date, that it will renew on the same terms and price, the deadline to cancel by, and how to cancel (reply to the email or call with their booking reference).',
+          'A bell notification appears in the admin panel confirming the email was sent, so you are aware without needing to take any action.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>If the customer does nothing (auto-renews)</div>
+        {[
+          'On the contract end date, the system automatically generates the next term of visits at the same frequency and price.',
+          'The contract end date is extended to cover the new term.',
+          'No action needed from you.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Cancel deadline — 14 days before contract end date (industry standard)</div>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 10 }}>
+          The renewal email is sent 30 days before the contract end date. The customer has until 14 days before the end date to cancel — this is the industry standard for service contracts and gives both parties adequate notice. The exact cancel-by date is shown in the email. This gives you a 14-day buffer to stop scheduling new visits before the term ends.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>If the customer wants to cancel</div>
+        {[
+          'They reply to the renewal email or call you with their booking reference before the deadline (14 days before contract end date — industry standard).',
+          'You cancel the contract in the Bookings tab — no new visits are generated.',
+          'Since cancellation is before the first clean of the new term, no termination fee applies (see Contract Cancellation section below).',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: '#dc2626', fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ background: '#fef9ef', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', marginTop: 12, fontFamily: FONT, fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+          <strong>Important:</strong> The auto-renewal policy must be clearly stated in the Terms and Conditions that the customer accepts when booking. Without this, auto-renewal may not be enforceable. Do not activate auto-renewal in the system until the T&Cs contract section has been updated.
+        </div>
+      </Section>
+
+      <Section title="Contract Cancellation — What To Do Step by Step" C={C}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+          When a customer calls to cancel their contract, follow these steps every time without exception.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 10 }}>Step 1: Find the contract in the Bookings tab</div>
+        {[
+          'Search by name, email, or booking reference.',
+          'Open the contract record and check: the Contract Start Date, how many visits have been completed, and how many monthly payments have been made.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Step 2: Identify which tier applies</div>
+        {[
+          { label: 'Tier 1', desc: 'Within 14 days of contract start date AND no cleans completed → full refund, no fee.' },
+          { label: 'Tier 2', desc: 'More than 14 days since contract start AND no cleans completed yet → £75 admin fee, refund everything else.' },
+          { label: 'Tier 3', desc: 'At least one clean has been completed (regardless of how many days since start) → 50% early termination fee on remaining unpaid months + pro-rata refund for unserved visits in the current paid month.' },
+          { label: 'Renewal', desc: 'Contract has already auto-renewed and no cleans done in the new term → same as Tier 2 (£75 fee, refund rest). If cleans have been done in the new term → same as Tier 3.' },
+          { label: 'Natural expiry', desc: 'Contract end date has already passed with no renewal → no financial action, just mark cancelled.' },
+        ].map(({ label, desc }) => (
+          <div key={label} style={{ marginBottom: 10, padding: '10px 14px', background: C.bg, borderRadius: 8, display: 'flex', gap: 14 }}>
+            <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: C.accent, minWidth: 80, flexShrink: 0 }}>{label}</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{desc}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Step 3: Tell the customer what will happen before you do anything</div>
+        {[
+          'Explain the tier that applies and the exact amounts — refund and/or fee.',
+          'Do not press Cancel until the customer confirms they understand and want to proceed.',
+          'If they want time to think, do not cancel. Let them call back.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Step 4: Press Cancel in the system</div>
+        {[
+          'Click the Cancel button on the contract record.',
+          'A confirmation modal will appear showing the exact tier, amounts, and what will happen.',
+          'Review it, confirm it matches what you told the customer, then press Confirm.',
+          'The system will handle the refund and/or charge automatically via Stripe.',
+          'A cancellation confirmation email is sent to the customer automatically.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ background: '#fef9ef', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', marginTop: 12, fontFamily: FONT, fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+          <strong>Important — cooling-off and completed cleans:</strong> The 14-day cooling-off (Tier 1) only applies if no cleans have been done. If even one clean has taken place, Tier 3 applies regardless of how many days have passed since the contract started. You cannot claim a cooling-off refund on a service that has already been partially delivered.
+        </div>
+      </Section>
+
+      <Section title="Contract Cancellation — Refund Calculation" C={C}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 8 }}>
+          No signed document is required. The contract is formed the moment the customer books and pays their deposit — by doing so they have accepted the Terms and Conditions. The <strong>Contract Start Date</strong> is the date the booking was created (shown on the contract record), not the date of the first clean. All cancellation windows below are measured from this date.
+        </div>
+
+        <div style={{ background: C.bg, borderRadius: 8, padding: '12px 16px', marginBottom: 20, fontFamily: FONT, fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+          Three tiers apply depending on when the customer cancels relative to the Contract Start Date and the first clean.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 10 }}>Tier 1 — within 14 days of contract start date, before first clean</div>
+        {[
+          'Full refund of everything paid. No fee charged.',
+          'This is the statutory cooling-off period. The customer has the right to cancel without penalty.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Tier 2 — after 14 days from contract start date, but before the first clean</div>
+        {[
+          'Charge a £75 admin / cancellation fee via Stripe.',
+          'Refund everything else the customer has paid.',
+          'No further calculation needed.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '20px 0 10px' }}>Tier 3 — after the first clean has taken place</div>
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 8 }}>Step 1: Refund unserved visits in the current paid month</div>
+        {[
+          'Find the total amount the customer actually paid for the current month — use the payment record, not the listed price per visit, to account for any contract discount.',
+          'Count the total number of visits scheduled within that month.',
+          'Count how many of those visits are still unserved (not completed).',
+          'Refund = (monthly amount paid ÷ total visits in month) × number of unserved visits.',
+          'Example: customer paid £320 for Month 2, which has 4 weekly visits. 2 are done, 2 are unserved. Refund = £320 ÷ 4 × 2 = £160.',
+          'Add-ons for completed visits are already earned — do not refund those. The per-visit figure above proportionally covers add-ons for unserved visits since the monthly payment included them.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '14px 0 8px' }}>Step 2: Early termination fee on remaining unpaid months</div>
+        {[
+          'Count the number of months remaining in the contract that have NOT yet been paid.',
+          'Early termination fee = 50% × (remaining unpaid months × monthly base rate, excluding add-ons).',
+          'Example: 4 unpaid months remain at £320/month base. Fee = 50% × (4 × £320) = £640.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, margin: '14px 0 8px' }}>Step 3: Net settlement</div>
+        {[
+          'If the Step 1 refund is greater than the Step 2 fee: pay the difference to the customer.',
+          'If the Step 2 fee is greater than the Step 1 refund: charge the difference to the customer via Stripe.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ background: '#fef9ef', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', marginTop: 12, fontFamily: FONT, fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+          <strong>Verify before automating:</strong> This calculation was agreed in principle but has not yet been confirmed by a financial or legal advisor. Before the system handles this automatically, confirm the per-visit refund formula is correct and the 50% early termination fee is enforceable under the contract Terms and Conditions. Review once the T&Cs contract section has been drafted.
+        </div>
+      </Section>
     </div>
   );
 }

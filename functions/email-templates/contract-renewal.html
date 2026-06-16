@@ -1,0 +1,112 @@
+<!--
+  EmailJS Template: Contract Renewal Notice (Customer)
+  Template ID env var: EMAILJS_CONTRACT_RENEWAL_TEMPLATE
+
+  Variables used:
+    {{to_name}}           - contact first name
+    {{to_email}}          - customer email (set as EmailJS "To Email" field)
+    {{business_name}}     - business or customer full name
+    {{booking_ref}}       - contract booking reference
+    {{service}}           - e.g. "Office Cleaning" or "Airbnb Turnaround"
+    {{frequency}}         - e.g. "Weekly"
+    {{renewal_price}}     - e.g. "£320.00/month"
+    {{contract_end_date}} - e.g. "15 July 2026"
+    {{renewal_date}}      - e.g. "16 July 2026"
+    {{cancel_deadline}}   - e.g. "1 July 2026"
+-->
+
+<div style="font-family: system-ui, sans-serif, Arial; font-size: 12px; color: #2c3e50;">
+
+  <div style="background-color: #2c2420; padding: 24px; text-align: center; margin-bottom: 24px;">
+    <div style="color: #c8b89a; font-size: 22px; font-family: Georgia, serif; font-style: italic;">
+      London Cleaning Wizard
+    </div>
+    <div style="color: rgba(200,184,154,0.6); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; margin-top: 4px;">
+      Contract Renewal Notice
+    </div>
+  </div>
+
+  <div style="padding: 0 24px;">
+
+    <p style="font-size: 15px;">Dear {{to_name}},</p>
+    <p style="font-size: 14px; line-height: 1.7; color: #2c3e50;">
+      Your service contract with London Cleaning Wizard is due to expire on <strong>{{contract_end_date}}</strong>.
+      Unless we hear from you, your contract will automatically renew on <strong>{{renewal_date}}</strong>
+      on the same terms and at the same price.
+    </p>
+
+    <div style="margin: 24px 0; padding: 16px 20px; border-left: 3px solid #c8b89a; background-color: #faf9f7;">
+      <div style="font-size: 13px; color: #8b7355; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px;">Your Contract</div>
+      <table role="presentation" style="font-size: 14px; color: #2c3e50; width: 100%;">
+        <tr>
+          <td style="padding: 4px 16px 4px 0; color: #8b7355;"><strong>Booking Ref:</strong></td>
+          <td style="padding: 4px 0;">{{booking_ref}}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 16px 4px 0; color: #8b7355;"><strong>Client:</strong></td>
+          <td style="padding: 4px 0;">{{business_name}}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 16px 4px 0; color: #8b7355;"><strong>Service:</strong></td>
+          <td style="padding: 4px 0;">{{service}}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 16px 4px 0; color: #8b7355;"><strong>Frequency:</strong></td>
+          <td style="padding: 4px 0;">{{frequency}}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 16px 4px 0; color: #8b7355;"><strong>Contract Ends:</strong></td>
+          <td style="padding: 4px 0;">{{contract_end_date}}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="margin: 24px 0; padding: 16px 20px; background-color: #2c2420;">
+      <table role="presentation" style="font-size: 14px; width: 100%;">
+        <tr>
+          <td style="padding: 4px 16px 4px 0; color: rgba(200,184,154,0.7);">Renewal date</td>
+          <td style="padding: 4px 0; color: #f5f0e8; text-align: right;">{{renewal_date}}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 16px 4px 0; color: rgba(200,184,154,0.7);">Renewed price</td>
+          <td style="padding: 4px 0; color: #c8b89a; text-align: right; font-weight: bold;">{{renewal_price}}</td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding: 10px 0 4px; border-top: 1px solid rgba(200,184,154,0.15);"></td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 16px 4px 0; color: rgba(200,184,154,0.6); font-size: 12px;">Cancel by</td>
+          <td style="padding: 4px 0; color: rgba(200,184,154,0.6); text-align: right; font-size: 12px;">{{cancel_deadline}}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="margin: 24px 0; padding: 16px 20px; border-left: 3px solid #c8b89a; background-color: #faf9f7;">
+      <div style="font-size: 13px; color: #8b7355; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px;">Want to cancel instead?</div>
+      <p style="font-size: 14px; color: #2c3e50; line-height: 1.7; margin: 0 0 8px;">
+        If you would like to cancel rather than renew, simply reply to this email or call us before <strong>{{cancel_deadline}}</strong>
+        and quote your booking reference <strong>{{booking_ref}}</strong>.
+      </p>
+      <p style="font-size: 14px; color: #2c3e50; line-height: 1.7; margin: 0;">
+        If we do not hear from you, your contract will renew automatically and visits will continue as scheduled.
+      </p>
+    </div>
+
+    <p style="font-size: 13px; color: #8b7355; line-height: 1.7;">
+      Thank you for choosing London Cleaning Wizard. We look forward to continuing to serve you.
+    </p>
+    <p style="font-size: 13px; color: #8b7355; line-height: 1.8;">
+      London Cleaning Wizard<br>
+      Phone: 020 8137 0026<br>
+      Email: bookings@londoncleaningwizard.com
+    </p>
+
+  </div>
+
+  <div style="background-color: #f2ede6; padding: 16px 24px; margin-top: 24px; text-align: center;">
+    <div style="font-size: 10px; color: #8b7355; letter-spacing: 2px; text-transform: uppercase;">
+      London Cleaning Wizard &middot; Contract Notice
+    </div>
+  </div>
+
+</div>

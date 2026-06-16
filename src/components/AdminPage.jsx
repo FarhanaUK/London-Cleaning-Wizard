@@ -5,6 +5,7 @@ import { collection, query, orderBy, onSnapshot, limit, doc, getDoc, setDoc, upd
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { LogoMark } from './Icons';
 import DailyBrief from '../features/admin/tabs/marketing/workflow/DailyBrief';
+import { calcHours } from '../features/admin/utils';
 
 const ReportsTab   = lazy(() => import('../features/admin/tabs/ReportsTab'));
 const SOPTab       = lazy(() => import('../features/admin/tabs/SOPTab'));
@@ -259,6 +260,7 @@ export default function AdminPage() {
         link: 'quotes',
       });
     }
+
   }, [user, bookings]);
 
   useEffect(() => {
@@ -531,6 +533,52 @@ export default function AdminPage() {
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
   }, [activeView]);
+
+  // ── Staff cost % alert — fires on 1st of each month if anyone exceeded 40% last month ──
+  useEffect(() => {
+    if (!user || !bookings.length || !staff.length) return;
+    const now        = new Date();
+    if (now.getDate() !== 1) return;
+    const lm         = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lmKey      = `${lm.getFullYear()}-${String(lm.getMonth() + 1).padStart(2, '0')}`;
+    const lastDay    = new Date(lm.getFullYear(), lm.getMonth() + 1, 0).getDate();
+    const pStart     = `${lmKey}-01`;
+    const pEnd       = `${lmKey}-${String(lastDay).padStart(2, '0')}`;
+    const notifId    = `staff-cost-over40-${lmKey}`;
+
+    const toMins = t => { if (!t) return null; const m = t.match(/(\d+):(\d+)\s*(am|pm)?/i); if (!m) return null; let h = parseInt(m[1]), mn = parseInt(m[2]); const p = (m[3]||'').toUpperCase(); if (p==='PM'&&h!==12) h+=12; if (p==='AM'&&h===12) h=0; return h*60+mn; };
+    const hrs    = (s, f) => { const sm=toMins(s), fm=toMins(f); if (sm===null||fm===null||fm<=sm) return null; return (fm-sm)/60; };
+    const share  = (b, rev, name) => { if (!b.secondCleaner||!b.assignedStaff) return rev; const h1=hrs(b.actualStart,b.actualFinish)||0, h2=hrs(b.actualStart2,b.actualFinish2)||0, tot=h1+h2; if (tot===0) return rev/2; return (b.assignedStaff===name?h1:h2)/tot*rev; };
+
+    const periodJobs     = bookings.filter(b => !b.isContract && !b.isContractVisit && b.cleanDate >= pStart && b.cleanDate <= pEnd);
+    const contractVisits = bookings.filter(b => b.isContractVisit && b.cleanDate >= pStart && b.cleanDate <= pEnd);
+    const collectedAmt   = b => { if (b.status==='fully_paid') return parseFloat(b.total)||0; if (b.status==='deposit_paid') return parseFloat(b.total)||0; return 0; };
+
+    const overLimit = staff.filter(s => s.status === 'Active').filter(s => {
+      const sRate = s.hourlyRate !== 'N/A' ? parseFloat(s.hourlyRate) : 0;
+      const sJobs = periodJobs.filter(b => b.assignedStaff===s.name||b.secondCleaner===s.name);
+      const sCVs  = contractVisits.filter(v => v.assignedStaff===s.name||v.secondCleaner===s.name);
+      const sH    = [...sJobs.map(b=>(b.assignedStaff===s.name?hrs(b.actualStart,b.actualFinish):hrs(b.actualStart2,b.actualFinish2))||0),
+                     ...sCVs.map(v=>(v.assignedStaff===s.name?hrs(v.actualStart,v.actualFinish):hrs(v.actualStart2,v.actualFinish2))||0)].reduce((a,b)=>a+b,0);
+      const sCost = sH * sRate;
+      const sRev  = sJobs.reduce((t,b)=>t+share(b,collectedAmt(b),s.name),0)
+                  + sCVs.reduce((t,v)=>t+share(v,parseFloat(v.total||v.totalPerVisit||0),s.name),0);
+      if (sRev === 0) return false;
+      return (sCost / sRev) > 0.40;
+    });
+
+    if (!overLimit.length) return;
+    const names    = overLimit.map(s => s.name).join(', ');
+    const monthFmt = lm.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+    addNotification({
+      id:      notifId,
+      type:    'staff_cost_alert',
+      icon:    '⚠️',
+      title:   `Staff cost over 40% — ${monthFmt}`,
+      message: `${names} exceeded 40% labour cost last month. Review their jobs in Reports to identify low-margin work.`,
+      link:    'reports',
+    });
+  }, [user, bookings, staff]);
 
   const handleLogin = async () => {
     setLoginErr('');
