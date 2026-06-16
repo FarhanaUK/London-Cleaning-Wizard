@@ -3811,11 +3811,48 @@ exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:
         const now = new Date().toISOString();
 
         const batch = db.batch();
-        newDates.forEach(date => {
+        const newRefs = newDates.map(date => {
           const ref = db.collection('bookings').doc();
           batch.set(ref, { ...visitTemplate, cleanDate: date, status: 'scheduled', createdAt: now, updatedAt: now });
+          return { ref, date };
         });
         await batch.commit();
+
+        // Create calendar events for each new visit
+        try {
+          const cal = await getCalendarClient();
+          for (const { ref, date } of newRefs) {
+            const slotStart = toUTCISO(date, visitTemplate.cleanTime || '9:00 AM');
+            const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+            const calEvent  = await cal.events.insert({
+              calendarId: process.env.GOOGLE_CALENDAR_ID,
+              resource: {
+                summary: `${visitTemplate.packageName || 'Contract Visit'} — ${visitTemplate.bizName || name}`,
+                description: [
+                  `Ref: ${b.bookingRef || ''}`,
+                  `Business: ${visitTemplate.bizName || ''}`,
+                  `Contact: ${visitTemplate.firstName || ''} ${visitTemplate.lastName || ''}`,
+                  `Email: ${visitTemplate.email || ''}`,
+                  `Phone: ${visitTemplate.phone || ''}`,
+                  `Address: ${visitTemplate.addr1 || ''}`,
+                  `Cleaners: ${visitTemplate.numCleaners || 1}`,
+                  `Duration: ${visitTemplate.visitDurationBase || '—'}h`,
+                  `Add-ons: ${(visitTemplate.addons || []).map(a => a.name).join(', ') || 'None'}`,
+                  `Cleaner: ${visitTemplate.assignedStaff || 'Unassigned'}`,
+                  `Keys: ${visitTemplate.keys || 'N/A'}`,
+                  `Parking: ${visitTemplate.parking || '—'}`,
+                  `🔄 Auto-generated on contract renewal`,
+                ].join('\n'),
+                start: { dateTime: slotStart, timeZone: 'Europe/London' },
+                end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
+                colorId: '5',
+              },
+            });
+            await ref.update({ calendarEventId: calEvent.data.id });
+          }
+        } catch (calErr) {
+          console.error(`[contractRenewalConfirm] Calendar events failed for ${doc.id}:`, calErr.message);
+        }
         console.log(`[contractRenewalConfirm] Generated ${newDates.length} visits for ${doc.id}`);
       }
 
