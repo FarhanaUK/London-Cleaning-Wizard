@@ -1011,7 +1011,7 @@ export default function BookingExpandedPanel({
         {/* Contract upgrade */}
         {b.isContract && !isCancelled && upgradeOptions.length > 0 && (
           <button
-            onClick={() => { setUpgradeErr(''); setUpgradeModal({ newType: '', newLabel: '', newMonths: 0, newRate: b.monthlyBaseValue || '', newEndDate: '' }); }}
+            onClick={() => { setUpgradeErr(''); setUpgradeModal({ newType: '', newLabel: '', newMonths: 0, newRate: b.monthlyBaseValue ? Math.round(parseFloat(b.monthlyBaseValue) * 100) / 100 : '', newEndDate: '' }); }}
             style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: '#1d4ed8', border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
             ↑ Upgrade Contract
           </button>
