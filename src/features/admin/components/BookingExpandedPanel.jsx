@@ -52,12 +52,13 @@ export default function BookingExpandedPanel({
   const [upgradeErr,   setUpgradeErr]   = useState('');
 
   const CONTRACT_OPTIONS = [
-    { id: 'monthly', label: 'Monthly rolling',  months: 1  },
-    { id: '3mo',     label: '3-month',          months: 3  },
-    { id: '6mo',     label: '6-month',          months: 6  },
-    { id: 'annual',  label: 'Annual contract',  months: 12 },
+    { id: 'monthly', label: 'Monthly rolling',  months: 1,  disc: 0.00 },
+    { id: '3mo',     label: '3-month',          months: 3,  disc: 0.00 },
+    { id: '6mo',     label: '6-month',          months: 6,  disc: 0.05 },
+    { id: 'annual',  label: 'Annual contract',  months: 12, disc: 0.10 },
   ];
   const currentMonths = CONTRACT_OPTIONS.find(c => c.id === b.contractType)?.months || 0;
+  const currentDisc   = CONTRACT_OPTIONS.find(c => c.id === b.contractType)?.disc   || 0;
   const upgradeOptions = CONTRACT_OPTIONS.filter(c => c.months > currentMonths);
 
   const calcUpgradeEndDate = months => {
@@ -1080,7 +1081,9 @@ export default function BookingExpandedPanel({
                     const opt = CONTRACT_OPTIONS.find(c => c.id === e.target.value);
                     if (!opt) return;
                     const newEndDate = calcUpgradeEndDate(opt.months);
-                    setUpgradeModal(m => ({ ...m, newType: opt.id, newLabel: opt.label, newMonths: opt.months, newEndDate }));
+                    const undiscounted = parseFloat(b.monthlyBaseValue || 0) / (1 - currentDisc);
+                    const autoRate = Math.round(undiscounted * (1 - opt.disc) * 100) / 100;
+                    setUpgradeModal(m => ({ ...m, newType: opt.id, newLabel: opt.label, newMonths: opt.months, newEndDate, newRate: autoRate }));
                   }}
                   style={{ width: '100%', padding: '8px 10px', fontFamily: FONT, fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 6, background: C.bg, color: C.text }}>
                   <option value=''>Select…</option>

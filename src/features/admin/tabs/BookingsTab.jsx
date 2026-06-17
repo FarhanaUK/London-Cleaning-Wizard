@@ -646,7 +646,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                   </div>
                   {b.cancelledAt && (
                     <div style={{ fontFamily: FONT, fontSize: 11, color: C.danger, marginTop: 3 }}>
-                      Refund processed: {fmtCreatedAt(b.cancelledAt)}{b.refundAmount > 0 ? ` — £${b.refundAmount} refunded` : ' — No refund'}
+                      Refund processed: {fmtCreatedAt(b.cancelledAt)}{b.refundAmount > 0 ? ` — £${parseFloat(b.refundAmount).toFixed(2)} refunded` : ' — No refund'}
                     </div>
                   )}
                 </div>
