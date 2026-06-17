@@ -125,7 +125,12 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
         const cancelDate = raw.toISOString().slice(0, 10);
         if (cancelDate >= pStart && cancelDate <= pEnd) refundDeduction = parseFloat(master.refundAmount || 0);
       }
-      return s + paidRev - refundDeduction;
+      const visitPartialRefunds = bookings
+        .filter(v => v.isContractVisit && v.contractId === master.id
+          && parseFloat(v.partialRefundAmount || 0) > 0
+          && v.cleanDate >= pStart && v.cleanDate <= pEnd)
+        .reduce((ps, v) => ps + parseFloat(v.partialRefundAmount || 0), 0);
+      return s + paidRev - refundDeduction - visitPartialRefunds;
     }, 0);
 
   const bookingLabour = b => {
@@ -143,9 +148,10 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   // ── KPIs ──
   const collectedAmt = b => {
     if (b.isContractVisit) return 0; // contract revenue counted per paid period on the master
-    if (b.status === 'fully_paid')   return parseFloat(b.total)   || 0;
-    if (b.status === 'completed')    return parseFloat(b.total)   || 0;
-    if (b.status === 'deposit_paid') return parseFloat(b.deposit) || 0;
+    const pr = parseFloat(b.partialRefundAmount || 0);
+    if (b.status === 'fully_paid')   return Math.max(0, (parseFloat(b.total)   || 0) - pr);
+    if (b.status === 'completed')    return Math.max(0, (parseFloat(b.total)   || 0) - pr);
+    if (b.status === 'deposit_paid') return Math.max(0, (parseFloat(b.deposit) || 0) - pr);
     return 0;
   };
   const periodRev      = periodBookings.reduce((s, b) => s + collectedAmt(b), 0) + contractRevForWindow(periodStart, periodEnd);

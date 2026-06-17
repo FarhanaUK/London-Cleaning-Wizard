@@ -4076,6 +4076,78 @@ exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:
 });
 
 // ── Contract payment reminder — runs daily at 9am, sends email 7 days before payment due ──
+exports.issuePartialRefund = onRequest({ secrets: [STRIPE_KEY] }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const { bookingId, amount, contractId } = req.body;
+  if (!bookingId || !amount || parseFloat(amount) <= 0) {
+    res.status(400).json({ error: 'Missing bookingId or valid amount.' }); return;
+  }
+
+  const db     = admin.firestore();
+  const stripe = new Stripe(STRIPE_KEY.value());
+
+  const bookingRef  = db.collection('bookings').doc(bookingId);
+  const bookingSnap = await bookingRef.get();
+  if (!bookingSnap.exists) { res.status(404).json({ error: 'Booking not found.' }); return; }
+  const booking = bookingSnap.data();
+
+  const amountPence = Math.round(parseFloat(amount) * 100);
+  let stripeRefundId;
+
+  if (contractId) {
+    // Contract visit — refund from the monthly PI for the period this visit falls in
+    const masterRef  = db.collection('bookings').doc(contractId);
+    const masterSnap = await masterRef.get();
+    if (!masterSnap.exists) { res.status(404).json({ error: 'Master contract not found.' }); return; }
+    const master = masterSnap.data();
+
+    const visitDate = booking.cleanDate;
+    const pis       = master.monthlyPaymentIntents || {};
+    const periods   = Object.keys(pis).sort();
+    let periodKey   = null;
+    for (let i = 0; i < periods.length; i++) {
+      const start = periods[i];
+      const next  = periods[i + 1] || null;
+      if (visitDate >= start && (next === null || visitDate < next)) { periodKey = start; break; }
+    }
+    if (!periodKey || !pis[periodKey]) {
+      res.status(400).json({ error: 'No Stripe payment found for this visit\'s period.' }); return;
+    }
+
+    const refund = await stripe.refunds.create({ payment_intent: pis[periodKey], amount: amountPence });
+    stripeRefundId = refund.id;
+
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    await bookingRef.update({
+      partialRefundAmount:   parseFloat(amount),
+      partialRefundDate:     today,
+      partialRefundStripeId: stripeRefundId,
+    });
+    const currentTotal = parseFloat(master.partialRefundTotal || 0);
+    await masterRef.update({
+      partialRefundTotal: Math.round((currentTotal + parseFloat(amount)) * 100) / 100,
+    });
+
+  } else {
+    // Regular / recurring booking
+    const piId = booking.paymentIntentId || booking.stripeDepositIntentId;
+    if (!piId || piId === 'manual') {
+      res.status(400).json({ error: 'No Stripe payment found for this booking.' }); return;
+    }
+    const refund = await stripe.refunds.create({ payment_intent: piId, amount: amountPence });
+    stripeRefundId = refund.id;
+
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    await bookingRef.update({
+      partialRefundAmount:   parseFloat(amount),
+      partialRefundDate:     today,
+      partialRefundStripeId: stripeRefundId,
+    });
+  }
+
+  res.json({ success: true, stripeRefundId });
+});
+
 exports.sendContractPaymentReminders = onSchedule({ schedule: 'every day 09:00', secrets: [EMAILJS_KEY] }, async () => {
   const template = process.env.EMAILJS_PAYMENT_REMINDER_TEMPLATE;
   if (!template) return;

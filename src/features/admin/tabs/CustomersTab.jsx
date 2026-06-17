@@ -85,7 +85,8 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
     const active     = c.bookings.filter(b => !b.status?.startsWith('cancelled'));
     const totalSpend = active.reduce((s, b) => s + (parseFloat(b.isContract ? b.monthlyBaseValue : b.total) || 0), 0);
     const collected  = c.bookings.reduce((s, b) => {
-      const refund = parseFloat(b.refundAmount || 0);
+      const refund        = parseFloat(b.refundAmount || 0);
+      const partialRefund = parseFloat(b.partialRefundAmount || 0);
       if (b.isContract) {
         const paidTotal = Object.entries(b.monthlyPayments || {}).reduce((ps, [key, val]) => {
           if (val !== 'paid') return ps;
@@ -94,11 +95,12 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
             : parseFloat(b.monthlyBaseValue || 0);
           return ps + rate;
         }, 0);
-        return s + Math.max(0, paidTotal - refund);
+        const visitPartialRefunds = parseFloat(b.partialRefundTotal || 0);
+        return s + Math.max(0, paidTotal - refund - visitPartialRefunds);
       }
-      if (b.status === 'fully_paid') return s + (parseFloat(b.total) || 0);
-      if (b.status === 'cancelled_partial_refund') return s + Math.max(0, (parseFloat(b.deposit) || 0) - refund);
-      if (['deposit_paid', 'payment_failed'].includes(b.status)) return s + (parseFloat(b.deposit) || 0);
+      if (b.status === 'fully_paid') return s + Math.max(0, (parseFloat(b.total) || 0) - partialRefund);
+      if (b.status === 'cancelled_partial_refund') return s + Math.max(0, (parseFloat(b.deposit) || 0) - refund - partialRefund);
+      if (['deposit_paid', 'payment_failed'].includes(b.status)) return s + Math.max(0, (parseFloat(b.deposit) || 0) - partialRefund);
       return s;
     }, 0);
     const sorted      = [...c.bookings].sort((a, b) => (b.cleanDate || b.contractStartDate || '') > (a.cleanDate || a.contractStartDate || '') ? 1 : -1);

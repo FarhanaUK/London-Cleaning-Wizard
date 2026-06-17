@@ -1,8 +1,9 @@
 import { calcHours, toInputTime, fmtDuration } from '../utils';
 import DoNotContactToggle from './DoNotContactToggle';
 import { useState, useEffect } from 'react';
-import { db } from '../../../firebase/firebase';
+import { db, auth } from '../../../firebase/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const FIELD_STYLE = C => ({ width: '100%', padding: '8px 12px', fontFamily: FONT, fontSize: 13, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, outline: 'none', boxSizing: 'border-box' });
@@ -46,10 +47,13 @@ export default function BookingExpandedPanel({
   const [sigTouchOptingOut, setSigTouchOptingOut] = useState(false);
   const [sigTouchNote,      setSigTouchNote]      = useState('');
   const [sigTouchOtherNote, setSigTouchOtherNote] = useState('');
-  const [cancelModal,  setCancelModal]  = useState(null);
-  const [upgradeModal, setUpgradeModal] = useState(null); // { newType, newLabel, newMonths, newRate, newEndDate }
-  const [upgrading,    setUpgrading]    = useState(false);
-  const [upgradeErr,   setUpgradeErr]   = useState('');
+  const [cancelModal,    setCancelModal]    = useState(null);
+  const [upgradeModal,   setUpgradeModal]   = useState(null);
+  const [upgrading,      setUpgrading]      = useState(false);
+  const [upgradeErr,     setUpgradeErr]     = useState('');
+  const [refundModal,    setRefundModal]    = useState(null); // { visitId, contractId, amount, password, step }
+  const [refunding,      setRefunding]      = useState(false);
+  const [refundErr,      setRefundErr]      = useState('');
 
   const CONTRACT_OPTIONS = [
     { id: 'monthly', label: 'Monthly rolling',  months: 1,  disc: 0.00 },
@@ -86,6 +90,44 @@ export default function BookingExpandedPanel({
       setUpgradeModal(null);
     } catch (e) { setUpgradeErr(e.message); }
     setUpgrading(false);
+  };
+
+  const handlePartialRefund = async () => {
+    if (!refundModal?.amount || parseFloat(refundModal.amount) <= 0) { setRefundErr('Enter a valid refund amount.'); return; }
+    if (!refundModal?.password) { setRefundErr('Enter your password to confirm.'); return; }
+    setRefunding(true); setRefundErr('');
+    try {
+      const user = auth.currentUser;
+      const cred = EmailAuthProvider.credential(user.email, refundModal.password);
+      await reauthenticateWithCredential(user, cred);
+    } catch {
+      setRefundErr('Incorrect password. Refund not processed.');
+      setRefunding(false); return;
+    }
+    try {
+      const body = { bookingId: refundModal.visitId, amount: parseFloat(refundModal.amount) };
+      if (refundModal.contractId) body.contractId = refundModal.contractId;
+      const res = await fetch(import.meta.env.VITE_CF_ISSUE_PARTIAL_REFUND, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Refund failed.'); }
+      const amt = parseFloat(refundModal.amount);
+      if (refundModal.contractId) {
+        // Update the visit record in local state
+        setBookings(all => all.map(x => x.id === refundModal.visitId
+          ? { ...x, partialRefundAmount: amt, partialRefundDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) }
+          : x.id === refundModal.contractId
+            ? { ...x, partialRefundTotal: Math.round(((parseFloat(x.partialRefundTotal || 0)) + amt) * 100) / 100 }
+            : x));
+      } else {
+        setBookings(all => all.map(x => x.id === refundModal.visitId
+          ? { ...x, partialRefundAmount: amt, partialRefundDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) }
+          : x));
+      }
+      setRefundModal(null);
+    } catch (e) { setRefundErr(e.message); }
+    setRefunding(false);
   };
 
   const buildContractCancelInfo = () => {
@@ -527,8 +569,19 @@ export default function BookingExpandedPanel({
                                   >
                                     ✏️ Edit
                                   </button>
+                                  <button
+                                    onClick={() => { setRefundErr(''); setRefundModal({ visitId: v.id, contractId: b.id, amount: '', password: '' }); }}
+                                    style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '5px 10px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 5, cursor: 'pointer' }}
+                                  >
+                                    Refund
+                                  </button>
                                 </div>
                               </div>
+                              {v.partialRefundAmount > 0 && (
+                                <div style={{ fontFamily: FONT, fontSize: 11, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 4, padding: '3px 8px', marginBottom: 6 }}>
+                                  Partial refund issued: £{parseFloat(v.partialRefundAmount).toFixed(2)}{v.partialRefundDate ? ` on ${fmtDate(v.partialRefundDate)}` : ''}
+                                </div>
+                              )}
                               {vAddons.length > 0 && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
                                   {vAddons.map(a => (
@@ -1012,6 +1065,22 @@ export default function BookingExpandedPanel({
           </div>
         )}
 
+        {/* Partial refund — regular bookings */}
+        {!b.isContract && (b.status === 'fully_paid' || b.status === 'completed' || b.status === 'deposit_paid') && (
+          <>
+            {b.partialRefundAmount > 0 && (
+              <div style={{ fontFamily: FONT, fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '6px 12px' }}>
+                Partial refund issued: £{parseFloat(b.partialRefundAmount).toFixed(2)}{b.partialRefundDate ? ` on ${fmtDate(b.partialRefundDate)}` : ''}
+              </div>
+            )}
+            <button
+              onClick={() => { setRefundErr(''); setRefundModal({ visitId: b.id, contractId: null, amount: '', password: '' }); }}
+              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, cursor: 'pointer' }}>
+              Issue Partial Refund
+            </button>
+          </>
+        )}
+
         {/* Stop recurring — not for contracts */}
         {!b.isContract && b.isAutoRecurring && !stoppedRecurring.has(b.id) && (
           <button onClick={() => handleStopRecurring(b)} disabled={stoppingRecurring === b.id}
@@ -1152,6 +1221,49 @@ export default function BookingExpandedPanel({
                 <button onClick={() => setUpgradeModal(null)}
                   style={{ flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '10px 0', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer' }}>
                   Go Back
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Partial refund modal */}
+        {refundModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 380, width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
+              <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>Issue Partial Refund</div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 20 }}>This will immediately process a refund via Stripe and cannot be undone.</div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>Refund amount (£)</div>
+                <input
+                  type='number' step='0.01' min='0.01' placeholder='0.00'
+                  value={refundModal.amount}
+                  onChange={e => setRefundModal(m => ({ ...m, amount: e.target.value }))}
+                  style={{ ...FIELD_STYLE(C), marginBottom: 0 }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>Your login password</div>
+                <input
+                  type='password' placeholder='Enter password to confirm'
+                  value={refundModal.password}
+                  onChange={e => setRefundModal(m => ({ ...m, password: e.target.value }))}
+                  style={{ ...FIELD_STYLE(C), marginBottom: 0 }}
+                />
+              </div>
+
+              {refundErr && <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginBottom: 12 }}>{refundErr}</div>}
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={handlePartialRefund} disabled={refunding}
+                  style={{ flex: 2, fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '10px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, cursor: refunding ? 'not-allowed' : 'pointer', opacity: refunding ? 0.7 : 1 }}>
+                  {refunding ? 'Processing…' : 'Confirm Refund'}
+                </button>
+                <button onClick={() => { setRefundModal(null); setRefundErr(''); }}
+                  style={{ flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '10px 0', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer' }}>
+                  Cancel
                 </button>
               </div>
             </div>
