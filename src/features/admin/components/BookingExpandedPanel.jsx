@@ -1097,6 +1097,16 @@ export default function BookingExpandedPanel({
                   type='number' step='0.01' value={upgradeModal.newRate}
                   onChange={e => setUpgradeModal(m => ({ ...m, newRate: e.target.value }))}
                   style={{ width: '100%', padding: '8px 10px', fontFamily: FONT, fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 6, background: C.bg, color: C.text, boxSizing: 'border-box' }} />
+                {(() => {
+                  const vpm = { weekly: 52/12, fortnightly: 26/12, monthly: 1 }[b.frequency] || 1;
+                  const rate = parseFloat(upgradeModal.newRate);
+                  if (!rate) return null;
+                  return (
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 4 }}>
+                      £{(rate / vpm).toFixed(2)} per visit · {b.frequency || 'monthly'}
+                    </div>
+                  );
+                })()}
               </div>
 
               {upgradeModal.newEndDate && (
