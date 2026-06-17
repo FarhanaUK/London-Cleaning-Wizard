@@ -59,7 +59,7 @@ export default function BookingExpandedPanel({
   ];
   const currentMonths = CONTRACT_OPTIONS.find(c => c.id === b.contractType)?.months || 0;
   const currentDisc   = CONTRACT_OPTIONS.find(c => c.id === b.contractType)?.disc   || 0;
-  const upgradeOptions = CONTRACT_OPTIONS.filter(c => c.months >= currentMonths);
+  const upgradeOptions = CONTRACT_OPTIONS;
 
   const calcUpgradeEndDate = (months, fromDate) => {
     const d = fromDate ? new Date(fromDate + 'T12:00:00') : new Date();
@@ -1024,7 +1024,7 @@ export default function BookingExpandedPanel({
                   setUpgradeModal({ newType: '', newLabel: '', newMonths: 0, newRate: b.monthlyBaseValue ? Math.round(parseFloat(b.monthlyBaseValue) * 100) / 100 : '', newEndDate: '', effectiveFrom: firstUnpaid });
                 }}
             style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: '#1d4ed8', border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
-            ↑ Upgrade Contract
+            Renew / Change Contract
           </button>
         )}
 
@@ -1081,7 +1081,7 @@ export default function BookingExpandedPanel({
         {upgradeModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
             <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 420, width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
-              <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 }}>Upgrade Contract</div>
+              <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 }}>Renew / Change Contract</div>
               <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 20 }}>Current: {b.contractLabel || b.contractType || '—'}</div>
 
               <div style={{ marginBottom: 14 }}>
