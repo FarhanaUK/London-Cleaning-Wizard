@@ -202,8 +202,12 @@ export default function SOPTab({ isMobile, C }) {
       </Section>
 
       <Section title="Business & Airbnb Enquiries: Quote to Booking" C={C}>
-        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
-          This process is for clients who want a <strong>recurring arrangement</strong>: regular office or Airbnb cleans on a standing schedule, not one-off bookings. One-off Airbnb and office cleans go through the standard website booking flow. For recurring commercial enquiries, the preferred route is the quote form at <strong>/quote</strong>. Enquiries also come in by phone or email. Follow the steps below every time.
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 12 }}>
+          This process covers two distinct client types handled through the internal Quotes tab — <strong>not</strong> the public website booking form.
+        </div>
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontFamily: FONT, fontSize: 12, color: C.text }}><strong>Airbnb / Short-let hosts</strong> — on-demand, per-turnaround. No contract, no fixed schedule. The host contacts you when a guest checks out and they need a clean. You book each visit individually. First visit is booked via the Quotes tab ("Book first visit"). Every subsequent visit uses the "Add New Visit" button on that same booking — no need to re-enter their details.</div>
+          <div style={{ fontFamily: FONT, fontSize: 12, color: C.text }}><strong>Commercial / office clients</strong> — contract-based with a fixed frequency (weekly, fortnightly, etc.). These go through the full contract flow in the Quotes tab with a start date, contract length, and auto-generated visit schedule.</div>
         </div>
 
         <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 10 }}>Step 1: Receive the enquiry</div>
@@ -222,11 +226,11 @@ export default function SOPTab({ isMobile, C }) {
         {[
           'Name, email address, and phone number.',
           'Property address and postcode. Confirm it is within our coverage area.',
-          'Type of property: Airbnb, serviced apartment, or office.',
+          'Type of property: Airbnb / short-let or office / commercial.',
           'Property size: number of bedrooms (Airbnb) or rough square footage and number of rooms (office).',
-          'Frequency: one-off or recurring (weekly, fortnightly, monthly).',
-          'Preferred day(s) and time. Offices often need after-hours or early morning.',
-          'Access method: key, code, host/manager present, or key safe.',
+          'For offices: preferred frequency (weekly, fortnightly, monthly) and preferred day(s) and time.',
+          'For Airbnb: typical checkout time and check-in window — this determines how much turnaround time you have.',
+          'Access method: key, lockbox code, host/manager present, concierge, or management company.',
           'Any special requirements: specific focus areas, products to avoid, items not to touch.',
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
@@ -264,11 +268,12 @@ export default function SOPTab({ isMobile, C }) {
 
         <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 10px' }}>Step 5: Create the booking and send payment link</div>
         {[
-          'Once the client agrees: go to Bookings tab → New Booking → fill in all details → select the correct package and hours.',
-          'A 30% deposit is required to confirm. Send a payment link to their email address. The system generates this from the booking.',
-          'Booking is confirmed only once the deposit is paid. Do not schedule the cleaner before payment is received.',
-          'For Airbnb hosts: confirm the guest checkout time and check-in time so the cleaner knows their turnaround window.',
-          'For offices: confirm the exact access method and the out-of-hours entry procedure in writing (email is fine).',
+          'Once the client agrees: go to the Quotes tab in admin. Fill in all property details and select the correct property type (Airbnb or Commercial).',
+          'Use the pricing calculator to confirm your rate. Then click "Book first visit" (Airbnb) or "Book this contract" (Commercial) to create the booking.',
+          'A deposit is required to confirm. Send a payment link from the booking. Do not schedule the cleaner until payment is received.',
+          'For Airbnb hosts: confirm the guest checkout time and check-in window so the cleaner knows how long they have for the turnaround.',
+          'For offices: confirm the exact access method and out-of-hours entry procedure in writing (email is fine).',
+          'For subsequent Airbnb visits: open the existing booking in the Bookings tab and click "Add New Visit" — just pick the date and time, everything else carries over.',
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
             <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
@@ -292,9 +297,9 @@ export default function SOPTab({ isMobile, C }) {
         <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 10px' }}>Step 7: After the clean, offer recurring</div>
         {[
           'If the client is happy, follow up and offer to become their regular cleaner.',
-          'Airbnb hosts: offer a standing arrangement, same cleaner, same slot between every checkout and check-in.',
-          'Offices: offer weekly or fortnightly recurring. Use the Convert to Recurring flow in the Customers tab if they already have a completed one-off on file.',
-          'Recurring commercial clients are treated the same as residential recurring: no deposit from the second clean onwards, auto-charged on completion.',
+          'Airbnb hosts: let them know they can contact you any time a guest checks out. You will add each new visit via "Add New Visit" on their existing booking — same cleaner, same rate, no paperwork.',
+          'Offices: offer weekly or fortnightly recurring on a contract. Use the Quotes tab to set up the contract if not already done.',
+          'Commercial contract clients are billed monthly based on completed visits. No deposit from the second clean onwards.',
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
             <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
