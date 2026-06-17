@@ -3704,9 +3704,8 @@ exports.markContractMonthPaid = onRequest({ secrets: [EMAILJS_KEY] }, async (req
   const addonsFromVisits = prevVisits.flatMap(v => (v.addons || []).map(a => a.name || a.id || '').filter(Boolean));
 
   await snap.ref.update({ [`monthlyPayments.${periodKey}`]: 'paid', updatedAt: new Date().toISOString() });
-  await sendContractReceipt(b, periodKey, amount, prevAddons, addonsFromVisits, 'manual', EMAILJS_KEY.value());
-
   res.json({ success: true, amount });
+  sendContractReceipt(b, periodKey, amount, prevAddons, addonsFromVisits, 'manual', EMAILJS_KEY.value()).catch(e => console.error('Receipt email failed:', e.message));
 });
 
 // ── Contract type upgrade — extends end date, generates new visits, sends email ──

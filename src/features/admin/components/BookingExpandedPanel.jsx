@@ -261,25 +261,20 @@ export default function BookingExpandedPanel({
     }
   }, [b.id]);
 
-  const toggleMonthPaid = async (month, paid) => {
-    setSavingPayment(month);
-    const updated = { ...(b.monthlyPayments || {}) };
+  const toggleMonthPaid = (month, paid) => {
+    const prev    = b.monthlyPayments || {};
+    const updated = { ...prev };
     if (paid) updated[month] = 'paid'; else delete updated[month];
     setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: updated } : x));
-    try {
-      if (paid) {
-        const res = await fetch(import.meta.env.VITE_CF_MARK_CONTRACT_MONTH_PAID, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId: b.id, periodKey: month }),
-        });
-        if (!res.ok) throw new Error('CF failed');
-      } else {
-        await updateDoc(doc(db, 'bookings', b.id), { monthlyPayments: updated, updatedAt: new Date().toISOString() });
-      }
-    } catch {
-      setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: b.monthlyPayments || {} } : x));
+    const revert  = () => setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: prev } : x));
+    if (paid) {
+      fetch(import.meta.env.VITE_CF_MARK_CONTRACT_MONTH_PAID, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: b.id, periodKey: month }),
+      }).then(r => { if (!r.ok) revert(); }).catch(revert);
+    } else {
+      updateDoc(doc(db, 'bookings', b.id), { monthlyPayments: updated, updatedAt: new Date().toISOString() }).catch(revert);
     }
-    setSavingPayment(null);
   };
 
   return (
