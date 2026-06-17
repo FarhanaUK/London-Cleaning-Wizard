@@ -113,7 +113,10 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
       const payments = master.monthlyPayments || {};
       const paidRev = Object.entries(payments).reduce((ps, [key, val]) => {
         if (val !== 'paid' || key < pStart || key > pEnd) return ps;
-        return ps + parseFloat(master.monthlyBaseValue || 0);
+        const rate = (master.rateEffectiveFrom && key < master.rateEffectiveFrom && master.previousMonthlyBaseValue)
+          ? parseFloat(master.previousMonthlyBaseValue)
+          : parseFloat(master.monthlyBaseValue || 0);
+        return ps + rate;
       }, 0);
       // Deduct refund if the cancellation date falls within this reporting window
       let refundDeduction = 0;
@@ -319,7 +322,9 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
         const visitsInPeriod = (contractVisitsByContract[master.id] || []).filter(v => v.cleanDate >= key && v.cleanDate <= pEnd);
         const labour = visitsInPeriod.reduce((s, v) => s + bookingLabour(v), 0);
         const type   = master.clientType === 'airbnb' ? 'Airbnb / Short-let' : 'Commercial Cleaning';
-        const rev    = parseFloat(master.monthlyBaseValue || 0);
+        const rev    = (master.rateEffectiveFrom && key < master.rateEffectiveFrom && master.previousMonthlyBaseValue)
+          ? parseFloat(master.previousMonthlyBaseValue)
+          : parseFloat(master.monthlyBaseValue || 0);
         return { ref: master.bookingRef || '—', name: `${master.bizName || master.contactName || ''} · ${type}`, date: key, rev, labour, profit: rev - labour };
       });
   });

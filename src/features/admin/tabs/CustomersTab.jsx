@@ -87,8 +87,14 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
     const collected  = c.bookings.reduce((s, b) => {
       const refund = parseFloat(b.refundAmount || 0);
       if (b.isContract) {
-        const paid = Object.values(b.monthlyPayments || {}).filter(v => v === 'paid').length;
-        return s + Math.max(0, paid * (parseFloat(b.monthlyBaseValue) || 0) - refund);
+        const paidTotal = Object.entries(b.monthlyPayments || {}).reduce((ps, [key, val]) => {
+          if (val !== 'paid') return ps;
+          const rate = (b.rateEffectiveFrom && key < b.rateEffectiveFrom && b.previousMonthlyBaseValue)
+            ? parseFloat(b.previousMonthlyBaseValue)
+            : parseFloat(b.monthlyBaseValue || 0);
+          return ps + rate;
+        }, 0);
+        return s + Math.max(0, paidTotal - refund);
       }
       if (b.status === 'fully_paid') return s + (parseFloat(b.total) || 0);
       if (b.status === 'cancelled_partial_refund') return s + Math.max(0, (parseFloat(b.deposit) || 0) - refund);
