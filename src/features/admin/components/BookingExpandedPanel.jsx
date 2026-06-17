@@ -451,7 +451,7 @@ export default function BookingExpandedPanel({
                     {isExpanded && (
                       <div style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Monthly base: £{fixedMonthlyBase.toFixed(2)}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>Monthly base: £{rateForPeriod(m).toFixed(2)}</div>
                           {carryFwd > 0
                             ? <div style={{ fontFamily: FONT, fontSize: 11, color: '#92400e' }}>+ £{carryFwd.toFixed(2)} add-ons carried forward from {prevLabel}</div>
                             : <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>No add-ons carried forward</div>
