@@ -2618,6 +2618,10 @@ exports.stripeWebhook = onRequest(
     // ── Handle manual refunds done directly in Stripe dashboard ──
     if (event.type === 'charge.refunded') {
       const charge = event.data.object;
+      // Partial refund — do not cancel the booking or send a cancellation email
+      if (charge.amount_refunded < charge.amount) {
+        res.json({ received: true }); return;
+      }
       const pi     = charge.payment_intent;
       if (pi) {
         const db   = admin.firestore();
