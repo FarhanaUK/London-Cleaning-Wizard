@@ -426,11 +426,11 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
                   ['Keys',          jobCard.keys || '—'],
                   jobCard.bathrooms && ['Bathrooms', jobCard.bathrooms],
                   ['Add-ons',       jobCard.addons?.length ? jobCard.addons.map(a => a.name || a).join(', ') : (jobCard.addonsList || 'None')],
-                  !jobCard.isContractVisit && ['Pets', jobCard.hasPets ? `Yes — ${jobCard.petTypes || 'not specified'}` : 'No'],
+                  !jobCard.isContractVisit && !jobCard.isAirbnb && ['Pets', jobCard.hasPets ? `Yes — ${jobCard.petTypes || 'not specified'}` : 'No'],
                   ['Cleaner(s)',     [jobCard.assignedStaff, jobCard.secondCleaner].filter(Boolean).join(' & ') || '—'],
                   ['Notes',         jobCard.notes || '—'],
-                  !jobCard.isContractVisit && ['Media Consent', jobCard.mediaConsent ? 'Yes' : 'No'],
-                  !jobCard.isContractVisit && ['Signature Touch', (jobCard.package === 'standard' || jobCard.packageId === 'standard') ? 'Eligible' : 'Not eligible'],
+                  !jobCard.isContractVisit && !jobCard.isAirbnb && ['Media Consent', jobCard.mediaConsent ? 'Yes' : 'No'],
+                  !jobCard.isContractVisit && !jobCard.isAirbnb && ['Signature Touch', (jobCard.package === 'standard' || jobCard.packageId === 'standard') ? 'Eligible' : 'Not eligible'],
                 ].filter(Boolean).map(([label, value]) => (
                   <>
                     <div key={label + '_l'} style={{ fontFamily: FONT, fontSize: 11, color: C.muted, fontWeight: 600, paddingTop: 2 }}>{label}</div>
