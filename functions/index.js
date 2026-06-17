@@ -3711,7 +3711,7 @@ exports.markContractMonthPaid = onRequest({ secrets: [EMAILJS_KEY] }, async (req
 // ── Contract type upgrade — extends end date, generates new visits, sends email ──
 exports.upgradeContract = onRequest({ secrets: [EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
-  const { bookingId, newContractType, newContractLabel, newMonths, newMonthlyRate } = req.body;
+  const { bookingId, newContractType, newContractLabel, newMonths, newMonthlyRate, rateEffectiveFrom } = req.body;
   if (!bookingId || !newMonths || !newMonthlyRate) { res.status(400).json({ error: 'Missing required fields.' }); return; }
 
   const db   = admin.firestore();
@@ -3720,11 +3720,11 @@ exports.upgradeContract = onRequest({ secrets: [EMAILJS_KEY] }, async (req, res)
   const b = snap.data();
   if (!b.isContract) { res.status(400).json({ error: 'Not a contract.' }); return; }
 
-  const today      = new Date();
-  const todayStr   = today.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
-  const newEndD    = new Date(today); newEndD.setMonth(newEndD.getMonth() + parseInt(newMonths));
-  const newEndStr  = newEndD.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
-  const oldEndStr  = b.contractEndDate;
+  const today        = new Date();
+  const effectiveFrom = rateEffectiveFrom || today.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+  const newEndD      = new Date(effectiveFrom + 'T12:00:00'); newEndD.setMonth(newEndD.getMonth() + parseInt(newMonths));
+  const newEndStr    = newEndD.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+  const oldEndStr    = b.contractEndDate;
 
   // Generate visits from day after old end date to new end date
   const genStart   = (() => { const d = new Date(oldEndStr + 'T12:00:00'); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA', { timeZone: 'Europe/London' }); })();
@@ -3802,13 +3802,15 @@ exports.upgradeContract = onRequest({ secrets: [EMAILJS_KEY] }, async (req, res)
     }
   }
 
-  // Update master contract
+  // Update master contract — preserve previous rate for already-paid period display
   await snap.ref.update({
-    contractEndDate:  newEndStr,
-    contractType:     newContractType || b.contractType,
-    contractLabel:    newContractLabel || b.contractLabel,
-    monthlyBaseValue: parseFloat(newMonthlyRate),
-    updatedAt:        new Date().toISOString(),
+    contractEndDate:          newEndStr,
+    contractType:             newContractType || b.contractType,
+    contractLabel:            newContractLabel || b.contractLabel,
+    monthlyBaseValue:         Math.round(parseFloat(newMonthlyRate) * 100) / 100,
+    previousMonthlyBaseValue: parseFloat(b.monthlyBaseValue || 0),
+    rateEffectiveFrom:        effectiveFrom,
+    updatedAt:                new Date().toISOString(),
   });
 
   // Send upgrade confirmation email

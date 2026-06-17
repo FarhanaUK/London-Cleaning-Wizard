@@ -61,8 +61,9 @@ export default function BookingExpandedPanel({
   const currentDisc   = CONTRACT_OPTIONS.find(c => c.id === b.contractType)?.disc   || 0;
   const upgradeOptions = CONTRACT_OPTIONS.filter(c => c.months > currentMonths);
 
-  const calcUpgradeEndDate = months => {
-    const d = new Date(); d.setMonth(d.getMonth() + months);
+  const calcUpgradeEndDate = (months, fromDate) => {
+    const d = fromDate ? new Date(fromDate + 'T12:00:00') : new Date();
+    d.setMonth(d.getMonth() + months);
     return d.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
   };
 
@@ -72,7 +73,7 @@ export default function BookingExpandedPanel({
     try {
       const res = await fetch(import.meta.env.VITE_CF_UPGRADE_CONTRACT, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: b.id, newContractType: upgradeModal.newType, newContractLabel: upgradeModal.newLabel, newMonths: upgradeModal.newMonths, newMonthlyRate: upgradeModal.newRate }),
+        body: JSON.stringify({ bookingId: b.id, newContractType: upgradeModal.newType, newContractLabel: upgradeModal.newLabel, newMonths: upgradeModal.newMonths, newMonthlyRate: upgradeModal.newRate, rateEffectiveFrom: upgradeModal.effectiveFrom }),
       });
       if (!res.ok) throw new Error('Upgrade failed.');
       const data = await res.json();
@@ -351,8 +352,10 @@ export default function BookingExpandedPanel({
         const payments   = b.monthlyPayments || {};
         const paidCount  = contractMonths.filter(m => payments[m] === 'paid').length;
         const todayISO   = new Date().toISOString().slice(0, 10);
-        const fixedMonthlyBase = parseFloat(b.monthlyBaseValue || b.pricePerVisit || 0);
         const visitsInPeriod   = (start, end) => contractVisits.filter(v => v.cleanDate >= start && v.cleanDate <= end);
+        const rateForPeriod    = m => (b.rateEffectiveFrom && m < b.rateEffectiveFrom && b.previousMonthlyBaseValue)
+          ? parseFloat(b.previousMonthlyBaseValue)
+          : parseFloat(b.monthlyBaseValue || b.pricePerVisit || 0);
         const prevMonthAddons     = m => {
           const idx = contractMonths.indexOf(m);
           if (idx <= 0) return 0;
@@ -364,7 +367,7 @@ export default function BookingExpandedPanel({
           if (!p) return 0;
           return visitsInPeriod(p.start, p.end).reduce((s, v) => s + parseFloat(v.mediaConsentDiscount || 0), 0);
         };
-        const monthCharge        = m => fixedMonthlyBase + prevMonthAddons(m) - periodMediaDiscount(m);
+        const monthCharge        = m => rateForPeriod(m) + prevMonthAddons(m) - periodMediaDiscount(m);
         const lastPeriod         = contractPeriods[contractPeriods.length - 1];
         const fmtBillingDate     = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
         const finalSettlement    = lastPeriod ? visitsInPeriod(lastPeriod.start, lastPeriod.end).reduce((s, v) => s + parseFloat(v.addonTotal || 0), 0) : 0;
@@ -1015,7 +1018,11 @@ export default function BookingExpandedPanel({
         {/* Contract upgrade */}
         {b.isContract && !isCancelled && upgradeOptions.length > 0 && (
           <button
-            onClick={() => { setUpgradeErr(''); setUpgradeModal({ newType: '', newLabel: '', newMonths: 0, newRate: b.monthlyBaseValue ? Math.round(parseFloat(b.monthlyBaseValue) * 100) / 100 : '', newEndDate: '' }); }}
+            onClick={() => {
+                  setUpgradeErr('');
+                  const firstUnpaid = contractMonths.find(m => (b.monthlyPayments || {})[m] !== 'paid') || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+                  setUpgradeModal({ newType: '', newLabel: '', newMonths: 0, newRate: b.monthlyBaseValue ? Math.round(parseFloat(b.monthlyBaseValue) * 100) / 100 : '', newEndDate: '', effectiveFrom: firstUnpaid });
+                }}
             style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: '#1d4ed8', border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
             ↑ Upgrade Contract
           </button>
@@ -1084,15 +1091,26 @@ export default function BookingExpandedPanel({
                   onChange={e => {
                     const opt = CONTRACT_OPTIONS.find(c => c.id === e.target.value);
                     if (!opt) return;
-                    const newEndDate = calcUpgradeEndDate(opt.months);
                     const undiscounted = parseFloat(b.monthlyBaseValue || 0) / (1 - currentDisc);
                     const autoRate = Math.round(undiscounted * (1 - opt.disc) * 100) / 100;
-                    setUpgradeModal(m => ({ ...m, newType: opt.id, newLabel: opt.label, newMonths: opt.months, newEndDate, newRate: autoRate }));
+                    setUpgradeModal(m => ({ ...m, newType: opt.id, newLabel: opt.label, newMonths: opt.months, newRate: autoRate, newEndDate: calcUpgradeEndDate(opt.months, m.effectiveFrom) }));
                   }}
                   style={{ width: '100%', padding: '8px 10px', fontFamily: FONT, fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 6, background: C.bg, color: C.text }}>
                   <option value=''>Select…</option>
                   {upgradeOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                 </select>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>New rate effective from</div>
+                <input
+                  type='date' value={upgradeModal.effectiveFrom || ''}
+                  onChange={e => {
+                    const d = e.target.value;
+                    setUpgradeModal(m => ({ ...m, effectiveFrom: d, newEndDate: m.newMonths ? calcUpgradeEndDate(m.newMonths, d) : '' }));
+                  }}
+                  style={{ width: '100%', padding: '8px 10px', fontFamily: FONT, fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 6, background: C.bg, color: C.text, boxSizing: 'border-box' }} />
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 4 }}>Defaults to first unpaid period. Old rate applies to months before this date.</div>
               </div>
 
               <div style={{ marginBottom: 14 }}>
