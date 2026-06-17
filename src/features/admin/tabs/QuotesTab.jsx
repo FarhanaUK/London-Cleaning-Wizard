@@ -384,23 +384,18 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   };
 
   const handleBookContract = async () => {
-    if (!bizName.trim())    { setBookError('Enter a business name first.'); return; }
+    if (!bizName.trim())     { setBookError('Enter a business name first.'); return; }
     if (!clientEmail.trim()) { setBookError('Enter the client email.'); return; }
-    if (!contractStart)      { setBookError('Set a contract start date.'); return; }
+    if (!contractStart)      { setBookError(clientType === 'airbnb' ? 'Set a visit date.' : 'Set a contract start date.'); return; }
     setBooking(true); setBookError('');
     try {
-      const ct = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
-      const startD = new Date(contractStart + 'T00:00:00');
-      const endD   = new Date(startD);
-      endD.setMonth(endD.getMonth() + ct.months);
-      const contractEnd = endD.toISOString().slice(0, 10);
-      const nameParts   = contactName.trim().split(' ');
-      const firstName   = nameParts[0] || bizName.trim();
-      const lastName    = nameParts.slice(1).join(' ') || '';
-      const addonList   = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+      const nameParts  = contactName.trim().split(' ');
+      const firstName  = nameParts[0] || bizName.trim();
+      const lastName   = nameParts.slice(1).join(' ') || '';
+      const addonList  = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
       const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
-      const nClean          = parseInt(numCleaners, 10) || 1;
-      const addonHrs        = selectedAddons.reduce((s, a) => s + (a.h || 0), 0);
+      const nClean         = parseInt(numCleaners, 10) || 1;
+      const addonHrs       = selectedAddons.reduce((s, a) => s + (a.h || 0), 0);
       const visitDurationBase = q.visitDur - addonHrs / nClean;
       const now = new Date().toISOString();
       const keysLabel = {
@@ -410,7 +405,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         concierge:      'Concierge / building reception',
         management:     'Management company / agent',
       }[keyType] || keyType;
-      const masterRef = await addDoc(collection(db, 'bookings'), {
+
+      const sharedFields = {
         firstName, lastName,
         email: clientEmail.trim(),
         phone: clientPhone.trim(),
@@ -418,87 +414,118 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         postcode: clientAddress.trim().split(' ').slice(-2).join(' '),
         cleanDate: contractStart,
         cleanTime: contractTime,
-        frequency,
-        bathrooms: parseInt(clientType === 'airbnb' ? extraBaths : commBaths, 10) || 1,
-        hasPets: false,
         floor: bFloor.trim(),
         parking: bParking.trim(),
         keys: keysLabel,
         mediaConsent: bMediaConsent,
         ...(bMediaConsent ? { mediaConsentDiscount: 10 } : {}),
         notes: quoteNotes.trim(),
-        source: 'Contract Quote',
         isPhoneBooking: true,
         stripeDepositIntentId: 'manual',
         stripeCustomerId: '',
         total: q.price,
         deposit: 0,
         remaining: q.price,
-        packageId: clientType,
-        packageName: clientType === 'airbnb' ? 'Airbnb Turnaround' : 'Commercial Cleaning',
-        status: 'scheduled',
-        isContract: true,
-        contractType: contract,
-        contractLabel: ct.label,
-        contractStartDate: contractStart,
-        contractEndDate: contractEnd,
-        pricePerVisit: q.cleanPrice,
-        totalPerVisit: q.price,
-        monthlyBaseValue: q.freq.vpm * q.cleanPrice,
-        monthlyValue: q.mRev,
-        firstMonthCharge: parseFloat((q.freq.vpm * q.cleanPrice - (bMediaConsent ? 10 : 0)).toFixed(2)),
-        frequencyLabel: q.freq.label,
         bizName: bizName.trim(),
         contactName: contactName.trim(),
         clientType,
         numCleaners: nClean,
         visitDuration: q.visitDur,
         visitDurationBase,
-        addons: selectedAddons.map(a => ({ id: a.id, name: a.label, price: a.price, h: a.h || 0 })),
-        addonsList: selectedAddons.map(a => a.label).join(', '),
-        addonTotal: q.addonTotal,
-        monthlyPayments: {},
-        createdAt: now,
-        updatedAt: now,
-      });
-      const visitDates = generateVisitDates(contractStart, contractEnd, frequency);
-      const visitBase = {
-        contractId: masterRef.id,
-        isContractVisit: true,
-        firstName, lastName,
-        email: clientEmail.trim(),
-        phone: clientPhone.trim(),
-        addr1: clientAddress.trim(),
-        cleanTime: contractTime,
-        floor: bFloor.trim(),
-        parking: bParking.trim(),
-        keys: keysLabel,
-        bizName: bizName.trim(),
-        clientType,
-        packageName: clientType === 'airbnb' ? 'Airbnb Turnaround' : 'Commercial Cleaning',
-        numCleaners: nClean,
-        visitDurationBase,
-        addons: selectedAddons.map(a => ({ id: a.id, name: a.label, price: a.price, h: a.h || 0 })),
-        addonsList: selectedAddons.map(a => a.label).join(', '),
-        addonTotal: q.addonTotal,
         pricePerVisit: q.cleanPrice,
         totalPerVisit: q.price,
-        total: q.price,
-        status: 'scheduled',
-        frequency,
+        addons: selectedAddons.map(a => ({ id: a.id, name: a.label, price: a.price, h: a.h || 0 })),
+        addonsList: selectedAddons.map(a => a.label).join(', '),
+        addonTotal: q.addonTotal,
         createdAt: now,
         updatedAt: now,
       };
-      // Assign LCW-XXXXXX ref via Cloud Function (same format as regular bookings)
-      fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: masterRef.id }),
-      }).catch(() => {});
-      await Promise.all(visitDates.map((date, i) => addDoc(collection(db, 'bookings'), {
-        ...visitBase,
-        cleanDate: date,
-        ...(i === 0 && bMediaConsent ? { mediaConsentDiscount: 10 } : {}),
-      })));
+
+      if (clientType === 'airbnb') {
+        // Airbnb: one-off booking — no contract, no visits generated
+        const ref = await addDoc(collection(db, 'bookings'), {
+          ...sharedFields,
+          packageId: 'airbnb',
+          packageName: 'Airbnb Turnaround',
+          frequency: 'one-off',
+          bathrooms: parseInt(extraBaths, 10) || 1,
+          bedrooms,
+          hasPets: false,
+          source: 'Airbnb Quote',
+          status: 'scheduled',
+          isAirbnb: true,
+        });
+        fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId: ref.id }),
+        }).catch(() => {});
+
+      } else {
+        // Commercial: contract booking with visits
+        const ct = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
+        const startD = new Date(contractStart + 'T00:00:00');
+        const endD   = new Date(startD);
+        endD.setMonth(endD.getMonth() + ct.months);
+        const contractEnd = endD.toISOString().slice(0, 10);
+        const masterRef = await addDoc(collection(db, 'bookings'), {
+          ...sharedFields,
+          packageId: 'commercial',
+          packageName: 'Commercial Cleaning',
+          frequency,
+          bathrooms: parseInt(commBaths, 10) || 1,
+          hasPets: false,
+          source: 'Contract Quote',
+          status: 'scheduled',
+          isContract: true,
+          contractType: contract,
+          contractLabel: ct.label,
+          contractStartDate: contractStart,
+          contractEndDate: contractEnd,
+          monthlyBaseValue: q.freq.vpm * q.cleanPrice,
+          monthlyValue: q.mRev,
+          firstMonthCharge: parseFloat((q.freq.vpm * q.cleanPrice - (bMediaConsent ? 10 : 0)).toFixed(2)),
+          frequencyLabel: q.freq.label,
+          monthlyPayments: {},
+        });
+        const visitDates = generateVisitDates(contractStart, contractEnd, frequency);
+        const visitBase = {
+          contractId: masterRef.id,
+          isContractVisit: true,
+          firstName, lastName,
+          email: clientEmail.trim(),
+          phone: clientPhone.trim(),
+          addr1: clientAddress.trim(),
+          cleanTime: contractTime,
+          floor: bFloor.trim(),
+          parking: bParking.trim(),
+          keys: keysLabel,
+          bizName: bizName.trim(),
+          clientType,
+          packageName: 'Commercial Cleaning',
+          numCleaners: nClean,
+          visitDurationBase,
+          addons: selectedAddons.map(a => ({ id: a.id, name: a.label, price: a.price, h: a.h || 0 })),
+          addonsList: selectedAddons.map(a => a.label).join(', '),
+          addonTotal: q.addonTotal,
+          pricePerVisit: q.cleanPrice,
+          totalPerVisit: q.price,
+          total: q.price,
+          status: 'scheduled',
+          frequency,
+          createdAt: now,
+          updatedAt: now,
+        };
+        fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId: masterRef.id }),
+        }).catch(() => {});
+        await Promise.all(visitDates.map((date, i) => addDoc(collection(db, 'bookings'), {
+          ...visitBase,
+          cleanDate: date,
+          ...(i === 0 && bMediaConsent ? { mediaConsentDiscount: 10 } : {}),
+        })));
+      }
+
       if (loadedQuoteId) {
         await updateDoc(doc(db, 'savedQuotes', loadedQuoteId), { status: 'booked', updatedAt: now });
       }
@@ -708,15 +735,17 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
           {/* Frequency, cleaners, contract */}
           <Card C={C}>
-            <SectionLabel C={C}>Frequency & contract</SectionLabel>
+            <SectionLabel C={C}>{clientType === 'airbnb' ? 'Cleaners' : 'Frequency & contract'}</SectionLabel>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              <div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>How often</div>
-                <select value={frequency} onChange={e => setFrequency(e.target.value)} style={inputStyle}>
-                  {FREQUENCY.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
-                </select>
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: clientType === 'airbnb' ? '1fr' : '1fr 1fr', gap: 10, marginBottom: clientType === 'airbnb' ? 0 : 14 }}>
+              {clientType !== 'airbnb' && (
+                <div>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>How often</div>
+                  <select value={frequency} onChange={e => setFrequency(e.target.value)} style={inputStyle}>
+                    {FREQUENCY.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Number of cleaners</div>
                 <select value={numCleaners} onChange={e => setNumCleaners(e.target.value)} style={inputStyle}>
@@ -725,39 +754,43 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               </div>
             </div>
 
-            <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, marginTop: 4 }}>
-              Contract type
-              <span style={{ marginLeft: 8, color: C.faint || C.muted }}>Longer contracts get a discount -- the calculator adjusts your margin automatically</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {CONTRACTS.map(ct => (
-                <label
-                  key={ct.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-                    padding: '9px 12px', borderRadius: 7,
-                    background: contract === ct.id ? `${C.accent}14` : C.bg,
-                    border: `1px solid ${contract === ct.id ? C.accent : C.border}`,
-                  }}
-                >
-                  <input
-                    type="radio" name="contract"
-                    checked={contract === ct.id}
-                    onChange={() => setContract(ct.id)}
-                    style={{ accentColor: C.accent, flexShrink: 0 }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{ct.label}</div>
-                    <div style={{ fontSize: 11, color: C.muted }}>{ct.note}</div>
-                  </div>
-                  {ct.disc > 0 && (
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.success, background: `${C.success}18`, borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
-                      -{ct.disc * 100}%
-                    </span>
-                  )}
-                </label>
-              ))}
-            </div>
+            {clientType !== 'airbnb' && (
+              <>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, marginTop: 14 }}>
+                  Contract type
+                  <span style={{ marginLeft: 8, color: C.faint || C.muted }}>Longer contracts get a discount -- the calculator adjusts your margin automatically</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {CONTRACTS.map(ct => (
+                    <label
+                      key={ct.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                        padding: '9px 12px', borderRadius: 7,
+                        background: contract === ct.id ? `${C.accent}14` : C.bg,
+                        border: `1px solid ${contract === ct.id ? C.accent : C.border}`,
+                      }}
+                    >
+                      <input
+                        type="radio" name="contract"
+                        checked={contract === ct.id}
+                        onChange={() => setContract(ct.id)}
+                        style={{ accentColor: C.accent, flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{ct.label}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>{ct.note}</div>
+                      </div>
+                      {ct.disc > 0 && (
+                        <span style={{ fontSize: 12, fontWeight: 700, color: C.success, background: `${C.success}18`, borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                          -{ct.disc * 100}%
+                        </span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
           </Card>
 
           {/* Costs & margin settings */}
@@ -1011,7 +1044,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 color: '#fff', width: '100%', transition: 'all 0.2s',
               }}
             >
-              Book this contract
+              {clientType === 'airbnb' ? 'Book first visit' : 'Book this contract'}
             </button>
             {showBookPanel && (
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1026,9 +1059,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
                         <span>Base per visit</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.cleanPrice)}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
-                        <span>Monthly base ({q.freq.label})</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.freq.vpm * q.cleanPrice)}/mo</span>
-                      </div>
+                      {clientType !== 'airbnb' && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
+                          <span>Monthly base ({q.freq.label})</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.freq.vpm * q.cleanPrice)}/mo</span>
+                        </div>
+                      )}
                       {q.addonTotal > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
                           <span>Add-ons per visit</span><span style={{ color: C.text, fontWeight: 600 }}>+£{gbp(q.addonTotal)}</span>
@@ -1040,7 +1075,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                         </div>
                       )}
                       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {bMediaConsent ? (
+                        {clientType === 'airbnb' ? (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text }}>
+                            <span>Total this visit</span><span>£{gbp(firstVisitTotal)}</span>
+                          </div>
+                        ) : bMediaConsent ? (
                           <>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text }}>
                               <span>1st visit total</span><span>£{gbp(firstVisitTotal)}</span>
@@ -1073,7 +1112,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 {/* Date & time */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Start date <span style={{ color: C.danger }}>*</span></div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{clientType === 'airbnb' ? 'Visit date' : 'Start date'} <span style={{ color: C.danger }}>*</span></div>
                     <input type="date" value={contractStart} onChange={e => setContractStart(e.target.value)} min={new Date().toISOString().slice(0, 10)} style={inputStyle} />
                   </div>
                   <div>
@@ -1081,7 +1120,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                     <input type="time" value={contractTime} onChange={e => setContractTime(e.target.value)} style={inputStyle} />
                   </div>
                 </div>
-                {contractStart && (
+                {contractStart && clientType !== 'airbnb' && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: -4 }}>
                     Contract ends: {(() => {
                       const ct = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
