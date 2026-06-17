@@ -7,12 +7,13 @@ const LABEL  = { fontFamily: FONT, fontSize: 11, color: undefined, marginBottom:
 const SECTION = { fontFamily: FONT, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', margin: '20px 0 12px' };
 
 const AIRBNB_ADDONS = [
-  { id: 'oven',    label: 'Oven deep clean',  price: 40 },
-  { id: 'fridge',  label: 'Inside fridge',    price: 18 },
-  { id: 'laundry', label: 'Laundry & fold',   price: 20 },
-  { id: 'linen',   label: 'Linen change',     price: 12 },
-  { id: 'windows', label: 'Internal windows', price: 20 },
-  { id: 'patio',   label: 'Balcony / patio',  price: 30 },
+  { id: 'oven',      label: 'Oven deep clean',  price: 40 },
+  { id: 'fridge',    label: 'Inside fridge',    price: 18 },
+  { id: 'laundry',   label: 'Laundry & fold',   price: 20 },
+  { id: 'linen',     label: 'Linen change',     price: 12 },
+  { id: 'windows',   label: 'Internal windows', price: 20 },
+  { id: 'patio',     label: 'Balcony / patio',  price: 30 },
+  { id: 'same_day',  label: 'Same-day fee',     price: 30 },
 ];
 const COMMERCIAL_ADDONS = [
   { id: 'windows',    label: 'Internal windows',                price: 20 },
