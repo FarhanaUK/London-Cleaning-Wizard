@@ -72,6 +72,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
   // Build customer map from bookings
   const customerMap = {};
   bookings.forEach(b => {
+    if (b.isContractVisit || b.isTrashed) return;
     const key = (b.email || '').toLowerCase().trim();
     if (!key) return;
     if (!customerMap[key]) {
@@ -82,15 +83,19 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
 
   const customers = Object.values(customerMap).map(c => {
     const active     = c.bookings.filter(b => !b.status?.startsWith('cancelled'));
-    const totalSpend = active.reduce((s, b) => s + (parseFloat(b.total) || 0), 0);
+    const totalSpend = active.reduce((s, b) => s + (parseFloat(b.isContract ? b.monthlyBaseValue : b.total) || 0), 0);
     const collected  = c.bookings.reduce((s, b) => {
+      if (b.isContract) {
+        const paid = Object.values(b.monthlyPayments || {}).filter(v => v === 'paid').length;
+        return s + paid * (parseFloat(b.monthlyBaseValue) || 0);
+      }
       if (b.status === 'fully_paid') return s + (parseFloat(b.total) || 0);
       if (['deposit_paid', 'payment_failed'].includes(b.status)) return s + (parseFloat(b.deposit) || 0);
       return s;
     }, 0);
-    const sorted      = [...c.bookings].sort((a, b) => (b.cleanDate || '') > (a.cleanDate || '') ? 1 : -1);
-    const lastClean   = sorted[0]?.cleanDate;
-    const firstClean  = sorted[sorted.length - 1]?.cleanDate;
+    const sorted      = [...c.bookings].sort((a, b) => (b.cleanDate || b.contractStartDate || '') > (a.cleanDate || a.contractStartDate || '') ? 1 : -1);
+    const lastClean   = sorted[0]?.cleanDate || sorted[0]?.contractStartDate;
+    const firstClean  = sorted[sorted.length - 1]?.cleanDate || sorted[sorted.length - 1]?.contractStartDate;
     const isRecurring = c.bookings.some(b => b.isAutoRecurring);
     const hasActive   = c.bookings.some(b => b.isAutoRecurring && !b.status?.startsWith('cancelled'));
     const activeBooking   = sorted.find(b => !b.status?.startsWith('cancelled')) || sorted[0];
@@ -309,11 +314,19 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
           {[...sc.bookings].sort((a, b) => (b.cleanDate || '') > (a.cleanDate || '') ? 1 : -1).map(b => (
             <div key={b.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
               <div>
-                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 2 }}>{b.packageName} · {fmtDate(b.cleanDate)}</div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{b.bookingRef} · {b.cleanTime}</div>
+                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 2 }}>
+                  {b.isContract ? (b.contractLabel || 'Contract') : b.packageName} · {fmtDate(b.isContract ? b.contractStartDate : b.cleanDate)}
+                </div>
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>
+                  {b.bookingRef}{!b.isContract && b.cleanTime ? ` · ${b.cleanTime}` : ''}
+                  {b.isContract ? ` · ${b.contractType || ''} · ends ${fmtDate(b.contractEndDate)}` : ''}
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: C.text }}>£{parseFloat(b.total || 0).toFixed(2)}</div>
+                <div style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: C.text }}>
+                  £{parseFloat(b.isContract ? b.monthlyBaseValue : (b.total || 0)).toFixed(2)}
+                  {b.isContract && <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 400, color: C.muted }}>/mo</span>}
+                </div>
                 <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: STATUS_COLOURS[b.status]?.bg || '#f5f5f5', color: STATUS_COLOURS[b.status]?.color || '#5a5a5a', border: '1px solid rgba(0,0,0,0.06)' }}>
                   {STATUS_COLOURS[b.status]?.label || b.status}
                 </div>
