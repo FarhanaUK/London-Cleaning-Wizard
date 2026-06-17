@@ -59,7 +59,7 @@ export default function BookingExpandedPanel({
   ];
   const currentMonths = CONTRACT_OPTIONS.find(c => c.id === b.contractType)?.months || 0;
   const currentDisc   = CONTRACT_OPTIONS.find(c => c.id === b.contractType)?.disc   || 0;
-  const upgradeOptions = CONTRACT_OPTIONS.filter(c => c.months > currentMonths);
+  const upgradeOptions = CONTRACT_OPTIONS.filter(c => c.months >= currentMonths);
 
   const calcUpgradeEndDate = (months, fromDate) => {
     const d = fromDate ? new Date(fromDate + 'T12:00:00') : new Date();
@@ -1016,7 +1016,7 @@ export default function BookingExpandedPanel({
         )}
 
         {/* Contract upgrade */}
-        {b.isContract && !isCancelled && upgradeOptions.length > 0 && (
+        {b.isContract && !isCancelled && (
           <button
             onClick={() => {
                   setUpgradeErr('');
