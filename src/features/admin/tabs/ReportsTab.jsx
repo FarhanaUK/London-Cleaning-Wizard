@@ -148,11 +148,12 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   // ── KPIs ──
   const collectedAmt = b => {
     if (b.isContractVisit) return 0; // contract revenue counted per paid period on the master
-    const pr = parseFloat(b.partialRefundAmount || 0);
-    if (b.status === 'fully_paid')   return Math.max(0, (parseFloat(b.total)   || 0) - pr);
-    if (b.status === 'completed')    return Math.max(0, (parseFloat(b.total)   || 0) - pr);
-    if (b.status === 'deposit_paid') return Math.max(0, (parseFloat(b.deposit) || 0) - pr);
-    return 0;
+    const pr      = parseFloat(b.partialRefundAmount || 0);
+    const restock = (b.isAirbnb && b.restockPaid) ? parseFloat(b.restockCharge || 0) : 0;
+    if (b.status === 'fully_paid')   return Math.max(0, (parseFloat(b.total)   || 0) - pr) + restock;
+    if (b.status === 'completed')    return Math.max(0, (parseFloat(b.total)   || 0) - pr) + restock;
+    if (b.status === 'deposit_paid') return Math.max(0, (parseFloat(b.deposit) || 0) - pr) + restock;
+    return restock;
   };
   const periodRev      = periodBookings.reduce((s, b) => s + collectedAmt(b), 0) + contractRevForWindow(periodStart, periodEnd);
   const periodLabour   = periodBookings.reduce((s, b) => s + bookingLabour(b), 0);

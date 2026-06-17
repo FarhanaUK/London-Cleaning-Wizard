@@ -55,6 +55,8 @@ export default function BookingExpandedPanel({
   const [refundModal,    setRefundModal]    = useState(null); // { visitId, contractId, amount, password, step }
   const [refunding,      setRefunding]      = useState(false);
   const [refundErr,      setRefundErr]      = useState('');
+  const [restockInput,   setRestockInput]   = useState('');
+  const [restockSaving,  setRestockSaving]  = useState(false);
   const [newVisitModal,  setNewVisitModal]  = useState(null); // { date, time }
   const [newVisitSaving, setNewVisitSaving] = useState(false);
   const [newVisitErr,    setNewVisitErr]    = useState('');
@@ -469,7 +471,7 @@ export default function BookingExpandedPanel({
           b.isContractVisit && b.numCleaners && { l: 'No. of Cleaners', v: b.numCleaners },
           b.isContractVisit && b.visitDurationBase && { l: 'Visit Duration', v: `${b.visitDurationBase}h` },
           { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : (b.addonsList || 'None') },
-          !b.isContractVisit && !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
+          !b.isContractVisit && !b.isAirbnb && !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
           !b.isContractVisit && (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
           !b.isContractVisit && { l: 'Marketing Opt-in', v: b.marketingOptOut ? '✕ Opted out at booking' : '✓ Opted in at booking' },
           !b.isContractVisit && { l: 'Media Consent',    v: b.mediaConsent ? '✓ Consented to photos/videos on social media' : '✕ No consent given' },
@@ -490,6 +492,64 @@ export default function BookingExpandedPanel({
           </div>
         ))}
       </div>
+
+      {/* Restock Service — Airbnb bookings only */}
+      {b.isAirbnb && (
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 14 }}>
+          <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 10 }}>Restock Service</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>£</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={restockInput !== '' ? restockInput : (b.restockCharge > 0 ? b.restockCharge : '')}
+                onChange={e => setRestockInput(e.target.value)}
+                onBlur={async () => {
+                  const val = parseFloat(restockInput);
+                  if (restockInput === '' || isNaN(val)) { setRestockInput(''); return; }
+                  setRestockSaving(true);
+                  saveField('restockCharge', val);
+                  setRestockInput('');
+                  setRestockSaving(false);
+                }}
+                style={{ ...FIELD_STYLE(C), width: 90, display: 'inline-block' }}
+              />
+            </div>
+            {b.restockCharge > 0 && (
+              <>
+                <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: b.restockPaid ? '#f0fdf4' : '#fef9c3', color: b.restockPaid ? '#166534' : '#92400e' }}>
+                  {b.restockPaid ? 'Paid' : 'Pending'}
+                </span>
+                {!b.restockPaid && (
+                  <button
+                    disabled={restockSaving}
+                    onClick={() => { setRestockSaving(true); saveField('restockPaid', true); setRestockSaving(false); }}
+                    style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '5px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                  >
+                    Mark as Paid
+                  </button>
+                )}
+                {b.restockPaid && (
+                  <button
+                    onClick={() => saveField('restockPaid', false)}
+                    style={{ fontFamily: FONT, fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                  >
+                    Undo
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          {b.restockCharge > 0 && (
+            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 6 }}>
+              Restock charge: £{parseFloat(b.restockCharge).toFixed(2)} &nbsp;·&nbsp; {b.restockPaid ? 'Collected and added to reports' : 'Not yet collected — mark as paid once received'}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Monthly payment tracker — contracts only */}
       {b.isContract && contractMonths.length > 0 && (() => {

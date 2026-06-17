@@ -679,6 +679,12 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                   {b.assignedStaff && (
                     <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#f5f3ff', color: '#6d28d9' }}>👤 {[b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ')}</span>
                   )}
+                  {b.isAirbnb && b.restockCharge > 0 && !b.restockPaid && (
+                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 99, background: '#fef9c3', color: '#92400e' }}>Restock £{parseFloat(b.restockCharge).toFixed(2)}</span>
+                  )}
+                  {b.isAirbnb && b.restockCharge > 0 && b.restockPaid && (
+                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 99, background: '#f0fdf4', color: '#166534' }}>Restock paid</span>
+                  )}
                   {b.isContract && (() => {
                     const paidCount   = Object.values(b.monthlyPayments || {}).filter(v => v === 'paid').length;
                     const startD      = new Date((b.contractStartDate || b.cleanDate) + 'T12:00:00');
