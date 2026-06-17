@@ -313,7 +313,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{b.bookingRef} · {b.cleanTime}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: C.text }}>£{b.total}</div>
+                <div style={{ fontFamily: FONT, fontSize: 16, fontWeight: 700, color: C.text }}>£{parseFloat(b.total || 0).toFixed(2)}</div>
                 <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: STATUS_COLOURS[b.status]?.bg || '#f5f5f5', color: STATUS_COLOURS[b.status]?.color || '#5a5a5a', border: '1px solid rgba(0,0,0,0.06)' }}>
                   {STATUS_COLOURS[b.status]?.label || b.status}
                 </div>

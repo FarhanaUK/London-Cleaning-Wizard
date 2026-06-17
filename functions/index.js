@@ -396,7 +396,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
       supplies: d.supplies || 'customer', suppliesFee: d.suppliesFee || null,
       cleanDate: d.cleanDate, cleanTime: d.cleanTime,
       cleanDateUTC: toUTCISO(d.cleanDate, d.cleanTime),
-      total: d.total, deposit: d.deposit, remaining: d.remaining,
+      total: Math.round(parseFloat(d.total || 0) * 100) / 100, deposit: Math.round(parseFloat(d.deposit || 0) * 100) / 100, remaining: Math.round(parseFloat(d.remaining || 0) * 100) / 100,
       ...(d.launchDiscount ? { launchDiscount: d.launchDiscount, originalTotal: d.originalTotal } : {}),
       ...(d.mediaConsentDiscount ? { mediaConsentDiscount: d.mediaConsentDiscount } : {}),
       stripeDepositIntentId: d.stripeDepositIntentId,
@@ -2968,7 +2968,8 @@ exports.convertToRecurring = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
   const c = custDoc.data() || {};
 
   const freqSave    = FREQ_SAVINGS[frequency] || 0;
-  const total       = passedTotal !== undefined ? parseFloat(passedTotal) : Math.max(0, (parseFloat(lb.total) || 0) - freqSave);
+  const rawTotal    = passedTotal !== undefined ? parseFloat(passedTotal) : Math.max(0, (parseFloat(lb.total) || 0) - freqSave);
+  const total       = Math.round(rawTotal * 100) / 100;
   const pkgId       = packageId   || lb.package;
   const pkgName     = packageName || lb.packageName;
   const ref         = `LCW-${Date.now().toString().slice(-6)}`;
