@@ -291,14 +291,23 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
   // Derived stats
   const activeBookings         = displayedBookings.filter(b => !b.status?.startsWith('cancelled'));
   const cancelledCount         = displayedBookings.filter(b =>  b.status?.startsWith('cancelled')).length;
-  const totalRevenue           = activeBookings.reduce((s, b) => s + (parseFloat(b.total) || 0), 0);
+  const totalRevenue           = activeBookings.reduce((s, b) => {
+    const pr = parseFloat(b.partialRefundAmount || 0) + parseFloat(b.partialRefundTotal || 0);
+    return s + Math.max(0, (parseFloat(b.total) || 0) - pr);
+  }, 0);
   const collected              = displayedBookings.reduce((s, b) => {
-    if (b.status === 'fully_paid') return s + (parseFloat(b.total) || 0);
-    if (['deposit_paid','payment_failed'].includes(b.status)) return s + (parseFloat(b.deposit) || 0);
+    const pr = parseFloat(b.partialRefundAmount || 0) + parseFloat(b.partialRefundTotal || 0);
+    if (b.status === 'fully_paid') return s + Math.max(0, (parseFloat(b.total) || 0) - pr);
+    if (['deposit_paid','payment_failed'].includes(b.status)) return s + Math.max(0, (parseFloat(b.deposit) || 0) - pr);
     return s;
   }, 0);
   const outstanding            = displayedBookings.filter(b => b.status === 'deposit_paid').reduce((s, b) => s + (parseFloat(b.remaining) || 0), 0);
-  const refunded               = displayedBookings.filter(b => ['cancelled_full_refund','cancelled_partial_refund'].includes(b.status)).reduce((s, b) => s + (parseFloat(b.refundAmount) || 0), 0);
+  const refunded               = displayedBookings.reduce((s, b) => {
+    if (['cancelled_full_refund','cancelled_partial_refund'].includes(b.status)) return s + (parseFloat(b.refundAmount) || 0);
+    const pr = parseFloat(b.partialRefundAmount || 0);
+    const cpr = parseFloat(b.partialRefundTotal || 0);
+    return s + pr + cpr;
+  }, 0);
   const cancellationRate       = displayedBookings.length > 0 ? ((cancelledCount / displayedBookings.length) * 100).toFixed(1) : '0.0';
   const paidBookings           = displayedBookings.filter(b => b.status === 'fully_paid');
   const aov                    = paidBookings.length > 0 ? paidBookings.reduce((s, b) => s + (parseFloat(b.total) || 0), 0) / paidBookings.length : 0;

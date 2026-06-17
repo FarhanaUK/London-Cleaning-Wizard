@@ -13,8 +13,9 @@ export default function DashboardTab({ bookings, staff, isMobile, C }) {
   const monthEnd   = (y, m) => new Date(y, m + 1, 0).toISOString().split('T')[0];
 
   const bookingRevenue = b => {
-    if (b.status === 'fully_paid') return parseFloat(b.total) || 0;
-    if (['deposit_paid', 'payment_failed'].includes(b.status)) return parseFloat(b.deposit) || 0;
+    const pr = parseFloat(b.partialRefundAmount || 0) + parseFloat(b.partialRefundTotal || 0);
+    if (b.status === 'fully_paid') return Math.max(0, (parseFloat(b.total) || 0) - pr);
+    if (['deposit_paid', 'payment_failed'].includes(b.status)) return Math.max(0, (parseFloat(b.deposit) || 0) - pr);
     return 0;
   };
 

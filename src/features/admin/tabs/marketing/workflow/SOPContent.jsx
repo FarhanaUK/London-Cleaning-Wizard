@@ -513,6 +513,45 @@ export default function SOPContent() {
         </P>
       </Card>
 
+      {/* ── Contract cancellation & refund policy ── */}
+      <SLabel>Contract cancellation — refund calculation</SLabel>
+      <Card>
+        <P>
+          This section defines exactly how to calculate what a customer is owed (or charged) when they cancel a contract mid-term.
+          There are two scenarios depending on when the cancellation happens.
+        </P>
+
+        <SubHead>Scenario A — cancellation before the first clean has taken place</SubHead>
+        <Li>Charge a £75 admin / cancellation fee via Stripe</Li>
+        <Li>Refund everything else the customer has paid in full</Li>
+        <Li>No further calculation needed</Li>
+
+        <SubHead>Scenario B — cancellation after the first clean has taken place</SubHead>
+        <P>Step 1: Refund unserved visits in the current paid month</P>
+        <Li>Find the total amount the customer actually paid for the current month (use the payment record, not the listed price per visit, to account for any contract discount)</Li>
+        <Li>Count the total number of visits scheduled within that month</Li>
+        <Li>Count how many of those visits are still unserved (not completed)</Li>
+        <Li>Refund = (monthly amount paid ÷ total visits in month) × number of unserved visits</Li>
+        <Li>Example: £320 paid for Month 2 with 4 weekly visits. 2 done, 2 unserved. Refund = £320 ÷ 4 × 2 = £160</Li>
+        <Li>Add-ons for completed visits are already earned — do not refund those. The per-visit figure above already proportionally covers add-ons for unserved visits since the monthly payment included them</Li>
+
+        <P style={{ marginTop: 14 }}>Step 2: Early termination fee on remaining unpaid months</P>
+        <Li>Count the number of months remaining in the contract that have NOT yet been paid</Li>
+        <Li>Early termination fee = 50% × (remaining unpaid months × monthly base rate, excluding add-ons)</Li>
+        <Li>Example: 4 unpaid months remain at £320/month base. Fee = 50% × (4 × £320) = £640</Li>
+
+        <P style={{ marginTop: 14 }}>Step 3: Net settlement</P>
+        <Li>If the Step 1 refund is greater than the Step 2 fee: pay the difference to the customer</Li>
+        <Li>If the Step 2 fee is greater than the Step 1 refund: charge the difference to the customer via Stripe</Li>
+
+        <SubHead>Important — verify this calculation</SubHead>
+        <P>
+          This breakdown was agreed in principle but has not yet been verified by a financial or legal advisor.
+          Before automating it in the system, confirm the per-visit refund formula is correct and that the 50% early termination fee is enforceable under the contract terms.
+          Review this section after the Terms and Conditions contract clause has been drafted.
+        </P>
+      </Card>
+
       {/* ── localStorage reference ── */}
       <SLabel>Storage keys — technical reference</SLabel>
       <Card>

@@ -14,7 +14,7 @@ const SERVICES = [
       'Guest-ready turnaround between every booking',
       'Beds made with fresh linen',
       'Bathrooms and kitchen fully cleaned',
-      'Restock of toiletries if supplied',
+      'Restock of toiletries',
       'Completion photo sent directly to you',
     ],
     cta: 'Book Airbnb Clean',
@@ -95,6 +95,35 @@ export default function CommercialPage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Attention strip */}
+      <div style={{ background: '#c8b89a', padding: isMobile ? '28px 24px' : '32px clamp(24px,6vw,100px)' }}>
+        <div style={{ maxWidth: 800, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: isMobile ? 20 : 48 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: isMobile ? 22 : 26, fontWeight: 400, color: '#1a1410', lineHeight: 1.2, marginBottom: 6 }}>
+              Regular clients get better rates
+            </div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: 'rgba(26,20,16,0.65)', fontWeight: 300, lineHeight: 1.7 }}>
+              Call us to discuss pricing for your property.
+            </div>
+          </div>
+          <div style={{ width: 1, height: 48, background: 'rgba(26,20,16,0.2)', flexShrink: 0, display: isMobile ? 'none' : 'block' }} />
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: isMobile ? 22 : 26, fontWeight: 400, color: '#1a1410', lineHeight: 1.2, marginBottom: 6 }}>
+              Restocking service available
+            </div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: 'rgba(26,20,16,0.65)', fontWeight: 300, lineHeight: 1.7 }}>
+              We restock essentials between guest stays — toilet rolls, soap, washing-up liquid and more.
+            </div>
+          </div>
+          <a
+            href="tel:02081370026"
+            style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500, padding: '12px 22px', background: '#1a1410', color: '#f5f0e8', textDecoration: 'none', whiteSpace: 'nowrap' }}
+          >
+            Call us
+          </a>
         </div>
       </div>
 

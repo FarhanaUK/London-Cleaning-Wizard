@@ -1,8 +1,9 @@
 import { calcHours, toInputTime, fmtDuration } from '../utils';
+import emailjs from '@emailjs/browser';
 import DoNotContactToggle from './DoNotContactToggle';
 import { useState, useEffect } from 'react';
 import { db, auth } from '../../../firebase/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
@@ -54,6 +55,9 @@ export default function BookingExpandedPanel({
   const [refundModal,    setRefundModal]    = useState(null); // { visitId, contractId, amount, password, step }
   const [refunding,      setRefunding]      = useState(false);
   const [refundErr,      setRefundErr]      = useState('');
+  const [newVisitModal,  setNewVisitModal]  = useState(null); // { date, time }
+  const [newVisitSaving, setNewVisitSaving] = useState(false);
+  const [newVisitErr,    setNewVisitErr]    = useState('');
 
   const CONTRACT_OPTIONS = [
     { id: 'monthly', label: 'Monthly rolling',  months: 1,  disc: 0.00 },
@@ -128,6 +132,98 @@ export default function BookingExpandedPanel({
       setRefundModal(null);
     } catch (e) { setRefundErr(e.message); }
     setRefunding(false);
+  };
+
+  const handleAddNewVisit = async () => {
+    if (!newVisitModal?.date) { setNewVisitErr('Select a date.'); return; }
+    if (!newVisitModal?.time) { setNewVisitErr('Select a time.'); return; }
+    setNewVisitSaving(true); setNewVisitErr('');
+    try {
+      const newBooking = {
+        customerName:    b.customerName || b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim(),
+        firstName:       b.firstName || b.contactName || '',
+        lastName:        b.lastName || '',
+        bizName:         b.bizName || '',
+        contactName:     b.contactName || '',
+        email:           b.email,
+        phone:           b.phone || '',
+        addr1:           b.addr1 || '',
+        postcode:        b.postcode || '',
+        bedrooms:        b.bedrooms || '',
+        propertyType:    b.propertyType || '',
+        size:            b.size || '',
+        packageName:     b.packageName || '',
+        package:         b.package || '',
+        clientType:      'airbnb',
+        isAirbnb:        true,
+        frequency:       'one-off',
+        numCleaners:     b.numCleaners || 1,
+        visitDur:        b.visitDur || b.visitDurationBase || '',
+        addons:          b.addons || [],
+        addonTotal:      b.addonTotal || 0,
+        total:           b.total || 0,
+        deposit:         0,
+        remaining:       b.total || 0,
+        assignedStaff:   b.assignedStaff || '',
+        secondCleaner:   b.secondCleaner || '',
+        keys:            b.keys || '',
+        parking:         b.parking || '',
+        floor:           b.floor || '',
+        airbnbListing:   b.airbnbListing || '',
+        cleanDate:       newVisitModal.date,
+        cleanTime:       newVisitModal.time,
+        status:          'scheduled',
+        stripeCustomerId: b.stripeCustomerId || '',
+        stripeDepositIntentId: 'auto-recurring',
+        source:          'admin',
+        createdAt:       new Date().toISOString(),
+        originBookingId: b.id,
+      };
+      const ref = await addDoc(collection(db, 'bookings'), newBooking);
+      setBookings(all => [...all, { id: ref.id, ...newBooking }]);
+      fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: ref.id }),
+      }).catch(() => {});
+      fetch(import.meta.env.VITE_CF_CREATE_CALENDAR_EVENT, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: ref.id }),
+      }).catch(() => {});
+
+      const confirmTpl = import.meta.env.VITE_EMAILJS_CONFIRM_TEMPLATE;
+      if (confirmTpl) {
+        const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
+        emailjs.send(import.meta.env.VITE_EMAILJS_SERVICE_ID, confirmTpl, {
+          to_name:         newBooking.contactName || newBooking.firstName || newBooking.bizName || newBooking.customerName,
+          to_email:        newBooking.email,
+          booking_ref:     'Pending assignment',
+          booking_type:    'Airbnb Turnaround Clean',
+          package_name:    newBooking.packageName || 'Airbnb Turnaround',
+          property_type:   newBooking.size || newBooking.bedrooms || '—',
+          frequency:       'One-off',
+          date:            fmtD(newBooking.cleanDate),
+          time:            newBooking.cleanTime || '—',
+          address:         `${newBooking.addr1 || ''}, ${newBooking.postcode || ''}`.trim().replace(/^,\s*/, ''),
+          floor:           newBooking.floor || '—',
+          parking:         newBooking.parking || '—',
+          keys:            newBooking.keys || '—',
+          addons:          (newBooking.addons || []).map(a => a.name || a.label || a).join(', ') || 'None',
+          pets:            '—',
+          signature_touch: '—',
+          notes:           '—',
+          total:           `£${parseFloat(newBooking.total || 0).toFixed(2)}`,
+          deposit_paid:    '£0.00',
+          remaining:       `£${parseFloat(newBooking.total || 0).toFixed(2)}`,
+          stripe_deposit_pi: 'Charged on completion',
+          recurring_note:  'To book your next Airbnb turnaround, simply contact us and we will add a new visit to your account.',
+          terms_summary:   'Full payment is charged automatically on completion of the clean.',
+          media_consent_row: '',
+        }, import.meta.env.VITE_EMAILJS_PUBLIC_KEY).catch(() => {});
+      }
+
+      setNewVisitModal(null);
+    } catch (e) { setNewVisitErr(e.message); }
+    setNewVisitSaving(false);
   };
 
   const buildContractCancelInfo = () => {
@@ -1082,6 +1178,15 @@ export default function BookingExpandedPanel({
           </>
         )}
 
+        {/* Add New Visit — Airbnb only */}
+        {b.isAirbnb === true && !isCancelled && (
+          <button
+            onClick={() => { setNewVisitErr(''); setNewVisitModal({ date: '', time: b.cleanTime || '' }); }}
+            style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac', borderRadius: 6, cursor: 'pointer' }}>
+            + Add New Visit
+          </button>
+        )}
+
         {/* Stop recurring — not for contracts */}
         {!b.isContract && b.isAutoRecurring && !stoppedRecurring.has(b.id) && (
           <button onClick={() => handleStopRecurring(b)} disabled={stoppingRecurring === b.id}
@@ -1263,6 +1368,50 @@ export default function BookingExpandedPanel({
                   {refunding ? 'Processing…' : 'Confirm Refund'}
                 </button>
                 <button onClick={() => { setRefundModal(null); setRefundErr(''); }}
+                  style={{ flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '10px 0', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add New Visit modal */}
+        {newVisitModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 400, width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
+              <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>Add New Visit</div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 20 }}>All property details will be copied from this booking. Just set the date and time.</div>
+
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, fontFamily: FONT, color: C.muted, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div><strong style={{ color: C.text }}>{b.customerName}</strong></div>
+                <div>{b.addr1}{b.postcode ? `, ${b.postcode}` : ''}</div>
+                <div>{b.packageName || b.size || ''}{b.numCleaners > 1 ? ` · ${b.numCleaners} cleaners` : ''}</div>
+                {b.assignedStaff && <div>Cleaner: {b.assignedStaff}{b.secondCleaner ? ` & ${b.secondCleaner}` : ''}</div>}
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>Visit date *</div>
+                <input type='date' value={newVisitModal.date}
+                  onChange={e => setNewVisitModal(m => ({ ...m, date: e.target.value }))}
+                  style={{ ...FIELD_STYLE(C), marginBottom: 0 }} />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>Visit time *</div>
+                <input type='time' value={newVisitModal.time}
+                  onChange={e => setNewVisitModal(m => ({ ...m, time: e.target.value }))}
+                  style={{ ...FIELD_STYLE(C), marginBottom: 0 }} />
+              </div>
+
+              {newVisitErr && <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginBottom: 12 }}>{newVisitErr}</div>}
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={handleAddNewVisit} disabled={newVisitSaving}
+                  style={{ flex: 2, fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '10px 0', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, cursor: newVisitSaving ? 'not-allowed' : 'pointer', opacity: newVisitSaving ? 0.7 : 1 }}>
+                  {newVisitSaving ? 'Creating…' : 'Create Visit'}
+                </button>
+                <button onClick={() => { setNewVisitModal(null); setNewVisitErr(''); }}
                   style={{ flex: 1, fontFamily: FONT, fontSize: 13, fontWeight: 500, padding: '10px 0', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer' }}>
                   Cancel
                 </button>

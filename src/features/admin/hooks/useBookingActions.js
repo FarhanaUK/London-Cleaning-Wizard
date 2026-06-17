@@ -79,10 +79,15 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
   const handleComplete = async (booking) => {
     setCompleting(booking.id); setCompleteErr('');
     try {
-      const res  = await fetch(import.meta.env.VITE_CF_COMPLETE_JOB, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: booking.id }) });
-      const data = await res.json();
-      if (!res.ok) setCompleteErr(data.error || 'Failed to charge remaining balance.');
-      else setBookings(all => all.map(x => x.id === booking.id ? { ...x, status: data.status || 'completed' } : x));
+      if (booking.isContractVisit || booking.contractId) {
+        await updateDoc(doc(db, 'bookings', booking.id), { status: 'completed', completedAt: new Date().toISOString() });
+        setBookings(all => all.map(x => x.id === booking.id ? { ...x, status: 'completed' } : x));
+      } else {
+        const res  = await fetch(import.meta.env.VITE_CF_COMPLETE_JOB, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: booking.id }) });
+        const data = await res.json();
+        if (!res.ok) setCompleteErr(data.error || 'Failed to charge remaining balance.');
+        else setBookings(all => all.map(x => x.id === booking.id ? { ...x, status: data.status || 'completed' } : x));
+      }
     } catch { setCompleteErr('Something went wrong. Please try again.'); }
     finally { setCompleting(null); }
   };
@@ -207,16 +212,17 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
   };
 
   const handleAssignStaff = (booking, staffName, clearSecondCleaner = false) => {
-    if (!staffName) return;
+    // Allow empty staffName to unassign — clearing primary also clears second cleaner
+    const shouldClearSecond = !staffName || clearSecondCleaner;
     if (booking.isContractVisit) {
-      assignStaff({ booking, staffName, scope: 'single', clearSecondCleaner: false });
+      assignStaff({ booking, staffName, scope: 'single', clearSecondCleaner: shouldClearSecond });
       return;
     }
     const isRecurringSeries = booking.isAutoRecurring || (booking.frequency && booking.frequency !== 'one-off');
     if (isRecurringSeries) {
-      setStaffAssignPending({ booking, staffName, clearSecondCleaner });
+      setStaffAssignPending({ booking, staffName, clearSecondCleaner: shouldClearSecond });
     } else {
-      assignStaff({ booking, staffName, scope: 'single', clearSecondCleaner });
+      assignStaff({ booking, staffName, scope: 'single', clearSecondCleaner: shouldClearSecond });
     }
   };
 

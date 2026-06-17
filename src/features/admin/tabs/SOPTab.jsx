@@ -307,6 +307,21 @@ export default function SOPTab({ isMobile, C }) {
           </div>
         ))}
 
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 10px' }}>Airbnb Add-on: Restocking</div>
+        {[
+          'Restocking is available as an add-on for Airbnb/short-let clients. It covers toiletries, toilet paper, coffee pods, washing-up liquid and similar consumables.',
+          'The £12 handling fee covers the cleaner\'s time sourcing and managing supplies. The actual cost of supplies is invoiced separately at receipt price — no markup on the goods themselves.',
+          'Before the visit: confirm exactly what needs restocking. Get a list from the host in writing (WhatsApp or email). Do not leave this to guesswork.',
+          'For simple, cheap items (toilet paper, soap, bin bags): the cleaner buys them and keeps the receipt. You invoice the host for the item cost + £12 handling fee after the visit.',
+          'For bulky, expensive or specialist items (e.g. branded toiletries, welcome gifts): the host sends supplies directly to the cleaner before the visit. The £12 handling fee still applies.',
+          'Record the supply spend in the Expenses tab under Restocking so it shows in your financial reports. Mark the recharge amount once the host pays.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
         <div style={{ background: '#fef9ef', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', marginTop: 8, fontFamily: FONT, fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
           <strong>Key rule:</strong> Never confirm a commercial or Airbnb booking without a 30% deposit paid first. Do not schedule a cleaner or block a slot until payment is received. If a client pushes back on the deposit, politely explain it is non-negotiable and covers our costs if the booking is cancelled or the job is misrepresented.
         </div>

@@ -120,7 +120,7 @@ const PACKAGE_DETAIL = {
     'Guest-ready turnaround between every booking',
     'Beds made with fresh linen',
     'Bathrooms and kitchen fully cleaned',
-    'Restock of toiletries if supplied',
+    'Restock of toiletries',
     'Bins emptied and fresh liners fitted',
     'Subtle application of our signature scent (you can opt out in the details section)',
     'Completion photo sent directly to you',
@@ -164,7 +164,8 @@ const COMMERCIAL_SERVICES = [
     ],
     trustSignal: 'Same trusted cleaner every visit, so they know your property inside out.',
     honestNote: 'Priced by number of bedrooms. Houses are priced at 10% above flats to reflect the additional space.',
-    upgradePrompt: 'Hosting regularly? Regular clients receive a dedicated cleaner and priority scheduling. Contact us for a tailored quote on a weekly or contract arrangement.',
+    upgradePrompt: 'Premium restock service available. We restock essentials between guest stays: toilet rolls, tissues, soap, washing-up liquid and more. Ask us about this when booking.',
+    upgradeLink: null,
   },
   {
     pkg: OFFICE_CLEANING,
@@ -179,6 +180,7 @@ const COMMERCIAL_SERVICES = [
     trustSignal: 'Fully vetted, insured professionals you can trust with your workspace.',
     honestNote: 'First clean includes a walkthrough assessment to understand your space and priorities. Regular contract clients receive a dedicated cleaning team.',
     upgradePrompt: 'Looking for a weekly clean or a regular contract? Regular clients receive a dedicated cleaning team and priority scheduling. Contact us for a tailored quote.',
+    upgradeLink: '/quote',
   },
 ];
 
@@ -543,18 +545,18 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
         {pkgTab === 'commercial' && (
           <div style={{ marginBottom: 24 }}>
 
-            {/* Large / communal spaces banner */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16, padding: '12px 14px', background: '#faf7f2', border: '1px solid rgba(200,184,154,0.5)', borderLeft: '3px solid #c8b89a' }}>
-              <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>🏢</span>
+            {/* Regular rates callout */}
+            <div style={{ background: '#1a1410', padding: '16px 18px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <div>
-                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, fontWeight: 600, color: '#2c2420', marginBottom: 3 }}>
-                  Managing a large building, block of flats, communal areas or need daily cleaning?
-                </div>
-                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: '#6b5e56', fontWeight: 300, lineHeight: 1.6 }}>
-                  For one-off Airbnb or office cleans, you can book directly below. For hosts and businesses who need a regular arrangement (weekly, fortnightly, monthly or daily) without having to rebook each time,{' '}
-                  <a href="/quote" style={{ color: '#2c2420', fontWeight: 600, textDecoration: 'underline' }}>get a tailored quote</a>. Fill in as much detail as you can and we will be in touch within a few hours to set everything up.
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: '#c8b89a', marginBottom: 5 }}>Regular Client Benefit</div>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 400, color: '#f5f0e8', lineHeight: 1.2, marginBottom: 4 }}>Regular bookings get better rates</div>
+                <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 12, color: 'rgba(245,240,232,0.6)', fontWeight: 300, lineHeight: 1.6 }}>
+                  Book a one-off clean below, or call us to discuss a regular arrangement.
                 </div>
               </div>
+              <a href="tel:02081370026" style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 600, padding: '11px 20px', background: '#c8b89a', color: '#1a1410', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                📞 Call us
+              </a>
             </div>
 
               {/* Horizontal tabs */}
@@ -581,7 +583,7 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
             {(() => {
               const active = COMMERCIAL_SERVICES.find(s => s.pkg.id === booking.pkg?.id);
               if (!active) return null;
-              const { pkg, description, idealFor, trustSignal, upgradePrompt } = active;
+              const { pkg, description, idealFor, trustSignal, upgradePrompt, upgradeLink } = active;
               return (
                 <div style={CARD(true)}>
                   <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 14, color: '#6b5e56', fontWeight: 300, marginBottom: 12, lineHeight: 1.6 }}>
@@ -600,11 +602,13 @@ export default function BookingStep1({ booking, onUpdate, onNext, onBack }) {
                   {upgradePrompt && (
                     <div style={{ marginTop: 12, padding: '12px 14px', background: '#2c2420', fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#f5f0e8', fontWeight: 300, lineHeight: 1.7 }}>
                       <span style={{ color: '#c8b89a', fontWeight: 600, marginRight: 6 }}>✦</span>{upgradePrompt}
-                      <div style={{ marginTop: 10 }}>
-                        <a href="/quote" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, padding: '9px 18px', background: '#c8b89a', color: '#1a1410', textDecoration: 'none', cursor: 'pointer' }}>
-                          Get a tailored quote
-                        </a>
-                      </div>
+                      {upgradeLink && (
+                        <div style={{ marginTop: 10 }}>
+                          <a href={upgradeLink} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', fontFamily: "'Jost',sans-serif", fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, padding: '9px 18px', background: '#c8b89a', color: '#1a1410', textDecoration: 'none', cursor: 'pointer' }}>
+                            Get a tailored quote
+                          </a>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

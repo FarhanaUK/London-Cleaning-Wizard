@@ -260,22 +260,30 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(auto-fill,minmax(180px,1fr))', gap: '8px 16px', marginBottom: 16 }}>
               {[
-                { l: 'Booking Ref', v: sel.bookingRef },
+                { l: 'Booking Ref', v: sel.bookingRef || (sel.isContractVisit && sel.contractId ? bookings.find(b => b.id === sel.contractId)?.bookingRef : null) },
                 { l: 'Clean Date',  v: fmtDate(sel.cleanDate) },
                 { l: 'Clean Time',  v: sel.cleanTime },
-                { l: 'Package',     v: sel.packageName },
-                { l: 'Property',    v: `${sel.propertyType || ''} · ${sel.size || ''}` },
-                { l: 'Address',     v: `${sel.addr1}, ${sel.postcode}` },
+                { l: 'Frequency',   v: sel.frequency || 'one-off' },
+                sel.isContractVisit && sel.bizName && { l: 'Business', v: sel.bizName },
+                sel.isContractVisit && { l: 'Client Type', v: sel.clientType === 'airbnb' ? 'Airbnb' : 'Commercial' },
+                sel.isContractVisit && { l: 'No. of Cleaners', v: sel.numCleaners || '—' },
+                sel.isContractVisit && { l: 'Visit Duration', v: sel.visitDurationBase ? `${sel.visitDurationBase}h` : (sel.visitDuration ? `${sel.visitDuration}h` : '—') },
+                sel.isContractVisit && { l: 'Price per Visit', v: `£${parseFloat(sel.pricePerVisit || sel.totalPerVisit || sel.total || 0).toFixed(2)}` },
+                !sel.isContractVisit && { l: 'Package',  v: sel.packageName },
+                !sel.isContractVisit && { l: 'Property', v: [sel.propertyType, sel.size].filter(Boolean).join(' · ') || '—' },
+                { l: 'Address',     v: [sel.addr1, sel.postcode].filter(Boolean).join(', ') || '—' },
+                sel.floor    && { l: 'Floor',   v: sel.floor },
+                sel.parking  && { l: 'Parking', v: sel.parking },
+                sel.keys     && { l: 'Keys',    v: sel.keys },
                 { l: 'Phone',       v: sel.phone },
                 { l: 'Email',       v: sel.email },
-                { l: 'Frequency',   v: sel.frequency || 'one-off' },
-                { l: 'Add-ons',     v: sel.addons?.length ? sel.addons.map(a => a.name).join(', ') : 'None' },
+                { l: 'Add-ons',     v: sel.addons?.length ? sel.addons.map(a => a.name).join(', ') : (sel.addonsList || 'None') },
                 { l: 'Cleaner',     v: [sel.assignedStaff, sel.secondCleaner].filter(Boolean).join(' & ') || 'Unassigned' },
-                { l: 'Pets',        v: sel.hasPets ? `Yes — ${sel.petTypes || 'not specified'}` : 'No' },
-                (sel.package === 'standard' || sel.packageId === 'standard') && { l: 'Signature Touch', v: sel.signatureTouch !== false ? 'Opted in' : 'Opted out' },
-                { l: 'Total',       v: `£${parseFloat(sel.total || 0).toFixed(2)}` },
-                { l: 'Deposit',     v: sel.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(sel.deposit || 0).toFixed(2)}` },
-                { l: 'Remaining',   v: `£${parseFloat(sel.remaining || 0).toFixed(2)}` },
+                !sel.isContractVisit && { l: 'Pets', v: sel.hasPets ? `Yes — ${sel.petTypes || 'not specified'}` : 'No' },
+                !sel.isContractVisit && (sel.package === 'standard' || sel.packageId === 'standard') && { l: 'Signature Touch', v: sel.signatureTouch !== false ? 'Opted in' : 'Opted out' },
+                !sel.isContractVisit && { l: 'Total',     v: `£${parseFloat(sel.total || 0).toFixed(2)}` },
+                !sel.isContractVisit && { l: 'Deposit',   v: sel.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(sel.deposit || 0).toFixed(2)}` },
+                !sel.isContractVisit && { l: 'Remaining', v: `£${parseFloat(sel.remaining || 0).toFixed(2)}` },
                 sel.notes && { l: 'Notes', v: sel.notes },
               ].filter(Boolean).map((r, i) => (
                 <div key={i}>
@@ -323,7 +331,20 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
                   <button
                     disabled={calActionBusy}
                     onClick={async () => {
-                      if (!window.confirm(`Cancel this booking for ${sel.firstName} ${sel.lastName}? This cannot be undone.`)) return;
+                      const hoursUntil = (new Date(sel.cleanDateUTC) - new Date()) / 3600000;
+                      let msg;
+                      if (sel.isAutoRecurring) {
+                        msg = hoursUntil >= 48
+                          ? `No charge — more than 48 hours notice given.`
+                          : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(sel.total * 0.3).toFixed(2)} (30% of £${sel.total}) will be charged to the customer's saved card.`;
+                      } else if (sel.status === 'pending_deposit' || !sel.deposit) {
+                        msg = `No payment has been taken — booking will be cancelled with no refund required.`;
+                      } else {
+                        msg = hoursUntil >= 48
+                          ? `Full refund of £${parseFloat(sel.deposit).toFixed(2)} will be issued (more than 48hrs notice).`
+                          : `No refund will be issued (less than 48hrs notice).`;
+                      }
+                      if (!window.confirm(`Cancel this booking for ${sel.firstName} ${sel.lastName}?\n\n${msg}\n\nThis cannot be undone.`)) return;
                       setCalActionBusy(true); setCalActionErr('');
                       try {
                         const r = await fetch(import.meta.env.VITE_CF_CANCEL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: sel.id, reason: 'Cancelled by admin' }) });

@@ -4080,7 +4080,7 @@ exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:
 });
 
 // ── Contract payment reminder — runs daily at 9am, sends email 7 days before payment due ──
-exports.issuePartialRefund = onRequest({ secrets: [STRIPE_KEY] }, async (req, res) => {
+exports.issuePartialRefund = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
   const { bookingId, amount, contractId } = req.body;
   if (!bookingId || !amount || parseFloat(amount) <= 0) {
@@ -4150,7 +4150,79 @@ exports.issuePartialRefund = onRequest({ secrets: [STRIPE_KEY] }, async (req, re
     });
   }
 
+  // Send partial refund email to customer
+  const template = process.env.EMAILJS_PARTIAL_REFUND_TEMPLATE;
+  if (template) {
+    const fmtDate = s => { try { const [y,m,d] = s.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return s; } };
+    const name = booking.contactName || booking.firstName || booking.bizName || '';
+    const emailData = {
+      to_name:       name,
+      to_email:      booking.email,
+      booking_ref:   booking.bookingRef || bookingId,
+      package_name:  booking.packageName || booking.contractLabel || 'Cleaning Service',
+      date:          booking.cleanDate ? fmtDate(booking.cleanDate) : '—',
+      refund_amount: `£${parseFloat(amount).toFixed(2)}`,
+    };
+    await sendEmail(template, emailData, EMAILJS_KEY.value()).catch(e => console.error('Partial refund email failed:', e.message));
+  }
+
   res.json({ success: true, stripeRefundId });
+});
+
+// Creates Google Calendar event(s) for bookings created directly via addDoc (Airbnb, contract visits, Add New Visit).
+// Accepts { bookingId } or { bookingIds: [...] }.
+exports.createCalendarEvent = onRequest(async (req, res) => {
+  if (!guard(req, res)) return;
+  const db  = admin.firestore();
+  const ids = req.body.bookingIds || (req.body.bookingId ? [req.body.bookingId] : []);
+  if (!ids.length) { res.status(400).json({ error: 'bookingId or bookingIds required' }); return; }
+
+  const results = [];
+  for (const bookingId of ids) {
+    try {
+      const snap = await db.collection('bookings').doc(bookingId).get();
+      if (!snap.exists) { results.push({ bookingId, error: 'not found' }); continue; }
+      const b = snap.data();
+      if (!b.cleanDate || !b.cleanTime) { results.push({ bookingId, skipped: 'no date/time' }); continue; }
+
+      const name        = b.bizName ? `${b.bizName}` : `${b.firstName || ''} ${b.lastName || ''}`.trim();
+      const packageName = b.packageName || b.contractLabel || 'Cleaning';
+      const slotStart   = toUTCISO(b.cleanDate, b.cleanTime);
+      const slotEnd     = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+
+      const cal      = await getCalendarClient();
+      const calEvent = await cal.events.insert({
+        calendarId: process.env.GOOGLE_CALENDAR_ID,
+        resource: {
+          summary:     `${packageName} — ${name}`,
+          description: [
+            b.bookingRef  && `Ref: ${b.bookingRef}`,
+            `Customer: ${name}`,
+            b.email       && `Email: ${b.email}`,
+            b.phone       && `Phone: ${b.phone}`,
+            b.addr1       && `Address: ${b.addr1}${b.postcode ? ', ' + b.postcode : ''}`,
+            b.floor       && `Floor / Lift: ${b.floor}`,
+            b.parking     && `Parking: ${b.parking}`,
+            b.bathrooms   && `Bathrooms: ${b.bathrooms}`,
+            `Keys: ${b.keys || '—'}`,
+            b.addons?.length && `Add-ons: ${b.addons.map(a => a.name || a.label).join(', ')}`,
+            b.hasPets !== undefined && `Pets: ${b.hasPets ? `Yes${b.petTypes ? ' — ' + b.petTypes : ''}` : 'No'}`,
+            b.notes       && `Notes: ${b.notes}`,
+            `Total: £${parseFloat(b.total || 0).toFixed(2)}`,
+          ].filter(Boolean).join('\n'),
+          start:   { dateTime: slotStart, timeZone: 'Europe/London' },
+          end:     { dateTime: slotEnd,   timeZone: 'Europe/London' },
+          colorId: calColorId(b.status || 'pending_deposit', b.frequency || 'one-off'),
+        },
+      });
+      await db.collection('bookings').doc(bookingId).update({ calendarEventId: calEvent.data.id });
+      results.push({ bookingId, calendarEventId: calEvent.data.id });
+    } catch (e) {
+      console.error(`createCalendarEvent failed for ${bookingId}:`, e.message);
+      results.push({ bookingId, error: e.message });
+    }
+  }
+  res.json({ success: true, results });
 });
 
 exports.sendContractPaymentReminders = onSchedule({ schedule: 'every day 09:00', secrets: [EMAILJS_KEY] }, async () => {

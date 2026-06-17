@@ -9,8 +9,8 @@ const INPUT = { fontFamily: FONT, fontSize: 14, padding: '8px 12px', borderRadiu
 const BTN  = { fontFamily: FONT, fontSize: 14, fontWeight: 600, padding: '9px 18px', borderRadius: 7, border: 'none', cursor: 'pointer', transition: 'opacity 0.15s' };
 const BIZ  = '#1e40af';
 
-const CATS = ['Supplies', 'Fuel & Mileage', 'Public Transport', 'Equipment', 'Insurance', 'Staff Costs', 'Rent & Utilities', 'Software & Tools', 'Other'];
-const CAT_COLOURS = { 'Supplies':'#0ea5e9','Fuel & Mileage':'#f97316','Public Transport':'#fb923c','Equipment':'#8b5cf6','Insurance':'#14b8a6','Staff Costs':'#16a34a','Rent & Utilities':'#6366f1','Software & Tools':'#f59e0b','Other':'#94a3b8' };
+const CATS = ['Supplies', 'Client Restock Premium Service', 'Fuel & Mileage', 'Public Transport', 'Equipment', 'Insurance', 'Staff Costs', 'Rent & Utilities', 'Software & Tools', 'Other'];
+const CAT_COLOURS = { 'Supplies':'#0ea5e9','Client Restock Premium Service':'#10b981','Fuel & Mileage':'#f97316','Public Transport':'#fb923c','Equipment':'#8b5cf6','Insurance':'#14b8a6','Staff Costs':'#16a34a','Rent & Utilities':'#6366f1','Software & Tools':'#f59e0b','Other':'#94a3b8' };
 const PAID_BY = ['Company Card', 'Cash', 'Personal — Reimbursable', 'Direct Debit'];
 const PAID_BY_COLOURS = { 'Company Card':'#6366f1','Cash':'#16a34a','Personal — Reimbursable':'#dc2626','Direct Debit':'#0ea5e9' };
 const HMRC_RATE = 0.45;
