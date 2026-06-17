@@ -147,15 +147,28 @@ export function getMilestonePacing(milestone, data) {
 }
 
 export function readBusinessData(bookings = []) {
-  // Confirmed bookings: deposit paid or completed (not pending or cancelled)
-  const active = bookings.filter(b => {
+  const cutoff = Date.now() - 30 * 86400000;
+
+  // Split by booking type
+  const contractMasters = bookings.filter(b => b.isContract);
+  const regular         = bookings.filter(b => !b.isContract && !b.isContractVisit);
+
+  // Confirmed regular bookings: deposit paid or completed
+  const activeRegular = regular.filter(b => {
     const st = (b.status || '').toLowerCase();
     return st === 'deposit_paid' || st === 'complete';
   });
-  const bookingCount = active.length;
 
-  // Sort by creation time descending to find latest
-  const sorted = [...active].sort((a, b) => {
+  // Active contracts (not cancelled)
+  const activeContracts = contractMasters.filter(b => {
+    const st = (b.status || '').toLowerCase();
+    return !st.startsWith('cancelled');
+  });
+
+  const bookingCount = activeRegular.length + activeContracts.length;
+
+  // Sort by creation time descending to find latest confirmed booking
+  const sorted = [...activeRegular, ...activeContracts].sort((a, b) => {
     const ta = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
     const tb = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
     return tb - ta;
@@ -176,39 +189,54 @@ export function readBusinessData(bookings = []) {
     }
   }
 
-  const cutoff = Date.now() - 30 * 86400000;
+  // Revenue (last 30 days):
+  //   regular deposit_paid -> b.deposit; complete -> b.total
+  //   contract masters -> monthlyBaseValue per paid period whose billing date is in last 30 days
+  const regularRevenue = regular
+    .filter(b => {
+      const st = (b.status || '').toLowerCase();
+      if (st !== 'deposit_paid' && st !== 'complete') return false;
+      const ms = st === 'complete'
+        ? (b.cleanDate?.seconds
+            ? b.cleanDate.seconds * 1000
+            : b.cleanDate ? new Date(b.cleanDate).getTime() : 0)
+        : (b.createdAt?.seconds
+            ? b.createdAt.seconds * 1000
+            : new Date(b.createdAt || 0).getTime());
+      return ms >= cutoff;
+    })
+    .reduce((s, b) => {
+      const st = (b.status || '').toLowerCase();
+      const pr = parseFloat(b.partialRefundAmount || 0);
+      if (st === 'complete') return s + Math.max(0, (parseFloat(b.total) || 0) - pr);
+      return s + Math.max(0, (parseFloat(b.deposit) || 0) - pr);
+    }, 0);
 
-  // Revenue (last 30 days) -- no rounding, preserve pence:
-  //   deposit_paid -> count b.deposit (money already collected)
-  //   complete     -> count b.total (full amount collected on job completion)
-  //   refunded/cancelled/pending -> count 0
-  const monthlyRevenue =
-    bookings
-      .filter(b => {
-        const st = (b.status || '').toLowerCase();
-        if (st !== 'deposit_paid' && st !== 'complete') return false;
-        const ms = st === 'complete'
-          ? (b.cleanDate?.seconds
-              ? b.cleanDate.seconds * 1000
-              : b.cleanDate ? new Date(b.cleanDate).getTime() : 0)
-          : (b.createdAt?.seconds
-              ? b.createdAt.seconds * 1000
-              : new Date(b.createdAt || 0).getTime());
-        return ms >= cutoff;
-      })
-      .reduce((s, b) => {
-        const st = (b.status || '').toLowerCase();
-        if (st === 'complete') return s + (parseFloat(b.total) || 0);
-        return s + (parseFloat(b.deposit) || 0);
-      }, 0);
+  const contractRevenue = contractMasters.reduce((s, b) => {
+    const payments = b.monthlyPayments || {};
+    const paidRev = Object.entries(payments).reduce((ps, [key, val]) => {
+      if (val !== 'paid') return ps;
+      const paidMs = new Date(key + 'T12:00:00').getTime();
+      if (paidMs < cutoff) return ps;
+      return ps + parseFloat(b.monthlyBaseValue || 0);
+    }, 0);
+    return s + Math.max(0, paidRev - parseFloat(b.partialRefundTotal || 0));
+  }, 0);
 
-  // Monthly booking count (confirmed in last 30 days, by createdAt)
-  const monthlyBookings = bookings.filter(b => {
-    const st = (b.status || '').toLowerCase();
-    if (st !== 'deposit_paid' && st !== 'complete') return false;
-    const ms = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
-    return ms >= cutoff;
-  }).length;
+  const monthlyRevenue = regularRevenue + contractRevenue;
+
+  // Monthly booking count: regular confirmed in last 30 days + new contracts in last 30 days
+  const monthlyBookings =
+    regular.filter(b => {
+      const st = (b.status || '').toLowerCase();
+      if (st !== 'deposit_paid' && st !== 'complete') return false;
+      const ms = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+      return ms >= cutoff;
+    }).length +
+    activeContracts.filter(b => {
+      const ms = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+      return ms >= cutoff;
+    }).length;
 
   // Google reviews -- stored in localStorage, default 7
   let googleReviews = 7;
@@ -221,7 +249,7 @@ export function readBusinessData(bookings = []) {
   let agentReferral = false;
   try { agentReferral = localStorage.getItem('lcw_agent_referral') === 'true'; } catch {}
   if (!agentReferral) {
-    agentReferral = active.some(b => {
+    agentReferral = [...activeRegular, ...activeContracts].some(b => {
       const src = (b.source || '').toLowerCase();
       return src.includes('agent') || src.includes('letting');
     });

@@ -4130,7 +4130,8 @@ exports.issuePartialRefund = onRequest({ secrets: [STRIPE_KEY] }, async (req, re
 
   } else {
     // Regular / recurring booking
-    const piId = booking.paymentIntentId || booking.stripeDepositIntentId;
+    // Fully paid bookings have a separate remaining-balance PI; prefer that for refunds
+    const piId = booking.stripeRemainingIntentId || booking.stripeDepositIntentId;
     if (!piId || piId === 'manual') {
       res.status(400).json({ error: 'No Stripe payment found for this booking.' }); return;
     }

@@ -649,6 +649,11 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                       Refund processed: {fmtCreatedAt(b.cancelledAt)}{b.refundAmount > 0 ? ` — £${parseFloat(b.refundAmount).toFixed(2)} refunded` : ' — No refund'}
                     </div>
                   )}
+                  {(b.partialRefundAmount > 0 || b.partialRefundTotal > 0) && (
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: '#dc2626', marginTop: 3 }}>
+                      Partial refund: £{parseFloat(b.partialRefundAmount || b.partialRefundTotal || 0).toFixed(2)}{b.partialRefundDate ? ` — ${b.partialRefundDate.split('-').reverse().join('/')}` : ''}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   {b.isContract && (
