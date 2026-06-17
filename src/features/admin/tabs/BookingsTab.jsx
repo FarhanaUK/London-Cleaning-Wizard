@@ -601,7 +601,9 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
           </div>
         )}
         {pagedBookings.map(b => {
-          const sc = STATUS_COLOURS[b.status] || { bg: '#f5f5f5', color: '#5a5a5a', label: b.status };
+          const sc = parseFloat(b.partialRefundAmount) > 0 && b.status === 'cancelled_full_refund'
+            ? { bg: '#fef9c3', color: '#854d0e', label: 'Partially Refunded' }
+            : STATUS_COLOURS[b.status] || { bg: '#f5f5f5', color: '#5a5a5a', label: b.status };
           const isOpen = expanded === b.id;
           return (
             <div key={b.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 8, overflow: 'hidden' }}>

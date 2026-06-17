@@ -271,7 +271,8 @@ export default function BookingExpandedPanel({
   const available      = activeStaff.filter(s => !(s.holidays || []).includes(b.cleanDate));
 
   const isManualDeposit = b.stripeDepositIntentId === 'manual';
-  const isCancelled     = b.status?.startsWith('cancelled');
+  const isPartialRefundOnly = parseFloat(b.partialRefundAmount) > 0 && b.status === 'cancelled_full_refund';
+  const isCancelled     = b.status?.startsWith('cancelled') && !isPartialRefundOnly;
 
   const contractPeriods = (() => {
     if (!b.isContract || !b.contractStartDate) return [];
