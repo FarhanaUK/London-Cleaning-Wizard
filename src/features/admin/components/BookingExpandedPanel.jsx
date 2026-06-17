@@ -1223,7 +1223,7 @@ export default function BookingExpandedPanel({
         )}
 
         {/* Partial refund — regular bookings */}
-        {!b.isContract && (b.status === 'fully_paid' || b.status === 'completed' || b.status === 'deposit_paid') && (
+        {!b.isContract && (b.isAirbnb || b.status === 'fully_paid' || b.status === 'completed' || b.status === 'deposit_paid') && (
           <>
             {b.partialRefundAmount > 0 && (
               <div style={{ fontFamily: FONT, fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '6px 12px' }}>
