@@ -429,7 +429,7 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
                   !jobCard.isContractVisit && !jobCard.isAirbnb && ['Pets', jobCard.hasPets ? `Yes — ${jobCard.petTypes || 'not specified'}` : 'No'],
                   ['Cleaner(s)',     [jobCard.assignedStaff, jobCard.secondCleaner].filter(Boolean).join(' & ') || '—'],
                   ['Notes',         jobCard.notes || '—'],
-                  !jobCard.isContractVisit && !jobCard.isAirbnb && ['Media Consent', jobCard.mediaConsent ? 'Yes' : 'No'],
+                  !jobCard.isContractVisit && ['Media Consent', jobCard.mediaConsent ? 'Yes' : 'No'],
                   !jobCard.isContractVisit && !jobCard.isAirbnb && ['Signature Touch', (jobCard.package === 'standard' || jobCard.packageId === 'standard') ? 'Eligible' : 'Not eligible'],
                 ].filter(Boolean).map(([label, value]) => (
                   <>
