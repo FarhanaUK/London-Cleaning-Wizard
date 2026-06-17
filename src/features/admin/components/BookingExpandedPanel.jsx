@@ -243,7 +243,6 @@ export default function BookingExpandedPanel({
   })();
   const contractMonths = contractPeriods.map(p => p.key);
 
-  const [savingPayment, setSavingPayment] = useState(null);
   const [expandedMonth, setExpandedMonth] = useState(null);
 
   // Auto-assign LCW-XXXXXX ref via CF for contracts created before this was in place
@@ -261,12 +260,17 @@ export default function BookingExpandedPanel({
     }
   }, [b.id]);
 
+  const [paymentErr, setPaymentErr] = useState('');
+
   const toggleMonthPaid = (month, paid) => {
     const prev    = b.monthlyPayments || {};
     const updated = { ...prev };
     if (paid) updated[month] = 'paid'; else delete updated[month];
     setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: updated } : x));
-    const revert  = () => setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: prev } : x));
+    const revert  = () => {
+      setBookings(all => all.map(x => x.id === b.id ? { ...x, monthlyPayments: prev } : x));
+      setPaymentErr(`Failed to ${paid ? 'mark' : 'unmark'} ${month} as paid — please try again.`);
+    };
     if (paid) {
       fetch(import.meta.env.VITE_CF_MARK_CONTRACT_MONTH_PAID, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -369,6 +373,12 @@ export default function BookingExpandedPanel({
         const outstanding = contractMonths.filter(m => payments[m] !== 'paid').reduce((s, m) => s + monthCharge(m), 0) + (finalSettlement > 0 && !finalSettlementPaid ? finalSettlement : 0);
         return (
           <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 14 }}>
+            {paymentErr && (
+              <div style={{ fontFamily: FONT, fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '8px 12px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {paymentErr}
+                <button onClick={() => setPaymentErr('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 14, lineHeight: 1 }}>✕</button>
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted }}>Monthly Payments</div>
               <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>
@@ -388,7 +398,7 @@ export default function BookingExpandedPanel({
                 const fmtBD      = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
                 const isCur      = period ? todayISO >= period.start && todayISO <= period.end : false;
                 const label      = period ? `${fmtBD(period.start)} - ${fmtBD(period.end)}` : m;
-                const isSaving   = savingPayment === m;
+                const isSaving   = false;
                 const isExpanded = expandedMonth === m;
                 const monthVisits = period ? visitsInPeriod(period.start, period.end).sort((a, z) => (a.cleanDate || '').localeCompare(z.cleanDate || '')) : [];
                 const charge       = monthCharge(m);
@@ -611,11 +621,10 @@ export default function BookingExpandedPanel({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>£{finalSettlement.toFixed(2)}</div>
                       <button
-                        disabled={savingPayment === 'final_settlement'}
                         onClick={e => { e.stopPropagation(); toggleMonthPaid('final_settlement', !finalSettlementPaid); }}
-                        style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 5, cursor: savingPayment === 'final_settlement' ? 'not-allowed' : 'pointer', border: `1px solid ${finalSettlementPaid ? '#86efac' : '#fca5a5'}`, background: finalSettlementPaid ? '#dcfce7' : '#fef2f2', color: finalSettlementPaid ? '#166534' : '#dc2626' }}
+                        style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${finalSettlementPaid ? '#86efac' : '#fca5a5'}`, background: finalSettlementPaid ? '#dcfce7' : '#fef2f2', color: finalSettlementPaid ? '#166534' : '#dc2626' }}
                       >
-                        {savingPayment === 'final_settlement' ? '…' : finalSettlementPaid ? '✓ Paid' : 'Mark Paid'}
+                        {finalSettlementPaid ? '✓ Paid' : 'Mark Paid'}
                       </button>
                     </div>
                   </div>
