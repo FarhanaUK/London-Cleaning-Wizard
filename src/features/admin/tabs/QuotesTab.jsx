@@ -138,7 +138,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   const [contactName,   setContactName]   = useState('');
   const [clientEmail,   setClientEmail]   = useState('');
   const [clientPhone,   setClientPhone]   = useState('');
-  const [clientAddress, setClientAddress] = useState('');
+  const [addr1,    setAddr1]    = useState('');
+  const [addr2,    setAddr2]    = useState('');
+  const [postcode, setPostcode] = useState('');
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [manualPrice,  setManualPrice]  = useState('');
   const [quoteNotes,    setQuoteNotes]    = useState('');
 
   const [followUpDate,  setFollowUpDate]  = useState('');
@@ -170,6 +174,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
   const toggleAddon = id =>
     setAddons(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const validPhone = v => { const d = v.replace(/[\s\-\(\)]/g, ''); return !v.trim() || (/^(\+44|0)\d{9,10}$/.test(d)); };
+  const validPostcode = v => !v.trim() || /^[A-Z]{1,2}\d[0-9A-Z]?\s*\d[A-Z]{2}$/i.test(v.trim());
 
   // Auto-count all confirmed bookings this month across every client
   const totalVisitsThisMonth = useMemo(() => {
@@ -247,9 +254,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const cost          = labor + (parseFloat(suppliesCost) || 0) + (parseFloat(travelCost) || 0) + overheadPerVisit;
     const basePrice     = cost / (1 - margin);
     const cleanPrice    = basePrice * (1 - ct.disc);
-    const price         = cleanPrice + addonTotal;
-    const profit        = cleanPrice - cost;
-    const pct           = cleanPrice > 0 ? (profit / cleanPrice) * 100 : 0;
+    const calcPrice     = cleanPrice + addonTotal;
+    const price         = manualPrice !== '' && parseFloat(manualPrice) > 0 ? parseFloat(manualPrice) : calcPrice;
+    const effectiveClean = price - addonTotal;
+    const profit        = effectiveClean - cost;
+    const pct           = effectiveClean > 0 ? (profit / effectiveClean) * 100 : 0;
     const freq          = FREQUENCY.find(f => f.id === frequency) || FREQUENCY[4];
     const mRev          = freq.vpm * price;
     const mCost         = freq.vpm * cost;
@@ -257,12 +266,13 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const cVal          = ct.months * mRev;
     const visitDur      = totalHours / Math.max(parseInt(numCleaners, 10) || 1, 1);
     return { labor, overheadPerVisit, cost, basePrice, cleanPrice, price, profit, pct, addonTotal, mRev, mCost, mProfit, cVal, ct, freq, visitDur };
-  }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, numCleaners, addons, clientType]);
+  }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, numCleaners, addons, clientType, manualPrice]);
 
   const marginColor = q.pct < 25 ? C.danger : q.pct < 30 ? C.warning : C.success;
 
   const handleSaveQuote = async () => {
-    if (!bizName.trim())    { setSaveError('Enter a business name first.'); return; }
+    setSubmitAttempted(true);
+    if (clientType !== 'airbnb' && !bizName.trim()) { setSaveError('Enter a business name first.'); return; }
     if (!clientEmail.trim()) { setSaveError('Enter the client email to send the quote.'); return; }
     if (!followUpDate)       { setSaveError('Set a follow-up date.'); return; }
     setSaving(true); setSaveError('');
@@ -271,9 +281,10 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
       const now = new Date().toISOString();
       await addDoc(collection(db, 'savedQuotes'), {
-        bizName: bizName.trim(), contactName: contactName.trim(),
+        bizName: (clientType === 'airbnb' ? contactName.trim() || addr1.trim() : bizName.trim()), contactName: contactName.trim(),
         email: clientEmail.trim(), phone: clientPhone.trim(),
-        address: clientAddress.trim(), notes: quoteNotes.trim(),
+        addr1: addr1.trim(), addr2: addr2.trim(), postcode: postcode.trim().toUpperCase(),
+        notes: quoteNotes.trim(),
         clientType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths,
         addons, frequency, contract, numCleaners, cleanerRate, suppliesCost, travelCost, minMargin,
         pricePerVisit: q.price, monthlyValue: q.mRev, contractValue: q.cVal,
@@ -324,7 +335,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   const loadQuote = sq => {
     setBizName(sq.bizName || ''); setContactName(sq.contactName || '');
     setClientEmail(sq.email || ''); setClientPhone(sq.phone || '');
-    setClientAddress(sq.address || ''); setQuoteNotes(sq.notes || '');
+    setAddr1(sq.addr1 || sq.address || ''); setAddr2(sq.addr2 || ''); setPostcode(sq.postcode || '');
+    setQuoteNotes(sq.notes || ''); setSubmitAttempted(false);
     setClientType(sq.clientType || 'airbnb'); setBedrooms(sq.bedrooms || '2');
     setExtraBaths(sq.extraBaths || '1'); setSqm(sq.sqm || '80');
     setIntensity(sq.intensity || 'office'); setComplexity(sq.complexity || 'normal');
@@ -387,7 +399,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   };
 
   const handleBookContract = async () => {
-    if (!bizName.trim())     { setBookError('Enter a business name first.'); return; }
+    setSubmitAttempted(true);
+    if (clientType !== 'airbnb' && !bizName.trim()) { setBookError('Enter a business name first.'); return; }
     if (!clientEmail.trim()) { setBookError('Enter the client email.'); return; }
     if (!contractStart)      { setBookError(clientType === 'airbnb' ? 'Set a visit date.' : 'Set a contract start date.'); return; }
     setBooking(true); setBookError('');
@@ -413,8 +426,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         firstName, lastName,
         email: clientEmail.trim(),
         phone: clientPhone.trim(),
-        addr1: clientAddress.trim(),
-        postcode: clientAddress.trim().split(' ').slice(-2).join(' '),
+        addr1: addr1.trim(),
+        addr2: addr2.trim(),
+        postcode: postcode.trim().toUpperCase(),
         cleanDate: contractStart,
         cleanTime: contractTime,
         floor: bFloor.trim(),
@@ -429,7 +443,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         total: q.price,
         deposit: 0,
         remaining: q.price,
-        bizName: bizName.trim(),
+        bizName: (clientType === 'airbnb' ? contactName.trim() || addr1.trim() : bizName.trim()),
         contactName: contactName.trim(),
         clientType,
         numCleaners: nClean,
@@ -446,8 +460,12 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
       if (clientType === 'airbnb') {
         // Airbnb: one-off booking — no contract, no visits generated
+        const airbnbDeposit   = Math.ceil(q.price * 0.30 * 100) / 100;
+        const airbnbRemaining = Math.round((q.price - airbnbDeposit) * 100) / 100;
         const ref = await addDoc(collection(db, 'bookings'), {
           ...sharedFields,
+          deposit:   airbnbDeposit,
+          remaining: airbnbRemaining,
           packageId: 'airbnb',
           packageName: 'Airbnb Turnaround',
           frequency: 'one-off',
@@ -534,12 +552,14 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           firstName, lastName,
           email: clientEmail.trim(),
           phone: clientPhone.trim(),
-          addr1: clientAddress.trim(),
+          addr1: addr1.trim(),
+          addr2: addr2.trim(),
+          postcode: postcode.trim().toUpperCase(),
           cleanTime: contractTime,
           floor: bFloor.trim(),
           parking: bParking.trim(),
           keys: keysLabel,
-          bizName: bizName.trim(),
+          bizName: (clientType === 'airbnb' ? contactName.trim() || addr1.trim() : bizName.trim()),
           clientType,
           packageName: 'Commercial Cleaning',
           numCleaners: nClean,
@@ -626,9 +646,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
       {/* Header */}
       <div style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>Quotes Calculator</h2>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>Quotes / Enquiries & Pricing</h2>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: C.muted }}>
-          Calculate what to charge for Airbnb and commercial contracts -- with full cost and profit visibility.
+          Book Airbnb visits and quote commercial contracts -- with full cost and profit visibility.
         </p>
       </div>
 
@@ -641,25 +661,37 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           <Card C={C}>
             <SectionLabel C={C}>Client Details</SectionLabel>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div style={{ gridColumn: 'span 2' }}>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Business / property name <span style={{ color: C.danger }}>*</span></div>
-                <input value={bizName} onChange={e => setBizName(e.target.value)} placeholder="e.g. Riverside Stays, Oakwood Office..." style={inputStyle} />
-              </div>
+              {clientType !== 'airbnb' && (
+                <div style={{ gridColumn: 'span 2' }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Business name <span style={{ color: C.danger }}>*</span></div>
+                  <input value={bizName} onChange={e => setBizName(e.target.value)} placeholder="e.g. Oakwood Office, The Anchor Pub..." style={{ ...inputStyle, borderColor: submitAttempted && !bizName.trim() ? C.danger : undefined }} />
+                </div>
+              )}
               <div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Contact name</div>
                 <input value={contactName} onChange={e => setContactName(e.target.value)} placeholder="First & last name" style={inputStyle} />
               </div>
               <div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Phone</div>
-                <input value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="07..." style={inputStyle} />
+                <input value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="07..." style={{ ...inputStyle, borderColor: submitAttempted && !validPhone(clientPhone) ? C.danger : undefined }} />
+                {submitAttempted && !validPhone(clientPhone) && <div style={{ fontSize: 10, color: C.danger, marginTop: 3 }}>Enter a valid UK number (e.g. 07700 900123)</div>}
               </div>
               <div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Email <span style={{ color: C.danger }}>*</span></div>
-                <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="client@email.com" style={inputStyle} />
+                <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="client@email.com" style={{ ...inputStyle, borderColor: submitAttempted && !clientEmail.trim() ? C.danger : undefined }} />
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Address line 1</div>
+                <input value={addr1} onChange={e => setAddr1(e.target.value)} placeholder="Street address" style={inputStyle} />
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Address line 2 <span style={{ color: C.muted, fontStyle: 'italic' }}>(optional)</span></div>
+                <input value={addr2} onChange={e => setAddr2(e.target.value)} placeholder="Flat, floor, building name..." style={inputStyle} />
               </div>
               <div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Address</div>
-                <input value={clientAddress} onChange={e => setClientAddress(e.target.value)} placeholder="Street, postcode" style={inputStyle} />
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Postcode</div>
+                <input value={postcode} onChange={e => setPostcode(e.target.value.toUpperCase())} placeholder="E.g. E14 5AB" style={{ ...inputStyle, borderColor: submitAttempted && postcode.trim() && !validPostcode(postcode) ? C.danger : undefined }} />
+                {submitAttempted && postcode.trim() && !validPostcode(postcode) && <div style={{ fontSize: 10, color: C.danger, marginTop: 3 }}>Enter a valid UK postcode (e.g. E14 5AB)</div>}
               </div>
               <div style={{ gridColumn: 'span 2' }}>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Notes</div>
@@ -676,6 +708,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               {typeTabBtn('commercial', 'Commercial')}
             </div>
 
+            {clientType === 'airbnb' && (
+              <div style={{ fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
+                This is a per-visit booking, not a quote or contract. Each visit is booked individually -- no fixed schedule. Once booked, all visits can be added as and when needed.
+              </div>
+            )}
             {clientType === 'airbnb' ? (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div style={{ gridColumn: 'span 2' }}>
@@ -870,6 +907,13 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                   The % of every charge you keep as profit. Discounts are handled automatically on top.
                 </div>
               </div>
+              <div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Manual price override (£)</div>
+                <input type="number" min={0} value={manualPrice} onChange={e => setManualPrice(e.target.value)} placeholder="Leave blank to use calculated" style={{ ...inputStyle, borderColor: manualPrice !== '' ? C.accent : undefined }} />
+                <div style={{ fontSize: 10, color: C.faint || C.muted, marginTop: 3 }}>
+                  Overrides the calculated price. Leave blank to use the formula.
+                </div>
+              </div>
             </div>
 
             {/* Auto overhead from admin data */}
@@ -989,6 +1033,26 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               {q.pct >= 30 && q.pct < 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>healthy</span>}
               {q.pct >= 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>excellent</span>}
             </div>
+          {clientType === 'airbnb' && (() => {
+            const deposit30  = Math.ceil(q.price * 0.30 * 100) / 100;
+            const remaining  = Math.round((q.price - deposit30) * 100) / 100;
+            return (
+              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, marginTop: 2, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Payment breakdown</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT, fontSize: 12, color: C.text }}>
+                  <span>First booking — 30% deposit today</span>
+                  <span style={{ fontWeight: 700 }}>£{gbp(deposit30)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT, fontSize: 12, color: C.muted }}>
+                  <span>Remaining after clean</span>
+                  <span style={{ fontWeight: 600 }}>£{gbp(remaining)}</span>
+                </div>
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>
+                  Future visits: full amount taken automatically after each clean
+                </div>
+              </div>
+            );
+          })()}
           </Card>
 
           {/* Contract discount schedule — commercial only */}
@@ -1131,9 +1195,17 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                       )}
                       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {clientType === 'airbnb' ? (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text }}>
-                            <span>Total this visit</span><span>£{gbp(firstVisitTotal)}</span>
-                          </div>
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text }}>
+                              <span>Total this visit</span><span>£{gbp(firstVisitTotal)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
+                              <span>30% deposit due now</span><span style={{ fontWeight: 600, color: C.text }}>£{gbp(Math.ceil(firstVisitTotal * 0.30 * 100) / 100)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
+                              <span>Remaining after clean</span><span style={{ fontWeight: 600 }}>£{gbp(Math.round((firstVisitTotal - Math.ceil(firstVisitTotal * 0.30 * 100) / 100) * 100) / 100)}</span>
+                            </div>
+                          </>
                         ) : bMediaConsent ? (
                           <>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text }}>
@@ -1256,17 +1328,23 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 Quote saved and email sent.
               </div>
             )}
-            <button
-              onClick={() => { setShowSavePanel(s => !s); setSaveError(''); }}
-              style={{
-                fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '11px', borderRadius: 8,
-                cursor: 'pointer', border: `1px solid ${C.accent}`,
-                background: showSavePanel ? C.accent : `${C.accent}18`,
-                color: showSavePanel ? '#fff' : C.text, width: '100%', transition: 'all 0.2s',
-              }}
-            >
-              Save quote + send email
-            </button>
+            {clientType === 'airbnb' ? (
+              <div style={{ fontSize: 12, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '11px 14px', textAlign: 'center' }}>
+                Quotes are only for contracted commercial jobs
+              </div>
+            ) : (
+              <button
+                onClick={() => { setShowSavePanel(s => !s); setSaveError(''); }}
+                style={{
+                  fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '11px', borderRadius: 8,
+                  cursor: 'pointer', border: `1px solid ${C.accent}`,
+                  background: showSavePanel ? C.accent : `${C.accent}18`,
+                  color: showSavePanel ? '#fff' : C.text, width: '100%', transition: 'all 0.2s',
+                }}
+              >
+                Save quote + send email
+              </button>
+            )}
             {showSavePanel && (
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div>

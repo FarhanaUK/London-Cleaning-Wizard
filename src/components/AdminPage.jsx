@@ -74,7 +74,7 @@ const NAV_ITEMS = [
   { id: 'promotions',     label: 'Promotions',     icon: '🎁' },
   { id: 'signatureTouch', label: 'Signature Touch', icon: '✦'  },
   { id: 'sop',       label: 'SOP',       icon: '📖' },
-  { id: 'quotes',         label: 'Quotes',          icon: '💰' },
+  { id: 'quotes',         label: 'Quotes / Enquiries & Pricing', icon: '💰' },
   { id: 'trash',          label: 'Trash',           icon: '🗑'  },
 ];
 

@@ -182,7 +182,6 @@ export default function BookingExpandedPanel({
         originBookingId: b.id,
       };
       const ref = await addDoc(collection(db, 'bookings'), newBooking);
-      setBookings(all => [...all, { id: ref.id, ...newBooking }]);
       fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookingId: ref.id }),
@@ -461,7 +460,7 @@ export default function BookingExpandedPanel({
           { l: 'Email',            v: b.email },
           { l: 'Clean Date',       v: fmtDate(b.cleanDate) },
           { l: 'Clean Time',       v: b.cleanTime },
-          { l: 'Property',         v: `${b.propertyType} · ${b.size}` },
+          { l: 'Property',         v: [b.propertyType, b.size || (b.bedrooms && (b.bedrooms === 'studio' ? 'Studio' : `${b.bedrooms} bed`))].filter(Boolean).join(' · ') || '—' },
           { l: 'Floor/Access',     v: b.floor || '—' },
           { l: 'Parking',          v: b.parking || '—' },
           { l: 'Bathrooms',        v: b.bathrooms || '—' },
