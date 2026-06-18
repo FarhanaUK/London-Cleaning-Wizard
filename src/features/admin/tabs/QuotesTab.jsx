@@ -976,8 +976,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
             </div>
           </Card>
 
-          {/* Contract discount schedule */}
-          <Card C={C}>
+          {/* Contract discount schedule — commercial only */}
+          {clientType !== 'airbnb' && <Card C={C}>
             <SectionLabel C={C}>Discount schedule</SectionLabel>
             <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 10 }}>
               Clean price per visit. Add-ons are charged on top at fixed rates.
@@ -1014,7 +1014,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 </div>
               );
             })}
-          </Card>
+          </Card>}
 
           {/* Cost breakdown */}
           <Card C={C} style={{ borderColor: '#fbbf24' }}>
