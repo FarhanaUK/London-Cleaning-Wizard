@@ -398,6 +398,16 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
         payload.total     = subtotal;
         payload.remaining = Math.max(0, subtotal - (editBooking.deposit || 0));
       }
+      const isAirbnb = editBooking.isAirbnb || editBooking.clientType === 'airbnb';
+      if (isAirbnb) {
+        const basePrice    = parseFloat(editBooking.pricePerVisit || 0) ||
+          Math.max(0, parseFloat(editBooking.total || 0) - parseFloat(editBooking.addonTotal || 0));
+        const newAddonTotal = (editData.addons || []).reduce((s, a) => s + parseFloat(a.price || 0), 0);
+        payload.total      = Math.round((basePrice + newAddonTotal) * 100) / 100;
+        payload.addonTotal = Math.round(newAddonTotal * 100) / 100;
+        payload.addonsList = (editData.addons || []).map(a => a.name || a.label || '').filter(Boolean).join(', ');
+        payload.remaining  = Math.max(0, payload.total - parseFloat(editBooking.deposit || 0));
+      }
       const res  = await fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -410,8 +420,10 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
             ...x, ...editData,
             package: editData.packageId || x.package,
             size:    editData.sizeId    || x.size,
-            ...(payload.total     !== undefined ? { total:     payload.total }     : {}),
-            ...(payload.remaining !== undefined ? { remaining: payload.remaining } : {}),
+            ...(payload.total      !== undefined ? { total:      payload.total }      : {}),
+            ...(payload.remaining  !== undefined ? { remaining:  payload.remaining }  : {}),
+            ...(payload.addonTotal !== undefined ? { addonTotal: payload.addonTotal } : {}),
+            ...(payload.addonsList !== undefined ? { addonsList: payload.addonsList } : {}),
           };
         }
         if (editScope === 'all' && x.email === editBooking.email && x.cleanDate > editBooking.cleanDate && x.status === 'scheduled') {

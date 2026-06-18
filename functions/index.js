@@ -1450,6 +1450,8 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
   if (isAutoRecurring !== undefined) updates.isAutoRecurring = isAutoRecurring;
   if (addons !== undefined) {
     updates.addons = newAddons;
+    updates.addonsList = (newAddons || []).map(a => a.name || a.label || '').filter(Boolean).join(', ');
+    updates.addonTotal = (newAddons || []).reduce((s, a) => s + parseFloat(a.price || 0), 0);
     const oldNames = (current.addons || []).map(a => a.name).sort().join(', ') || 'None';
     const newNames = (newAddons || []).map(a => a.name).sort().join(', ') || 'None';
     if (oldNames !== newNames) changes.push(`Add-ons: ${oldNames} → ${newNames}`);
