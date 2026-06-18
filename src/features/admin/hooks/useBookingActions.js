@@ -128,7 +128,7 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
         const pubKey     = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
         if (confirmTpl && svcId && booking.email) {
           const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
-          emailjs.send(svcId, confirmTpl, {
+          const emailData = {
             to_name:        booking.contactName || booking.firstName || booking.customerName || '',
             to_email:       booking.email,
             booking_ref:    booking.bookingRef || '',
@@ -149,7 +149,18 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
             total:          `£${parseFloat(booking.total || 0).toFixed(2)}`,
             deposit_paid:   `£${parseFloat(booking.deposit || 0).toFixed(2)}`,
             remaining:      `£${parseFloat(booking.remaining || 0).toFixed(2)}`,
-          }, pubKey).catch(() => {});
+          };
+          emailjs.send(svcId, confirmTpl, emailData, pubKey).catch(() => {});
+          const adminTpl = import.meta.env.VITE_EMAILJS_ADMIN_TEMPLATE;
+          if (adminTpl) {
+            emailjs.send(svcId, adminTpl, {
+              ...emailData,
+              to_email:       'bookings@londoncleaningwizard.com',
+              customer_name:  `${booking.firstName || ''} ${booking.lastName || ''}`.trim() || booking.contactName || '',
+              customer_email: booking.email,
+              customer_phone: booking.phone || '',
+            }, pubKey).catch(() => {});
+          }
         }
       }
     } catch { setDepositErr('Something went wrong. Please try again.'); }
