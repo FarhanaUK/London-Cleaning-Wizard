@@ -1036,7 +1036,8 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
   if (['fully_paid', 'cancelled_full_refund', 'cancelled_partial_refund', 'cancelled_no_refund'].includes(b.status)) {
     res.status(400).json({ error: 'This booking cannot be cancelled in its current status.' }); return;
   }
-  const hoursUntil = (new Date(b.cleanDateUTC) - new Date()) / 3600000;
+  const cleanUTC   = b.cleanDateUTC || (b.cleanDate && b.cleanTime ? new Date(`${b.cleanDate}T${b.cleanTime}:00`).toISOString() : null);
+  const hoursUntil = cleanUTC ? (new Date(cleanUTC) - new Date()) / 3600000 : Infinity;
 
   // ── Recurring booking cancellation ──────────────────────────
   if (b.isAutoRecurring) {
@@ -1289,6 +1290,50 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     res.json({ success: true, status, refundAmount: refundAmt, chargeAmount: chargeAmt, tier }); return;
   }
 
+  // ── Airbnb late cancellation — no deposit taken, charge saved card ──
+  if (b.isAirbnb && hoursUntil < 48 && parseFloat(b.deposit || 0) === 0) {
+    const feePence = Math.round((parseFloat(b.total) || 0) * 30);
+    const feeAmt   = feePence / 100;
+    let customerId = b.stripeCustomerId;
+    if (!customerId) {
+      const prevSnap = await db.collection('bookings')
+        .where('email', '==', b.email.toLowerCase())
+        .where('isAirbnb', '==', true)
+        .limit(10).get();
+      const prev = prevSnap.docs.find(d => d.data().stripeCustomerId && d.id !== snap.id);
+      if (prev) customerId = prev.data().stripeCustomerId;
+    }
+    if (customerId && feePence > 0) {
+      try {
+        const pms = await stripe.paymentMethods.list({ customer: customerId, type: 'card' });
+        const pm  = pms.data[0];
+        if (pm) {
+          await stripe.paymentIntents.create({
+            amount: feePence, currency: 'gbp',
+            customer: customerId, payment_method: pm.id,
+            confirm: true, off_session: true,
+            metadata: { bookingRef: b.bookingRef, type: 'late_cancellation_fee' },
+          });
+        }
+      } catch (e) { console.error('Airbnb late cancellation fee charge failed:', e.message); }
+    }
+    await snap.ref.update({ status: 'cancelled_late_fee', cancelledAt: new Date(), cancellationReason: clean(reason||''), lateFeeCharged: feeAmt });
+    if (b.calendarEventId) {
+      try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
+    }
+    const airbnbName = b.contactName || b.firstName || b.bizName || '';
+    const airbnbCancelData = {
+      booking_ref: b.bookingRef, package_name: b.packageName,
+      date: b.cleanDate.split('-').reverse().join('/'), time: b.cleanTime,
+      address: `${b.addr1}, ${b.postcode}`,
+      refund_amount: `£${feeAmt.toFixed(2)} late cancellation fee charged`,
+      refund_message: `A late cancellation fee of £${feeAmt.toFixed(2)} has been charged as the cancellation was made less than 48 hours before the scheduled clean.`,
+    };
+    await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE, { ...airbnbCancelData, to_name: airbnbName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
+    await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE, { ...airbnbCancelData, to_email: 'bookings@londoncleaningwizard.com', customer_name: `${airbnbName} ${b.lastName||''}`.trim(), customer_email: b.email, customer_phone: b.phone||'', notice_given: `${hoursUntil.toFixed(1)} hours notice — 30% late fee charged` }, EMAILJS_KEY.value()).catch(() => {});
+    res.json({ success: true, status: 'cancelled_late_fee', lateFeeCharged: feeAmt }); return;
+  }
+
   // ── Standard booking cancellation ───────────────────────────
   const refundPence = hoursUntil >= 48 ? b.deposit * 100 : 0;
   const refundAmt   = refundPence / 100;
@@ -1403,8 +1448,8 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
     packageId, packageName, sizeId, frequency, addons,
     hasPets, petTypes, signatureTouch, signatureTouchNotes,
     addr1, postcode, floor, parking, keys, notes,
-    total, remaining, assignedStaff, actualStart, actualFinish,
-    isAutoRecurring, mediaConsent,
+    total, remaining, deposit, originalTotal, pricePerVisit, assignedStaff, actualStart, actualFinish,
+    isAutoRecurring, mediaConsent, restockCharge, restockPaid,
   } = req.body;
   if (!bookingId) { res.status(400).json({ error: 'Missing bookingId' }); return; }
   const db   = admin.firestore();
@@ -1462,7 +1507,12 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
     const newTotal = parseFloat(total);
     if (Math.abs(newTotal - oldTotal) >= 0.01) changes.push(`Total: £${oldTotal.toFixed(2)} → £${newTotal.toFixed(2)}`);
   }
-  if (remaining !== undefined) updates.remaining = remaining;
+  if (pricePerVisit  !== undefined) updates.pricePerVisit  = pricePerVisit;
+  if (originalTotal  !== undefined) updates.originalTotal  = originalTotal;
+  if (deposit        !== undefined) updates.deposit        = deposit;
+  if (remaining      !== undefined) updates.remaining      = remaining;
+  if (restockCharge  !== undefined) updates.restockCharge  = restockCharge;
+  if (restockPaid    !== undefined) updates.restockPaid    = restockPaid;
 
   if (hasPets             !== undefined) updates.hasPets             = hasPets;
   if (petTypes            !== undefined) updates.petTypes            = clean(petTypes);
@@ -2620,7 +2670,7 @@ exports.stripeWebhook = onRequest(
     // ── Handle manual refunds done directly in Stripe dashboard ──
     if (event.type === 'charge.refunded') {
       const charge = event.data.object;
-      // Partial refund — do not cancel the booking or send a cancellation email
+      // Partial refund (amount refunded is less than total charge) — ignore
       if (charge.amount_refunded < charge.amount) {
         res.json({ received: true }); return;
       }
@@ -2644,22 +2694,6 @@ exports.stripeWebhook = onRequest(
             if (b.calendarEventId) {
               try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
             }
-            const cancelData = {
-              booking_ref:    b.bookingRef, package_name: b.packageName,
-              date:           b.cleanDate.split('-').reverse().join('/'),
-              time:           b.cleanTime,
-              address:        `${b.addr1}, ${b.postcode}`,
-              refund_amount:  `£${refundAmt.toFixed(2)}`,
-              refund_message: `£${refundAmt.toFixed(2)} will be returned to your original payment method within 5–10 business days.`,
-            };
-            await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE,
-              { ...cancelData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
-            await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE,
-              { ...cancelData, to_email: 'bookings@londoncleaningwizard.com',
-                customer_name: `${b.firstName} ${b.lastName}`,
-                customer_email: b.email, customer_phone: b.phone,
-                notice_given: 'Refunded via Stripe dashboard',
-              }, EMAILJS_KEY.value()).catch(() => {});
           }
         }
       }
@@ -3381,10 +3415,10 @@ exports.setDoNotContact = onRequest({ cors: ['https://londoncleaningwizard.com',
   if (!resolvedEmail) { res.status(400).json({ error: 'Could not resolve email' }); return; }
   const [bookingsSnap] = await Promise.all([
     db.collection('bookings').where('email', '==', resolvedEmail).get(),
-    db.collection('customers').doc(resolvedEmail).set({ doNotContact }, { merge: true }),
+    db.collection('customers').doc(resolvedEmail).set({ doNotContact, marketingOptOut: doNotContact }, { merge: true }),
   ]);
   const batch = db.batch();
-  bookingsSnap.docs.forEach(doc => batch.update(doc.ref, { doNotContact }));
+  bookingsSnap.docs.forEach(doc => batch.update(doc.ref, { doNotContact, marketingOptOut: doNotContact }));
   await batch.commit();
   res.json({ ok: true });
 });
@@ -4120,7 +4154,7 @@ exports.issuePartialRefund = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
       res.status(400).json({ error: 'No Stripe payment found for this visit\'s period.' }); return;
     }
 
-    const refund = await stripe.refunds.create({ payment_intent: pis[periodKey], amount: amountPence });
+    const refund = await stripe.refunds.create({ payment_intent: pis[periodKey], amount: amountPence, metadata: { admin_partial_refund: 'true', bookingId } });
     stripeRefundId = refund.id;
 
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
@@ -4141,7 +4175,7 @@ exports.issuePartialRefund = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
     if (!piId || piId === 'manual') {
       res.status(400).json({ error: 'No Stripe payment found for this booking.' }); return;
     }
-    const refund = await stripe.refunds.create({ payment_intent: piId, amount: amountPence });
+    const refund = await stripe.refunds.create({ payment_intent: piId, amount: amountPence, metadata: { admin_partial_refund: 'true', bookingId } });
     stripeRefundId = refund.id;
 
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });

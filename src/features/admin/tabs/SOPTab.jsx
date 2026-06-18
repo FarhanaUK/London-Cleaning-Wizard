@@ -307,14 +307,18 @@ export default function SOPTab({ isMobile, C }) {
           </div>
         ))}
 
-        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 10px' }}>Airbnb Add-on: Restocking</div>
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 10px' }}>Airbnb Add-on: Restocking Handling Fee</div>
         {[
-          'Restocking is available as an add-on for Airbnb/short-let clients. It covers toiletries, toilet paper, coffee pods, washing-up liquid and similar consumables.',
-          'The £12 handling fee covers the cleaner\'s time sourcing and managing supplies. The actual cost of supplies is invoiced separately at receipt price — no markup on the goods themselves.',
-          'Before the visit: confirm exactly what needs restocking. Get a list from the host in writing (WhatsApp or email). Do not leave this to guesswork.',
-          'For simple, cheap items (toilet paper, soap, bin bags): the cleaner buys them and keeps the receipt. You invoice the host for the item cost + £12 handling fee after the visit.',
-          'For bulky, expensive or specialist items (e.g. branded toiletries, welcome gifts): the host sends supplies directly to the cleaner before the visit. The £12 handling fee still applies.',
-          'Record the supply spend in the Expenses tab under Restocking so it shows in your financial reports. Mark the recharge amount once the host pays.',
+          'The restocking service has two separate parts: the £12 handling fee and the supply cost recharge. These are tracked differently.',
+          'Handling fee (£12): added as an add-on at the time of booking via the Quotes tab. It is included in the booking total and counts as normal revenue. It covers the cleaner\'s time sourcing and placing supplies.',
+          'Supply cost recharge: the actual cost of goods (toiletries, coffee pods, bin bags, etc.) invoiced to the host separately at receipt price. No markup on goods.',
+          'Before each visit: confirm with the host exactly what needs restocking. Get the list in writing (WhatsApp or email). Never guess.',
+          'For small items (toilet paper, soap, washing-up liquid): the cleaner buys them and keeps the receipt. After the visit, enter the total supply cost in the booking panel under "Restocking Service — Supply Recharge" and send a separate invoice to the host.',
+          'For bulky or expensive items (branded toiletries, welcome gifts): ask the host to send supplies directly to the cleaner before the visit. The £12 handling fee still applies. No supply recharge needed since you did not purchase anything.',
+          'When the host pays the supply recharge: open the booking panel and click "Mark as Paid" next to the restock charge. This moves it from Outstanding to Recovered in your Reports. Do not log anything in the Expenses tab — the cost was fully recovered, so it is not a business expense.',
+          'If the host never pays: log the supply cost in the Expenses tab under "Client Restock Premium Service". This records it as a real loss to your business and it will appear under Box 18 in your HMRC summary.',
+          'Reports tab: the "Restock Supply Recharges" card shows all outstanding (unpaid) restock recharges across all time, and what was recovered in the selected period. Use the Outstanding figure to chase any unpaid hosts.',
+          'When adding a new visit: always confirm with the host whether restocking is needed for that visit. Add or remove the add-on accordingly before creating the visit.',
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
             <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>

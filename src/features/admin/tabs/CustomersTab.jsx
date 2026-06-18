@@ -234,7 +234,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
             <DoNotContactToggle
               value={sc.doNotContact}
               onChange={next => {
-                setBookings(prev => prev.map(x => x.email === sc.email ? { ...x, doNotContact: next } : x));
+                setBookings(prev => prev.map(x => x.email === sc.email ? { ...x, doNotContact: next, marketingOptOut: next } : x));
                 fetch(import.meta.env.VITE_CF_SET_DO_NOT_CONTACT, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },

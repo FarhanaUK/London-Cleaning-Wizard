@@ -148,12 +148,11 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   // ── KPIs ──
   const collectedAmt = b => {
     if (b.isContractVisit) return 0; // contract revenue counted per paid period on the master
-    const pr      = parseFloat(b.partialRefundAmount || 0);
-    const restock = (b.isAirbnb && b.restockPaid) ? parseFloat(b.restockCharge || 0) : 0;
-    if (b.status === 'fully_paid')   return Math.max(0, (parseFloat(b.total)   || 0) - pr) + restock;
-    if (b.status === 'completed')    return Math.max(0, (parseFloat(b.total)   || 0) - pr) + restock;
-    if (b.status === 'deposit_paid') return Math.max(0, (parseFloat(b.deposit) || 0) - pr) + restock;
-    return restock;
+    const pr = parseFloat(b.partialRefundAmount || 0);
+    if (b.status === 'fully_paid')   return Math.max(0, (parseFloat(b.total)   || 0) - pr);
+    if (b.status === 'completed')    return Math.max(0, (parseFloat(b.total)   || 0) - pr);
+    if (b.status === 'deposit_paid') return Math.max(0, (parseFloat(b.deposit) || 0) - pr);
+    return 0;
   };
   const periodRev      = periodBookings.reduce((s, b) => s + collectedAmt(b), 0) + contractRevForWindow(periodStart, periodEnd);
   const periodLabour   = periodBookings.reduce((s, b) => s + bookingLabour(b), 0);
@@ -195,6 +194,8 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
         return s + amt * rptTyMonths(f);
       }, 0);
   const periodIncidents = incidents.filter(i => i.date >= periodStart && i.date <= periodEnd).reduce((s, i) => s + (parseFloat(i.amount)||0), 0);
+  const restockOutstanding = bookings.filter(b => b.isAirbnb && parseFloat(b.restockCharge || 0) > 0 && !b.restockPaid).reduce((s, b) => s + parseFloat(b.restockCharge), 0);
+  const restockRecovered   = periodBookings.filter(b => b.isAirbnb && parseFloat(b.restockCharge || 0) > 0 && b.restockPaid).reduce((s, b) => s + parseFloat(b.restockCharge), 0);
   const periodProfit = periodRev - periodLabour - periodExp - periodMktSpend - periodSupExp - periodFixed - periodIncidents;
   const periodMargin = periodRev > 0 ? (periodProfit / periodRev) * 100 : 0;
   const avgJobVal    = periodBookings.length > 0 ? periodRev / periodBookings.length : 0;
@@ -514,6 +515,26 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
           )}
         </div>
       </div>
+
+      {/* Restock receivables tracker */}
+      {(restockOutstanding > 0 || restockRecovered > 0) && (
+        <div style={{ ...RCARD, marginBottom: 16 }}>
+          <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 }}>Restock Supply Recharges</div>
+          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 12 }}>Not included in revenue. These are supply costs you pass through to the host at cost price. The £{12} handling fee per visit is already in your revenue above.</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ padding: '10px 14px', background: restockOutstanding > 0 ? '#fef9c3' : '#f0fdf4', borderRadius: 8, border: `1px solid ${restockOutstanding > 0 ? '#fde047' : '#bbf7d0'}` }}>
+              <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: restockOutstanding > 0 ? '#92400e' : '#166534', marginBottom: 4 }}>Outstanding (all-time)</div>
+              <div style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: restockOutstanding > 0 ? '#b45309' : '#16a34a' }}>£{restockOutstanding.toFixed(2)}</div>
+              <div style={{ fontFamily: FONT, fontSize: 11, color: restockOutstanding > 0 ? '#92400e' : '#166534', marginTop: 2 }}>{restockOutstanding > 0 ? 'Hosts still owe you this — chase payment. If written off, log as a loss in Expenses.' : 'Nothing outstanding — all recovered'}</div>
+            </div>
+            <div style={{ padding: '10px 14px', background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
+              <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 4 }}>Recovered — {periodLabel}</div>
+              <div style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: '#16a34a' }}>£{restockRecovered.toFixed(2)}</div>
+              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>Marked as paid in the booking panel — you are whole on these</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Calendar year bar chart + trend — month mode only */}
       {isMonthMode && (

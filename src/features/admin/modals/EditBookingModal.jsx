@@ -13,7 +13,8 @@ const AIRBNB_ADDONS = [
   { id: 'linen',     label: 'Linen change',     price: 12 },
   { id: 'windows',   label: 'Internal windows', price: 20 },
   { id: 'patio',     label: 'Balcony / patio',  price: 30 },
-  { id: 'same_day',  label: 'Same-day fee',     price: 30 },
+  { id: 'same_day',  label: 'Same-day fee',          price: 30 },
+  { id: 'restocking', label: 'Restocking handling fee', price: 12 },
 ];
 const COMMERCIAL_ADDONS = [
   { id: 'windows',    label: 'Internal windows',                price: 20 },

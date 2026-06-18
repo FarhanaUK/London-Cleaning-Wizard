@@ -1493,7 +1493,7 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
       {/* ── HMRC TAB ── */}
       {expenseTab === 'hmrc' && (() => {
         const HMRC_CATS = [
-          { box: 'Box 18', label: 'Cost of goods bought for resale or goods used',  cats: ['Supplies'] },
+          { box: 'Box 18', label: 'Cost of goods bought for resale or goods used',  cats: ['Supplies', 'Client Restock Premium Service'] },
           { box: 'Box 21', label: 'Car, van and travel expenses',                   cats: ['Fuel & Mileage', 'Public Transport'] },
           { box: 'Box 22', label: 'Rent, rates, power and insurance costs',         cats: ['Insurance', 'Rent & Utilities'] },
           { box: 'Box 23', label: 'Repairs and maintenance of property and equipment', cats: ['Equipment'] },
@@ -1747,6 +1747,21 @@ export default function ExpensesTab({ expenses, fixedCosts, bookings, staff, sup
                 <div style={{ fontFamily: FONT, fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Copy this number into Box 31 of your SA103F</div>
               </div>
               <div style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: '#fff' }}>£{grandTotal.toFixed(2)}</div>
+            </div>
+
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '14px 20px', marginTop: 16 }}>
+              <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 8 }}>Restocking Service — How to Report to HMRC</div>
+              {[
+                'Handling fee (£12 per visit): already included in your turnover (Box 15 — income). No separate action needed.',
+                'Supply costs recovered by the host: if you bought supplies and the host paid you back, this is a pass-through. Do not log it in Expenses. Mark it as paid in the booking panel and it will show in Reports under Recovered. Nothing goes in your tax return for this.',
+                'Supply costs the host never paid: only in this case should you log the amount in Expenses under "Client Restock Premium Service". It is a real business loss and appears under Box 18 (Cost of goods) to reduce your taxable profit.',
+                'Tip: the supply recharge amounts are tracked separately in the Reports tab under "Restock Supply Recharges" and do not appear in your revenue figure, keeping your income reporting clean.',
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: i < 4 ? 6 : 0 }}>
+                  <div style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>·</div>
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: '#166534', lineHeight: 1.5 }}>{item}</div>
+                </div>
+              ))}
             </div>
 
             <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 12, lineHeight: 1.5 }}>

@@ -116,7 +116,7 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
   };
 
   const handleMarkDepositPaid = async (booking) => {
-    if (!window.confirm(`Mark deposit of £${booking.deposit} as collected for ${booking.firstName} ${booking.lastName}?\n\nThis confirms you have received the deposit manually.`)) return;
+    if (!window.confirm(`Mark deposit of £${parseFloat(booking.deposit || 0).toFixed(2)} as collected for ${booking.firstName} ${booking.lastName}?\n\nThis confirms you have received the deposit manually.`)) return;
     setMarkingDeposit(booking.id); setDepositErr('');
     try {
       const res  = await fetch(import.meta.env.VITE_CF_MARK_DEPOSIT_PAID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: booking.id }) });
@@ -215,7 +215,11 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
     } else if (booking.isAutoRecurring) {
       msg = hoursUntil >= 48
         ? `No charge — more than 48 hours notice given.`
-        : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(booking.total * 0.3).toFixed(2)} (30% of £${booking.total}) will be charged to the customer's saved card.`;
+        : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(booking.total * 0.3).toFixed(2)} (30% of £${parseFloat(booking.total || 0).toFixed(2)}) will be charged to the customer's saved card.`;
+    } else if (booking.isAirbnb && parseFloat(booking.deposit || 0) === 0) {
+      msg = hoursUntil >= 48
+        ? `No charge — more than 48 hours notice given.`
+        : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(parseFloat(booking.total || 0) * 0.3).toFixed(2)} (30% of £${parseFloat(booking.total || 0).toFixed(2)}) will be charged to the customer's saved card.`;
     } else if (booking.status === 'pending_deposit' || !booking.deposit) {
       msg = `No payment has been taken — booking will be cancelled with no refund required.`;
     } else {
@@ -400,13 +404,28 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
       }
       const isAirbnb = editBooking.isAirbnb || editBooking.clientType === 'airbnb';
       if (isAirbnb) {
-        const basePrice    = parseFloat(editBooking.pricePerVisit || 0) ||
-          Math.max(0, parseFloat(editBooking.total || 0) - parseFloat(editBooking.addonTotal || 0));
+        const storedAddonTotal  = parseFloat(editBooking.addonTotal)         || 0;
+        const mediaDiscount     = parseFloat(editBooking.mediaConsentDiscount) || 0;
+        // When mediaConsentDiscount is baked into total: total = cleanPrice + addons - discount
+        // So cleanPrice = total + discount - addons
+        const basePrice =
+          parseFloat(editBooking.pricePerVisit || 0) ||
+          Math.max(0, parseFloat(editBooking.total || 0) + mediaDiscount - storedAddonTotal);
         const newAddonTotal = (editData.addons || []).reduce((s, a) => s + parseFloat(a.price || 0), 0);
-        payload.total      = Math.round((basePrice + newAddonTotal) * 100) / 100;
-        payload.addonTotal = Math.round(newAddonTotal * 100) / 100;
-        payload.addonsList = (editData.addons || []).map(a => a.name || a.label || '').filter(Boolean).join(', ');
-        payload.remaining  = Math.max(0, payload.total - parseFloat(editBooking.deposit || 0));
+        payload.pricePerVisit  = Math.round(basePrice * 100) / 100;
+        payload.total          = Math.max(0, Math.round((basePrice + newAddonTotal - mediaDiscount) * 100) / 100);
+        payload.addonTotal     = Math.round(newAddonTotal * 100) / 100;
+        if (mediaDiscount > 0) {
+          const oTotal = Math.round((basePrice + newAddonTotal) * 100) / 100;
+          if (oTotal > 0) payload.originalTotal = oTotal;
+        }
+        payload.addonsList    = (editData.addons || []).map(a => a.name || a.label || '').filter(Boolean).join(', ');
+        if (editBooking.status === 'pending_deposit') {
+          payload.deposit   = Math.ceil(payload.total * 0.30 * 100) / 100;
+          payload.remaining = Math.max(0, Math.round((payload.total - payload.deposit) * 100) / 100);
+        } else {
+          payload.remaining = Math.max(0, Math.round((payload.total - parseFloat(editBooking.deposit || 0)) * 100) / 100);
+        }
       }
       const res  = await fetch(import.meta.env.VITE_CF_UPDATE_BOOKING, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -420,10 +439,13 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
             ...x, ...editData,
             package: editData.packageId || x.package,
             size:    editData.sizeId    || x.size,
-            ...(payload.total      !== undefined ? { total:      payload.total }      : {}),
-            ...(payload.remaining  !== undefined ? { remaining:  payload.remaining }  : {}),
-            ...(payload.addonTotal !== undefined ? { addonTotal: payload.addonTotal } : {}),
-            ...(payload.addonsList !== undefined ? { addonsList: payload.addonsList } : {}),
+            ...(payload.total          !== undefined ? { total:          payload.total }          : {}),
+            ...(payload.deposit        !== undefined ? { deposit:        payload.deposit }        : {}),
+            ...(payload.remaining      !== undefined ? { remaining:      payload.remaining }      : {}),
+            ...(payload.addonTotal     !== undefined ? { addonTotal:     payload.addonTotal }     : {}),
+            ...(payload.addonsList     !== undefined ? { addonsList:     payload.addonsList }     : {}),
+            ...(payload.pricePerVisit  !== undefined ? { pricePerVisit:  payload.pricePerVisit }  : {}),
+            ...(payload.originalTotal  !== undefined ? { originalTotal:  payload.originalTotal }  : {}),
           };
         }
         if (editScope === 'all' && x.email === editBooking.email && x.cleanDate > editBooking.cleanDate && x.status === 'scheduled') {

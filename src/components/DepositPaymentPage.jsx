@@ -135,7 +135,7 @@ function PaymentForm({ details, bookingId }) {
         ) : (
           <>
             {[
-              { l: `${details.packageName} · ${details.size}`, v: `£${details.originalTotal || details.total}` },
+              { l: `${details.packageName} · ${details.size}`, v: `£${parseFloat(details.originalTotal || details.total || 0).toFixed(2)}` },
               details.launchDiscount && { l: 'Launch offer — 50% off first clean', v: `-£${parseFloat(details.launchDiscount).toFixed(2)}`, grn: true },
               details.mediaConsentDiscount && { l: 'Photo consent discount', v: `-£${parseFloat(details.mediaConsentDiscount).toFixed(2)}`, grn: true },
               { l: 'Clean Date', v: details.cleanDate },
@@ -148,11 +148,11 @@ function PaymentForm({ details, bookingId }) {
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 13, fontFamily: "'Jost',sans-serif" }}>
               <span style={{ color: '#8b7355', fontWeight: 300 }}>Deposit due today (30%)</span>
-              <span style={{ color: '#c8b89a', fontWeight: 600, fontSize: 16 }}>£{details.deposit}</span>
+              <span style={{ color: '#c8b89a', fontWeight: 600, fontSize: 16 }}>£{parseFloat(details.deposit || 0).toFixed(2)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 12, fontFamily: "'Jost',sans-serif" }}>
               <span style={{ color: '#8b7355', fontWeight: 300 }}>Balance due on completion</span>
-              <span style={{ color: '#8b7355', fontWeight: 300 }}>£{details.remaining}</span>
+              <span style={{ color: '#8b7355', fontWeight: 300 }}>£{parseFloat(details.remaining || 0).toFixed(2)}</span>
             </div>
           </>
         )}
@@ -163,7 +163,7 @@ function PaymentForm({ details, bookingId }) {
               <span style={{ color: '#16a34a', fontWeight: 500 }}>£{((details.originalTotal || details.total) - details.freqSaving).toFixed(2)} / visit</span>
             </div>
             <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 10, color: 'rgba(22,163,74,0.7)', fontWeight: 300, marginTop: 3 }}>
-              £{details.freqSaving} {details.frequency} discount applied
+              £{parseFloat(details.freqSaving || 0).toFixed(2)} {details.frequency} discount applied
             </div>
           </div>
         )}
@@ -202,7 +202,7 @@ function PaymentForm({ details, bookingId }) {
         >
           {[
             { heading: '1. Deposit & Payment', body: 'A 30% deposit is required to secure your booking and is charged immediately upon confirmation. The remaining balance will be charged automatically once your clean has been completed and marked as done by our team. By proceeding, you authorise London Cleaning Wizard to charge the remaining balance to your saved payment method upon job completion.' },
-            { heading: '2. Cancellation & Rescheduling Policy', body: 'One-off bookings / First Booking: Full refund if cancelled more than 48 hours before the scheduled clean. No refund if cancelled less than 48 hours before the clean.\n\nRegular services (weekly, fortnightly or monthly): You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean. For cancellations with less than 48 hours notice, a charge of 30% of that clean\'s price will be applied to your saved payment method, as your cleaner\'s time will have been reserved.\n\nCancelling two consecutive cleans will end your recurring arrangement and your recurring discount. A new booking will be required, subject to standard first-clean pricing.\n\nIf our cleaner arrives at the scheduled time and is refused access or the clean is declined for any reason, this will be treated as a late cancellation and the applicable charge will apply.\n\nAll cancellations must be made by phone call only on 020 8137 0026. Cancellation requests made by email, text, WhatsApp or any other method will not be accepted as valid notice and will not waive any applicable charges. We reserve the right to review pricing with a minimum of 4 weeks written notice.' },
+            { heading: '2. Cancellation & Rescheduling Policy', body: 'One-off bookings / First Booking: Full refund if cancelled more than 48 hours before the scheduled clean. No refund if cancelled less than 48 hours before the clean.\n\nAirbnb and short-let visits: At least 48 hours notice is required to cancel without charge. Cancellations made with less than 48 hours notice will incur a 30% late cancellation fee of the visit price, charged automatically to the saved payment method on file. Where a deposit has already been paid, it will be retained as the cancellation fee.\n\nRegular services (weekly, fortnightly or monthly): You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean. For cancellations with less than 48 hours notice, a charge of 30% of that clean\'s price will be applied to your saved payment method, as your cleaner\'s time will have been reserved.\n\nCancelling two consecutive cleans will end your recurring arrangement and your recurring discount. A new booking will be required, subject to standard first-clean pricing.\n\nIf our cleaner arrives at the scheduled time and is refused access or the clean is declined for any reason, this will be treated as a late cancellation and the applicable charge will apply.\n\nAll cancellations must be made by phone call only on 020 8137 0026. Cancellation requests made by email, text, WhatsApp or any other method will not be accepted as valid notice and will not waive any applicable charges. We reserve the right to review pricing with a minimum of 4 weeks written notice.' },
             { heading: '3. Pet Policy', body: 'All pets must be secured and kept away from our cleaning team for the entire duration of the clean. This is for the safety of both your pet and our staff. Failure to secure pets may result in the clean being abandoned without refund of the deposit.' },
             { heading: '4. Access to Property', body: 'You agree to ensure our team has full access to the property at the agreed time. If access is not provided within 15 minutes of the scheduled start time, the clean may be abandoned and no refund will be issued.' },
             { heading: '5. Damage, Liability & Claims', body: 'London Cleaning Wizard carries full public liability insurance and takes every care when working in your home. You confirm that the property details provided are accurate.\n\nReporting damage: Any damage believed to have occurred during a clean must be reported to us within 24 hours of the clean being completed. Reports must be made by phone call on 020 8137 0026 and must include photographs of the damage taken before the item is moved, repaired, or disposed of. We cannot accept claims for damage reported after this 24-hour window or without photographic evidence.\n\nInvestigation: Once a damage report is received, we will acknowledge it within 2 working days and investigate. We may request additional information or access to inspect the item. Our decision on liability will be communicated to you within 5 working days of receiving all required information.\n\nOur liability: We accept liability for damage caused directly by our cleaners\' negligence during the clean. We are not liable for: pre-existing damage or wear and tear; damage to items already in a fragile, deteriorating, or unstable condition; items broken as a result of not being properly secured; or loss not directly caused by cleaning activity.\n\nHigh-value and fragile items: We strongly recommend that fragile, antique, sentimental, or high-value items are stored away or removed from the property before your clean. If you have items of significant value in areas to be cleaned, you must inform us in advance so we can take appropriate precautions. We are not liable for damage to high-value or fragile items that were not declared to us before the clean.\n\nResolution: Where we accept liability for damage, we will offer one of the following at our discretion: repair of the item at our cost; replacement with an equivalent item of similar value; or agreed monetary compensation. We do not accept liability for sentimental value or consequential losses beyond the fair market value of the item at the time of damage. If we do not receive a response from you within 14 days of our resolution offer or any request for further information, the case will be considered closed.' },
@@ -284,7 +284,7 @@ function PaymentForm({ details, bookingId }) {
         }}
       >
         {loading ? <ButtonSpinner /> : null}
-        {loading ? 'Processing…' : `Pay Deposit — £${details.deposit}`}
+        {loading ? 'Processing…' : `Pay Deposit — £${parseFloat(details.deposit || 0).toFixed(2)}`}
       </button>
 
       <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', textAlign: 'center', marginTop: 14, fontWeight: 300 }}>

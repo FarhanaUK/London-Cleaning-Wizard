@@ -1,0 +1,6 @@
+.lcw-desktop-nav { display: flex !important; }
+.lcw-hamburger   { display: none !important; }
+@media (max-width: 1279px) {
+  .lcw-desktop-nav { display: none !important; }
+  .lcw-hamburger   { display: flex !important; }
+}

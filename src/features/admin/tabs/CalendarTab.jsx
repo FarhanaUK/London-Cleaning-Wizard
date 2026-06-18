@@ -300,7 +300,7 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
                     <button
                       disabled={calActionBusy}
                       onClick={async () => {
-                        if (!window.confirm(`Mark deposit of £${sel.deposit} as collected for ${sel.firstName} ${sel.lastName}?`)) return;
+                        if (!window.confirm(`Mark deposit of £${parseFloat(sel.deposit || 0).toFixed(2)} as collected for ${sel.firstName} ${sel.lastName}?`)) return;
                         setCalActionBusy(true); setCalActionErr('');
                         try {
                           const r = await fetch(import.meta.env.VITE_CF_MARK_DEPOSIT_PAID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: sel.id }) });
@@ -316,7 +316,7 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
                     <button
                       disabled={calActionBusy}
                       onClick={async () => {
-                        if (!window.confirm(`Complete job and charge remaining £${sel.remaining} for ${sel.firstName} ${sel.lastName}?`)) return;
+                        if (!window.confirm(`Complete job and charge remaining £${parseFloat(sel.remaining || 0).toFixed(2)} for ${sel.firstName} ${sel.lastName}?`)) return;
                         setCalActionBusy(true); setCalActionErr('');
                         try {
                           const r = await fetch(import.meta.env.VITE_CF_COMPLETE_JOB, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: sel.id }) });
@@ -336,7 +336,11 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
                       if (sel.isAutoRecurring) {
                         msg = hoursUntil >= 48
                           ? `No charge — more than 48 hours notice given.`
-                          : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(sel.total * 0.3).toFixed(2)} (30% of £${sel.total}) will be charged to the customer's saved card.`;
+                          : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(sel.total * 0.3).toFixed(2)} (30% of £${parseFloat(sel.total || 0).toFixed(2)}) will be charged to the customer's saved card.`;
+                      } else if (sel.isAirbnb && parseFloat(sel.deposit || 0) === 0) {
+                        msg = hoursUntil >= 48
+                          ? `No charge — more than 48 hours notice given.`
+                          : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(parseFloat(sel.total || 0) * 0.3).toFixed(2)} (30% of £${parseFloat(sel.total || 0).toFixed(2)}) will be charged to the customer's saved card.`;
                       } else if (sel.status === 'pending_deposit' || !sel.deposit) {
                         msg = `No payment has been taken — booking will be cancelled with no refund required.`;
                       } else {

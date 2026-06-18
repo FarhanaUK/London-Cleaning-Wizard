@@ -12,6 +12,7 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
   const [jobCard, setJobCard] = useState(null);
   const [sharing, setSharing] = useState(false);
   const [search, setSearch] = useState('');
+  const [unassignedOpen, setUnassignedOpen] = useState(false);
   const cardRef = useRef(null);
   const timeInputRefs = useRef({});
 
@@ -83,8 +84,9 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
   const rate       = member && member.hourlyRate !== 'N/A' ? parseFloat(member.hourlyRate) : null;
   const hasNARate  = member && member.hourlyRate === 'N/A';
   const assignedToSelected = bookings.filter(b => !b.isContract && (b.assignedStaff === myJobsCleaner || b.secondCleaner === myJobsCleaner));
+  const todayStr = new Date().toISOString().slice(0, 10);
   const unassignedJobs = bookings
-    .filter(b => !b.isContract && !b.assignedStaff && b.cleanDate >= period.start && b.cleanDate <= period.end && !b.status?.startsWith('cancelled'))
+    .filter(b => !b.isContract && !b.assignedStaff && b.cleanDate >= todayStr && !b.status?.startsWith('cancelled') && b.status !== 'completed')
     .sort((a, b) => a.cleanDate.localeCompare(b.cleanDate));
   const periodJobs = myJobsCleaner
     ? assignedToSelected
@@ -122,6 +124,14 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
     return s + (h || 0);
   }, 0);
   const totalEarned = rate !== null ? totalHours * rate : null;
+
+  const goToJobWeek = (cleanDate) => {
+    for (let o = -104; o <= 104; o++) {
+      const ref = new Date(); ref.setDate(ref.getDate() + o * 7);
+      const p = getPayPeriod(ref);
+      if (cleanDate >= p.start && cleanDate <= p.end) { setMyJobsWeekOffset(o); break; }
+    }
+  };
 
   const exportAll = () => {
     const rows = [['Cleaner','Date','Booking Ref','Customer','Package','Scheduled Time','Actual Start','Actual Finish','Hours','Rate (£/hr)','Earned (£)','Payday']];
@@ -200,31 +210,43 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
         )}
       </div>
 
-      {/* Unassigned Jobs */}
+      {/* Unassigned Jobs — all upcoming, collapsible */}
       {unassignedJobs.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>Unassigned Jobs</div>
-            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#fff', background: '#f59e0b', borderRadius: 99, padding: '2px 9px' }}>{unassignedJobs.length}</div>
-            <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{fmtDate(period.start)} to {fmtDate(period.end)}</div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {unassignedJobs.map(b => (
-              <div key={b.id} style={{ background: C.card, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid #fcd34d', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', gap: 12, alignItems: 'center' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                    <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600, color: C.text }}>{b.customerName || `${b.firstName || ''} ${b.lastName || ''}`.trim()}</div>
-                    {b.bookingRef && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: '1px 7px' }}>{b.bookingRef}</div>}
-                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: '#92400e', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 7px' }}>Unassigned</div>
-                  </div>
-                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{fmtDate(b.cleanDate)} · {toDisplayTime(b.cleanTime)} · {b.packageName || b.package || '—'} · {b.addr1 || '—'}</div>
+        <div style={{ marginBottom: 16, background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8 }}>
+          <button
+            onClick={() => setUnassignedOpen(o => !o)}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: '#92400e' }}>Unassigned Jobs</span>
+            <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#fff', background: '#f59e0b', borderRadius: 99, padding: '1px 8px', minWidth: 20, textAlign: 'center' }}>{unassignedJobs.length}</span>
+            <span style={{ fontFamily: FONT, fontSize: 11, color: '#b45309' }}>upcoming across all weeks</span>
+            <span style={{ marginLeft: 'auto', fontFamily: FONT, fontSize: 12, color: '#92400e' }}>{unassignedOpen ? '▲' : '▼'}</span>
+          </button>
+          {unassignedOpen && (
+            <div style={{ borderTop: '1px solid #fcd34d' }}>
+              {unassignedJobs.map((b, i) => (
+                <div
+                  key={b.id}
+                  style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '8px 16px', borderBottom: i < unassignedJobs.length - 1 ? '1px solid #fde68a' : 'none', background: i % 2 === 0 ? 'transparent' : 'rgba(253,230,138,0.2)' }}
+                >
+                  <button
+                    onClick={() => goToJobWeek(b.cleanDate)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                  >
+                    <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: '#92400e' }}>{fmtDate(b.cleanDate)}</span>
+                    <span style={{ fontFamily: FONT, fontSize: 12, color: '#b45309', margin: '0 6px' }}>·</span>
+                    <span style={{ fontFamily: FONT, fontSize: 12, color: '#92400e' }}>{b.customerName || `${b.firstName || ''} ${b.lastName || ''}`.trim()}</span>
+                    {b.bookingRef && <span style={{ fontFamily: FONT, fontSize: 11, color: '#b45309', margin: '0 6px' }}>{b.bookingRef}</span>}
+                    <span style={{ fontFamily: FONT, fontSize: 12, color: '#b45309', margin: '0 6px' }}>·</span>
+                    <span style={{ fontFamily: FONT, fontSize: 12, color: '#b45309' }}>{b.addr1 || '—'}</span>
+                  </button>
+                  <button onClick={() => setJobCard(b)} style={{ ...BTN, fontSize: 11, padding: '4px 10px', background: C.accent, color: '#fff', borderRadius: 5, whiteSpace: 'nowrap' }}>
+                    Job Card
+                  </button>
                 </div>
-                <button onClick={() => setJobCard(b)} style={{ ...BTN, fontSize: 12, padding: '6px 14px', background: C.accent, color: '#fff', borderRadius: 6, alignSelf: 'center' }}>
-                  Job Card
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

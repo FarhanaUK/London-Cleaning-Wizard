@@ -162,10 +162,13 @@ export default function BookingExpandedPanel({
         numCleaners:     b.numCleaners || 1,
         visitDur:        b.visitDur || b.visitDurationBase || '',
         addons:          b.addons || [],
-        addonTotal:      b.addonTotal || 0,
-        total:           parseFloat(b.total || 0) + parseFloat(b.mediaConsentDiscount || 0),
+        addonTotal:      parseFloat(b.addonTotal || 0),
+        pricePerVisit:   parseFloat(b.pricePerVisit || 0) || Math.max(0, parseFloat(b.total || 0) + parseFloat(b.mediaConsentDiscount || 0) - parseFloat(b.addonTotal || 0)),
+        total:           (parseFloat(b.pricePerVisit || 0) + parseFloat(b.addonTotal || 0)) || (parseFloat(b.total || 0) + parseFloat(b.mediaConsentDiscount || 0)),
         deposit:         0,
-        remaining:       parseFloat(b.total || 0) + parseFloat(b.mediaConsentDiscount || 0),
+        remaining:       (parseFloat(b.pricePerVisit || 0) + parseFloat(b.addonTotal || 0)) || (parseFloat(b.total || 0) + parseFloat(b.mediaConsentDiscount || 0)),
+        marketingOptOut: true,
+        doNotContact:    true,
         assignedStaff:   b.assignedStaff || '',
         secondCleaner:   b.secondCleaner || '',
         keys:            b.keys || '',
@@ -174,6 +177,7 @@ export default function BookingExpandedPanel({
         airbnbListing:   b.airbnbListing || '',
         cleanDate:       newVisitModal.date,
         cleanTime:       newVisitModal.time,
+        cleanDateUTC:    new Date(`${newVisitModal.date}T${newVisitModal.time}:00`).toISOString(),
         status:          'scheduled',
         stripeCustomerId: b.stripeCustomerId || '',
         stripeDepositIntentId: 'auto-recurring',
@@ -325,7 +329,7 @@ export default function BookingExpandedPanel({
   };
 
   const saveDoNotContact = next => {
-    setBookings(prev => prev.map(x => x.email === b.email ? { ...x, doNotContact: next } : x));
+    setBookings(prev => prev.map(x => x.email === b.email ? { ...x, doNotContact: next, marketingOptOut: next } : x));
     fetch(import.meta.env.VITE_CF_SET_DO_NOT_CONTACT, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: b.email, doNotContact: next }),
@@ -441,14 +445,29 @@ export default function BookingExpandedPanel({
           { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : (b.addonsList || 'None') },
           !b.isContractVisit && !b.isAirbnb && !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
           !b.isContractVisit && (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
-          !b.isContractVisit && { l: 'Marketing Opt-in', v: b.marketingOptOut ? '✕ Opted out at booking' : '✓ Opted in at booking' },
+          !b.isContractVisit && { l: 'Marketing Opt-in', v: (b.doNotContact ?? b.marketingOptOut) ? '✕ Opted out' : '✓ Opted in' },
           !b.isContractVisit && { l: 'Media Consent',    v: b.mediaConsent ? '✓ Consented to photos/videos on social media' : '✕ No consent given' },
-          { l: 'Total',            v: `£${parseFloat(b.total).toFixed(2)}` },
-          (b.launchDiscount || b.mediaConsentDiscount) && { l: 'Original price', v: `£${parseFloat(b.originalTotal || (b.total + (b.mediaConsentDiscount || 0))).toFixed(2)}` },
-          b.launchDiscount && { l: 'Launch offer',      v: `-£${parseFloat(b.launchDiscount).toFixed(2)}`, launch: true },
-          b.mediaConsentDiscount && { l: 'Photo consent discount', v: `-£${parseFloat(b.mediaConsentDiscount).toFixed(2)}`, grn: true },
-          { l: 'Deposit paid',     v: b.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(b.deposit).toFixed(2)}`, highlight: b.status === 'pending_deposit' },
-          { l: 'Remaining',        v: `£${parseFloat(b.remaining).toFixed(2)}` },
+          ...(b.isAirbnb ? (() => {
+            const baseClean = parseFloat(b.pricePerVisit || 0);
+            const addonAmt  = parseFloat(b.addonTotal   || 0);
+            const mediaDisc = parseFloat(b.mediaConsentDiscount || 0);
+            const computed  = baseClean + addonAmt;
+            const fullPrice = computed > 0 ? computed : parseFloat(b.originalTotal || 0);
+            return [
+              addonAmt > 0 ? { l: 'Base clean', v: `£${baseClean.toFixed(2)}` } : null,
+              addonAmt > 0 ? { l: 'Add-ons',    v: `+£${addonAmt.toFixed(2)}` } : null,
+              mediaDisc > 0 && fullPrice > 0 ? { l: 'Original price',         v: `£${fullPrice.toFixed(2)}` } : null,
+              mediaDisc > 0                  ? { l: 'Photo consent discount', v: `-£${mediaDisc.toFixed(2)}`, grn: true } : null,
+              { l: 'Total', v: `£${parseFloat(b.total).toFixed(2)}` },
+            ];
+          })() : [
+            (b.launchDiscount || b.mediaConsentDiscount) && { l: 'Original price', v: `£${parseFloat(b.originalTotal || (b.total + (b.mediaConsentDiscount || 0))).toFixed(2)}` },
+            b.launchDiscount    && { l: 'Launch offer',            v: `-£${parseFloat(b.launchDiscount).toFixed(2)}`,        launch: true },
+            b.mediaConsentDiscount && { l: 'Photo consent discount', v: `-£${parseFloat(b.mediaConsentDiscount).toFixed(2)}`, grn: true },
+            { l: 'Total', v: `£${parseFloat(b.total).toFixed(2)}` },
+          ]),
+          { l: b.status === 'pending_deposit' ? 'Deposit due (30%)' : 'Deposit paid', v: b.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(b.deposit || 0).toFixed(2)}`, highlight: b.status === 'pending_deposit' },
+          { l: 'Remaining', v: `£${parseFloat(b.remaining).toFixed(2)}` },
           !b.isAutoRecurring && { l: 'Source', v: b.source || '—' },
           b.stripeDepositIntentId   && { l: 'Stripe Deposit PI',   v: b.stripeDepositIntentId },
           b.stripeRemainingIntentId && { l: 'Stripe Remaining PI', v: b.stripeRemainingIntentId },
@@ -462,9 +481,9 @@ export default function BookingExpandedPanel({
       </div>
 
       {/* Restock Service — Airbnb bookings only */}
-      {b.isAirbnb && (
+      {b.isAirbnb && ((b.addons || []).some(a => a.id === 'restocking') || parseFloat(b.restockCharge || 0) > 0) && (
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 14 }}>
-          <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 10 }}>Restock Service</div>
+          <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, marginBottom: 10 }}>Restocking Service — Supply Recharge</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>£</span>
@@ -1094,7 +1113,7 @@ export default function BookingExpandedPanel({
             </button>
             <button onClick={() => handleMarkDepositPaid(b)} disabled={markingDeposit === b.id}
               style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
-              {markingDeposit === b.id ? 'Saving…' : `💷 Mark Deposit Paid — £${b.deposit}`}
+              {markingDeposit === b.id ? 'Saving…' : `💷 Mark Deposit Paid — £${parseFloat(b.deposit || 0).toFixed(2)}`}
             </button>
           </>
         )}
@@ -1416,6 +1435,18 @@ export default function BookingExpandedPanel({
                 <div>{b.addr1}{b.postcode ? `, ${b.postcode}` : ''}</div>
                 <div>{b.packageName || b.size || ''}{b.numCleaners > 1 ? ` · ${b.numCleaners} cleaners` : ''}</div>
                 {b.assignedStaff && <div>Cleaner: {b.assignedStaff}{b.secondCleaner ? ` & ${b.secondCleaner}` : ''}</div>}
+              </div>
+
+              <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>Check add-ons with the client before confirming</div>
+                {(b.addons || []).length > 0 ? (
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>
+                    Current add-ons: {(b.addons || []).map(a => a.name || a.label).join(', ')}
+                  </div>
+                ) : (
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>No add-ons on this booking.</div>
+                )}
+                <div style={{ fontFamily: FONT, fontSize: 11, color: '#b45309' }}>Did the client confirm the same add-ons for this visit? Including restocking handling fee if applicable. Edit the booking after creating the visit if anything has changed.</div>
               </div>
 
               <div style={{ marginBottom: 14 }}>
