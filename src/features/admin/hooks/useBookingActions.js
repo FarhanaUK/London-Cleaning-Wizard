@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import emailjs from '@emailjs/browser';
 import { db } from '../../../firebase/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { PACKAGES, FREQUENCIES } from '../../../data/siteData';
@@ -120,7 +121,37 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
     try {
       const res  = await fetch(import.meta.env.VITE_CF_MARK_DEPOSIT_PAID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: booking.id }) });
       const data = await res.json();
-      if (!res.ok) setDepositErr(data.error || 'Failed to update booking.');
+      if (!res.ok) { setDepositErr(data.error || 'Failed to update booking.'); return; }
+      if (booking.isAirbnb) {
+        const confirmTpl = import.meta.env.VITE_EMAILJS_CONFIRM_TEMPLATE;
+        const svcId      = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+        const pubKey     = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+        if (confirmTpl && svcId && booking.email) {
+          const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
+          emailjs.send(svcId, confirmTpl, {
+            to_name:        booking.contactName || booking.firstName || booking.customerName || '',
+            to_email:       booking.email,
+            booking_ref:    booking.bookingRef || '',
+            booking_type:   'Airbnb Turnaround Clean',
+            package_name:   booking.packageName || 'Airbnb Turnaround',
+            property_type:  booking.size || (booking.bedrooms ? `${booking.bedrooms} bed` : '—'),
+            frequency:      'One-off',
+            date:           fmtD(booking.cleanDate),
+            time:           booking.cleanTime || '—',
+            address:        [booking.addr1, booking.addr2, booking.postcode].filter(Boolean).join(', '),
+            floor:          booking.floor || '—',
+            parking:        booking.parking || '—',
+            keys:           booking.keys || '—',
+            addons:         (booking.addons || []).map(a => a.name || a.label || a).join(', ') || 'None',
+            pets:           '—',
+            signature_touch:'—',
+            notes:          booking.notes || '—',
+            total:          `£${parseFloat(booking.total || 0).toFixed(2)}`,
+            deposit_paid:   `£${parseFloat(booking.deposit || 0).toFixed(2)}`,
+            remaining:      `£${parseFloat(booking.remaining || 0).toFixed(2)}`,
+          }, pubKey).catch(() => {});
+        }
+      }
     } catch { setDepositErr('Something went wrong. Please try again.'); }
     finally { setMarkingDeposit(null); }
   };

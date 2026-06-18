@@ -487,37 +487,6 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           body: JSON.stringify({ bookingId: ref.id }),
         }).catch(() => {});
 
-        const confirmTpl = import.meta.env.VITE_EMAILJS_CONFIRM_TEMPLATE;
-        if (confirmTpl) {
-          const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
-          emailjs.send(import.meta.env.VITE_EMAILJS_SERVICE_ID, confirmTpl, {
-            to_name:        contactName.trim() || bizName.trim(),
-            to_email:       clientEmail.trim(),
-            booking_ref:    'Pending assignment',
-            booking_type:   'Airbnb Turnaround Clean',
-            package_name:   'Airbnb Turnaround',
-            property_type:  `${bedrooms} bed`,
-            frequency:      'One-off',
-            date:           fmtD(contractStart),
-            time:           contractTime || '—',
-            address:        `${sharedFields.addr1 || ''}, ${sharedFields.postcode || ''}`.trim().replace(/^,\s*/, ''),
-            floor:          sharedFields.floor || '—',
-            parking:        sharedFields.parking || '—',
-            keys:           sharedFields.keys || '—',
-            addons:         selectedAddons.map(a => a.label).join(', ') || 'None',
-            pets:           '—',
-            signature_touch:'—',
-            notes:          sharedFields.notes || '—',
-            total:          `£${q.price.toFixed(2)}`,
-            deposit_paid:   `£${(q.price * 0.3).toFixed(2)}`,
-            remaining:      `£${(q.price * 0.7).toFixed(2)}`,
-            stripe_deposit_pi: 'Pending payment',
-            recurring_note: 'To book your next Airbnb turnaround, simply contact us and we will add a new visit to your account.',
-            terms_summary:  'Full payment is due on completion of the clean.',
-            media_consent_row: '',
-          }, import.meta.env.VITE_EMAILJS_PUBLIC_KEY).catch(() => {});
-        }
-
       } else {
         // Commercial: contract booking with visits
         const ct = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];

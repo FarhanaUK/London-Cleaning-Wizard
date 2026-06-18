@@ -191,37 +191,6 @@ export default function BookingExpandedPanel({
         body: JSON.stringify({ bookingId: ref.id }),
       }).catch(() => {});
 
-      const confirmTpl = import.meta.env.VITE_EMAILJS_CONFIRM_TEMPLATE;
-      if (confirmTpl) {
-        const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
-        emailjs.send(import.meta.env.VITE_EMAILJS_SERVICE_ID, confirmTpl, {
-          to_name:         newBooking.contactName || newBooking.firstName || newBooking.bizName || newBooking.customerName,
-          to_email:        newBooking.email,
-          booking_ref:     'Pending assignment',
-          booking_type:    'Airbnb Turnaround Clean',
-          package_name:    newBooking.packageName || 'Airbnb Turnaround',
-          property_type:   newBooking.size || newBooking.bedrooms || '—',
-          frequency:       'One-off',
-          date:            fmtD(newBooking.cleanDate),
-          time:            newBooking.cleanTime || '—',
-          address:         `${newBooking.addr1 || ''}, ${newBooking.postcode || ''}`.trim().replace(/^,\s*/, ''),
-          floor:           newBooking.floor || '—',
-          parking:         newBooking.parking || '—',
-          keys:            newBooking.keys || '—',
-          addons:          (newBooking.addons || []).map(a => a.name || a.label || a).join(', ') || 'None',
-          pets:            '—',
-          signature_touch: '—',
-          notes:           '—',
-          total:           `£${parseFloat(newBooking.total || 0).toFixed(2)}`,
-          deposit_paid:    '£0.00',
-          remaining:       `£${parseFloat(newBooking.total || 0).toFixed(2)}`,
-          stripe_deposit_pi: 'Charged on completion',
-          recurring_note:  'To book your next Airbnb turnaround, simply contact us and we will add a new visit to your account.',
-          terms_summary:   'Full payment is charged automatically on completion of the clean.',
-          media_consent_row: '',
-        }, import.meta.env.VITE_EMAILJS_PUBLIC_KEY).catch(() => {});
-      }
-
       setNewVisitModal(null);
     } catch (e) { setNewVisitErr(e.message); }
     setNewVisitSaving(false);
