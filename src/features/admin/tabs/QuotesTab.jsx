@@ -116,9 +116,10 @@ function BreakdownRow({ label, value, C, accent, large, last }) {
 }
 
 export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [], marketingSpend = [], supplies = [], bookings = [], savedQuotes = [], onNavigate }) {
-  const [clientType,   setClientType]   = useState('airbnb');
-  const [bedrooms,     setBedrooms]     = useState('2');
-  const [extraBaths,   setExtraBaths]   = useState('1');
+  const [clientType,     setClientType]     = useState('airbnb');
+  const [airbnbPropType, setAirbnbPropType] = useState('flat');
+  const [bedrooms,       setBedrooms]       = useState('2');
+  const [extraBaths,     setExtraBaths]     = useState('1');
   const [sqm,          setSqm]          = useState('80');
   const [intensity,    setIntensity]    = useState('office');
   const [complexity,   setComplexity]   = useState('normal');
@@ -215,6 +216,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       const key = bedrooms === 'studio' ? 'studio' : parseInt(bedrooms, 10);
       base = AIRBNB_BASE_HOURS[key] || 2.5;
       base += Math.max((parseInt(extraBaths, 10) || 1) - 1, 0) * 0.5;
+      if (airbnbPropType === 'house') base += 0.75; // stairs, landing, hallways
     } else {
       const s = parseFloat(sqm) || 80;
       let h = s <= 50 ? 1.5 : s <= 100 ? 2.5 : s <= 150 ? 3.5 : s <= 200 ? 4.5 : s <= 300 ? 6.0 : 8.0;
@@ -226,7 +228,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const addonList = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
     const addonH = addons.reduce((sum, id) => sum + (addonList.find(x => x.id === id)?.h || 0), 0);
     return base + addonH;
-  }, [clientType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths, addons]);
+  }, [clientType, airbnbPropType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths, addons]);
 
   const q = useMemo(() => {
     const ct            = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
@@ -451,6 +453,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           frequency: 'one-off',
           bathrooms: parseInt(extraBaths, 10) || 1,
           bedrooms,
+          propertyType: airbnbPropType,
+          size: bedrooms === 'studio' ? 'Studio' : `${bedrooms} bedroom${parseInt(bedrooms) > 1 ? 's' : ''}`,
           hasPets: false,
           source: 'Airbnb Quote',
           status: 'pending_deposit',
@@ -674,6 +678,17 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
             {clientType === 'airbnb' ? (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Property type</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {[{id:'flat',label:'Flat / Apartment'},{id:'house',label:'House'}].map(t => (
+                      <button key={t.id} onClick={() => setAirbnbPropType(t.id)} style={{ fontFamily: FONT, fontSize: 12, padding: '6px 16px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${airbnbPropType === t.id ? C.accent : C.border}`, background: airbnbPropType === t.id ? C.accent : C.card, color: airbnbPropType === t.id ? '#fff' : C.text, fontWeight: airbnbPropType === t.id ? 600 : 400 }}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  {airbnbPropType === 'house' && <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>+45 min added for stairs, landing and hallways</div>}
+                </div>
                 <div>
                   <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Bedrooms</div>
                   <select value={bedrooms} onChange={e => setBedrooms(e.target.value)} style={inputStyle}>
