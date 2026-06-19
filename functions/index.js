@@ -3390,10 +3390,11 @@ exports.sendReviewEmails = onSchedule({ schedule: 'every day 10:00', secrets: [E
     }
 
     await sendEmail(template, {
-      to_name:      b.firstName,
-      to_email:     b.email,
-      package_name: b.packageName,
-      booking_ref:  b.bookingRef,
+      to_name:         b.firstName,
+      to_email:        b.email,
+      package_name:    b.packageName,
+      booking_ref:     b.bookingRef,
+      unsubscribe_url: `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(b.email)}`,
     }, EMAILJS_KEY.value()).catch(e => console.error('Review email failed:', b.bookingRef, e.message));
 
     await db.collection('customers').doc(b.email.toLowerCase())
