@@ -71,7 +71,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
   const [sigTouchNote,      setSigTouchNote]      = useState('');
   const [noReviewEmails,    setNoReviewEmails]    = useState(false);
 
-  useEffect(() => { setSigTouchOptingOut(false); setSigTouchNote(''); }, [selectedCustomer]);
+  useEffect(() => { setSigTouchOptingOut(false); setSigTouchNote(''); setNoReviewEmails(false); }, [selectedCustomer]);
 
   useEffect(() => {
     if (!selectedCustomer) return;
