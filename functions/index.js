@@ -1094,7 +1094,7 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     if (b.calendarEventId) {
       try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
     }
-    if (b.frequency && b.frequency !== 'one-off') {
+    if (['weekly','fortnightly','monthly'].includes(b.frequency)) {
       try {
         const email    = b.email.toLowerCase();
         const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
@@ -1357,7 +1357,7 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     try { const cal = await getCalendarClient(); await cal.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId }); } catch(e) { console.error('Calendar delete failed:', e.message); }
   }
 
-  const isRecurring = b.frequency && b.frequency !== 'one-off';
+  const isRecurring = ['weekly','fortnightly','monthly'].includes(b.frequency);
   const cancelData = {
     booking_ref:  b.bookingRef,
     package_name: b.packageName,
@@ -1378,7 +1378,7 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
     }, EMAILJS_KEY.value()).catch(() => {});
 
   // If this was the first booking of a recurring series, cancel all future scheduled bookings too
-  if (b.frequency && b.frequency !== 'one-off') {
+  if (['weekly','fortnightly','monthly'].includes(b.frequency)) {
     try {
       const email    = b.email.toLowerCase();
       const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
