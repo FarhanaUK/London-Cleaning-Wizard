@@ -7,7 +7,14 @@ export function readNotifications() {
 
 export function addNotification(notif) {
   const current = readNotifications();
-  if (current.find(n => n.id === notif.id)) return;
+  const existing = current.find(n => n.id === notif.id);
+  if (existing) {
+    if (existing.type !== notif.type) {
+      localStorage.setItem(KEY, JSON.stringify(current.map(n => n.id === notif.id ? { ...n, type: notif.type } : n)));
+      window.dispatchEvent(new Event(EVT));
+    }
+    return;
+  }
   const updated = [{ ...notif, read: false, createdAt: new Date().toISOString() }, ...current].slice(0, 100);
   localStorage.setItem(KEY, JSON.stringify(updated));
   window.dispatchEvent(new Event(EVT));

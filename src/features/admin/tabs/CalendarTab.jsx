@@ -263,7 +263,7 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
                 { l: 'Booking Ref', v: sel.bookingRef || (sel.isContractVisit && sel.contractId ? bookings.find(b => b.id === sel.contractId)?.bookingRef : null) },
                 { l: 'Clean Date',  v: fmtDate(sel.cleanDate) },
                 { l: 'Clean Time',  v: sel.cleanTime },
-                { l: 'Frequency',   v: ({ 'one-off': 'One-off', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' })[sel.frequency] || sel.frequency || 'One-off' },
+                { l: 'Frequency',   v: ({ 'one-off': 'One-off', 'daily': 'Daily', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' })[sel.frequency] || sel.frequency || 'One-off' },
                 sel.isContractVisit && sel.bizName && { l: 'Business', v: sel.bizName },
                 sel.isContractVisit && { l: 'Client Type', v: sel.clientType === 'airbnb' ? 'Airbnb' : 'Commercial' },
                 sel.isContractVisit && { l: 'No. of Cleaners', v: sel.numCleaners || '—' },

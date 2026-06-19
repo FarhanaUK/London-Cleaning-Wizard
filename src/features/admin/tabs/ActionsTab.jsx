@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { db } from '../../../firebase/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { readNotifications, clearNotification } from '../notifications';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -29,13 +30,14 @@ const snoozeItem = (id, days, today) => {
   localStorage.setItem(SNOOZE_KEY, JSON.stringify(s));
 };
 
-export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavigate }) {
+export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavigate, onCountChange }) {
   const today = new Date().toISOString().slice(0, 10);
 
   const [rescheduleId, setRescheduleId] = useState(null);
   const [newDate,      setNewDate]      = useState('');
   const [saving,       setSaving]       = useState(false);
   const [snoozeBump,   setSnoozeBump]   = useState(0);
+  const [notifBump,    setNotifBump]    = useState(0);
 
   const actions = useMemo(() => {
     const in7days  = addDays(today, 7);
@@ -81,8 +83,26 @@ export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavig
         });
       });
 
+    // Action-type bell notifications (contract renewals, incidents, staff cost, etc.)
+    readNotifications().filter(n => n.type === 'action' || n.type === 'action_checkin' || n.type === 'outreach_due' || (n.link === 'actions' && n.type !== 'funnel_intel')).forEach(n => {
+      items.push({
+        type:     'bell_action',
+        id:       n.id,
+        name:     n.title,
+        meta:     n.message,
+        dueDate:  n.createdAt?.slice(0, 10) || today,
+        overdue:  false,
+        diffDays: 0,
+        notifLink: n.link !== 'actions' ? n.link : null,
+        notifTabKey: n.tabKey || null,
+        data:     n,
+      });
+    });
+
     return items.sort((a, b) => a.diffDays - b.diffDays);
-  }, [savedQuotes, bookings, today, snoozeBump]);
+  }, [savedQuotes, bookings, today, snoozeBump, notifBump]);
+
+  useEffect(() => { onCountChange?.(actions.length); }, [actions.length, onCountChange]);
 
   const overdueCount = actions.filter(a => a.overdue).length;
   const thisWeekCount = actions.filter(a => !a.overdue && a.diffDays <= 7).length;
@@ -107,6 +127,11 @@ export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavig
   const handleSnooze = (id) => {
     snoozeItem(id, 7, today);
     setSnoozeBump(n => n + 1);
+  };
+
+  const handleDone = (id) => {
+    clearNotification(id);
+    setNotifBump(n => n + 1);
   };
 
   const handleReschedule = async (quoteId) => {
@@ -163,6 +188,7 @@ export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavig
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {actions.map(item => {
           const isQuote    = item.type === 'quote_followup';
+          const isBellAction = item.type === 'bell_action';
           const borderCol  = item.overdue ? '#fca5a5' : item.diffDays <= 3 ? '#fde68a' : C.border;
           const bgCol      = item.overdue ? '#fff5f5' : C.card;
           const isRescheduling = rescheduleId === item.id;
@@ -174,14 +200,16 @@ export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavig
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
                     <span style={{
                       fontFamily: FONT, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, letterSpacing: '0.05em', textTransform: 'uppercase',
-                      background: isQuote ? '#eff6ff' : '#fef3c7',
-                      color: isQuote ? '#1d4ed8' : '#92400e',
+                      background: isQuote ? '#eff6ff' : isBellAction ? '#fef2f2' : '#fef3c7',
+                      color: isQuote ? '#1d4ed8' : isBellAction ? '#dc2626' : '#92400e',
                     }}>
-                      {isQuote ? 'Quote follow-up' : 'Contract ending'}
+                      {isQuote ? 'Quote follow-up' : isBellAction ? 'Action needed' : 'Contract ending'}
                     </span>
-                    <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: urgencyColor(item) }}>
-                      {dueDateLabel(item)}
-                    </span>
+                    {!isBellAction && (
+                      <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: urgencyColor(item) }}>
+                        {dueDateLabel(item)}
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 2 }}>{item.name}</div>
                   <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>{item.meta}</div>
@@ -201,14 +229,28 @@ export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavig
                       </button>
                     </>
                   )}
-                  {!isQuote && (
+                  {!isQuote && !isBellAction && (
                     <button style={BTN(C.bg, C.text, C.border)} onClick={() => onNavigate('bookings')}>
                       View contract
                     </button>
                   )}
-                  <button style={BTN('transparent', C.muted, C.border)} onClick={() => handleSnooze(item.id)}>
-                    Snooze 7 days
-                  </button>
+                  {isBellAction && (
+                    <>
+                      {item.notifLink && (
+                        <button style={BTN(C.bg, C.text, C.border)} onClick={() => { if (item.notifTabKey) localStorage.setItem('expenseTab', item.notifTabKey); onNavigate(item.notifLink); }}>
+                          Go to {item.notifLink}
+                        </button>
+                      )}
+                      <button style={BTN('#f0fdf4', '#16a34a', '#86efac')} onClick={() => handleDone(item.id)}>
+                        Mark done
+                      </button>
+                    </>
+                  )}
+                  {!isBellAction && (
+                    <button style={BTN('transparent', C.muted, C.border)} onClick={() => handleSnooze(item.id)}>
+                      Snooze 7 days
+                    </button>
+                  )}
                 </div>
               </div>
 

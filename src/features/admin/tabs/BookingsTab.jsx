@@ -281,6 +281,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
       if (statusFilter === 'phone')               return b.isPhoneBooking === true && !b.isContract;
       if (statusFilter === 'website')             return !b.isPhoneBooking;
       if (statusFilter === 'contracts')           return b.isContract === true;
+      if (statusFilter === 'airbnb')              return b.frequency === 'flexible';
       return b.status === statusFilter;
     })
     .filter(b => {
@@ -500,7 +501,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
 
       {/* Status + Frequency filters */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} style={{ ...DATE_INPUT, flex: 1, minWidth: 160 }}>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); if (['contracts','airbnb'].includes(e.target.value)) setFreqFilter('all'); setPage(1); }} style={{ ...DATE_INPUT, flex: 1, minWidth: 160 }}>
           <option value="all">All Statuses</option>
           <option value="pending_deposit">Awaiting Deposit</option>
           <option value="deposit_paid">Deposit Paid — Balance Due</option>
@@ -510,6 +511,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
           <option value="cancelled-recurring">Cancelled Recurring</option>
           <option value="refunded">Refunded</option>
           <option value="contracts">Contracts</option>
+          <option value="airbnb">Airbnb Flexible</option>
           <option value="phone">Phone Bookings</option>
           <option value="website">Website Bookings</option>
         </select>
@@ -519,7 +521,6 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
           <option value="weekly">Weekly</option>
           <option value="fortnightly">Fortnightly</option>
           <option value="monthly">Monthly</option>
-          <option value="flexible">Airbnb Flexible</option>
         </select>
       </div>
 

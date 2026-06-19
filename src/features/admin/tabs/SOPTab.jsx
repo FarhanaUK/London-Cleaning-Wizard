@@ -765,6 +765,65 @@ export default function SOPTab({ isMobile, C }) {
         </div>
       </Section>
 
+      <Section title="Contract Monthly Payments" C={C}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+          Monthly contract payments are handled automatically by Stripe once the client has a saved card on file. You do not need to chase invoices manually.
+        </div>
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 10 }}>First payment — required to activate auto-billing</div>
+        {[
+          'When a contract is created, send the client the payment link from the Bookings tab (expand the contract and use the Payment Link button).',
+          'The client pays the first full month via that link. This saves their card to Stripe.',
+          'Once their card is saved, all future monthly payments charge automatically — you do not need to send another link.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 10px' }}>7 days before each billing date</div>
+        {[
+          'The system automatically emails the client a payment reminder showing the amount due and the due date.',
+          'The amount includes the fixed monthly base rate plus any add-ons from the previous month (e.g. oven clean, extra rooms).',
+          'No action needed from you — this is fully automatic.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 10px' }}>On the billing date</div>
+        {[
+          'Stripe automatically charges the saved card for the monthly base rate plus any previous month add-ons.',
+          'The month is marked as paid in the system and a receipt is emailed to the client.',
+          'A bell notification appears in the admin panel on the day payment is due so you can monitor it.',
+          'If the charge succeeds, no action is needed. If it fails, the month is marked as Failed in the payment tracker and you will be notified to follow up manually.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, margin: '16px 0 10px' }}>Manual marking</div>
+        {[
+          'If a client pays by bank transfer instead of card, mark the month as paid manually in the Bookings tab by expanding the contract and ticking the period.',
+          'Manual marking sends the same receipt email to the client.',
+          'If no card is saved, the auto-charge is skipped and the month stays unpaid until you mark it manually.',
+        ].map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+            <div style={{ color: C.accent, fontWeight: 700, flexShrink: 0 }}>·</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</div>
+          </div>
+        ))}
+
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 16px', marginTop: 4, fontFamily: FONT, fontSize: 12, color: '#1e40af', lineHeight: 1.5 }}>
+          <strong>Reminder template ID:</strong> template_r1jyqjw &nbsp;·&nbsp; <strong>Receipt template ID:</strong> template_pqbq8eb
+        </div>
+      </Section>
+
       <Section title="Contract Auto-Renewal" C={C}>
         <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
           Contracts auto-renew at the end of their term. You do not need to contact the customer manually — the system handles it. Here is exactly what happens and when.

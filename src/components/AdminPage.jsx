@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { readNotifications, addNotification, markAllRead, clearNotification, clearAll, EVENT as NOTIF_EVENT } from '../features/admin/notifications';
 import { db, auth } from '../firebase/firebase';
 import { collection, query, orderBy, onSnapshot, limit, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -243,6 +243,7 @@ export default function AdminPage() {
     if (returningClients >= 3) {
       addNotification({
         id: 'quotes_phase2_ready',
+        type: 'action',
         icon: '💰',
         title: 'Time to raise your profit margin',
         message: `You now have ${returningClients} returning clients -- your reputation is building. Go to the Quotes Calculator and raise your profit margin from 25% to 30-35%. You have earned it.`,
@@ -256,6 +257,7 @@ export default function AdminPage() {
     if (thisMonthCount >= 15) {
       addNotification({
         id: 'quotes_phase3_ready',
+        type: 'action',
         icon: '📊',
         title: 'Raise your margin to 40%',
         message: `You have ${thisMonthCount} bookings this month. At this volume your overhead is spread across enough jobs that you can push your profit margin to 35-40% without pricing yourself out. Update it in the Quotes Calculator now.`,
@@ -280,6 +282,7 @@ export default function AdminPage() {
     if (overdue.length > 0) {
       addNotification({
         id: 'quote_followup_due',
+        type: 'action',
         icon: '📋',
         title: `${overdue.length} quote follow-up${overdue.length > 1 ? 's' : ''} due`,
         message: overdue.map(sq => sq.bizName).join(', ') + (overdue.length === 1 ? ' -- follow up today.' : ' -- follow up with these clients today.'),
@@ -301,6 +304,7 @@ export default function AdminPage() {
     if (expiring.length > 0) {
       addNotification({
         id: 'contract_expiring',
+        type: 'action',
         icon: '🏢',
         title: `${expiring.length} contract${expiring.length > 1 ? 's' : ''} ending soon`,
         message: expiring.map(b => b.bizName || b.firstName).join(', ') + ' -- discuss renewal.',
@@ -345,7 +349,7 @@ export default function AdminPage() {
       const monthName = today.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
       addNotification({
         id: `monthly_expense_reminder_${monthKey}`,
-        type: 'expense_reminder',
+        type: 'action',
         title: 'Month-end expense reminder',
         message: `Today is the last day of ${monthName}. Log any variable expenses before the month closes — Google Ads, fuel, supplies, anything paid this month.`,
         link: 'expenses',
@@ -365,7 +369,7 @@ export default function AdminPage() {
         const monthKey = fc.endDate.slice(0, 7);
         addNotification({
           id: `expense_end_${fc.id}_${monthKey}`,
-          type: 'expense_ending',
+          type: 'action',
           title: `${fc.name} ending soon`,
           message: `Direct debit "${fc.name}" ends on ${new Date(fc.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}. Review or renew it in Expenses.`,
           link: 'expenses',
@@ -403,6 +407,7 @@ export default function AdminPage() {
         if (days >= 3 && days <= 6) {
           addNotification({
             id: `incident_chase_${inc.id}`,
+            type: 'action',
             icon: '⚠️',
             title: 'Incident needs a chase',
             message: `"${inc.description}" has been open for ${days} days. Follow up for a progress update.`,
@@ -413,6 +418,7 @@ export default function AdminPage() {
         if (days >= 10) {
           addNotification({
             id: `incident_escalate_${inc.id}`,
+            type: 'action',
             icon: '🔴',
             title: `Incident unresolved — ${days} days`,
             message: `"${inc.description}" is still open after ${days} days. Consider escalating or marking as pending reimbursement.`,
@@ -424,6 +430,7 @@ export default function AdminPage() {
       if (inc.status === 'pending_reimbursement' && days >= 7) {
         addNotification({
           id: `incident_reimb_${inc.id}`,
+          type: 'action',
           icon: '💰',
           title: 'Customer payout still pending',
           message: `${days} days since "${inc.description}" was marked for payout. Confirm payment has been sent.`,
@@ -494,7 +501,7 @@ export default function AdminPage() {
       if (daysSinceCheckin >= 7) {
         addNotification({
           id: `action_plan_checkin_${weekKey}`,
-          type: 'action_checkin',
+          type: 'action',
           icon: '✅',
           title: 'Weekly check-in due',
           message: `Log what you did this week in the Action Plan tab. Without it, the combined reading cannot tell whether results are flat because actions were skipped or because the strategy needs changing.`,
@@ -505,7 +512,7 @@ export default function AdminPage() {
       if (daysSinceOutreach >= 7) {
         addNotification({
           id: `outreach_log_due_${weekKey}`,
-          type: 'outreach_due',
+          type: 'action',
           icon: '📞',
           title: 'Outreach data not logged this week',
           message: `Log your calls, emails, visits, and group posts in the Outreach Tracker. The reading needs weekly data to be accurate.`,
@@ -574,13 +581,86 @@ export default function AdminPage() {
     const monthFmt = lm.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
     addNotification({
       id:      notifId,
-      type:    'staff_cost_alert',
+      type:    'action',
       icon:    '⚠️',
       title:   `Staff cost over 40% — ${monthFmt}`,
       message: `${names} exceeded 40% labour cost last month. Review their jobs in Reports to identify low-margin work.`,
       link:    'reports',
     });
   }, [user, bookings, staff]);
+
+  // Contract billing-day notification — fires on the day a monthly payment is due
+  useEffect(() => {
+    if (!user || !bookings.length) return;
+    const today = new Date().toISOString().slice(0, 10);
+    bookings.filter(b => b.isContract && !b.deleted && !b.status?.startsWith('cancelled')).forEach(b => {
+      const payments  = b.monthlyPayments || {};
+      const paidKeys  = Object.keys(payments).filter(k => payments[k] === 'paid').sort();
+      let nextDue;
+      if (paidKeys.length === 0) {
+        nextDue = b.contractStartDate || b.cleanDate;
+      } else {
+        const last = new Date(paidKeys[paidKeys.length - 1] + 'T12:00:00');
+        last.setMonth(last.getMonth() + 1);
+        nextDue = last.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+      }
+      if (nextDue !== today) return;
+      const name   = b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
+      const amount = parseFloat(b.monthlyBaseValue || 0);
+      addNotification({
+        id:      `contract_payment_due_${b.id}_${today}`,
+        type:    'action',
+        icon:    '💳',
+        title:   'Contract payment due today',
+        message: `${name}${b.bookingRef ? ` (${b.bookingRef})` : ''} — £${amount.toFixed(2)}/month is due today. Stripe will auto-charge if a card is saved; check the payment tracker to confirm.`,
+        link:    'bookings',
+      });
+    });
+  }, [user, bookings]);
+
+  // Contract auto-renewal notification — fires when sendContractRenewalConfirmations sets lastRenewalDate = today
+  useEffect(() => {
+    if (!user || !bookings.length) return;
+    const today = new Date().toISOString().slice(0, 10);
+    bookings.filter(b => b.isContract && !b.deleted && b.lastRenewalDate === today).forEach(b => {
+      const name = b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim();
+      addNotification({
+        id:      `contract_renewed_${b.id}_${today}`,
+        type:    'action',
+        icon:    '🔄',
+        title:   'Contract auto-renewed — please verify',
+        message: `${name}${b.bookingRef ? ` (${b.bookingRef})` : ''} has been renewed. Check the new visits, pricing, and schedule are correct.`,
+        link:    'actions',
+      });
+    });
+  }, [user, bookings]);
+
+  // Monthly CSV backup reminder — fires in last week of each month
+  useEffect(() => {
+    if (!user) return;
+    const now = new Date();
+    if (now.getDate() < 25) return;
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    addNotification({
+      id:      `monthly_csv_${monthKey}`,
+      type:    'action',
+      icon:    '📥',
+      title:   'Download monthly backup',
+      message: `End of ${now.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} — download bookings, expenses, and reports as CSV to keep a monthly backup.`,
+      link:    'reports',
+    });
+  }, [user]);
+
+  // Actions tab badge — computed directly so it shows red on load without needing to visit the tab
+  const actionsCount = useMemo(() => {
+    const TODAY  = new Date().toISOString().slice(0, 10);
+    const in7d   = new Date(); in7d.setDate(in7d.getDate() + 7);   const in7s  = in7d.toISOString().slice(0, 10);
+    const in30d  = new Date(); in30d.setDate(in30d.getDate() + 30); const in30s = in30d.toISOString().slice(0, 10);
+    const bellCount     = notifs.filter(n => n.type === 'action' || n.type === 'action_checkin' || n.type === 'outreach_due' || (n.link === 'actions' && n.type !== 'funnel_intel')).length;
+    const quoteCount    = savedQuotes.filter(sq => !['booked','lost'].includes(sq.status) && sq.followUpDate && sq.followUpDate <= in7s).length;
+    const contractCount = bookings.filter(b => b.isContract && b.contractEndDate && !b.status?.startsWith('cancelled') && b.contractEndDate >= TODAY && b.contractEndDate <= in30s && !b.deleted).length;
+    return bellCount + quoteCount + contractCount;
+  }, [notifs, savedQuotes, bookings]);
 
   const handleLogin = async () => {
     setLoginErr('');
@@ -755,22 +835,26 @@ export default function AdminPage() {
             <div style={{ marginBottom: 8, paddingBottom: 16, borderBottom: `1px solid ${C.sidebarBorder}` }}>
               <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: C.accent, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0 20px', marginBottom: 8 }}>Navigation</div>
               {NAV_ITEMS.map(v => {
-                const tabNotifs = notifs.filter(n => n.link === v.id && !n.read);
+                const tabNotifs  = notifs.filter(n => n.link === v.id && !n.read);
+                const badgeCount = v.id === 'actions' ? actionsCount : tabNotifs.length;
+                const isActions  = v.id === 'actions';
+                const hasActions = isActions && actionsCount > 0;
+                const isActive   = activeView === v.id;
                 return (
                 <button key={v.id} onClick={() => { setActiveView(v.id); localStorage.setItem('crmActiveView', v.id); window.scrollTo(0, 0); }} style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 20px', border: 'none', cursor: 'pointer',
-                  background: activeView === v.id ? C.sidebarActive : 'transparent',
-                  borderLeft: activeView === v.id ? `3px solid ${C.sidebarActiveBorder}` : '3px solid transparent',
-                  fontFamily: FONT, fontSize: 13, fontWeight: activeView === v.id ? 600 : 400,
-                  color: activeView === v.id ? C.sidebarText : C.sidebarMuted, textAlign: 'left',
+                  background: isActive ? C.sidebarActive : hasActions ? 'rgba(220,38,38,0.08)' : 'transparent',
+                  borderLeft: isActive ? `3px solid ${C.sidebarActiveBorder}` : hasActions ? '3px solid #dc2626' : '3px solid transparent',
+                  fontFamily: FONT, fontSize: 13, fontWeight: isActive || hasActions ? 600 : 400,
+                  color: isActive ? C.sidebarText : hasActions ? '#dc2626' : C.sidebarMuted, textAlign: 'left',
                   marginBottom: 2,
                 }}>
                   <span style={{ fontSize: 15 }}>{v.icon}</span>
                   <span style={{ flex: 1 }}>{v.label}</span>
-                  {tabNotifs.length > 0 && (
+                  {badgeCount > 0 && (
                     <span style={{ width: 16, height: 16, borderRadius: '50%', background: '#dc2626', color: '#fff', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0 }}>
-                      {tabNotifs.length > 9 ? '9+' : tabNotifs.length}
+                      {badgeCount > 9 ? '9+' : badgeCount}
                     </span>
                   )}
                 </button>

@@ -382,6 +382,7 @@ export default function BookingExpandedPanel({
   const [paymentErr, setPaymentErr] = useState('');
 
   const toggleMonthPaid = (month, paid) => {
+    if (paid && !window.confirm(`Marking this month as paid will send a receipt email to ${b.email}.\n\nOnly do this for manual payments (bank transfer or failed auto-charge). Stripe auto-payments mark themselves paid automatically.\n\nContinue?`)) return;
     const prev    = b.monthlyPayments || {};
     const updated = { ...prev };
     if (paid) updated[month] = 'paid'; else delete updated[month];
@@ -422,7 +423,12 @@ export default function BookingExpandedPanel({
           b.floor      && { l: 'Floor / Lift', v: b.floor },
           b.parking    && { l: 'Parking',      v: b.parking },
           b.bathrooms  && { l: 'Bathrooms',    v: b.bathrooms },
-          { l: 'Media Consent',  v: b.mediaConsent ? '✓ Consented' : '✕ No consent' },
+          { l: 'Media Consent',    v: b.mediaConsent ? '✓ Consented' : '✕ No consent' },
+          { l: 'Marketing Opt-in', v: (b.doNotContact || b.marketingOptOut) ? '✕ Opted out' : '✓ Opted in' },
+          b.numCleaners && { l: 'No. of Cleaners', v: b.numCleaners },
+          b.visitDurationBase && { l: 'Visit Duration', v: `${b.visitDurationBase}h` },
+          b.scheduledDays?.length > 0 && { l: 'Scheduled Days', v: b.scheduledDays.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ') },
+          b.notes && { l: 'Notes', v: b.notes },
           { l: 'Base per Visit', v: `£${parseFloat(b.pricePerVisit || 0).toFixed(2)}` },
           b.addonsList && { l: 'Add-ons', v: b.addonsList },
           b.monthlyBaseValue > 0 && { l: 'Monthly', v: `£${parseFloat(b.monthlyBaseValue).toFixed(2)}/month` },
@@ -439,13 +445,13 @@ export default function BookingExpandedPanel({
           { l: 'Bathrooms',        v: b.bathrooms || '—' },
           b.airbnbListing && { l: 'Airbnb Listing', v: b.airbnbListing },
           { l: 'Keys',             v: b.keys || '—' },
-          { l: 'Frequency',        v: ({ 'one-off': 'One-off', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' })[b.frequency] || b.frequency || 'One-off' },
+          { l: 'Frequency',        v: ({ 'one-off': 'One-off', 'daily': 'Daily', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' })[b.frequency] || b.frequency || 'One-off' },
           b.isContractVisit && b.numCleaners && { l: 'No. of Cleaners', v: b.numCleaners },
           b.isContractVisit && b.visitDurationBase && { l: 'Visit Duration', v: `${b.visitDurationBase}h` },
           { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : (b.addonsList || 'None') },
           !b.isContractVisit && !b.isAirbnb && !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
           !b.isContractVisit && (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
-          { l: 'Marketing Opt-in', v: (b.doNotContact ?? b.marketingOptOut) ? '✕ Opted out' : '✓ Opted in' },
+          { l: 'Marketing Opt-in', v: (b.doNotContact || b.marketingOptOut) ? '✕ Opted out' : '✓ Opted in' },
           !b.isContractVisit && { l: 'Media Consent',    v: b.mediaConsent ? '✓ Consented to photos/videos on social media' : '✕ No consent given' },
           ...(b.isAirbnb ? (() => {
             const baseClean = parseFloat(b.pricePerVisit || 0);

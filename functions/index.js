@@ -1970,6 +1970,32 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
         .set({ doNotContact: marketingOptOut, marketingOptOut }, { merge: true })
         .catch(() => {});
     }
+    // Send contract confirmation email on first (Stripe link) payment
+    const contractConfirmTpl = process.env.EMAILJS_CONTRACT_CONFIRM_TEMPLATE;
+    if (contractConfirmTpl && b.email) {
+      const base  = parseFloat(b.monthlyBaseValue  || 0);
+      const addon = parseFloat(b.monthlyAddonValue || 0);
+      const total = base + addon;
+      const fmtD  = s => s ? s.split('-').reverse().join('/') : '—';
+      const freqMap = { 'one-off': 'One-off', daily: 'Daily', weekly: 'Weekly', fortnightly: 'Fortnightly', monthly: 'Monthly', flexible: 'Airbnb Flexible' };
+      const addonRows = addon > 0
+        ? `<tr><td style="padding:4px 16px 4px 0;color:rgba(200,184,154,0.6);">Add-ons (this billing)</td><td style="padding:4px 0;color:#f5f0e8;text-align:right;">£${addon.toFixed(2)}</td></tr><tr><td style="padding:10px 16px 4px 0;color:#c8b89a;font-weight:bold;border-top:1px solid rgba(200,184,154,0.15);">First billing total</td><td style="padding:10px 0 4px;color:#c8b89a;text-align:right;font-weight:bold;border-top:1px solid rgba(200,184,154,0.15);">£${total.toFixed(2)}</td></tr>`
+        : `<tr><td style="padding:10px 16px 4px 0;color:#c8b89a;font-weight:bold;border-top:1px solid rgba(200,184,154,0.15);">First billing total</td><td style="padding:10px 0 4px;color:#c8b89a;text-align:right;font-weight:bold;border-top:1px solid rgba(200,184,154,0.15);">£${total.toFixed(2)}</td></tr>`;
+      await sendEmail(contractConfirmTpl, {
+        to_name:        b.contactName || `${b.firstName || ''} ${b.lastName || ''}`.trim() || b.bizName || '',
+        to_email:       b.email,
+        booking_ref:    b.bookingRef || '',
+        business_name:  b.bizName || '',
+        package_name:   b.packageName || '—',
+        frequency:      freqMap[b.frequency] || b.frequency || '—',
+        start_date:     fmtD(b.contractStartDate || b.cleanDate),
+        end_date:       fmtD(b.contractEndDate),
+        address:        [b.addr1, b.addr2, b.postcode].filter(Boolean).join(', '),
+        base_charge:    `£${base.toFixed(2)}`,
+        addon_rows:     addonRows,
+        notes:          b.notes || '—',
+      }, EMAILJS_KEY.value()).catch(e => console.error('Contract confirm email failed:', e.message));
+    }
     res.json({ success: true, isContract: true });
     return;
   }
@@ -2066,13 +2092,23 @@ exports.trashBooking = onRequest(async (req, res) => {
     if (!visitsSnap.empty) {
       let calClient = null;
       try { calClient = await getCalendarClient(); } catch {}
-      await Promise.all(visitsSnap.docs.map(async d => {
-        const vd = d.data();
-        if (vd.calendarEventId && calClient) {
-          try { await calClient.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: vd.calendarEventId }); } catch {}
-        }
-        return d.ref.update({ deleted: true, deletedAt: now, calendarEventId: null });
-      }));
+      const CHUNK = 10;
+      for (let i = 0; i < visitsSnap.docs.length; i += CHUNK) {
+        const chunk = visitsSnap.docs.slice(i, i + CHUNK);
+        await Promise.all(chunk.map(async d => {
+          const vd = d.data();
+          const upd = { deleted: true, deletedAt: now };
+          if (vd.calendarEventId && calClient) {
+            try {
+              await calClient.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: vd.calendarEventId });
+              upd.calendarEventId = null;
+            } catch { /* keep calendarEventId so permanent delete can retry */ }
+          } else {
+            upd.calendarEventId = null;
+          }
+          return d.ref.update(upd);
+        }));
+      }
     }
   }
   res.json({ success: true });
@@ -2088,24 +2124,64 @@ exports.restoreBooking = onRequest(async (req, res) => {
   if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
   const b = snap.data();
   await snap.ref.update({ deleted: false, deletedAt: null });
-  try {
-    const calendar  = await getCalendarClient();
-    const slotStart = toUTCISO(b.cleanDate, b.cleanTime);
-    const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
-    const calEvent  = await calendar.events.insert({
-      calendarId: process.env.GOOGLE_CALENDAR_ID,
-      resource: {
-        summary:     `${b.packageName} — ${b.firstName} ${b.lastName}`,
-        description: `${b.addr1}, ${b.postcode} | ${b.phone} | ${b.email}`,
-        start:       { dateTime: slotStart, timeZone: 'Europe/London' },
-        end:         { dateTime: slotEnd,   timeZone: 'Europe/London' },
-        colorId:     calColorId(b.status, b.frequency),
-      },
-    });
-    await snap.ref.update({ calendarEventId: calEvent.data.id });
-  } catch (e) {
-    console.error('Failed to recreate calendar event on restore:', e.message);
+
+  // Recreate calendar event for the master (non-contract-visit) booking
+  if (!b.contractId) {
+    try {
+      const calendar  = await getCalendarClient();
+      const slotStart = toUTCISO(b.cleanDate, b.cleanTime);
+      const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+      const calEvent  = await calendar.events.insert({
+        calendarId: process.env.GOOGLE_CALENDAR_ID,
+        resource: {
+          summary:     `${b.packageName} — ${b.firstName} ${b.lastName}`,
+          description: `${b.addr1}, ${b.postcode} | ${b.phone} | ${b.email}`,
+          start:       { dateTime: slotStart, timeZone: 'Europe/London' },
+          end:         { dateTime: slotEnd,   timeZone: 'Europe/London' },
+          colorId:     calColorId(b.status, b.frequency),
+        },
+      });
+      await snap.ref.update({ calendarEventId: calEvent.data.id });
+    } catch (e) {
+      console.error('Failed to recreate calendar event on restore:', e.message);
+    }
   }
+
+  // Cascade restore to all contract visits and recreate their calendar events
+  if (b.isContract) {
+    const visitsSnap = await db.collection('bookings').where('contractId', '==', bookingId).get();
+    if (!visitsSnap.empty) {
+      let calClient = null;
+      try { calClient = await getCalendarClient(); } catch {}
+      const CHUNK = 10;
+      for (let i = 0; i < visitsSnap.docs.length; i += CHUNK) {
+        const chunk = visitsSnap.docs.slice(i, i + CHUNK);
+        await Promise.all(chunk.map(async d => {
+          const vd  = d.data();
+          const upd = { deleted: false, deletedAt: null };
+          if (calClient && !vd.calendarEventId) {
+            try {
+              const slotStart = toUTCISO(vd.cleanDate, vd.cleanTime);
+              const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+              const calEvent  = await calClient.events.insert({
+                calendarId: process.env.GOOGLE_CALENDAR_ID,
+                resource: {
+                  summary:     `${vd.packageName} — ${b.firstName} ${b.lastName}`,
+                  description: `${b.addr1}, ${b.postcode} | ${b.phone} | ${b.email}`,
+                  start:       { dateTime: slotStart, timeZone: 'Europe/London' },
+                  end:         { dateTime: slotEnd,   timeZone: 'Europe/London' },
+                  colorId:     calColorId(vd.status, b.frequency),
+                },
+              });
+              upd.calendarEventId = calEvent.data.id;
+            } catch {}
+          }
+          return d.ref.update(upd);
+        }));
+      }
+    }
+  }
+
   res.json({ success: true });
 });
 
@@ -2135,13 +2211,17 @@ exports.deleteBooking = onRequest(async (req, res) => {
       if (!visitsSnap.empty) {
         let calClient = null;
         try { calClient = await getCalendarClient(); } catch {}
-        await Promise.all(visitsSnap.docs.map(async d => {
-          const vd = d.data();
-          if (vd.calendarEventId && calClient) {
-            try { await calClient.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: vd.calendarEventId }); } catch {}
-          }
-          return d.ref.delete();
-        }));
+        const CHUNK = 10;
+        for (let i = 0; i < visitsSnap.docs.length; i += CHUNK) {
+          const chunk = visitsSnap.docs.slice(i, i + CHUNK);
+          await Promise.all(chunk.map(async d => {
+            const vd = d.data();
+            if (vd.calendarEventId && calClient) {
+              try { await calClient.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: vd.calendarEventId }); } catch {}
+            }
+            return d.ref.delete();
+          }));
+        }
       }
     } catch (e) {
       console.error('Failed to delete contract visits:', e.message);
@@ -2198,7 +2278,37 @@ exports.cleanupOrphanedVisits = onRequest(async (req, res) => {
   res.json({ fixed: orphans.length });
 });
 
-// ── 14c. Stop recurring series ────────────────────────────────
+// ── 14c. Clean up calendar events for trashed bookings ───────
+exports.cleanupTrashCalendar = onRequest(async (req, res) => {
+  if (!guard(req, res)) return;
+  const db = admin.firestore();
+  const snap = await db.collection('bookings')
+    .where('deleted', '==', true)
+    .get();
+  const withEvents = snap.docs.filter(d => d.data().calendarEventId);
+  if (withEvents.length === 0) { res.json({ cleaned: 0 }); return; }
+  let calendar = null;
+  try { calendar = await getCalendarClient(); } catch (e) {
+    res.status(500).json({ error: 'Could not connect to Google Calendar: ' + e.message }); return;
+  }
+  let cleaned = 0;
+  const CHUNK = 5;
+  for (let i = 0; i < withEvents.length; i += CHUNK) {
+    await Promise.all(withEvents.slice(i, i + CHUNK).map(async d => {
+      const calId = d.data().calendarEventId;
+      try {
+        await calendar.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: calId });
+      } catch (e) {
+        if (!e.message?.includes('404') && !e.message?.includes('410')) return;
+      }
+      await d.ref.update({ calendarEventId: null });
+      cleaned++;
+    }));
+  }
+  res.json({ cleaned });
+});
+
+// ── 14d. Stop recurring series ────────────────────────────────
 exports.stopRecurringSeries = onRequest({ secrets: [EMAILJS_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
   const { email, fromDate } = req.body;
@@ -4072,13 +4182,12 @@ exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:
 
   const fmtD = s => { const [y,m,d] = s.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); };
 
-  const genVisitDates = (startDate, endDate, freq) => {
+  const genVisitDates = (startDate, endDate, freq, scheduledDays = []) => {
     const dates = [];
     const end   = new Date(endDate + 'T12:00:00');
     let d       = new Date(startDate + 'T12:00:00');
-    if (freq === 'daily')       { while (d <= end) { if (d.getDay() >= 1 && d.getDay() <= 5) dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 1); } }
-    else if (freq === 'thrice') { while (d <= end) { if ([1,3,5].includes(d.getDay())) dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 1); } }
-    else if (freq === 'twice')  { while (d <= end) { if ([1,4].includes(d.getDay())) dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 1); } }
+    const days  = scheduledDays.length > 0 ? scheduledDays : (freq === 'daily' ? [1,2,3,4,5] : freq === 'thrice' ? [1,3,5] : [1,4]);
+    if (['daily','thrice','twice'].includes(freq)) { while (d <= end) { if (days.includes(d.getDay())) dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 1); } }
     else if (freq === 'weekly') { while (d <= end) { dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 7); } }
     else if (freq === 'fortnightly') { while (d <= end) { dates.push(d.toLocaleDateString('en-CA')); d.setDate(d.getDate() + 14); } }
     else if (freq === 'monthly') { while (d <= end) { dates.push(d.toLocaleDateString('en-CA')); d.setMonth(d.getMonth() + 1); } }
@@ -4114,6 +4223,9 @@ exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:
         monthly_amount:   monthlyAmount,
       }, EMAILJS_KEY.value());
 
+      // Mark as in-progress so a crash mid-processing doesn't cause re-processing on next daily run
+      await doc.ref.update({ renewalConfirmationSent: true, renewalConfirmationSentAt: new Date().toISOString() });
+
       // Generate new visits for the new term
       const visitsSnap     = await db.collection('bookings').where('contractId', '==', doc.id).get();
       const existingVisits = visitsSnap.docs.map(d => d.data()).sort((a,z) => a.cleanDate.localeCompare(z.cleanDate));
@@ -4131,49 +4243,57 @@ exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:
           genStart = ld.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
         }
 
-        const newDates = genVisitDates(genStart, newEndStr, freq);
+        const scheduledDays = b.scheduledDays || [];
+        const newDates = genVisitDates(genStart, newEndStr, freq, scheduledDays);
         const { cleanDate: _cd, status: _st, createdAt: _ca, updatedAt: _ua, calendarEventId: _ev, ...visitTemplate } = lastVisit;
         const now = new Date().toISOString();
 
-        const batch = db.batch();
-        const newRefs = newDates.map(date => {
-          const ref = db.collection('bookings').doc();
-          batch.set(ref, { ...visitTemplate, cleanDate: date, status: 'scheduled', createdAt: now, updatedAt: now });
-          return { ref, date };
-        });
-        await batch.commit();
+        const newRefs = [];
+        const BATCH_SIZE = 499;
+        for (let i = 0; i < newDates.length; i += BATCH_SIZE) {
+          const batch = db.batch();
+          for (const date of newDates.slice(i, i + BATCH_SIZE)) {
+            const ref = db.collection('bookings').doc();
+            batch.set(ref, { ...visitTemplate, cleanDate: date, status: 'scheduled', createdAt: now, updatedAt: now });
+            newRefs.push({ ref, date });
+          }
+          await batch.commit();
+        }
 
-        // Create calendar events for each new visit
+        // Create calendar events in parallel chunks to avoid rate limiting
         try {
-          const cal = await getCalendarClient();
-          for (const { ref, date } of newRefs) {
-            const slotStart = toUTCISO(date, visitTemplate.cleanTime || '9:00 AM');
-            const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
-            const calEvent  = await cal.events.insert({
-              calendarId: process.env.GOOGLE_CALENDAR_ID,
-              resource: {
-                summary: `${visitTemplate.packageName || 'Contract Visit'} — ${visitTemplate.bizName || name}`,
-                description: [
-                  `Ref: ${b.bookingRef || ''}`,
-                  `Business: ${visitTemplate.bizName || ''}`,
-                  `Contact: ${visitTemplate.firstName || ''} ${visitTemplate.lastName || ''}`,
-                  `Email: ${visitTemplate.email || ''}`,
-                  `Phone: ${visitTemplate.phone || ''}`,
-                  `Address: ${visitTemplate.addr1 || ''}`,
-                  `Cleaners: ${visitTemplate.numCleaners || 1}`,
-                  `Duration: ${visitTemplate.visitDurationBase || '—'}h`,
-                  `Add-ons: ${(visitTemplate.addons || []).map(a => a.name).join(', ') || 'None'}`,
-                  `Cleaner: ${visitTemplate.assignedStaff || 'Unassigned'}`,
-                  `Keys: ${visitTemplate.keys || 'N/A'}`,
-                  `Parking: ${visitTemplate.parking || '—'}`,
-                  `🔄 Auto-generated on contract renewal`,
-                ].join('\n'),
-                start: { dateTime: slotStart, timeZone: 'Europe/London' },
-                end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
-                colorId: '5',
-              },
-            });
-            await ref.update({ calendarEventId: calEvent.data.id });
+          const cal   = await getCalendarClient();
+          const CHUNK = 10;
+          for (let i = 0; i < newRefs.length; i += CHUNK) {
+            await Promise.all(newRefs.slice(i, i + CHUNK).map(async ({ ref, date }) => {
+              const slotStart = toUTCISO(date, visitTemplate.cleanTime || '9:00 AM');
+              const slotEnd   = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+              const calEvent  = await cal.events.insert({
+                calendarId: process.env.GOOGLE_CALENDAR_ID,
+                resource: {
+                  summary: `${visitTemplate.packageName || 'Contract Visit'} — ${visitTemplate.bizName || name}`,
+                  description: [
+                    `Ref: ${b.bookingRef || ''}`,
+                    `Business: ${visitTemplate.bizName || ''}`,
+                    `Contact: ${visitTemplate.firstName || ''} ${visitTemplate.lastName || ''}`,
+                    `Email: ${visitTemplate.email || ''}`,
+                    `Phone: ${visitTemplate.phone || ''}`,
+                    `Address: ${visitTemplate.addr1 || ''}`,
+                    `Cleaners: ${visitTemplate.numCleaners || 1}`,
+                    `Duration: ${visitTemplate.visitDurationBase || '—'}h`,
+                    `Add-ons: ${(visitTemplate.addons || []).map(a => a.name).join(', ') || 'None'}`,
+                    `Cleaner: ${visitTemplate.assignedStaff || 'Unassigned'}`,
+                    `Keys: ${visitTemplate.keys || 'N/A'}`,
+                    `Parking: ${visitTemplate.parking || '—'}`,
+                    `🔄 Auto-generated on contract renewal`,
+                  ].join('\n'),
+                  start: { dateTime: slotStart, timeZone: 'Europe/London' },
+                  end:   { dateTime: slotEnd,   timeZone: 'Europe/London' },
+                  colorId: '5',
+                },
+              });
+              await ref.update({ calendarEventId: calEvent.data.id });
+            }));
           }
         } catch (calErr) {
           console.error(`[contractRenewalConfirm] Calendar events failed for ${doc.id}:`, calErr.message);
@@ -4181,9 +4301,10 @@ exports.sendContractRenewalConfirmations = onSchedule({ schedule: 'every day 09:
         console.log(`[contractRenewalConfirm] Generated ${newDates.length} visits for ${doc.id}`);
       }
 
-      // Update master: new end date, reset renewal flags for next cycle
+      // Update master: new end date, flag renewal date for frontend notification, reset renewal flags for next cycle
       await doc.ref.update({
         contractEndDate:           newEndStr,
+        lastRenewalDate:           today.toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
         renewalConfirmationSent:   admin.firestore.FieldValue.delete(),
         renewalConfirmationSentAt: admin.firestore.FieldValue.delete(),
         renewalEmailSent:          admin.firestore.FieldValue.delete(),
@@ -4287,58 +4408,158 @@ exports.issuePartialRefund = onRequest({ secrets: [STRIPE_KEY, EMAILJS_KEY] }, a
   res.json({ success: true, stripeRefundId });
 });
 
+// Creates a full commercial contract: master booking + all visit docs + calendar events in one atomic CF call.
+// Same pattern as createRecurringBookings — no separate calendar step, no retry/duplicate risk.
+exports.createContractBooking = onRequest({ timeoutSeconds: 540 }, async (req, res) => {
+  if (!guard(req, res)) return;
+  const { masterData, visitBase, contractStart, contractEnd, frequency, selectedDays = [], firstVisitMediaDiscount } = req.body;
+  if (!masterData || !visitBase || !contractStart || !contractEnd || !frequency) {
+    res.status(400).json({ error: 'Missing required fields' }); return;
+  }
+
+  const db  = admin.firestore();
+  const now = new Date().toISOString();
+
+  const genVisitDates = (start, end, freq, days) => {
+    const dates = [];
+    let d = new Date(start + 'T12:00:00');
+    const e = new Date(end + 'T12:00:00');
+    if (freq === 'daily') {
+      const allowed = days.length > 0 ? days : [1,2,3,4,5];
+      while (d <= e) { if (allowed.includes(d.getDay())) dates.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+    } else if (freq === 'thrice') {
+      const tw = days.length === 3 ? days : [1,3,5];
+      while (d <= e) { if (tw.includes(d.getDay())) dates.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+    } else if (freq === 'twice') {
+      const tw = days.length === 2 ? days : [1,4];
+      while (d <= e) { if (tw.includes(d.getDay())) dates.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+    } else if (freq === 'weekly')      { while (d <= e) { dates.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+7); } }
+    else if (freq === 'fortnightly') { while (d <= e) { dates.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+14); } }
+    else if (freq === 'monthly')     { while (d <= e) { dates.push(d.toISOString().slice(0,10)); d.setMonth(d.getMonth()+1); } }
+    return dates;
+  };
+
+  const makeCalDesc = (fields, extra = []) => [
+    fields.bookingRef && `Ref: ${fields.bookingRef}`,
+    `Customer: ${fields.bizName || `${fields.firstName} ${fields.lastName}`.trim()}`,
+    fields.email    && `Email: ${fields.email}`,
+    fields.phone    && `Phone: ${fields.phone}`,
+    fields.addr1    && `Address: ${fields.addr1}${fields.postcode ? ', '+fields.postcode : ''}`,
+    fields.floor    && `Floor / Lift: ${fields.floor}`,
+    fields.parking  && `Parking: ${fields.parking}`,
+    fields.bathrooms && `Bathrooms: ${fields.bathrooms}`,
+    `Keys: ${fields.keys || '—'}`,
+    fields.addonsList && `Add-ons: ${fields.addonsList}`,
+    fields.notes    && `Notes: ${fields.notes}`,
+    ...extra,
+  ].filter(Boolean).join('\n');
+
+  const bookingRef = `LCW-${Date.now().toString().slice(-6)}`;
+  const masterRef  = db.collection('bookings').doc();
+  const name       = masterData.bizName || `${masterData.firstName} ${masterData.lastName}`.trim();
+
+  // 1. Create master booking doc (no calendar event — master is an admin container, visits cover all dates)
+  await masterRef.set({ ...masterData, bookingRef, createdAt: now, updatedAt: now });
+
+  // 2. Create visit docs + calendar events in batches of 10
+  const visitDates = genVisitDates(contractStart, contractEnd, frequency, selectedDays);
+  const CHUNK = 10;
+  for (let i = 0; i < visitDates.length; i += CHUNK) {
+    const chunk = visitDates.slice(i, i + CHUNK);
+    await Promise.all(chunk.map(async (date, idx) => {
+      const isFirst   = i === 0 && idx === 0;
+      const visitRef  = db.collection('bookings').doc();
+      const visitData = {
+        ...visitBase,
+        contractId: masterRef.id,
+        cleanDate:  date,
+        ...(isFirst && firstVisitMediaDiscount ? { mediaConsentDiscount: 10 } : {}),
+        createdAt:  now,
+        updatedAt:  now,
+      };
+      await visitRef.set(visitData);
+      try {
+        const cal       = await getCalendarClient();
+        const slotStart = toUTCISO(date, visitBase.cleanTime);
+        const slotEnd   = new Date(new Date(slotStart).getTime() + 60000).toISOString();
+        const calEvent  = await cal.events.insert({
+          calendarId: process.env.GOOGLE_CALENDAR_ID,
+          resource: {
+            summary:     `${visitBase.packageName || 'Commercial Cleaning'} — ${name}`,
+            description: makeCalDesc(visitBase, [
+              `Total: £${parseFloat(visitBase.totalPerVisit||0).toFixed(2)} | Charged on completion`,
+            ]),
+            start:   { dateTime: slotStart, timeZone: 'Europe/London' },
+            end:     { dateTime: slotEnd,   timeZone: 'Europe/London' },
+            colorId: calColorId('scheduled', frequency),
+          },
+        });
+        await visitRef.update({ calendarEventId: calEvent.data.id });
+      } catch (e) { console.error(`Calendar event failed for visit ${date}:`, e.message); }
+    }));
+  }
+
+  res.json({ success: true, masterBookingId: masterRef.id, bookingRef, visitCount: visitDates.length });
+});
+
 // Creates Google Calendar event(s) for bookings created directly via addDoc (Airbnb, contract visits, Add New Visit).
 // Accepts { bookingId } or { bookingIds: [...] }.
-exports.createCalendarEvent = onRequest(async (req, res) => {
+exports.createCalendarEvent = onRequest({ timeoutSeconds: 540 }, async (req, res) => {
   if (!guard(req, res)) return;
   const db  = admin.firestore();
   const ids = req.body.bookingIds || (req.body.bookingId ? [req.body.bookingId] : []);
   if (!ids.length) { res.status(400).json({ error: 'bookingId or bookingIds required' }); return; }
 
   const results = [];
-  for (const bookingId of ids) {
-    try {
-      const snap = await db.collection('bookings').doc(bookingId).get();
-      if (!snap.exists) { results.push({ bookingId, error: 'not found' }); continue; }
-      const b = snap.data();
-      if (!b.cleanDate || !b.cleanTime) { results.push({ bookingId, skipped: 'no date/time' }); continue; }
+  const CHUNK = 10;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    const chunkResults = await Promise.all(chunk.map(async bookingId => {
+      try {
+        const snap = await db.collection('bookings').doc(bookingId).get();
+        if (!snap.exists) return { bookingId, error: 'not found' };
+        const b = snap.data();
+        if (!b.cleanDate || !b.cleanTime) return { bookingId, skipped: 'no date/time' };
+        if (b.calendarEventId) return { bookingId, skipped: 'already has calendar event' };
 
-      const name        = b.bizName ? `${b.bizName}` : `${b.firstName || ''} ${b.lastName || ''}`.trim();
-      const packageName = b.packageName || b.contractLabel || 'Cleaning';
-      const slotStart   = toUTCISO(b.cleanDate, b.cleanTime);
-      const slotEnd     = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
+        const name        = b.bizName ? `${b.bizName}` : `${b.firstName || ''} ${b.lastName || ''}`.trim();
+        const packageName = b.packageName || b.contractLabel || 'Cleaning';
+        const slotStart   = toUTCISO(b.cleanDate, b.cleanTime);
+        const slotEnd     = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
 
-      const cal      = await getCalendarClient();
-      const calEvent = await cal.events.insert({
-        calendarId: process.env.GOOGLE_CALENDAR_ID,
-        resource: {
-          summary:     `${packageName} — ${name}`,
-          description: [
-            b.bookingRef  && `Ref: ${b.bookingRef}`,
-            `Customer: ${name}`,
-            b.email       && `Email: ${b.email}`,
-            b.phone       && `Phone: ${b.phone}`,
-            b.addr1       && `Address: ${b.addr1}${b.postcode ? ', ' + b.postcode : ''}`,
-            b.floor       && `Floor / Lift: ${b.floor}`,
-            b.parking     && `Parking: ${b.parking}`,
-            b.bathrooms   && `Bathrooms: ${b.bathrooms}`,
-            `Keys: ${b.keys || '—'}`,
-            b.addons?.length && `Add-ons: ${b.addons.map(a => a.name || a.label).join(', ')}`,
-            b.hasPets !== undefined && `Pets: ${b.hasPets ? `Yes${b.petTypes ? ' — ' + b.petTypes : ''}` : 'No'}`,
-            b.notes       && `Notes: ${b.notes}`,
-            `Total: £${parseFloat(b.total || 0).toFixed(2)}`,
-          ].filter(Boolean).join('\n'),
-          start:   { dateTime: slotStart, timeZone: 'Europe/London' },
-          end:     { dateTime: slotEnd,   timeZone: 'Europe/London' },
-          colorId: calColorId(b.status || 'pending_deposit', b.frequency || 'one-off'),
-        },
-      });
-      await db.collection('bookings').doc(bookingId).update({ calendarEventId: calEvent.data.id });
-      results.push({ bookingId, calendarEventId: calEvent.data.id });
-    } catch (e) {
-      console.error(`createCalendarEvent failed for ${bookingId}:`, e.message);
-      results.push({ bookingId, error: e.message });
-    }
+        const cal      = await getCalendarClient();
+        const calEvent = await cal.events.insert({
+          calendarId: process.env.GOOGLE_CALENDAR_ID,
+          resource: {
+            summary:     `${packageName} — ${name}`,
+            description: [
+              b.bookingRef  && `Ref: ${b.bookingRef}`,
+              `Customer: ${name}`,
+              b.email       && `Email: ${b.email}`,
+              b.phone       && `Phone: ${b.phone}`,
+              b.addr1       && `Address: ${b.addr1}${b.postcode ? ', ' + b.postcode : ''}`,
+              b.floor       && `Floor / Lift: ${b.floor}`,
+              b.parking     && `Parking: ${b.parking}`,
+              b.bathrooms   && `Bathrooms: ${b.bathrooms}`,
+              `Keys: ${b.keys || '—'}`,
+              b.addons?.length && `Add-ons: ${b.addons.map(a => a.name || a.label).join(', ')}`,
+              b.hasPets !== undefined && `Pets: ${b.hasPets ? `Yes${b.petTypes ? ' — ' + b.petTypes : ''}` : 'No'}`,
+              b.notes       && `Notes: ${b.notes}`,
+              `Total: £${parseFloat(b.total || 0).toFixed(2)}`,
+            ].filter(Boolean).join('\n'),
+            start:   { dateTime: slotStart, timeZone: 'Europe/London' },
+            end:     { dateTime: slotEnd,   timeZone: 'Europe/London' },
+            colorId: calColorId(b.status || 'pending_deposit', b.frequency || 'one-off'),
+          },
+        });
+        await db.collection('bookings').doc(bookingId).update({ calendarEventId: calEvent.data.id });
+        return { bookingId, calendarEventId: calEvent.data.id };
+      } catch (e) {
+        console.error(`createCalendarEvent failed for ${bookingId}:`, e.message);
+        return { bookingId, error: e.message };
+      }
+    }));
+    results.push(...chunkResults);
   }
   res.json({ success: true, results });
 });
@@ -4407,6 +4628,8 @@ exports.sendContractPaymentReminders = onSchedule({ schedule: 'every day 09:00',
         service:       b.packageName || b.contractLabel || '',
         frequency:     b.frequencyLabel || b.frequency || '',
         amount,
+        base_amount:   `£${fixedBase.toFixed(2)}`,
+        addon_amount:  prevAddons > 0 ? `£${prevAddons.toFixed(2)}` : '—',
         due_date:      fmtD(nextDue),
       }, EMAILJS_KEY.value());
 

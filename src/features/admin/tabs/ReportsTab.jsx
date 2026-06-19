@@ -130,7 +130,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
           && parseFloat(v.partialRefundAmount || 0) > 0
           && v.cleanDate >= pStart && v.cleanDate <= pEnd)
         .reduce((ps, v) => ps + parseFloat(v.partialRefundAmount || 0), 0);
-      return s + paidRev - refundDeduction - visitPartialRefunds;
+      return s + paidRev - refundDeduction - (paidRev > 0 ? visitPartialRefunds : 0);
     }, 0);
 
   const bookingLabour = b => {
@@ -1021,7 +1021,16 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
       {/* Booking breakdown pie charts */}
       {(() => {
         const PIE_COLS = ['#1e40af','#7c3aed','#0ea5e9','#16a34a','#f59e0b','#ec4899','#f97316','#14b8a6','#6366f1','#84cc16'];
-        const FREQ_COLS = { 'One-off':'#ec4899','Weekly':'#16a34a','Fortnightly':'#0ea5e9','Monthly':'#7c3aed' };
+        const FREQ_COLS = {
+          'One-off':'#ec4899','Weekly':'#16a34a','Fortnightly':'#0ea5e9','Monthly':'#7c3aed','Airbnb Flexible':'#f59e0b',
+          'Weekly (Contract)':'#16a34a','Fortnightly (Contract)':'#0ea5e9','Monthly (Contract)':'#7c3aed',
+          'Daily (Contract)':'#f97316','3x per week (Contract)':'#6366f1','2x per week (Contract)':'#14b8a6',
+        };
+        // Stable package color map: known packages by their PACKAGES index, unknowns get continuation colors
+        const pkgColorMap = {};
+        PACKAGES.forEach((p, i) => { pkgColorMap[p.name] = PIE_COLS[i % PIE_COLS.length]; });
+        pkgBreakdown.forEach(([name], i) => { if (!pkgColorMap[name]) pkgColorMap[name] = PIE_COLS[(PACKAGES.length + i) % PIE_COLS.length]; });
+
         const makePie = (items, total) => {
           if (items.length === 1) {
             const [label, count] = items[0];
@@ -1047,8 +1056,18 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
         const freqSlices = makePie(freqBreakdown.map(([l,v]) => [l, v.count]), total);
         const pkgCountMap  = Object.fromEntries(pkgBreakdown.map(([l,v]) => [l, v.count]));
         const freqCountMap = Object.fromEntries(freqBreakdown.map(([l,v]) => [l, v.count]));
-        const fullPkgLegend  = PACKAGES.map((p, i) => ({ label: p.name, count: pkgCountMap[p.name] || 0, pct: total > 0 ? (((pkgCountMap[p.name]||0)/total)*100).toFixed(0) : '0', color: PIE_COLS[i % PIE_COLS.length] }));
-        const fullFreqLegend = ALL_FREQS.map((f, i) => ({ label: f, count: freqCountMap[f] || 0, pct: total > 0 ? (((freqCountMap[f]||0)/total)*100).toFixed(0) : '0', color: FREQ_COLS[f] || PIE_COLS[i % PIE_COLS.length] }));
+        // Package legend: all known packages + any extra (e.g. commercial packages) from actual data
+        const knownPkgNames = new Set(PACKAGES.map(p => p.name));
+        const fullPkgLegend = [
+          ...PACKAGES.map(p => ({ label: p.name, count: pkgCountMap[p.name] || 0, pct: total > 0 ? (((pkgCountMap[p.name]||0)/total)*100).toFixed(0) : '0', color: pkgColorMap[p.name] })),
+          ...pkgBreakdown.filter(([name]) => !knownPkgNames.has(name)).map(([name, v]) => ({ label: name, count: v.count, pct: total > 0 ? ((v.count/total)*100).toFixed(0) : '0', color: pkgColorMap[name] })),
+        ];
+        // Frequency legend: all entries in actual data + standard freqs with 0 count for context
+        const freqLabelsInData = new Set(freqBreakdown.map(([l]) => l));
+        const fullFreqLegend = [
+          ...freqBreakdown.map(([label, v]) => ({ label, count: v.count, pct: total > 0 ? ((v.count/total)*100).toFixed(0) : '0', color: FREQ_COLS[label] || '#888' })),
+          ...ALL_FREQS.filter(f => !freqLabelsInData.has(f)).map(f => ({ label: f, count: 0, pct: '0', color: FREQ_COLS[f] })),
+        ];
         const DonutChart = ({ slices, getCol, center }) => (
           <svg viewBox="0 0 120 120" style={{ width: '100%', maxWidth: 200, height: 'auto', display: 'block', margin: '0 auto' }}>
             {slices.map((s, i) => s.full
@@ -1078,12 +1097,12 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
               : <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 32 }}>
                   <div>
                     <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 12, textAlign: 'center' }}>By Package</div>
-                    <DonutChart slices={pkgSlices} getCol={(_, i) => PIE_COLS[i % PIE_COLS.length]} center={total} />
+                    <DonutChart slices={pkgSlices} getCol={(label) => pkgColorMap[label] || '#888'} center={total} />
                     <Legend items={fullPkgLegend} />
                   </div>
                   <div>
                     <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 12, textAlign: 'center' }}>By Frequency</div>
-                    <DonutChart slices={freqSlices} getCol={(label, i) => FREQ_COLS[label] || PIE_COLS[i % PIE_COLS.length]} center={total} />
+                    <DonutChart slices={freqSlices} getCol={(label) => FREQ_COLS[label] || '#888'} center={total} />
                     <Legend items={fullFreqLegend} />
                   </div>
                 </div>

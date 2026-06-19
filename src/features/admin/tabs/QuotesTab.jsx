@@ -45,13 +45,12 @@ const CONTRACTS = [
 ];
 
 const FREQUENCY = [
-  { id: 'oneoff',      label: 'One-off',      vpm: 0    },
-  { id: 'daily',       label: 'Daily (M-F)',  vpm: 22   },
-  { id: 'thrice',      label: '3x per week',  vpm: 13   },
+  { id: 'daily',       label: 'Daily',        vpm: 0      },
+  { id: 'thrice',      label: '3x per week',  vpm: 13     },
   { id: 'twice',       label: '2x per week',  vpm: 104/12 },
   { id: 'weekly',      label: 'Weekly',       vpm: 52/12  },
   { id: 'fortnightly', label: 'Fortnightly',  vpm: 26/12  },
-  { id: 'monthly',     label: 'Monthly',      vpm: 1    },
+  { id: 'monthly',     label: 'Monthly',      vpm: 1      },
 ];
 
 const DAYS = [
@@ -273,19 +272,20 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const addonNetProfit    = addonTotal - addonLaborCost;
     const profitWithAddons  = profit + addonNetProfit;
     const pct               = effectiveClean > 0 ? (profit / effectiveClean) * 100 : 0;
-    const freq              = FREQUENCY.find(f => f.id === frequency) || FREQUENCY[4];
-    const mRev              = freq.vpm * price;
-    const mBaseRev          = freq.vpm * effectiveClean;
-    const mAddonRev         = freq.vpm * addonTotal;
-    const mCost             = freq.vpm * cost;
-    const mProfit           = freq.vpm * profit;
-    const mProfitWithAddons = freq.vpm * profitWithAddons;
-    const mTrueCost         = freq.vpm * trueCost;
+    const freq              = FREQUENCY.find(f => f.id === frequency) || FREQUENCY.find(f => f.id === 'weekly') || FREQUENCY[0];
+    const effectiveVpm      = frequency === 'daily' ? selectedDays.length * (52/12) : freq.vpm;
+    const mRev              = effectiveVpm * price;
+    const mBaseRev          = effectiveVpm * effectiveClean;
+    const mAddonRev         = effectiveVpm * addonTotal;
+    const mCost             = effectiveVpm * cost;
+    const mProfit           = effectiveVpm * profit;
+    const mProfitWithAddons = effectiveVpm * profitWithAddons;
+    const mTrueCost         = effectiveVpm * trueCost;
     const cVal              = ct.months * mRev;
     const cBaseVal          = ct.months * mBaseRev;
     const visitDur          = totalHours / Math.max(parseInt(numCleaners, 10) || 1, 1);
     return { labor, overheadPerVisit, cost, trueCost, addonLaborCost, basePrice, cleanPrice, price, profit, profitWithAddons, pct, addonTotal, mRev, mBaseRev, mAddonRev, mCost, mTrueCost, mProfit, mProfitWithAddons, cVal, cBaseVal, ct, freq, visitDur };
-  }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, numCleaners, addons, clientType, manualPrice]);
+  }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, selectedDays, numCleaners, addons, clientType, manualPrice]);
 
   const marginColor = q.pct < 25 ? C.danger : q.pct < 30 ? C.warning : C.success;
 
@@ -405,7 +405,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const end   = new Date(endDate   + 'T12:00:00');
     let d = new Date(start);
     if (freq === 'daily') {
-      while (d <= end) { if (d.getDay() >= 1 && d.getDay() <= 5) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+      const allowed = days.length > 0 ? days : [1,2,3,4,5];
+      while (d <= end) { if (allowed.includes(d.getDay())) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
     } else if (freq === 'thrice') {
       const twDays = days.length === 3 ? days : [1, 3, 5];
       while (d <= end) { if (twDays.includes(d.getDay())) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
@@ -427,9 +428,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     if (clientType !== 'airbnb' && !bizName.trim()) { setBookError('Enter a business name first.'); return; }
     if (!clientEmail.trim()) { setBookError('Enter the client email.'); return; }
     if (!contractStart)      { setBookError(clientType === 'airbnb' ? 'Set a visit date.' : 'Set a contract start date.'); return; }
-    if (clientType !== 'airbnb' && (frequency === 'twice' || frequency === 'thrice')) {
-      const required = frequency === 'twice' ? 2 : 3;
-      if (selectedDays.length !== required) { setBookError(`Select ${required} days for ${required}x per week before booking.`); return; }
+    if (clientType !== 'airbnb' && (frequency === 'daily' || frequency === 'twice' || frequency === 'thrice')) {
+      const required = frequency === 'twice' ? 2 : frequency === 'thrice' ? 3 : 1;
+      if (selectedDays.length < required) { setBookError(frequency === 'daily' ? 'Select at least one day before booking.' : `Select ${required} days for ${required}x per week before booking.`); return; }
       const startDay = new Date(contractStart + 'T12:00:00').getDay();
       if (!selectedDays.includes(startDay)) {
         const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -489,8 +490,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         addons: selectedAddons.map(a => ({ id: a.id, name: a.label, price: a.price, h: a.h || 0 })),
         addonsList: selectedAddons.map(a => a.label).join(', '),
         addonTotal: q.addonTotal,
-        marketingOptOut: false,
-        doNotContact: false,
+        marketingOptOut: true,
+        doNotContact: true,
         createdAt: now,
         updatedAt: now,
       };
@@ -529,13 +530,14 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         }).catch(() => {});
 
       } else {
-        // Commercial: contract booking with visits
+        // Commercial: single CF call creates master + all visits + calendar events atomically
         const ct = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
         const startD = new Date(contractStart + 'T00:00:00');
         const endD   = new Date(startD);
         endD.setMonth(endD.getMonth() + ct.months);
         const contractEnd = endD.toISOString().slice(0, 10);
-        const masterRef = await addDoc(collection(db, 'bookings'), {
+        const biz = bizName.trim();
+        const masterData = {
           ...sharedFields,
           packageId: 'commercial',
           packageName: 'Commercial Cleaning',
@@ -553,12 +555,10 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           monthlyValue: q.mRev,
           firstMonthCharge: parseFloat((q.mBaseRev - (bMediaConsent ? 10 : 0)).toFixed(2)),
           frequencyLabel: q.freq.label,
-          scheduledDays: (frequency === 'twice' || frequency === 'thrice') ? selectedDays : [],
+          scheduledDays: (frequency === 'daily' || frequency === 'twice' || frequency === 'thrice') ? selectedDays : [],
           monthlyPayments: {},
-        });
-        const visitDates = generateVisitDates(contractStart, contractEnd, frequency, selectedDays);
+        };
         const visitBase = {
-          contractId: masterRef.id,
           isContractVisit: true,
           firstName, lastName,
           email: clientEmail.trim(),
@@ -570,7 +570,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           floor: bFloor.trim(),
           parking: bParking.trim(),
           keys: keysLabel,
-          bizName: (clientType === 'airbnb' ? contactName.trim() || addr1.trim() : bizName.trim()),
+          bizName: biz,
           clientType,
           packageName: 'Commercial Cleaning',
           numCleaners: nClean,
@@ -583,22 +583,13 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           total: q.price,
           status: 'scheduled',
           frequency,
-          createdAt: now,
-          updatedAt: now,
+          bathrooms: parseInt(commBaths, 10) || 1,
         };
-        fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
+        const cfRes = await fetch(import.meta.env.VITE_CF_CREATE_CONTRACT_BOOKING, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId: masterRef.id }),
-        }).catch(() => {});
-        const visitRefs = await Promise.all(visitDates.map((date, i) => addDoc(collection(db, 'bookings'), {
-          ...visitBase,
-          cleanDate: date,
-          ...(i === 0 && bMediaConsent ? { mediaConsentDiscount: 10 } : {}),
-        })));
-        fetch(import.meta.env.VITE_CF_CREATE_CALENDAR_EVENT, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingIds: [masterRef.id, ...visitRefs.map(r => r.id)] }),
-        }).catch(() => {});
+          body: JSON.stringify({ masterData, visitBase, contractStart, contractEnd, frequency, selectedDays, firstVisitMediaDiscount: bMediaConsent }),
+        });
+        if (!cfRes.ok) throw new Error('Contract booking CF failed');
       }
 
       if (loadedQuoteId) {
@@ -617,7 +608,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const type = clientType === 'airbnb'
       ? `${bedrooms === 'studio' ? 'Studio' : `${bedrooms}-bed`} Airbnb`
       : `Commercial (${sqm} sqm)`;
-    const freqLabel = q.freq.id !== 'oneoff' ? ` ${q.freq.label.toLowerCase()} clean` : ' one-off clean';
+    const freqLabel = ` ${q.freq.label.toLowerCase()} clean`;
     const ctNote    = q.ct.id !== 'none' ? ` | ${q.ct.label}` : '';
     const monthly   = q.freq.vpm > 0 ? ` | £${gbp(q.mRev)}/month` : '';
     const text = `${name}${type}${freqLabel}: £${gbp(q.price)}/visit${ctNote}${monthly}`;
@@ -848,19 +839,21 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                     <select value={frequency} onChange={e => {
                       const f = e.target.value;
                       setFrequency(f);
-                      if (f === 'twice' || f === 'thrice') setSelectedDays([]);
+                      if (f === 'daily' || f === 'twice' || f === 'thrice') setSelectedDays([]);
                     }} style={inputStyle}>
                       {FREQUENCY.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
                     </select>
                   </div>
-                  {(frequency === 'twice' || frequency === 'thrice') && (
+                  {(frequency === 'daily' || frequency === 'twice' || frequency === 'thrice') && (
                     <div>
-                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Which days ({frequency === 'twice' ? '2' : '3'} required)</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>
+                        Which days{frequency === 'twice' ? ' (2 required)' : frequency === 'thrice' ? ' (3 required)' : ''}
+                      </div>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {DAYS.map(d => {
                           const sel = selectedDays.includes(d.value);
-                          const required = frequency === 'twice' ? 2 : 3;
-                          const disabled = !sel && selectedDays.length >= required;
+                          const required = frequency === 'twice' ? 2 : frequency === 'thrice' ? 3 : null;
+                          const disabled = !sel && required !== null && selectedDays.length >= required;
                           return (
                             <button key={d.value} disabled={disabled} onClick={() => {
                               if (sel) setSelectedDays(prev => prev.filter(x => x !== d.value));
@@ -1276,10 +1269,10 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                       ) : (
                         <>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
-                            <span>Base per visit{q.addonTotal > 0 ? ' (excl. add-ons)' : ''}</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.cleanPrice)}</span>
+                            <span>Base per visit{q.addonTotal > 0 ? ' (excl. add-ons)' : ''}</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.price - q.addonTotal)}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
-                            <span>Monthly base ({q.freq.label}){q.addonTotal > 0 ? ' (excl. add-ons)' : ''}</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.freq.vpm * q.cleanPrice)}/mo</span>
+                            <span>Monthly base ({q.freq.label}){q.addonTotal > 0 ? ' (excl. add-ons)' : ''}</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.mBaseRev)}/mo</span>
                           </div>
                           {q.addonTotal > 0 && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>

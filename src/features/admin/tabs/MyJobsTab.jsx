@@ -3,6 +3,28 @@ import { getPayPeriod, calcHours, fmtDate, fmtDuration, toDisplayTime, toInputTi
 import html2canvas from 'html2canvas';
 
 const FONT = "'Inter', 'Segoe UI', sans-serif";
+
+const ADDONS_AIRBNB = [
+  'Oven deep clean',
+  'Inside fridge',
+  'Laundry & fold',
+  'Linen change',
+  'Internal windows',
+  'Balcony / patio',
+];
+
+const ADDONS_COMMERCIAL = [
+  'Internal windows',
+  'Entrance / patio',
+  'Kitchen / break room deep clean',
+  'Fridge clean',
+  'Oven / grill deep clean',
+  'Toilet deep clean & descale',
+  'Microwave & appliances',
+];
+
+const getAddonList = (card) =>
+  (card.isAirbnb || card.clientType === 'airbnb') ? ADDONS_AIRBNB : ADDONS_COMMERCIAL;
 const INPUT = { fontFamily: FONT, fontSize: 14, padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#1e293b', outline: 'none', width: '100%', boxSizing: 'border-box', marginBottom: 12 };
 const BTN   = { fontFamily: FONT, fontSize: 14, fontWeight: 600, padding: '9px 18px', borderRadius: 7, border: 'none', cursor: 'pointer', transition: 'opacity 0.15s' };
 
@@ -43,7 +65,7 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
       `JOB CARD — London Cleaning Wizard`,
       `Customer: ${b.customerName || `${b.firstName || ''} ${b.lastName || ''}`.trim()}${b.bookingRef ? ` (${b.bookingRef})` : ''}`,
       `Date: ${fmtDate(b.cleanDate)}  |  Time: ${toDisplayTime(b.cleanTime)}`,
-      `Service: ${b.packageName || b.package || '—'}  |  Frequency: ${{ 'one-off': 'One-off', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' }[b.frequency || b.freq] || b.frequency || b.freq || 'One-off'}`,
+      `Service: ${b.packageName || b.package || '—'}  |  Frequency: ${{ 'one-off': 'One-off', 'daily': 'Daily', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' }[b.frequency || b.freq] || b.frequency || b.freq || 'One-off'}`,
       b.isContractVisit && b.bizName ? `Business: ${b.bizName}` : '',
       b.isContractVisit ? `Client Type: ${b.clientType === 'airbnb' ? 'Airbnb / Short-let' : 'Commercial'}` : '',
       ``,
@@ -59,6 +81,10 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
       `Cleaner(s): ${[b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ') || '—'}`,
       b.notes ? `Notes: ${b.notes}` : '',
       !b.isContractVisit ? `Media Consent: ${b.mediaConsent ? 'Yes' : 'No'}` : '',
+      (b.isContractVisit || b.isAirbnb) ? `` : '',
+      (b.isContractVisit || b.isAirbnb) ? `⚠️ ADD-ON REMINDER` : '',
+      (b.isContractVisit || b.isAirbnb) ? (b.addons?.length ? `Pre-approved add-ons above only. Anything else from the list below — contact your manager first.` : `No add-ons booked. If the client asks for anything from the list below, do NOT do it — contact your manager first.`) : '',
+      (b.isContractVisit || b.isAirbnb) ? `Chargeable add-ons: ${getAddonList(b).join(', ')}` : '',
     ].filter(l => l !== '').join('\n');
 
     if (navigator.share) {
@@ -440,13 +466,15 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
                   ['Service',       jobCard.packageName || jobCard.package || '—'],
                   jobCard.isContractVisit && jobCard.bizName && ['Business', jobCard.bizName],
                   jobCard.isContractVisit && ['Client Type', jobCard.clientType === 'airbnb' ? 'Airbnb / Short-let' : 'Commercial'],
-                  ['Frequency',     ({ 'one-off': 'One-off', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' })[jobCard.frequency || jobCard.freq] || jobCard.frequency || jobCard.freq || 'One-off'],
+                  ['Frequency',     ({ 'one-off': 'One-off', 'daily': 'Daily', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' })[jobCard.frequency || jobCard.freq] || jobCard.frequency || jobCard.freq || 'One-off'],
                   ['Address',       [jobCard.addr1, jobCard.postcode].filter(Boolean).join(', ')],
-                  !jobCard.isContractVisit && ['Property', [jobCard.propertyType, jobCard.size || (jobCard.bedrooms && (jobCard.bedrooms === 'studio' ? 'Studio' : `${jobCard.bedrooms} bed`))].filter(Boolean).join(' · ') || '—'],
+                  !jobCard.isContractVisit && ['Property Type', jobCard.propertyType || '—'],
+                  !jobCard.isContractVisit && jobCard.bedrooms && ['Bedrooms', jobCard.bedrooms === 'studio' ? 'Studio' : `${jobCard.bedrooms} bed`],
+                  ['Bathrooms', jobCard.bathrooms || 1],
+                  jobCard.isContractVisit && jobCard.visitDurationBase && ['Visit Duration', `${jobCard.visitDurationBase}h`],
                   ['Floor / Lift',  jobCard.floor || '—'],
                   ['Parking',       jobCard.parking || '—'],
                   ['Keys',          jobCard.keys || '—'],
-                  jobCard.bathrooms && ['Bathrooms', jobCard.bathrooms],
                   ['Add-ons',       jobCard.addons?.length ? jobCard.addons.map(a => a.name || a).join(', ') : (jobCard.addonsList || 'None')],
                   !jobCard.isContractVisit && !jobCard.isAirbnb && ['Pets', jobCard.hasPets ? `Yes — ${jobCard.petTypes || 'not specified'}` : 'No'],
                   ['Cleaner(s)',     [jobCard.assignedStaff, jobCard.secondCleaner].filter(Boolean).join(' & ') || '—'],
@@ -460,6 +488,36 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
                   </>
                 ))}
               </div>
+
+              {/* Add-on reminder for contract and Airbnb jobs */}
+              {(jobCard.isContractVisit || jobCard.isAirbnb) && (() => {
+                const addonList = getAddonList(jobCard);
+                const hasBooked = jobCard.addons?.length || jobCard.addonsList;
+                return (
+                  <div style={{ margin: '12px 0', padding: '12px 14px', background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: 8 }}>
+                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                      Add-on reminder
+                    </div>
+                    <div style={{ fontFamily: FONT, fontSize: 12, color: '#78350f', lineHeight: 1.6, marginBottom: 8 }}>
+                      {hasBooked
+                        ? <>The add-ons listed above are <strong>pre-approved for today</strong>. If the client asks for <strong>anything else</strong> from the list below, do <strong>not</strong> do it — call us first.</>
+                        : <>No add-ons are booked for this visit. The items below are <strong>chargeable extras</strong>. If the client asks for any of them, do <strong>not</strong> carry it out — call us first.</>
+                      }
+                    </div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: '#78350f', marginBottom: 8 }}>
+                      <strong>Chargeable add-ons for this job type:</strong>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 12px', marginTop: 4 }}>
+                        {addonList.map(a => (
+                          <div key={a} style={{ padding: '3px 0', borderBottom: '1px solid rgba(146,64,14,0.1)' }}>{a}</div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: '#92400e', fontWeight: 600 }}>
+                      Always contact your manager before carrying out any extra work.
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Actions */}
               <div style={{ display: 'flex', gap: 10 }}>
