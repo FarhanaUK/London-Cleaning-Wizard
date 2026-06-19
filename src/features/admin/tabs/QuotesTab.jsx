@@ -54,6 +54,16 @@ const FREQUENCY = [
   { id: 'monthly',     label: 'Monthly',      vpm: 1    },
 ];
 
+const DAYS = [
+  { label: 'Mon', value: 1 },
+  { label: 'Tue', value: 2 },
+  { label: 'Wed', value: 3 },
+  { label: 'Thu', value: 4 },
+  { label: 'Fri', value: 5 },
+  { label: 'Sat', value: 6 },
+  { label: 'Sun', value: 0 },
+];
+
 // Airbnb SOP -- studio minimum raised to 2h (min job standard)
 const AIRBNB_SOP = [
   { label: 'Studio',  alloc: 2.0 },
@@ -126,6 +136,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   const [commBaths,    setCommBaths]    = useState('1');
   const [addons,       setAddons]       = useState([]);
   const [frequency,    setFrequency]    = useState('weekly');
+  const [selectedDays, setSelectedDays] = useState([]);
   const [contract,     setContract]     = useState('monthly');
   const [numCleaners,  setNumCleaners]  = useState('1');
   const [cleanerRate,  setCleanerRate]  = useState('17');
@@ -246,7 +257,6 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
     const addonHours    = selectedAddons.reduce((s, a) => s + a.h, 0);
     const addonTotal    = selectedAddons.reduce((s, a) => s + (a.price || 0), 0);
-    // Labour cost is based on base clean hours only (add-on time is for scheduling, priced separately)
     const baseHours     = totalHours - addonHours;
     const labor         = baseHours * (parseFloat(cleanerRate) || 0);
     const overheadDivisor = Math.max(parseInt(targetVisits, 10) || 15, 1);
@@ -257,15 +267,24 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const calcPrice     = cleanPrice + addonTotal;
     const price         = (manualPrice !== '' && parseFloat(manualPrice) > 0 ? parseFloat(manualPrice) : cleanPrice) + addonTotal;
     const effectiveClean = price - addonTotal;
-    const profit        = effectiveClean - cost;
-    const pct           = effectiveClean > 0 ? (profit / effectiveClean) * 100 : 0;
-    const freq          = FREQUENCY.find(f => f.id === frequency) || FREQUENCY[4];
-    const mRev          = freq.vpm * price;
-    const mCost         = freq.vpm * cost;
-    const mProfit       = freq.vpm * profit;
-    const cVal          = ct.months * mRev;
-    const visitDur      = totalHours / Math.max(parseInt(numCleaners, 10) || 1, 1);
-    return { labor, overheadPerVisit, cost, basePrice, cleanPrice, price, profit, pct, addonTotal, mRev, mCost, mProfit, cVal, ct, freq, visitDur };
+    const addonLaborCost    = addonHours * (parseFloat(cleanerRate) || 0);
+    const trueCost          = cost + addonLaborCost;
+    const profit            = effectiveClean - cost;
+    const addonNetProfit    = addonTotal - addonLaborCost;
+    const profitWithAddons  = profit + addonNetProfit;
+    const pct               = effectiveClean > 0 ? (profit / effectiveClean) * 100 : 0;
+    const freq              = FREQUENCY.find(f => f.id === frequency) || FREQUENCY[4];
+    const mRev              = freq.vpm * price;
+    const mBaseRev          = freq.vpm * effectiveClean;
+    const mAddonRev         = freq.vpm * addonTotal;
+    const mCost             = freq.vpm * cost;
+    const mProfit           = freq.vpm * profit;
+    const mProfitWithAddons = freq.vpm * profitWithAddons;
+    const mTrueCost         = freq.vpm * trueCost;
+    const cVal              = ct.months * mRev;
+    const cBaseVal          = ct.months * mBaseRev;
+    const visitDur          = totalHours / Math.max(parseInt(numCleaners, 10) || 1, 1);
+    return { labor, overheadPerVisit, cost, trueCost, addonLaborCost, basePrice, cleanPrice, price, profit, profitWithAddons, pct, addonTotal, mRev, mBaseRev, mAddonRev, mCost, mTrueCost, mProfit, mProfitWithAddons, cVal, cBaseVal, ct, freq, visitDur };
   }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, numCleaners, addons, clientType, manualPrice]);
 
   const marginColor = q.pct < 25 ? C.danger : q.pct < 30 ? C.warning : C.success;
@@ -286,7 +305,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         addr1: addr1.trim(), addr2: addr2.trim(), postcode: postcode.trim().toUpperCase(),
         notes: quoteNotes.trim(),
         clientType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths,
-        addons, frequency, contract, numCleaners, cleanerRate, suppliesCost, travelCost, minMargin,
+        addons, frequency, selectedDays, contract, numCleaners, cleanerRate, suppliesCost, travelCost, minMargin,
         pricePerVisit: q.price, monthlyValue: q.mRev, contractValue: q.cVal,
         contractLabel: q.ct.label, frequencyLabel: q.freq.label,
         status: 'quote_sent', followUpDate, createdAt: now, updatedAt: now,
@@ -311,7 +330,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               addon_total: selectedAddons.length ? `£${gbp(q.addonTotal)}` : '',
               price_per_visit: `£${gbp(q.price)}`,
               monthly_value: q.mRev > 0 ? `£${gbp(q.mRev)}/month` : 'N/A',
-              contract_total: q.cVal > 0 ? `£${gbp(q.cVal)}` : 'N/A',
+              monthly_base_value: q.mBaseRev > 0 ? `£${gbp(q.mBaseRev)}/month` : 'N/A',
+              contract_total: q.cBaseVal > 0 ? `£${gbp(q.cBaseVal)}` : 'N/A',
               notes: quoteNotes.trim() || '',
               reply_to: 'bookings@londoncleaningwizard.com',
             },
@@ -341,7 +361,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     setExtraBaths(sq.extraBaths || '1'); setSqm(sq.sqm || '80');
     setIntensity(sq.intensity || 'office'); setComplexity(sq.complexity || 'normal');
     setCommBaths(sq.commBaths || '1'); setAddons(sq.addons || []);
-    setFrequency(sq.frequency || 'weekly'); setContract(sq.contract || 'monthly');
+    setFrequency(sq.frequency || 'weekly');
+    setSelectedDays(sq.selectedDays || []);
+    setContract(sq.contract || 'monthly');
     setNumCleaners(sq.numCleaners || '1'); setCleanerRate(sq.cleanerRate || '17');
     setSuppliesCost(sq.suppliesCost || '5'); setTravelCost(sq.travelCost || '5');
     setMinMargin(sq.minMargin || '25');
@@ -377,7 +399,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     return next;
   });
 
-  const generateVisitDates = (startDate, endDate, freq) => {
+  const generateVisitDates = (startDate, endDate, freq, days = []) => {
     const dates = [];
     const start = new Date(startDate + 'T12:00:00');
     const end   = new Date(endDate   + 'T12:00:00');
@@ -385,9 +407,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     if (freq === 'daily') {
       while (d <= end) { if (d.getDay() >= 1 && d.getDay() <= 5) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
     } else if (freq === 'thrice') {
-      while (d <= end) { if ([1,3,5].includes(d.getDay())) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+      const twDays = days.length === 3 ? days : [1, 3, 5];
+      while (d <= end) { if (twDays.includes(d.getDay())) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
     } else if (freq === 'twice') {
-      while (d <= end) { if ([1,4].includes(d.getDay())) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+      const twDays = days.length === 2 ? days : [1, 4];
+      while (d <= end) { if (twDays.includes(d.getDay())) dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
     } else if (freq === 'weekly') {
       while (d <= end) { dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 7); }
     } else if (freq === 'fortnightly') {
@@ -403,6 +427,17 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     if (clientType !== 'airbnb' && !bizName.trim()) { setBookError('Enter a business name first.'); return; }
     if (!clientEmail.trim()) { setBookError('Enter the client email.'); return; }
     if (!contractStart)      { setBookError(clientType === 'airbnb' ? 'Set a visit date.' : 'Set a contract start date.'); return; }
+    if (clientType !== 'airbnb' && (frequency === 'twice' || frequency === 'thrice')) {
+      const required = frequency === 'twice' ? 2 : 3;
+      if (selectedDays.length !== required) { setBookError(`Select ${required} days for ${required}x per week before booking.`); return; }
+      const startDay = new Date(contractStart + 'T12:00:00').getDay();
+      if (!selectedDays.includes(startDay)) {
+        const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const chosen = selectedDays.map(d => DAY_NAMES[d]).join(', ');
+        setBookError(`Start date must fall on one of your selected days (${chosen}).`);
+        return;
+      }
+    }
     setBooking(true); setBookError('');
     try {
       const nameParts  = contactName.trim().split(' ');
@@ -454,8 +489,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         addons: selectedAddons.map(a => ({ id: a.id, name: a.label, price: a.price, h: a.h || 0 })),
         addonsList: selectedAddons.map(a => a.label).join(', '),
         addonTotal: q.addonTotal,
-        marketingOptOut: true,
-        doNotContact: true,
+        marketingOptOut: false,
+        doNotContact: false,
         createdAt: now,
         updatedAt: now,
       };
@@ -474,7 +509,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           ...(bMediaConsent ? { originalTotal: q.price } : {}),
           packageId: 'airbnb',
           packageName: 'Airbnb Turnaround',
-          frequency: 'one-off',
+          frequency: 'flexible',
           bathrooms: parseInt(extraBaths, 10) || 1,
           bedrooms,
           propertyType: airbnbPropType,
@@ -518,9 +553,10 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           monthlyValue: q.mRev,
           firstMonthCharge: parseFloat((q.freq.vpm * q.cleanPrice - (bMediaConsent ? 10 : 0)).toFixed(2)),
           frequencyLabel: q.freq.label,
+          scheduledDays: (frequency === 'twice' || frequency === 'thrice') ? selectedDays : [],
           monthlyPayments: {},
         });
-        const visitDates = generateVisitDates(contractStart, contractEnd, frequency);
+        const visitDates = generateVisitDates(contractStart, contractEnd, frequency, selectedDays);
         const visitBase = {
           contractId: masterRef.id,
           isContractVisit: true,
@@ -806,12 +842,38 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
             <div style={{ display: 'grid', gridTemplateColumns: clientType === 'airbnb' ? '1fr' : '1fr 1fr', gap: 10, marginBottom: clientType === 'airbnb' ? 0 : 14 }}>
               {clientType !== 'airbnb' && (
-                <div>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>How often</div>
-                  <select value={frequency} onChange={e => setFrequency(e.target.value)} style={inputStyle}>
-                    {FREQUENCY.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
-                  </select>
-                </div>
+                <>
+                  <div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>How often</div>
+                    <select value={frequency} onChange={e => {
+                      const f = e.target.value;
+                      setFrequency(f);
+                      if (f === 'twice' || f === 'thrice') setSelectedDays([]);
+                    }} style={inputStyle}>
+                      {FREQUENCY.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                    </select>
+                  </div>
+                  {(frequency === 'twice' || frequency === 'thrice') && (
+                    <div>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Which days ({frequency === 'twice' ? '2' : '3'} required)</div>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {DAYS.map(d => {
+                          const sel = selectedDays.includes(d.value);
+                          const required = frequency === 'twice' ? 2 : 3;
+                          const disabled = !sel && selectedDays.length >= required;
+                          return (
+                            <button key={d.value} disabled={disabled} onClick={() => {
+                              if (sel) setSelectedDays(prev => prev.filter(x => x !== d.value));
+                              else setSelectedDays(prev => [...prev, d.value].sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b)));
+                            }} style={{ fontFamily: FONT, fontSize: 11, fontWeight: sel ? 700 : 400, padding: '5px 9px', borderRadius: 5, border: `1px solid ${sel ? C.accent : C.border}`, background: sel ? C.accent : C.bg, color: sel ? '#fff' : disabled ? C.muted : C.text, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1 }}>
+                              {d.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
               <div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Number of cleaners</div>
@@ -1103,19 +1165,19 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               value={`${clientType === 'airbnb' ? (parseInt(extraBaths, 10) || 1) : (parseInt(commBaths, 10) || 1)} included`}
               C={C}
             />
-            <BreakdownRow label="Labour"        value={`£${gbp(q.labor)}`}                        C={C} />
+            <BreakdownRow label="Labour"        value={`£${gbp(q.labor + q.addonLaborCost)}`}      C={C} />
             <BreakdownRow label="Supplies"      value={`£${gbp(parseFloat(suppliesCost) || 0)}`}  C={C} />
             <BreakdownRow label="Travel"        value={`£${gbp(parseFloat(travelCost) || 0)}`}    C={C} />
             {q.overheadPerVisit > 0 && (
               <BreakdownRow label="Overhead share" value={`£${gbp(q.overheadPerVisit)}`}          C={C} />
             )}
-            <BreakdownRow label="Your total cost"  value={`£${gbp(q.cost)}`}        C={C} accent />
+            <BreakdownRow label="Your total cost"  value={`£${gbp(q.addonTotal > 0 ? q.trueCost : q.cost)}`} C={C} accent />
             <BreakdownRow label="Contract clean"  value={`£${gbp(q.cleanPrice)}`}  C={C} accent />
             {q.addonTotal > 0 && (
               <BreakdownRow label="Add-ons"        value={`£${gbp(q.addonTotal)}`}  C={C} />
             )}
             <BreakdownRow label="Total charge"    value={`£${gbp(q.price)}`}        C={C} accent />
-            <BreakdownRow label="Profit on clean" value={`£${gbp(q.profit)}`}       C={C} last />
+            <BreakdownRow label="Profit" value={`£${gbp(q.addonTotal > 0 ? q.profitWithAddons : q.profit)}`} C={C} last />
           </Card>
 
           {/* Monthly + contract value */}
@@ -1126,16 +1188,20 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Internal only — do not share with client</span>
               </div>
               <SectionLabel C={C}>Monthly value ({q.freq.label})</SectionLabel>
-              <BreakdownRow label="Revenue"         value={`£${gbp(q.mRev)}`}    C={C} accent />
-              <BreakdownRow label="Your costs"      value={`£${gbp(q.mCost)}`}   C={C} />
-              <BreakdownRow label="Monthly profit"  value={`£${gbp(q.mProfit)}`} C={C} last={q.ct.months === 0} />
+              <BreakdownRow label="Base clean revenue" value={`£${gbp(q.mBaseRev)}`} C={C} accent />
+              {q.mAddonRev > 0 && (
+                <BreakdownRow label="Add-ons revenue" value={`£${gbp(q.mAddonRev)}`} C={C} />
+              )}
+              <BreakdownRow label="Total revenue"   value={`£${gbp(q.mRev)}`}    C={C} accent />
+              <BreakdownRow label="Your costs"      value={`£${gbp(q.mAddonRev > 0 ? q.mTrueCost : q.mCost)}`} C={C} />
+              <BreakdownRow label="Monthly profit"  value={`£${gbp(q.mAddonRev > 0 ? q.mProfitWithAddons : q.mProfit)}`} C={C} last={q.ct.months === 0} />
               {q.ct.months > 0 && (
                 <>
                   <div style={{ height: 10 }} />
                   <SectionLabel C={C}>Contract total ({q.ct.months} months)</SectionLabel>
                   <BreakdownRow
-                    label={`${q.ct.months}-month contract value`}
-                    value={`£${gbp(q.cVal)}`}
+                    label={`${q.ct.months}-month contract value${q.addonTotal > 0 ? ' (excl. add-ons)' : ''}`}
+                    value={`£${gbp(q.addonTotal > 0 ? q.cBaseVal : q.cVal)}`}
                     C={C} accent large last
                   />
                 </>
@@ -1210,10 +1276,10 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                       ) : (
                         <>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
-                            <span>Base per visit</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.cleanPrice)}</span>
+                            <span>Base per visit{q.addonTotal > 0 ? ' (excl. add-ons)' : ''}</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.cleanPrice)}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
-                            <span>Monthly base ({q.freq.label})</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.freq.vpm * q.cleanPrice)}/mo</span>
+                            <span>Monthly base ({q.freq.label}){q.addonTotal > 0 ? ' (excl. add-ons)' : ''}</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.freq.vpm * q.cleanPrice)}/mo</span>
                           </div>
                           {q.addonTotal > 0 && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted, marginBottom: 4 }}>
@@ -1229,16 +1295,16 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                             {bMediaConsent ? (
                               <>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text }}>
-                                  <span>1st visit total</span><span>£{gbp(firstVisitTotal)}</span>
+                                  <span>1st visit total{q.addonTotal > 0 ? ' (incl. add-ons)' : ''}</span><span>£{gbp(firstVisitTotal)}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
-                                  <span>Subsequent visits</span><span style={{ fontWeight: 600 }}>£{gbp(q.price)}</span>
+                                  <span>Subsequent visits{q.addonTotal > 0 ? ' (incl. add-ons)' : ''}</span><span style={{ fontWeight: 600 }}>£{gbp(q.price)}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
-                                  <span>Month 1 total</span><span style={{ fontWeight: 600, color: '#16a34a' }}>£{gbp(month1Total)}/mo</span>
+                                  <span>Month 1 total{q.addonTotal > 0 ? ' (incl. add-ons)' : ''}</span><span style={{ fontWeight: 600, color: '#16a34a' }}>£{gbp(month1Total)}/mo</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
-                                  <span>Month 2+ total</span><span style={{ fontWeight: 600 }}>£{gbp(q.mRev)}/mo</span>
+                                  <span>Month 2+ total{q.addonTotal > 0 ? ' (incl. add-ons)' : ''}</span><span style={{ fontWeight: 600 }}>£{gbp(q.mRev)}/mo</span>
                                 </div>
                               </>
                             ) : (

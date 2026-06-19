@@ -57,6 +57,9 @@ export default function TermsAndConditions() {
         </div>
 
         {/* Intro */}
+        <p style={{ fontFamily: "'Jost', sans-serif", fontSize: isMobile ? 14 : 16, lineHeight: 1.9, color: "#5a4e44", marginBottom: isMobile ? 16 : 24 }}>
+          In these Terms and Conditions, "we", "us" and "our" refers to London Cleaning Wizard. "You" and "your" refers to the customer booking or using our services.
+        </p>
         <p style={{ fontFamily: "'Jost', sans-serif", fontSize: isMobile ? 14 : 16, lineHeight: 1.9, color: "#5a4e44", marginBottom: isMobile ? 32 : 48 }}>
           Welcome to London Cleaning Wizard. By booking a service or using our website or social media platforms, you agree to these Terms and Conditions.
         </p>

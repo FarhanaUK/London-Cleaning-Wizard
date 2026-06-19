@@ -155,6 +155,17 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
         await Promise.all(futureVisits.map(v =>
           updateDoc(doc(db, 'bookings', v.id), v.id === editVisit.id ? updates : updatesWithoutDate)
         ));
+        // If the day changed, update scheduledDays on the master contract document
+        if (editVisitData.cleanDate && editVisitData.cleanDate !== editVisit.cleanDate && editVisit.contractId) {
+          const oldDay = new Date(editVisit.cleanDate + 'T12:00:00').getDay();
+          const newDay = new Date(editVisitData.cleanDate + 'T12:00:00').getDay();
+          const master = bookings.find(b => b.id === editVisit.contractId);
+          if (master?.scheduledDays?.length) {
+            const newScheduledDays = master.scheduledDays.map(d => d === oldDay ? newDay : d);
+            await updateDoc(doc(db, 'bookings', editVisit.contractId), { scheduledDays: newScheduledDays });
+            setBookings(all => all.map(x => x.id === editVisit.contractId ? { ...x, scheduledDays: newScheduledDays } : x));
+          }
+        }
         setBookings(all => all.map(x => {
           if (x.contractId === editVisit.contractId && x.isContractVisit && (x.cleanDate || '') >= (editVisit.cleanDate || '')) {
             return { ...x, ...(x.id === editVisit.id ? updates : updatesWithoutDate) };
@@ -264,8 +275,8 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
     .filter(b => {
       if (statusFilter === 'all') return true;
       if (statusFilter === 'regular')             return b.isAutoRecurring === true;
-      if (statusFilter === 'cancelled')           return b.status?.startsWith('cancelled') && (b.frequency === 'one-off' || !b.frequency);
-      if (statusFilter === 'cancelled-recurring') return b.status?.startsWith('cancelled') && b.frequency && b.frequency !== 'one-off';
+      if (statusFilter === 'cancelled')           return b.status?.startsWith('cancelled') && !['weekly','fortnightly','monthly'].includes(b.frequency);
+      if (statusFilter === 'cancelled-recurring') return b.status?.startsWith('cancelled') && ['weekly','fortnightly','monthly'].includes(b.frequency);
       if (statusFilter === 'refunded')            return b.status === 'cancelled_full_refund' || b.status === 'cancelled_partial_refund';
       if (statusFilter === 'phone')               return b.isPhoneBooking === true && !b.isContract;
       if (statusFilter === 'website')             return !b.isPhoneBooking;
@@ -274,7 +285,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
     })
     .filter(b => {
       if (freqFilter === 'all') return true;
-      if (freqFilter === 'cancelled-recurring') return b.status?.startsWith('cancelled') && b.frequency && b.frequency !== 'one-off';
+      if (freqFilter === 'cancelled-recurring') return b.status?.startsWith('cancelled') && ['weekly','fortnightly','monthly'].includes(b.frequency);
       return (b.frequency || 'one-off') === freqFilter;
     })
     .sort((a, b) => {
@@ -508,6 +519,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
           <option value="weekly">Weekly</option>
           <option value="fortnightly">Fortnightly</option>
           <option value="monthly">Monthly</option>
+          <option value="flexible">Airbnb Flexible</option>
         </select>
       </div>
 

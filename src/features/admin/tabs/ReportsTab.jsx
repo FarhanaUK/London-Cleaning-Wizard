@@ -275,7 +275,7 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const reimbursableTotal   = reimbursable.reduce((s, e) => s + e.amount, 0);
 
   // ── Frequency breakdown ──
-  const FREQ_ID_TO_LABEL = { 'one-off': 'One-off', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly' };
+  const FREQ_ID_TO_LABEL = { 'one-off': 'One-off', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' };
   const freqMap = {};
   periodBookings.filter(b => !b.isContractVisit).forEach(b => {
     const f = FREQ_ID_TO_LABEL[b.frequency] || b.frequency || 'One-off';

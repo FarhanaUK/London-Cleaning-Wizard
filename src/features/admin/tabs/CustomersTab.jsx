@@ -329,7 +329,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                 </div>
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>
                   {b.bookingRef}{!b.isContract && b.cleanTime ? ` · ${b.cleanTime}` : ''}
-                  {b.isContract ? ` · ${b.contractType || ''} · ${b.frequency || ''} · ends ${fmtDate(b.contractEndDate)}` : ''}
+                  {b.isContract ? ` · ${b.contractType || ''} · ${b.frequencyLabel || b.frequency || ''}${b.scheduledDays?.length ? ` (${b.scheduledDays.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')})` : ''} · ends ${fmtDate(b.contractEndDate)}` : ''}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

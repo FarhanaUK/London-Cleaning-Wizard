@@ -25,6 +25,7 @@ const TrashTab           = lazy(() => import('../features/admin/tabs/TrashTab'))
 const MarketingSpendTab  = lazy(() => import('../features/admin/tabs/MarketingSpendTab'));
 const QuotesTab          = lazy(() => import('../features/admin/tabs/QuotesTab'));
 const ActionsTab         = lazy(() => import('../features/admin/tabs/ActionsTab'));
+const ServicesTab        = lazy(() => import('../features/admin/tabs/ServicesTab'));
 
 
 // ── Themes ────────────────────────────────────────────────────
@@ -73,6 +74,7 @@ const NAV_ITEMS = [
   { id: 'campaigns',      label: 'Marketing Workflow', icon: '🎯' },
   { id: 'promotions',     label: 'Promotions',     icon: '🎁' },
   { id: 'signatureTouch', label: 'Signature Touch', icon: '✦'  },
+  { id: 'services',  label: 'Services',  icon: '🧹' },
   { id: 'sop',       label: 'SOP',       icon: '📖' },
   { id: 'quotes',         label: 'Quotes / Enquiries & Pricing', icon: '💰' },
   { id: 'trash',          label: 'Trash',           icon: '🗑'  },
@@ -854,6 +856,7 @@ export default function AdminPage() {
               {activeView === 'myJobs'    && <MyJobsTab staff={staff} bookings={activeBookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
               {activeView === 'expenses'  && <ExpensesTab expenses={expenses} fixedCosts={fixedCosts} bookings={activeBookings} staff={staff} supplies={supplies} marketingSpend={marketingSpend} incidents={incidents} isMobile={isMobile} C={C} />}
               {activeView === 'supplies'  && <SuppliesTab supplies={supplies} isMobile={isMobile} C={C} />}
+              {activeView === 'services'  && <ServicesTab isMobile={isMobile} C={C} />}
               {activeView === 'sop'       && <SOPTab isMobile={isMobile} C={C} />}
               {activeView === 'reports'   && <ReportsTab bookings={activeBookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} marketingSpend={marketingSpend} incidents={incidents} isMobile={isMobile} C={C} />}
               {activeView === 'bookings'  && <BookingsTab bookings={activeBookings} setBookings={setBookings} staff={staff} isMobile={isMobile} C={C} user={user} schedulerLogs={schedulerLogs} bannerVisible={bannerVisible} welcomeMsg={welcomeMsg} welcomeColor={welcomeColor} />}

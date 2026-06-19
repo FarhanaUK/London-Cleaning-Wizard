@@ -789,7 +789,7 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
         stripe_deposit_pi:   '—',          stripe_remaining_pi: intent.id,
         stripe_customer_id:  b.stripeCustomerId,
         booking_type:        'Recurring Clean',
-        payment_note:        'Your next clean will be scheduled automatically. No action is needed — payment will be taken in the same way after each visit.',
+        payment_note:        '',
       };
       await sendEmail(process.env.EMAILJS_RECEIPT_TEMPLATE,
         { ...receiptData, to_name: b.firstName, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
@@ -898,8 +898,8 @@ exports.completeJob = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (re
       stripe_deposit_pi:    b.stripeDepositIntentId || '—',
       stripe_remaining_pi:  intent.id,
       stripe_customer_id:   customerId || '—',
-      booking_type:         b.frequency && b.frequency !== 'one-off' ? 'First Clean (Recurring Series)' : 'One-off Clean',
-      payment_note:         b.frequency && b.frequency !== 'one-off' ? 'Your next clean will be scheduled automatically at your discounted recurring rate. No deposit required — payment will be taken after each visit.' : '',
+      booking_type:         ['weekly','fortnightly','monthly'].includes(b.frequency) ? 'Recurring Clean' : 'Clean',
+      payment_note:         '',
     };
     await sendEmail(process.env.EMAILJS_RECEIPT_TEMPLATE, {
       ...receiptData, to_name: b.firstName, to_email: b.email,
@@ -1950,7 +1950,7 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
   const customerId = b.pendingDepositCustomerId || pi.customer;
   if (b.isContract) {
     const pmId = typeof pi.payment_method === 'string' ? pi.payment_method : (pi.payment_method?.id || null);
-    await snap.ref.update({
+    const contractUpdate = {
       stripeCustomerId:                                    customerId,
       stripePaymentMethodId:                               pmId,
       depositPaidAt:                                       new Date(),
@@ -1959,7 +1959,17 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
       pendingDepositClientSecret:                          admin.firestore.FieldValue.delete(),
       pendingDepositCustomerId:                            admin.firestore.FieldValue.delete(),
       pendingDepositPIId:                                  admin.firestore.FieldValue.delete(),
-    });
+    };
+    if (typeof marketingOptOut === 'boolean') {
+      contractUpdate.marketingOptOut = marketingOptOut;
+      contractUpdate.doNotContact    = marketingOptOut;
+    }
+    await snap.ref.update(contractUpdate);
+    if (typeof marketingOptOut === 'boolean' && b.email) {
+      await db.collection('customers').doc(b.email.toLowerCase())
+        .set({ doNotContact: marketingOptOut, marketingOptOut }, { merge: true })
+        .catch(() => {});
+    }
     res.json({ success: true, isContract: true });
     return;
   }
@@ -2054,7 +2064,15 @@ exports.trashBooking = onRequest(async (req, res) => {
   if (b.isContract) {
     const visitsSnap = await db.collection('bookings').where('contractId', '==', bookingId).get();
     if (!visitsSnap.empty) {
-      await Promise.all(visitsSnap.docs.map(d => d.ref.update({ deleted: true, deletedAt: now })));
+      let calClient = null;
+      try { calClient = await getCalendarClient(); } catch {}
+      await Promise.all(visitsSnap.docs.map(async d => {
+        const vd = d.data();
+        if (vd.calendarEventId && calClient) {
+          try { await calClient.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: vd.calendarEventId }); } catch {}
+        }
+        return d.ref.update({ deleted: true, deletedAt: now, calendarEventId: null });
+      }));
     }
   }
   res.json({ success: true });
@@ -2115,7 +2133,15 @@ exports.deleteBooking = onRequest(async (req, res) => {
     try {
       const visitsSnap = await db.collection('bookings').where('contractId', '==', bookingId).get();
       if (!visitsSnap.empty) {
-        await Promise.all(visitsSnap.docs.map(d => d.ref.delete()));
+        let calClient = null;
+        try { calClient = await getCalendarClient(); } catch {}
+        await Promise.all(visitsSnap.docs.map(async d => {
+          const vd = d.data();
+          if (vd.calendarEventId && calClient) {
+            try { await calClient.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: vd.calendarEventId }); } catch {}
+          }
+          return d.ref.delete();
+        }));
       }
     } catch (e) {
       console.error('Failed to delete contract visits:', e.message);
@@ -3253,6 +3279,7 @@ exports.sendRecurringUpgradeEmails = onSchedule(
 
     const hourlyTemplate     = process.env.EMAILJS_RECURRING_UPGRADE_HOURLY_TEMPLATE;
     const commercialTemplate = process.env.EMAILJS_RECURRING_UPGRADE_COMMERCIAL_TEMPLATE;
+    const airbnbTemplate     = process.env.EMAILJS_RECURRING_UPGRADE_AIRBNB_TEMPLATE;
     const COMMERCIAL_PACKAGES = ['office_cleaning'];
 
     for (const doc of snap.docs) {
@@ -3267,7 +3294,15 @@ exports.sendRecurringUpgradeEmails = onSchedule(
       const isHourly     = b.package === 'hourly';
       const isCommercial = COMMERCIAL_PACKAGES.includes(b.package);
 
-      if (isHourly) {
+      if (b.isAirbnb && b.frequency === 'one-off') {
+        if (!airbnbTemplate) continue;
+        await sendEmail(airbnbTemplate, {
+          to_name:         b.firstName,
+          to_email:        b.email,
+          package_name:    b.packageName,
+          unsubscribe_url: `https://londoncleaningwizard.com/unsubscribe?email=${encodeURIComponent(b.email)}`,
+        }, EMAILJS_KEY.value()).catch(e => console.error('Airbnb upgrade email failed:', b.bookingRef, e.message));
+      } else if (isHourly) {
         if (!hourlyTemplate) continue;
         await sendEmail(hourlyTemplate, {
           to_name:         b.firstName,
