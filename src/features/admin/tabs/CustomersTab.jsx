@@ -35,6 +35,17 @@ function DoNotContactToggle({ value, onChange }) {
   );
 }
 
+function NoReviewEmailsToggle({ value, onChange }) {
+  return (
+    <div onClick={() => onChange(!value)} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 14, padding: '8px 14px', background: value ? '#fdf5f5' : '#f5f9f5', border: `1px solid ${value ? 'rgba(139,32,32,0.2)' : 'rgba(26,82,52,0.2)'}` }}>
+      <div style={{ width: 16, height: 16, borderRadius: 3, background: value ? '#8b2020' : '#1a5234', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{value ? '✕' : '✓'}</div>
+      <span style={{ fontFamily: FONT, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: value ? '#8b2020' : '#1a5234', fontWeight: 500 }}>
+        {value ? 'Review emails stopped — click to resume' : 'Review emails active — click to stop'}
+      </span>
+    </div>
+  );
+}
+
 const BOOKING_API = {
   getBlockedDates: import.meta.env.VITE_CF_GET_BLOCKED_DATES,
   saveBooking:     import.meta.env.VITE_CF_SAVE_BOOKING,
@@ -58,8 +69,18 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
   const [convertBlockedDates, setConvertBlockedDates] = useState([]);
   const [sigTouchOptingOut, setSigTouchOptingOut] = useState(false);
   const [sigTouchNote,      setSigTouchNote]      = useState('');
+  const [noReviewEmails,    setNoReviewEmails]    = useState(false);
 
   useEffect(() => { setSigTouchOptingOut(false); setSigTouchNote(''); }, [selectedCustomer]);
+
+  useEffect(() => {
+    if (!selectedCustomer) return;
+    const email = selectedCustomer;
+    fetch(`${import.meta.env.VITE_CF_NO_REVIEW_EMAILS}?email=${encodeURIComponent(email)}`)
+      .then(r => r.json())
+      .then(d => setNoReviewEmails(d.noReviewEmails || false))
+      .catch(() => {});
+  }, [selectedCustomer]);
 
   useEffect(() => {
     if (!convertOpen) return;
@@ -239,6 +260,18 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ email: sc.email, doNotContact: next }),
+                }).catch(() => {});
+              }}
+            />
+
+            <NoReviewEmailsToggle
+              value={noReviewEmails}
+              onChange={next => {
+                setNoReviewEmails(next);
+                fetch(import.meta.env.VITE_CF_NO_REVIEW_EMAILS, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: sc.email, noReviewEmails: next }),
                 }).catch(() => {});
               }}
             />

@@ -3284,12 +3284,13 @@ exports.sendRecurringUpgradeEmails = onSchedule(
 
     for (const doc of snap.docs) {
       const b = doc.data();
-      if (b.isAutoRecurring || b.recurringUpgradeEmailSent || b.marketingOptOut || b.doNotContact) continue;
+      if (b.isAutoRecurring || b.marketingOptOut || b.doNotContact) continue;
       if (!b.email || !b.firstName) continue;
       if (unsubbed.has(b.email.toLowerCase())) continue;
 
       const custDoc = await db.collection('customers').doc(b.email.toLowerCase()).get();
-      if (custDoc.data()?.recurringActive) continue;
+      const cust = custDoc.data() || {};
+      if (cust.recurringActive || cust.recurringUpgradeEmailSent) continue;
 
       const isHourly     = b.package === 'hourly';
       const isCommercial = COMMERCIAL_PACKAGES.includes(b.package);
@@ -3345,7 +3346,8 @@ exports.sendRecurringUpgradeEmails = onSchedule(
         }, EMAILJS_KEY.value()).catch(e => console.error('Upgrade email failed:', b.bookingRef, e.message));
       }
 
-      await doc.ref.update({ recurringUpgradeEmailSent: true });
+      await db.collection('customers').doc(b.email.toLowerCase())
+        .set({ recurringUpgradeEmailSent: true }, { merge: true }).catch(() => {});
     }
   }
 );
@@ -3353,6 +3355,9 @@ exports.sendRecurringUpgradeEmails = onSchedule(
 // ── 17. Send review request emails at 10am for yesterday's completed jobs ──
 exports.sendReviewEmails = onSchedule({ schedule: 'every day 10:00', secrets: [EMAILJS_KEY] }, async () => {
   const db        = admin.firestore();
+  const template  = process.env.EMAILJS_REVIEW_TEMPLATE;
+  if (!template) return;
+
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
@@ -3362,14 +3367,37 @@ exports.sendReviewEmails = onSchedule({ schedule: 'every day 10:00', secrets: [E
     .where('cleanDate', '==', yesterdayStr)
     .get();
 
+  const unsubSnap = await db.collection('unsubscribed').get();
+  const unsubbed  = new Set(unsubSnap.docs.map(d => d.id));
+
+  const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
   for (const doc of snap.docs) {
     const b = doc.data();
-    await sendEmail(process.env.EMAILJS_REVIEW_TEMPLATE, {
+    if (!b.email || !b.firstName) continue;
+    if (b.marketingOptOut || b.doNotContact) continue;
+    if (b.isContractVisit) continue;
+    if (unsubbed.has(b.email.toLowerCase())) continue;
+
+    const custDoc = await db.collection('customers').doc(b.email.toLowerCase()).get();
+    const cust    = custDoc.data() || {};
+
+    if (cust.noReviewEmails) continue;
+
+    if (b.isAutoRecurring) {
+      const lastSent = cust.lastReviewEmailSentAt?.toDate ? cust.lastReviewEmailSentAt.toDate() : null;
+      if (lastSent && (Date.now() - lastSent.getTime()) < THIRTY_DAYS) continue;
+    }
+
+    await sendEmail(template, {
       to_name:      b.firstName,
       to_email:     b.email,
       package_name: b.packageName,
       booking_ref:  b.bookingRef,
     }, EMAILJS_KEY.value()).catch(e => console.error('Review email failed:', b.bookingRef, e.message));
+
+    await db.collection('customers').doc(b.email.toLowerCase())
+      .set({ lastReviewEmailSentAt: new Date() }, { merge: true }).catch(() => {});
   }
 });
 
@@ -3455,6 +3483,24 @@ exports.setDoNotContact = onRequest({ cors: ['https://londoncleaningwizard.com',
   const batch = db.batch();
   bookingsSnap.docs.forEach(doc => batch.update(doc.ref, { doNotContact, marketingOptOut: doNotContact }));
   await batch.commit();
+  res.json({ ok: true });
+});
+
+// ── Set / get no-review-emails flag on customer doc (admin only) ─────────────
+exports.setNoReviewEmails = onRequest({ cors: ['https://londoncleaningwizard.com', 'http://localhost:5173', 'http://localhost:5174'] }, async (req, res) => {
+  const db = admin.firestore();
+  if (req.method === 'GET') {
+    const email = req.query.email;
+    if (!email) { res.status(400).json({ error: 'Missing email' }); return; }
+    const doc = await db.collection('customers').doc(email.toLowerCase()).get();
+    res.json({ noReviewEmails: doc.data()?.noReviewEmails || false });
+    return;
+  }
+  const { email, noReviewEmails } = req.body;
+  if (typeof noReviewEmails !== 'boolean' || !email) {
+    res.status(400).json({ error: 'Missing email or noReviewEmails' }); return;
+  }
+  await db.collection('customers').doc(email.toLowerCase()).set({ noReviewEmails }, { merge: true });
   res.json({ ok: true });
 });
 
