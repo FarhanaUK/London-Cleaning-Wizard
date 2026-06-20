@@ -100,7 +100,16 @@ export default function BookingExpandedPanel({
 
   const handlePartialRefund = async () => {
     if (!refundModal?.amount || parseFloat(refundModal.amount) <= 0) { setRefundErr('Enter a valid refund amount.'); return; }
+    const amt  = parseFloat(refundModal.amount);
+    const maxR = parseFloat(refundModal.maxRefundable || 0);
+    // This tool issues PARTIAL refunds only (it emails the customer a "partial refund" notice).
+    // Block a full/over refund — those must be done directly in Stripe.
+    if (maxR > 0 && amt >= maxR - 0.005) {
+      setRefundErr(`This is a FULL refund (£${amt.toFixed(2)} of £${maxR.toFixed(2)} paid). This tool only issues PARTIAL refunds and emails the customer a "partial refund" notice. For a full refund, process it directly in Stripe.`);
+      return;
+    }
     if (!refundModal?.password) { setRefundErr('Enter your password to confirm.'); return; }
+    if (!window.confirm(`Issue a PARTIAL refund of £${amt.toFixed(2)}?\n\nThe customer will be emailed that this is a PARTIAL refund. For a FULL refund, cancel and process it in Stripe instead.`)) return;
     setRefunding(true); setRefundErr('');
     try {
       const user = auth.currentUser;
@@ -736,7 +745,7 @@ export default function BookingExpandedPanel({
                                     ✏️ Edit
                                   </button>
                                   <button
-                                    onClick={() => { setRefundErr(''); setRefundModal({ visitId: v.id, contractId: b.id, amount: '', password: '' }); }}
+                                    onClick={() => { setRefundErr(''); const collected = v.status === 'deposit_paid' ? parseFloat(v.deposit || 0) : parseFloat(v.total || 0); setRefundModal({ visitId: v.id, contractId: b.id, amount: '', password: '', maxRefundable: Math.max(0, collected - parseFloat(v.partialRefundAmount || 0)) }); }}
                                     style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '5px 10px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 5, cursor: 'pointer' }}
                                   >
                                     Refund
@@ -1240,7 +1249,7 @@ export default function BookingExpandedPanel({
               </div>
             )}
             <button
-              onClick={() => { setRefundErr(''); setRefundModal({ visitId: b.id, contractId: null, amount: '', password: '' }); }}
+              onClick={() => { setRefundErr(''); const collected = b.status === 'deposit_paid' ? parseFloat(b.deposit || 0) : parseFloat(b.total || 0); setRefundModal({ visitId: b.id, contractId: null, amount: '', password: '', maxRefundable: Math.max(0, collected - parseFloat(b.partialRefundAmount || 0)) }); }}
               style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, cursor: 'pointer' }}>
               Issue Partial Refund
             </button>
