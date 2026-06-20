@@ -1214,8 +1214,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
             <BreakdownRow label="Profit" value={`£${gbp(q.addonTotal > 0 ? q.profitWithAddons : q.profit)}`} C={C} last />
           </Card>
 
-          {/* Monthly + contract value */}
-          {q.freq.vpm > 0 && (
+          {/* Monthly + contract value — not shown for Estate Agent (jobs are one-off, no monthly value) */}
+          {q.freq.vpm > 0 && clientType !== 'estateAgent' && (
             <Card C={C} style={{ borderColor: '#fbbf24' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, padding: '4px 8px', background: '#fef3c7', borderRadius: 5, width: 'fit-content' }}>
                 <span style={{ fontSize: 11 }}>🔒</span>
