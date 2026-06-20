@@ -32,7 +32,6 @@ const ROOMS = [
     items: [
       "Full sanitisation throughout",
       "Limescale removed from taps and fittings",
-      "Tiles cleaned and grout refreshed",
       "Towels folded hotel-style",
       "Mirrors and glass polished",
     ],
