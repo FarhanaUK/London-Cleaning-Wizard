@@ -4,6 +4,17 @@ export const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 // booking, and used as the calendar event title. One source of truth for both screens.
 export const ESTATE_CLEAN_TYPES = ['End of Tenancy Cleaning', 'Pre-Tenancy / Move-In Cleaning', 'Void Property Cleaning', 'Deep Cleaning', 'After-Builders / Renovation Cleaning', 'Communal Area Cleaning'];
 
+// Labour multiplier applied to the base clean hours per estate-agent clean type. null = manual
+// quote only (After-Builders varies massively; Communal is priced per block, not by bedrooms).
+export const ESTATE_CLEAN_MULTIPLIERS = {
+  'End of Tenancy Cleaning':              1.6,
+  'Pre-Tenancy / Move-In Cleaning':       1.25,
+  'Void Property Cleaning':               0.9,
+  'Deep Cleaning':                        1.5,
+  'After-Builders / Renovation Cleaning': null,
+  'Communal Area Cleaning':               null,
+};
+
 // Airbnb and Estate Agent are both one-off per-visit property cleans and behave the same way
 // across the admin (job cards, hide pets/signature, charge-on-completion, add-on reminders).
 // Use these helpers so the two types stay in lockstep and no spot gets missed.

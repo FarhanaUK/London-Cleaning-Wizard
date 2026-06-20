@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { db } from '../../../firebase/firebase';
 import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import emailjs from '@emailjs/browser';
-import { ESTATE_CLEAN_TYPES } from '../utils';
+import { ESTATE_CLEAN_TYPES, ESTATE_CLEAN_MULTIPLIERS } from '../utils';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -240,6 +240,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       base = AIRBNB_BASE_HOURS[key] || 2.5;
       base += Math.max((parseInt(extraBaths, 10) || 1) - 1, 0) * 0.5;
       if (airbnbPropType === 'house') base += 0.75; // stairs, landing, hallways
+      // Estate Agent: scale the clean by type (end of tenancy heavier, void lighter).
+      // Manual-quote types (null) keep base hours just as a rough labour estimate.
+      if (clientType === 'estateAgent') base *= (ESTATE_CLEAN_MULTIPLIERS[cleanType] ?? 1);
     } else {
       const s = parseFloat(sqm) || 80;
       let h = s <= 50 ? 1.5 : s <= 100 ? 2.5 : s <= 150 ? 3.5 : s <= 200 ? 4.5 : s <= 300 ? 6.0 : 8.0;
@@ -251,7 +254,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const addonList = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
     const addonH = addons.reduce((sum, id) => sum + (addonList.find(x => x.id === id)?.h || 0), 0);
     return base + addonH;
-  }, [clientType, airbnbPropType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths, addons]);
+  }, [clientType, cleanType, airbnbPropType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths, addons]);
 
   const q = useMemo(() => {
     const ct            = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
@@ -268,10 +271,14 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const overheadPerVisit = overhead.total / overheadDivisor;
     const cost          = labor + (parseFloat(suppliesCost) || 0) + (parseFloat(travelCost) || 0) + overheadPerVisit;
     const basePrice     = cost / (1 - margin);
-    const cleanPrice    = basePrice * (1 - ct.disc);
-    const calcPrice     = cleanPrice + addonTotal;
-    const price         = (manualPrice !== '' && parseFloat(manualPrice) > 0 ? parseFloat(manualPrice) : cleanPrice) + addonTotal;
-    const effectiveClean = price - addonTotal;
+    const autoClean     = basePrice * (1 - ct.disc);
+    const manualVal     = (manualPrice !== '' && parseFloat(manualPrice) > 0) ? parseFloat(manualPrice) : null;
+    // After-Builders / Communal are manual-quote only: no auto price, the admin types it in.
+    const manualQuote   = clientType === 'estateAgent' && ESTATE_CLEAN_MULTIPLIERS[cleanType] == null;
+    const cleanPrice    = manualQuote ? (manualVal ?? 0) : (manualVal ?? autoClean);
+    const calcPrice     = autoClean + addonTotal;
+    const price         = cleanPrice + addonTotal;
+    const effectiveClean = cleanPrice;
     const addonLaborCost    = addonHours * (parseFloat(cleanerRate) || 0);
     const trueCost          = cost + addonLaborCost;
     const profit            = effectiveClean - cost;
@@ -290,8 +297,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const cVal              = ct.months * mRev;
     const cBaseVal          = ct.months * mBaseRev;
     const visitDur          = totalHours / Math.max(parseInt(numCleaners, 10) || 1, 1);
-    return { labor, overheadPerVisit, cost, trueCost, addonLaborCost, basePrice, cleanPrice, price, profit, profitWithAddons, pct, addonTotal, mRev, mBaseRev, mAddonRev, mCost, mTrueCost, mProfit, mProfitWithAddons, cVal, cBaseVal, ct, freq, visitDur };
-  }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, selectedDays, numCleaners, addons, clientType, manualPrice]);
+    return { labor, overheadPerVisit, cost, trueCost, addonLaborCost, basePrice, cleanPrice, price, profit, profitWithAddons, pct, addonTotal, mRev, mBaseRev, mAddonRev, mCost, mTrueCost, mProfit, mProfitWithAddons, cVal, cBaseVal, ct, freq, visitDur, calcPrice, manualQuote };
+  }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, selectedDays, numCleaners, addons, clientType, cleanType, manualPrice]);
 
   const marginColor = q.pct < 25 ? C.danger : q.pct < 30 ? C.warning : C.success;
 
@@ -433,6 +440,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     setSubmitAttempted(true);
     if (clientType !== 'airbnb' && !bizName.trim()) { setBookError('Enter a business name first.'); return; }
     if (!clientEmail.trim()) { setBookError('Enter the client email.'); return; }
+    if (q.manualQuote && !(parseFloat(manualPrice) > 0)) { setBookError(`${cleanType} is quoted manually — enter a price in "Manual price override" first.`); return; }
     if (!contractStart)      { setBookError(perVisit ? 'Set a visit date.' : 'Set a contract start date.'); return; }
     if (!perVisit && (frequency === 'daily' || frequency === 'twice' || frequency === 'thrice')) {
       const required = frequency === 'twice' ? 2 : frequency === 'thrice' ? 3 : 1;
@@ -732,6 +740,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                     <select value={cleanType} onChange={e => setCleanType(e.target.value)} style={inputStyle}>
                       {ESTATE_CLEAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
+                    {q.manualQuote
+                      ? <div style={{ fontSize: 10, color: '#b45309', marginTop: 4 }}>Quoted manually (varies too much to auto-price) — enter the price in "Manual price override" below.</div>
+                      : <div style={{ fontSize: 10, color: C.faint || C.muted, marginTop: 4 }}>Auto-priced at {ESTATE_CLEAN_MULTIPLIERS[cleanType]}× the base clean. You can still override below.</div>}
                   </div>
                 )}
                 <div style={{ gridColumn: 'span 2' }}>
