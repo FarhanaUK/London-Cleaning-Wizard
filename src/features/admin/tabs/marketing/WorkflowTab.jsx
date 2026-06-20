@@ -84,6 +84,23 @@ function milestoneProgressText(m, data) {
   return '';
 }
 
+// Short, unit-aware "what's left" for the active milestone tile, so the target is unambiguous
+// (e.g. "4 more to go" rather than a bare "5 bookings" that could read as 5 additional).
+function milestoneToGo(m, data) {
+  if (!m) return '';
+  const v = m.progressNum(data);
+  switch (m.id) {
+    case 'm1': return v < 1 ? '1 to go' : '';
+    case 'm2': return v < 5 ? `${5 - v} more to go` : '';
+    case 'm3': return v < 4 ? `${4 - v} more this month` : '';
+    case 'm4': return v ? '' : 'need 1 agent';
+    case 'm5': return v < 1000 ? `£${gbp(1000 - v)} to go` : '';
+    case 'm6': return v < 2000 ? `£${gbp(2000 - v)} to go` : '';
+    case 'm7': return v < 3000 ? `£${gbp(3000 - v)} to go` : '';
+    default:   return '';
+  }
+}
+
 function MilestoneBar({ bookings }) {
   const isMobile   = useIsMobile();
   const data       = readBusinessData(bookings);
@@ -149,6 +166,13 @@ function MilestoneBar({ bookings }) {
                 <div style={{ fontFamily: FONT, fontSize: isMobile ? 8 : 9, color: done ? col : current ? col : MKT.dim, textAlign: 'center', lineHeight: 1.3, fontWeight: done || current ? 700 : 400, whiteSpace: isMobile ? 'nowrap' : 'normal' }}>
                   {m.shortLabel}
                 </div>
+
+                {/* Clear "what's left" on the active tile so the target can't be misread */}
+                {current && !done && milestoneToGo(m, data) && (
+                  <div style={{ fontFamily: FONT, fontSize: isMobile ? 8 : 9, fontWeight: 700, color: col, lineHeight: 1.2, whiteSpace: 'nowrap', marginTop: 1 }}>
+                    {milestoneToGo(m, data)}
+                  </div>
+                )}
 
                 {/* Equiv */}
                 {m.equiv && (
