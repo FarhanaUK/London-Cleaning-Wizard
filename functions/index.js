@@ -2097,14 +2097,14 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
     }
   }
 
-  // Backfill stripeCustomerId onto any pre-created recurring bookings missing it
+  // Backfill stripeCustomerId onto this customer's other bookings missing it — pre-created
+  // recurring cleans AND estate-agent visits charged on completion — so the saved card can be
+  // used to charge them later. (Filter in code so both booking types are covered.)
   if (customerId && b.email) {
-    const recurringSnap = await db.collection('bookings')
-      .where('email', '==', b.email)
-      .where('isAutoRecurring', '==', true)
-      .where('stripeCustomerId', '==', '')
-      .get();
-    const backfills = recurringSnap.docs.map(d => d.ref.update({ stripeCustomerId: customerId }));
+    const sameCustomer = await db.collection('bookings').where('email', '==', b.email).get();
+    const backfills = sameCustomer.docs
+      .filter(d => d.id !== snap.id && !d.data().stripeCustomerId)
+      .map(d => d.ref.update({ stripeCustomerId: customerId }));
     await Promise.all(backfills).catch(() => {});
   }
 

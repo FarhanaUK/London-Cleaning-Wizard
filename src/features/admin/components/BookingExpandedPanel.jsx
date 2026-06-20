@@ -491,7 +491,7 @@ export default function BookingExpandedPanel({
                 highlight: b.status === 'pending_deposit' }),
           { l: 'Remaining', v: `£${parseFloat(b.remaining).toFixed(2)}` },
           !b.isAutoRecurring && { l: 'Source', v: b.source || '—' },
-          b.stripeDepositIntentId   && { l: 'Stripe Deposit PI',   v: b.stripeDepositIntentId },
+          b.stripeDepositIntentId   && { l: 'Stripe Deposit PI',   v: b.stripeDepositIntentId === 'auto-recurring' ? 'Charged on completion' : b.stripeDepositIntentId === 'manual' ? 'Manual' : b.stripeDepositIntentId },
           b.stripeRemainingIntentId && { l: 'Stripe Remaining PI', v: b.stripeRemainingIntentId },
           b.stripeCustomerId        && { l: 'Stripe Customer ID',  v: b.stripeCustomerId },
         ]).filter(Boolean).map((r, i) => (
@@ -1212,7 +1212,7 @@ export default function BookingExpandedPanel({
         {!b.isContract && b.status === 'scheduled' && (
           <>
             <div style={{ width: '100%', background: '#f0fdf4', border: '1px solid rgba(22,101,52,0.2)', borderRadius: 6, padding: '12px 16px' }}>
-              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: '#166534', marginBottom: 4 }}>🔄 Recurring booking — no deposit required</div>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: '#166534', marginBottom: 4 }}>{b.isEstateAgent ? '💳 Charged on completion — no deposit' : '🔄 Recurring booking — no deposit required'}</div>
               <div style={{ fontFamily: FONT, fontSize: 12, color: '#14532d', lineHeight: 1.6 }}>
                 The full amount of £{parseFloat(b.total || 0).toFixed(2)} will be charged automatically to the customer's saved card when you mark this complete.
               </div>
