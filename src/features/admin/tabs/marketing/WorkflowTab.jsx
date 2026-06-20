@@ -140,9 +140,9 @@ function MilestoneBar({ bookings }) {
                   </div>
                 )}
 
-                {/* Status mark */}
-                <div style={{ fontFamily: FONT, fontSize: isMobile ? 13 : 15, color: done ? col : current ? col : MKT.dim, fontWeight: 700, lineHeight: 1 }}>
-                  {done ? '✓' : `${i + 1}`}
+                {/* Status mark — current milestone shows real progress (e.g. 1/5), not the index number */}
+                <div style={{ fontFamily: FONT, fontSize: (current && !done) ? (isMobile ? 11 : 13) : (isMobile ? 13 : 15), color: done ? col : current ? col : MKT.dim, fontWeight: current && !done ? 800 : 700, lineHeight: 1, whiteSpace: 'nowrap' }}>
+                  {done ? '✓' : current ? `${Math.min(Math.round(m.progressNum(data)), m.target)}/${m.target}` : `${i + 1}`}
                 </div>
 
                 {/* Label */}
