@@ -107,31 +107,35 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const contractMasterMap = {};
   bookings.filter(b => b.isContract).forEach(b => { contractMasterMap[b.id] = b; });
 
+  // Net contract revenue for ONE master in [pStart, pEnd]: paid months (at the rate effective
+  // then) minus any refund / partial refunds whose date falls in the window.
+  const contractMasterRev = (master, pStart, pEnd) => {
+    const payments = master.monthlyPayments || {};
+    const paidRev = Object.entries(payments).reduce((ps, [key, val]) => {
+      if (val !== 'paid' || key < pStart || key > pEnd) return ps;
+      const rate = (master.rateEffectiveFrom && key < master.rateEffectiveFrom && master.previousMonthlyBaseValue)
+        ? parseFloat(master.previousMonthlyBaseValue)
+        : parseFloat(master.monthlyBaseValue || 0);
+      return ps + rate;
+    }, 0);
+    // Deduct refund if the cancellation date falls within this reporting window
+    let refundDeduction = 0;
+    if (master.refundAmount > 0 && master.cancelledAt) {
+      const raw = master.cancelledAt?.toDate ? master.cancelledAt.toDate() : new Date(master.cancelledAt);
+      const cancelDate = raw.toISOString().slice(0, 10);
+      if (cancelDate >= pStart && cancelDate <= pEnd) refundDeduction = parseFloat(master.refundAmount || 0);
+    }
+    const visitPartialRefunds = bookings
+      .filter(v => v.isContractVisit && v.contractId === master.id
+        && parseFloat(v.partialRefundAmount || 0) > 0
+        && v.cleanDate >= pStart && v.cleanDate <= pEnd)
+      .reduce((ps, v) => ps + parseFloat(v.partialRefundAmount || 0), 0);
+    return paidRev - refundDeduction - (paidRev > 0 ? visitPartialRefunds : 0);
+  };
+
   // Sum contract monthly base revenue for paid periods whose billing date falls within [pStart, pEnd]
   const contractRevForWindow = (pStart, pEnd) =>
-    bookings.filter(b => b.isContract).reduce((s, master) => {
-      const payments = master.monthlyPayments || {};
-      const paidRev = Object.entries(payments).reduce((ps, [key, val]) => {
-        if (val !== 'paid' || key < pStart || key > pEnd) return ps;
-        const rate = (master.rateEffectiveFrom && key < master.rateEffectiveFrom && master.previousMonthlyBaseValue)
-          ? parseFloat(master.previousMonthlyBaseValue)
-          : parseFloat(master.monthlyBaseValue || 0);
-        return ps + rate;
-      }, 0);
-      // Deduct refund if the cancellation date falls within this reporting window
-      let refundDeduction = 0;
-      if (master.refundAmount > 0 && master.cancelledAt) {
-        const raw = master.cancelledAt?.toDate ? master.cancelledAt.toDate() : new Date(master.cancelledAt);
-        const cancelDate = raw.toISOString().slice(0, 10);
-        if (cancelDate >= pStart && cancelDate <= pEnd) refundDeduction = parseFloat(master.refundAmount || 0);
-      }
-      const visitPartialRefunds = bookings
-        .filter(v => v.isContractVisit && v.contractId === master.id
-          && parseFloat(v.partialRefundAmount || 0) > 0
-          && v.cleanDate >= pStart && v.cleanDate <= pEnd)
-        .reduce((ps, v) => ps + parseFloat(v.partialRefundAmount || 0), 0);
-      return s + paidRev - refundDeduction - (paidRev > 0 ? visitPartialRefunds : 0);
-    }, 0);
+    bookings.filter(b => b.isContract).reduce((s, master) => s + contractMasterRev(master, pStart, pEnd), 0);
 
   const bookingLabour = b => {
     const m1 = staff.find(m => m.name === b.assignedStaff);
@@ -204,6 +208,13 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const cancelledBkgs = bookings.filter(b => b.cleanDate >= periodStart && b.cleanDate <= periodEnd && b.status?.startsWith('cancelled')).length;
   const cancelRate    = totalBkgs > 0 ? (cancelledBkgs / totalBkgs) * 100 : 0;
 
+  // Paid contract revenue for this period, per master — used to attribute contract money to the
+  // customer / package / area breakdown cards (recognised per paid month, not per visit, so these
+  // cards stay consistent with the headline Revenue figure).
+  const contractRevByMaster = bookings.filter(b => b.isContract)
+    .map(master => ({ master, rev: contractMasterRev(master, periodStart, periodEnd) }))
+    .filter(e => e.rev !== 0);
+
   // ── Top customers ──
   const customerMap = {};
   periodBookings.forEach(b => {
@@ -211,6 +222,13 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     if (!customerMap[key]) customerMap[key] = { name: `${b.firstName||''} ${b.lastName||''}`.trim(), email: b.email||'', spend: 0, jobs: 0 };
     customerMap[key].spend += collectedAmt(b);
     customerMap[key].jobs  += 1;
+  });
+  // Add paid contract revenue onto the contract customer's row (same key as their visits so it
+  // lands on the existing entry; job count stays driven by the visits above).
+  contractRevByMaster.forEach(({ master, rev }) => {
+    const key = master.email || master.bizName || `${master.firstName} ${master.lastName}`;
+    if (!customerMap[key]) customerMap[key] = { name: master.bizName || `${master.firstName||''} ${master.lastName||''}`.trim(), email: master.email||'', spend: 0, jobs: 0 };
+    customerMap[key].spend += rev;
   });
   const topCustomers = Object.values(customerMap).sort((a, b) => b.spend - a.spend).slice(0, 5);
 
@@ -228,6 +246,16 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     if (!pkgMap[p]) pkgMap[p] = { count: 0, rev: 0 };
     pkgMap[p].count += 1;
     pkgMap[p].rev   += collectedAmt(b);
+  });
+  // Add paid contract revenue to the same package row its visits populate (falls back to the
+  // contract type label if no visit lands in this period).
+  contractRevByMaster.forEach(({ master, rev }) => {
+    const visit = periodBookings.find(b => b.isContractVisit && b.contractId === master.id);
+    const p = visit
+      ? (visit.packageName || PACKAGES.find(pkg => pkg.id === visit.package)?.name || visit.package || 'Unknown')
+      : (master.clientType === 'airbnb' ? 'Airbnb / Short-let' : 'Commercial Cleaning');
+    if (!pkgMap[p]) pkgMap[p] = { count: 0, rev: 0 };
+    pkgMap[p].rev += rev;
   });
   const pkgBreakdown = Object.entries(pkgMap).sort((a, b) => b[1].rev - a[1].rev);
 
@@ -307,6 +335,13 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     if (!postcodeMap[pc]) postcodeMap[pc] = { count: 0, rev: 0 };
     postcodeMap[pc].count += 1;
     postcodeMap[pc].rev   += collectedAmt(b);
+  });
+  // Attribute paid contract revenue to the contract's area (master postcode, else a visit's).
+  contractRevByMaster.forEach(({ master, rev }) => {
+    const visit = periodBookings.find(b => b.isContractVisit && b.contractId === master.id);
+    const pc = (master.postcode || visit?.postcode || '').trim().toUpperCase().split(' ')[0] || 'Unknown';
+    if (!postcodeMap[pc]) postcodeMap[pc] = { count: 0, rev: 0 };
+    postcodeMap[pc].rev += rev;
   });
   const topPostcodes = Object.entries(postcodeMap).sort((a, b) => b[1].rev - a[1].rev).slice(0, 8);
   const maxPcRev     = Math.max(...topPostcodes.map(([, v]) => v.rev), 1);

@@ -67,7 +67,23 @@ async function getCalendarClient(scope) {
   const s = scope || 'https://www.googleapis.com/auth/calendar';
   if (!_calCache[s]) {
     const auth = new google.auth.GoogleAuth({ keyFile: 'service-account.json', scopes: [s] });
-    _calCache[s] = google.calendar({ version: 'v3', auth: await auth.getClient() });
+    const client = google.calendar({ version: 'v3', auth: await auth.getClient() });
+    // Wrap events.insert so a transient failure (network blip, brief rate-limit) retries
+    // instead of leaving a booking saved with no calendarEventId (which makes it undeletable
+    // from Google Calendar later). Retries 3 times with a short backoff, then throws.
+    const rawInsert = client.events.insert.bind(client.events);
+    client.events.insert = async (...args) => {
+      let lastErr;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { return await rawInsert(...args); }
+        catch (e) {
+          lastErr = e;
+          if (attempt < 2) await new Promise(r => setTimeout(r, 600 * (attempt + 1)));
+        }
+      }
+      throw lastErr;
+    };
+    _calCache[s] = client;
   }
   return _calCache[s];
 }
@@ -514,6 +530,8 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
     await db.collection('bookings').doc(id).update({ calendarEventId: calEvent.data.id });
   } catch (e) {
     console.error('Failed to create calendar event:', e.message);
+    // Flag so this never becomes a silent orphan with no calendarEventId
+    await db.collection('bookings').doc(id).update({ calendarSyncFailed: true }).catch(() => {});
   }
 
   // Pre-create all recurring follow-up bookings within the 35-day window
@@ -616,6 +634,7 @@ exports.saveBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
             await db.collection('bookings').doc(rId).update({ calendarEventId: calEvent.data.id });
           } catch (calErr) {
             console.error('Calendar event failed for pre-scheduled recurring:', calErr.message);
+            await db.collection('bookings').doc(rId).update({ calendarSyncFailed: true }).catch(() => {});
           }
           lastDateStr = nextStr;
         }
@@ -2086,29 +2105,23 @@ exports.trashBooking = onRequest(async (req, res) => {
   }
   const now = new Date();
   await snap.ref.update({ deleted: true, deletedAt: now, calendarEventId: null });
-  // Cascade to contract visits so they disappear from all views
+  // Cascade to contract visits. A contract is just a series of recurring cleans, so we delete
+  // each visit exactly like a single recurring booking above: one event at a time, sequentially.
+  // (The old code fired 10 calendar deletes in parallel, which tripped Google's rate limit and
+  // left some events behind. Deleting one at a time is what makes recurring cleans reliable.)
   if (b.isContract) {
     const visitsSnap = await db.collection('bookings').where('contractId', '==', bookingId).get();
-    if (!visitsSnap.empty) {
-      let calClient = null;
-      try { calClient = await getCalendarClient(); } catch {}
-      const CHUNK = 10;
-      for (let i = 0; i < visitsSnap.docs.length; i += CHUNK) {
-        const chunk = visitsSnap.docs.slice(i, i + CHUNK);
-        await Promise.all(chunk.map(async d => {
-          const vd = d.data();
-          const upd = { deleted: true, deletedAt: now };
-          if (vd.calendarEventId && calClient) {
-            try {
-              await calClient.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: vd.calendarEventId });
-              upd.calendarEventId = null;
-            } catch { /* keep calendarEventId so permanent delete can retry */ }
-          } else {
-            upd.calendarEventId = null;
-          }
-          return d.ref.update(upd);
-        }));
+    for (const d of visitsSnap.docs) {
+      const vd = d.data();
+      if (vd.calendarEventId) {
+        try {
+          const calendar = await getCalendarClient();
+          await calendar.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: vd.calendarEventId });
+        } catch (e) {
+          console.error('Failed to delete contract visit calendar event on trash:', e.message);
+        }
       }
+      await d.ref.update({ deleted: true, deletedAt: now, calendarEventId: null });
     }
   }
   res.json({ success: true });
@@ -2204,24 +2217,22 @@ exports.deleteBooking = onRequest(async (req, res) => {
   }
   await snap.ref.delete();
 
-  // Cascade permanent deletion to contract visits
+  // Cascade permanent deletion to contract visits, one at a time like a single recurring booking
+  // (sequential, no parallel burst that trips Google's rate limit and leaves events behind).
   if (b.isContract) {
     try {
       const visitsSnap = await db.collection('bookings').where('contractId', '==', bookingId).get();
-      if (!visitsSnap.empty) {
-        let calClient = null;
-        try { calClient = await getCalendarClient(); } catch {}
-        const CHUNK = 10;
-        for (let i = 0; i < visitsSnap.docs.length; i += CHUNK) {
-          const chunk = visitsSnap.docs.slice(i, i + CHUNK);
-          await Promise.all(chunk.map(async d => {
-            const vd = d.data();
-            if (vd.calendarEventId && calClient) {
-              try { await calClient.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: vd.calendarEventId }); } catch {}
-            }
-            return d.ref.delete();
-          }));
+      for (const d of visitsSnap.docs) {
+        const vd = d.data();
+        if (vd.calendarEventId) {
+          try {
+            const calendar = await getCalendarClient();
+            await calendar.events.delete({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: vd.calendarEventId });
+          } catch (e) {
+            console.error('Failed to delete contract visit calendar event:', e.message);
+          }
         }
+        await d.ref.delete();
       }
     } catch (e) {
       console.error('Failed to delete contract visits:', e.message);
@@ -4495,7 +4506,10 @@ exports.createContractBooking = onRequest({ timeoutSeconds: 540 }, async (req, r
           },
         });
         await visitRef.update({ calendarEventId: calEvent.data.id });
-      } catch (e) { console.error(`Calendar event failed for visit ${date}:`, e.message); }
+      } catch (e) {
+        console.error(`Calendar event failed for visit ${date}:`, e.message);
+        await visitRef.update({ calendarSyncFailed: true }).catch(() => {});
+      }
     }));
   }
 

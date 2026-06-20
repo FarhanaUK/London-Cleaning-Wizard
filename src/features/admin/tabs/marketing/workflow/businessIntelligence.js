@@ -153,11 +153,12 @@ export function readBusinessData(bookings = []) {
   const contractMasters = bookings.filter(b => b.isContract);
   const regular         = bookings.filter(b => !b.isContract && !b.isContractVisit);
 
-  // Confirmed regular bookings: deposit paid or completed
-  const activeRegular = regular.filter(b => {
-    const st = (b.status || '').toLowerCase();
-    return st === 'deposit_paid' || st === 'complete';
-  });
+  // A regular booking counts as confirmed once money has been taken: deposit paid, paid in
+  // full, or completed. (These are the canonical statuses used everywhere else in the app.)
+  const isConfirmed = st => st === 'deposit_paid' || st === 'fully_paid' || st === 'completed';
+
+  // Confirmed regular bookings
+  const activeRegular = regular.filter(b => isConfirmed((b.status || '').toLowerCase()));
 
   // Active contracts (not cancelled)
   const activeContracts = contractMasters.filter(b => {
@@ -190,13 +191,14 @@ export function readBusinessData(bookings = []) {
   }
 
   // Revenue (last 30 days):
-  //   regular deposit_paid -> b.deposit; complete -> b.total
+  //   regular deposit_paid -> b.deposit; fully_paid / completed -> b.total
   //   contract masters -> monthlyBaseValue per paid period whose billing date is in last 30 days
   const regularRevenue = regular
     .filter(b => {
       const st = (b.status || '').toLowerCase();
-      if (st !== 'deposit_paid' && st !== 'complete') return false;
-      const ms = st === 'complete'
+      if (!isConfirmed(st)) return false;
+      // completed -> attribute by clean date; deposit_paid / fully_paid -> by booking date
+      const ms = st === 'completed'
         ? (b.cleanDate?.seconds
             ? b.cleanDate.seconds * 1000
             : b.cleanDate ? new Date(b.cleanDate).getTime() : 0)
@@ -208,7 +210,7 @@ export function readBusinessData(bookings = []) {
     .reduce((s, b) => {
       const st = (b.status || '').toLowerCase();
       const pr = parseFloat(b.partialRefundAmount || 0);
-      if (st === 'complete') return s + Math.max(0, (parseFloat(b.total) || 0) - pr);
+      if (st === 'completed' || st === 'fully_paid') return s + Math.max(0, (parseFloat(b.total) || 0) - pr);
       return s + Math.max(0, (parseFloat(b.deposit) || 0) - pr);
     }, 0);
 
@@ -229,7 +231,7 @@ export function readBusinessData(bookings = []) {
   const monthlyBookings =
     regular.filter(b => {
       const st = (b.status || '').toLowerCase();
-      if (st !== 'deposit_paid' && st !== 'complete') return false;
+      if (!isConfirmed(st)) return false;
       const ms = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
       return ms >= cutoff;
     }).length +
