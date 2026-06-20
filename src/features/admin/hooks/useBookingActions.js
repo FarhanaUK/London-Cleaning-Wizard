@@ -123,7 +123,26 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
       const res  = await fetch(import.meta.env.VITE_CF_MARK_DEPOSIT_PAID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: booking.id }) });
       const data = await res.json();
       if (!res.ok) { setDepositErr(data.error || 'Failed to update booking.'); return; }
-      if (booking.isAirbnb || booking.isEstateAgent) {
+      if (booking.isEstateAgent) {
+        const estateTpl = import.meta.env.VITE_EMAILJS_ESTATE_CONFIRM_TEMPLATE;
+        const svcId     = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+        const pubKey    = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+        if (estateTpl && svcId && booking.email) {
+          const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
+          emailjs.send(svcId, estateTpl, {
+            to_name:       booking.contactName || booking.firstName || booking.bizName || '',
+            to_email:      booking.email,
+            booking_ref:   booking.bookingRef || '',
+            business_name: booking.bizName || '',
+            clean_type:    booking.cleanType || 'Estate Agent Clean',
+            date:          fmtD(booking.cleanDate),
+            time:          booking.cleanTime || '—',
+            address:       [booking.addr1, booking.addr2, booking.postcode].filter(Boolean).join(', '),
+            notes:         booking.notes || '—',
+            total:         `£${parseFloat(booking.total || 0).toFixed(2)}`,
+          }, pubKey).catch(() => {});
+        }
+      } else if (booking.isAirbnb) {
         const confirmTpl = import.meta.env.VITE_EMAILJS_CONFIRM_TEMPLATE;
         const svcId      = import.meta.env.VITE_EMAILJS_SERVICE_ID;
         const pubKey     = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
@@ -133,10 +152,10 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
             to_name:        booking.contactName || booking.firstName || booking.customerName || '',
             to_email:       booking.email,
             booking_ref:    booking.bookingRef || '',
-            booking_type:   booking.isEstateAgent ? 'Estate Agent Clean' : 'Airbnb Turnaround Clean',
-            package_name:   booking.isEstateAgent ? (booking.cleanType || 'Estate Agent Clean') : (booking.packageName || 'Airbnb Turnaround'),
+            booking_type:   'Airbnb Turnaround Clean',
+            package_name:   booking.packageName || 'Airbnb Turnaround',
             property_type:  booking.size || (booking.bedrooms ? `${booking.bedrooms} bed` : '—'),
-            frequency:      booking.isEstateAgent ? 'Per visit' : 'One-off',
+            frequency:      'One-off',
             date:           fmtD(booking.cleanDate),
             time:           booking.cleanTime || '—',
             address:        [booking.addr1, booking.addr2, booking.postcode].filter(Boolean).join(', '),

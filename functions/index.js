@@ -2108,17 +2108,21 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
     await Promise.all(backfills).catch(() => {});
   }
 
-  // Estate Agent: send a booking confirmation now (the payment-link flow doesn't otherwise email
-  // the client). They've paid in full, so show the full amount paid and nothing remaining.
-  if (b.isEstateAgent && process.env.EMAILJS_CONFIRM_TEMPLATE) {
+  // Estate Agent: send the dedicated estate-agent confirmation (paid in full, one-off, no deposit
+  // talk) — the payment-link flow doesn't otherwise email the client.
+  if (b.isEstateAgent && process.env.EMAILJS_ESTATE_CONFIRM_TEMPLATE) {
     try {
-      const eData = buildBookingEmailData({ ...b, deposit: b.total, remaining: 0 });
-      await sendEmail(process.env.EMAILJS_CONFIRM_TEMPLATE, {
-        ...eData,
-        package_name: b.cleanType || b.packageName || 'Estate Agent Clean',
-        frequency:    'Per visit',
-        to_name:      b.contactName || b.firstName || b.bizName || '',
-        to_email:     b.email,
+      await sendEmail(process.env.EMAILJS_ESTATE_CONFIRM_TEMPLATE, {
+        to_name:       b.contactName || b.firstName || b.bizName || '',
+        to_email:      b.email,
+        booking_ref:   b.bookingRef || '',
+        business_name: b.bizName || '',
+        clean_type:    b.cleanType || 'Estate Agent Clean',
+        date:          b.cleanDate ? b.cleanDate.split('-').reverse().join('/') : '',
+        time:          b.cleanTime || '',
+        address:       [b.addr1, b.addr2, b.postcode].filter(Boolean).join(', '),
+        notes:         b.notes || '—',
+        total:         `£${parseFloat(b.total || 0).toFixed(2)}`,
       }, EMAILJS_KEY.value());
     } catch (e) { console.error('Estate agent confirmation email failed:', e.message); }
   }
