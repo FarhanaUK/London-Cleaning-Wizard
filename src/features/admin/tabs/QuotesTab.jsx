@@ -132,7 +132,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   // that genuinely differ (labels, the saved booking flag) check clientType directly instead.
   const perVisit = clientType === 'airbnb' || clientType === 'estateAgent';
   const [airbnbPropType, setAirbnbPropType] = useState('flat');
-  const [cleanType,      setCleanType]      = useState(ESTATE_CLEAN_TYPES[0]);
+  const [cleanType,      setCleanType]      = useState('');
   const [bedrooms,       setBedrooms]       = useState('2');
   const [extraBaths,     setExtraBaths]     = useState('1');
   const [sqm,          setSqm]          = useState('80');
@@ -274,7 +274,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const autoClean     = basePrice * (1 - ct.disc);
     const manualVal     = (manualPrice !== '' && parseFloat(manualPrice) > 0) ? parseFloat(manualPrice) : null;
     // After-Builders / Communal are manual-quote only: no auto price, the admin types it in.
-    const manualQuote   = clientType === 'estateAgent' && ESTATE_CLEAN_MULTIPLIERS[cleanType] == null;
+    const manualQuote   = clientType === 'estateAgent' && !!cleanType && ESTATE_CLEAN_MULTIPLIERS[cleanType] === null;
     const cleanPrice    = manualQuote ? (manualVal ?? 0) : (manualVal ?? autoClean);
     const calcPrice     = autoClean + addonTotal;
     const price         = cleanPrice + addonTotal;
@@ -440,6 +440,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     setSubmitAttempted(true);
     if (clientType !== 'airbnb' && !bizName.trim()) { setBookError('Enter a business name first.'); return; }
     if (!clientEmail.trim()) { setBookError('Enter the client email.'); return; }
+    if (clientType === 'estateAgent' && !cleanType) { setBookError('Please select a type of clean before booking.'); return; }
     if (q.manualQuote && !(parseFloat(manualPrice) > 0)) { setBookError(`${cleanType} is quoted manually — enter a price in "Manual price override" first.`); return; }
     if (!contractStart)      { setBookError(perVisit ? 'Set a visit date.' : 'Set a contract start date.'); return; }
     if (!perVisit && (frequency === 'daily' || frequency === 'twice' || frequency === 'thrice')) {
@@ -736,13 +737,16 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 {clientType === 'estateAgent' && (
                   <div style={{ gridColumn: 'span 2' }}>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Type of clean</div>
-                    <select value={cleanType} onChange={e => setCleanType(e.target.value)} style={inputStyle}>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Type of clean <span style={{ color: C.danger }}>*</span></div>
+                    <select value={cleanType} onChange={e => setCleanType(e.target.value)} style={{ ...inputStyle, borderColor: submitAttempted && !cleanType ? C.danger : undefined }}>
+                      <option value="">Select type of clean…</option>
                       {ESTATE_CLEAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    {q.manualQuote
-                      ? <div style={{ fontSize: 10, color: '#b45309', marginTop: 4 }}>Quoted manually (varies too much to auto-price) — enter the price in "Manual price override" below.</div>
-                      : <div style={{ fontSize: 10, color: C.faint || C.muted, marginTop: 4 }}>Auto-priced at {ESTATE_CLEAN_MULTIPLIERS[cleanType]}× the base clean. You can still override below.</div>}
+                    {!cleanType
+                      ? <div style={{ fontSize: 10, color: C.danger, marginTop: 4 }}>Required — choose the type of clean.</div>
+                      : q.manualQuote
+                        ? <div style={{ fontSize: 10, color: '#b45309', marginTop: 4 }}>Quoted manually (varies too much to auto-price) — enter the price in "Manual price override" below.</div>
+                        : <div style={{ fontSize: 10, color: C.faint || C.muted, marginTop: 4 }}>Auto-priced at {ESTATE_CLEAN_MULTIPLIERS[cleanType]}× the base clean. You can still override below.</div>}
                   </div>
                 )}
                 <div style={{ gridColumn: 'span 2' }}>
@@ -1034,7 +1038,16 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                   Quote per visit
                 </div>
-                {q.manualQuote && !(parseFloat(manualPrice) > 0) ? (
+                {clientType === 'estateAgent' && !cleanType ? (
+                  <>
+                    <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 800, color: C.danger, lineHeight: 1.2, marginTop: 8 }}>
+                      ⚠ SELECT TYPE OF CLEAN
+                    </div>
+                    <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.danger, marginTop: 6 }}>
+                      Choose a type of clean on the left to price this job.
+                    </div>
+                  </>
+                ) : q.manualQuote && !(parseFloat(manualPrice) > 0) ? (
                   <>
                     <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 800, color: C.danger, lineHeight: 1.2, marginTop: 8 }}>
                       ⚠ ENTER PRICE MANUALLY
