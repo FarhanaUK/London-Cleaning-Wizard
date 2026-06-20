@@ -1034,10 +1034,23 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                   Quote per visit
                 </div>
-                <div style={{ fontFamily: FONT, fontSize: 46, fontWeight: 800, color: C.text, lineHeight: 1.1, marginTop: 6 }}>
-                  £{gbp(q.price - q.addonTotal)}
-                </div>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>base clean · no add-ons</div>
+                {q.manualQuote && !(parseFloat(manualPrice) > 0) ? (
+                  <>
+                    <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 800, color: C.danger, lineHeight: 1.2, marginTop: 8 }}>
+                      ⚠ ENTER PRICE MANUALLY
+                    </div>
+                    <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.danger, marginTop: 6 }}>
+                      {cleanType} is quoted manually — type the price in &ldquo;Manual price override&rdquo; on the left.
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontFamily: FONT, fontSize: 46, fontWeight: 800, color: C.text, lineHeight: 1.1, marginTop: 6 }}>
+                      £{gbp(q.price - q.addonTotal)}
+                    </div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 3 }}>base clean · no add-ons</div>
+                  </>
+                )}
                 {q.ct.disc > 0 && (
                   <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginTop: 4 }}>
                     <span style={{ textDecoration: 'line-through', marginRight: 6 }}>£{gbp(q.basePrice)}</span>
