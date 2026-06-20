@@ -1834,30 +1834,49 @@ exports.emailDepositLink = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res)
   if (!snap.exists) { res.status(404).json({ error: 'Booking not found' }); return; }
   const b = snap.data();
   const paymentLink = `https://londoncleaningwizard.com/pay-deposit?bookingId=${bookingId}`;
-  const emailData = b.isContract ? {
-    to_name:        b.contactName || b.bizName || b.firstName,
-    to_email:       b.email,
-    booking_ref:    b.bookingRef || bookingId,
-    package_name:   b.contractLabel || 'Contract Cleaning',
-    clean_date:     b.contractStartDate ? b.contractStartDate.split('-').reverse().join('/') : '',
-    clean_time:     b.cleanTime || '',
-    address:        `${b.addr1 || ''}, ${b.postcode || ''}`.trim().replace(/^,\s*/, ''),
-    deposit_amount: parseFloat(b.firstMonthCharge || b.monthlyBaseValue || 0).toFixed(2),
-    payment_link:   paymentLink,
-  } : {
-    to_name:        b.firstName,
-    to_email:       b.email,
-    booking_ref:    b.bookingRef,
-    package_name:   b.packageName,
-    clean_date:     b.cleanDate.split('-').reverse().join('/'),
-    clean_time:     b.cleanTime,
-    address:        `${b.addr1}, ${b.postcode}`,
-    deposit_amount: parseFloat(b.deposit).toFixed(2),
-    payment_link:   paymentLink,
-  };
-  const linkTemplate = b.isContract
-    ? (process.env.EMAILJS_CONTRACT_PAYMENT_LINK_TEMPLATE || process.env.EMAILJS_DEPOSIT_LINK_TEMPLATE)
-    : process.env.EMAILJS_DEPOSIT_LINK_TEMPLATE;
+  let emailData, linkTemplate;
+  if (b.isContract) {
+    emailData = {
+      to_name:        b.contactName || b.bizName || b.firstName,
+      to_email:       b.email,
+      booking_ref:    b.bookingRef || bookingId,
+      package_name:   b.contractLabel || 'Contract Cleaning',
+      clean_date:     b.contractStartDate ? b.contractStartDate.split('-').reverse().join('/') : '',
+      clean_time:     b.cleanTime || '',
+      address:        `${b.addr1 || ''}, ${b.postcode || ''}`.trim().replace(/^,\s*/, ''),
+      deposit_amount: parseFloat(b.firstMonthCharge || b.monthlyBaseValue || 0).toFixed(2),
+      payment_link:   paymentLink,
+    };
+    linkTemplate = process.env.EMAILJS_CONTRACT_PAYMENT_LINK_TEMPLATE || process.env.EMAILJS_DEPOSIT_LINK_TEMPLATE;
+  } else if (b.isEstateAgent) {
+    // Estate Agent: one-off, paid in full. Dedicated template (no 30% deposit / monthly wording).
+    emailData = {
+      to_name:       b.contactName || b.firstName || b.bizName || '',
+      to_email:      b.email,
+      booking_ref:   b.bookingRef || bookingId,
+      business_name: b.bizName || '',
+      clean_type:    b.cleanType || 'Estate Agent Clean',
+      date:          b.cleanDate ? b.cleanDate.split('-').reverse().join('/') : '',
+      time:          b.cleanTime || '',
+      address:       [b.addr1, b.addr2, b.postcode].filter(Boolean).join(', '),
+      amount:        parseFloat(b.deposit || b.total || 0).toFixed(2),
+      payment_link:  paymentLink,
+    };
+    linkTemplate = process.env.EMAILJS_ESTATE_PAYMENT_LINK_TEMPLATE || process.env.EMAILJS_DEPOSIT_LINK_TEMPLATE;
+  } else {
+    emailData = {
+      to_name:        b.firstName,
+      to_email:       b.email,
+      booking_ref:    b.bookingRef,
+      package_name:   b.packageName,
+      clean_date:     b.cleanDate.split('-').reverse().join('/'),
+      clean_time:     b.cleanTime,
+      address:        `${b.addr1}, ${b.postcode}`,
+      deposit_amount: parseFloat(b.deposit).toFixed(2),
+      payment_link:   paymentLink,
+    };
+    linkTemplate = process.env.EMAILJS_DEPOSIT_LINK_TEMPLATE;
+  }
   await sendEmail(linkTemplate, emailData, EMAILJS_KEY.value());
   res.json({ success: true });
 });
