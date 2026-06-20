@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getPayPeriod, calcHours, fmtDate, fmtDuration, toDisplayTime, toInputTime } from '../utils';
+import { getPayPeriod, calcHours, fmtDate, fmtDuration, toDisplayTime, toInputTime, isOneOffPropertyClean, freqLabel } from '../utils';
 import html2canvas from 'html2canvas';
 
 const FONT = "'Inter', 'Segoe UI', sans-serif";
@@ -24,7 +24,7 @@ const ADDONS_COMMERCIAL = [
 ];
 
 const getAddonList = (card) =>
-  (card.isAirbnb || card.clientType === 'airbnb') ? ADDONS_AIRBNB : ADDONS_COMMERCIAL;
+  isOneOffPropertyClean(card) ? ADDONS_AIRBNB : ADDONS_COMMERCIAL;
 const INPUT = { fontFamily: FONT, fontSize: 14, padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#1e293b', outline: 'none', width: '100%', boxSizing: 'border-box', marginBottom: 12 };
 const BTN   = { fontFamily: FONT, fontSize: 14, fontWeight: 600, padding: '9px 18px', borderRadius: 7, border: 'none', cursor: 'pointer', transition: 'opacity 0.15s' };
 
@@ -65,8 +65,8 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
       `JOB CARD — London Cleaning Wizard`,
       `Customer: ${b.customerName || `${b.firstName || ''} ${b.lastName || ''}`.trim()}${b.bookingRef ? ` (${b.bookingRef})` : ''}`,
       `Date: ${fmtDate(b.cleanDate)}  |  Time: ${toDisplayTime(b.cleanTime)}`,
-      `Service: ${b.packageName || b.package || '—'}  |  Frequency: ${{ 'one-off': 'One-off', 'daily': 'Daily', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' }[b.frequency || b.freq] || b.frequency || b.freq || 'One-off'}`,
-      b.isContractVisit && b.bizName ? `Business: ${b.bizName}` : '',
+      `Service: ${b.packageName || b.package || '—'}  |  Frequency: ${freqLabel(b)}`,
+      (b.isContractVisit || b.isEstateAgent) && b.bizName ? `Business: ${b.bizName}` : '',
       b.isContractVisit ? `Client Type: ${b.clientType === 'airbnb' ? 'Airbnb / Short-let' : 'Commercial'}` : '',
       ``,
       `Address: ${[b.addr1, b.postcode].filter(Boolean).join(', ')}`,
@@ -81,10 +81,10 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
       `Cleaner(s): ${[b.assignedStaff, b.secondCleaner].filter(Boolean).join(' & ') || '—'}`,
       b.notes ? `Notes: ${b.notes}` : '',
       !b.isContractVisit ? `Media Consent: ${b.mediaConsent ? 'Yes' : 'No'}` : '',
-      (b.isContractVisit || b.isAirbnb) ? `` : '',
-      (b.isContractVisit || b.isAirbnb) ? `⚠️ ADD-ON REMINDER` : '',
-      (b.isContractVisit || b.isAirbnb) ? (b.addons?.length ? `Pre-approved add-ons above only. Anything else from the list below — contact your manager first.` : `No add-ons booked. If the client asks for anything from the list below, do NOT do it — contact your manager first.`) : '',
-      (b.isContractVisit || b.isAirbnb) ? `Chargeable add-ons: ${getAddonList(b).join(', ')}` : '',
+      (b.isContractVisit || isOneOffPropertyClean(b)) ? `` : '',
+      (b.isContractVisit || isOneOffPropertyClean(b)) ? `⚠️ ADD-ON REMINDER` : '',
+      (b.isContractVisit || isOneOffPropertyClean(b)) ? (b.addons?.length ? `Pre-approved add-ons above only. Anything else from the list below — contact your manager first.` : `No add-ons booked. If the client asks for anything from the list below, do NOT do it — contact your manager first.`) : '',
+      (b.isContractVisit || isOneOffPropertyClean(b)) ? `Chargeable add-ons: ${getAddonList(b).join(', ')}` : '',
     ].filter(l => l !== '').join('\n');
 
     if (navigator.share) {
@@ -464,9 +464,9 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
                   ['Date',          fmtDate(jobCard.cleanDate)],
                   ['Time',          toDisplayTime(jobCard.cleanTime)],
                   ['Service',       jobCard.packageName || jobCard.package || '—'],
-                  jobCard.isContractVisit && jobCard.bizName && ['Business', jobCard.bizName],
+                  (jobCard.isContractVisit || jobCard.isEstateAgent) && jobCard.bizName && ['Business', jobCard.bizName],
                   jobCard.isContractVisit && ['Client Type', jobCard.clientType === 'airbnb' ? 'Airbnb / Short-let' : 'Commercial'],
-                  ['Frequency',     ({ 'one-off': 'One-off', 'daily': 'Daily', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' })[jobCard.frequency || jobCard.freq] || jobCard.frequency || jobCard.freq || 'One-off'],
+                  ['Frequency',     freqLabel(jobCard)],
                   ['Address',       [jobCard.addr1, jobCard.postcode].filter(Boolean).join(', ')],
                   !jobCard.isContractVisit && ['Property Type', jobCard.propertyType || '—'],
                   !jobCard.isContractVisit && jobCard.bedrooms && ['Bedrooms', jobCard.bedrooms === 'studio' ? 'Studio' : `${jobCard.bedrooms} bed`],
@@ -476,11 +476,11 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
                   ['Parking',       jobCard.parking || '—'],
                   ['Keys',          jobCard.keys || '—'],
                   ['Add-ons',       jobCard.addons?.length ? jobCard.addons.map(a => a.name || a).join(', ') : (jobCard.addonsList || 'None')],
-                  !jobCard.isContractVisit && !jobCard.isAirbnb && ['Pets', jobCard.hasPets ? `Yes — ${jobCard.petTypes || 'not specified'}` : 'No'],
+                  !jobCard.isContractVisit && !isOneOffPropertyClean(jobCard) && ['Pets', jobCard.hasPets ? `Yes — ${jobCard.petTypes || 'not specified'}` : 'No'],
                   ['Cleaner(s)',     [jobCard.assignedStaff, jobCard.secondCleaner].filter(Boolean).join(' & ') || '—'],
                   ['Notes',         jobCard.notes || '—'],
                   !jobCard.isContractVisit && ['Media Consent', jobCard.mediaConsent ? 'Yes' : 'No'],
-                  !jobCard.isContractVisit && !jobCard.isAirbnb && ['Signature Touch', (jobCard.package === 'standard' || jobCard.packageId === 'standard') ? 'Eligible' : 'Not eligible'],
+                  !jobCard.isContractVisit && !isOneOffPropertyClean(jobCard) && ['Signature Touch', (jobCard.package === 'standard' || jobCard.packageId === 'standard') ? 'Eligible' : 'Not eligible'],
                 ].filter(Boolean).map(([label, value]) => (
                   <>
                     <div key={label + '_l'} style={{ fontFamily: FONT, fontSize: 11, color: C.muted, fontWeight: 600, paddingTop: 2 }}>{label}</div>
@@ -490,7 +490,7 @@ export default function MyJobsTab({ staff, bookings, setBookings, isMobile, C })
               </div>
 
               {/* Add-on reminder for contract and Airbnb jobs */}
-              {(jobCard.isContractVisit || jobCard.isAirbnb) && (() => {
+              {(jobCard.isContractVisit || isOneOffPropertyClean(jobCard)) && (() => {
                 const addonList = getAddonList(jobCard);
                 const hasBooked = jobCard.addons?.length || jobCard.addonsList;
                 return (

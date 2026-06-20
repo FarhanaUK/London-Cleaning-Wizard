@@ -101,11 +101,13 @@ function PaymentForm({ details, bookingId }) {
       <FullOverlay show={loading} title={overlay} sub={overlaySub} />
 
       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, color: '#1a1410', marginBottom: 6 }}>
-        {details.isContract ? 'First Month Payment' : 'Pay Your Deposit'}
+        {details.isContract ? 'First Month Payment' : details.isEstateAgent ? 'Pay Your Booking' : 'Pay Your Deposit'}
       </div>
       <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 13, color: '#8b7355', fontWeight: 300, marginBottom: 32 }}>
         {details.isContract
           ? 'Pay your first month to activate your cleaning contract. Your card will be saved for future monthly charges.'
+          : details.isEstateAgent
+          ? 'Pay the full amount below to confirm your booking. Your card will be saved for any future bookings.'
           : 'Secure your booking by paying your 30% deposit below.'}
       </div>
 
@@ -147,13 +149,15 @@ function PaymentForm({ details, bookingId }) {
               </div>
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 13, fontFamily: "'Jost',sans-serif" }}>
-              <span style={{ color: '#8b7355', fontWeight: 300 }}>Deposit due today (30%)</span>
+              <span style={{ color: '#8b7355', fontWeight: 300 }}>{details.isEstateAgent ? 'Amount due today' : 'Deposit due today (30%)'}</span>
               <span style={{ color: '#c8b89a', fontWeight: 600, fontSize: 16 }}>£{parseFloat(details.deposit || 0).toFixed(2)}</span>
             </div>
+            {!details.isEstateAgent && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 12, fontFamily: "'Jost',sans-serif" }}>
               <span style={{ color: '#8b7355', fontWeight: 300 }}>Balance due on completion</span>
               <span style={{ color: '#8b7355', fontWeight: 300 }}>£{parseFloat(details.remaining || 0).toFixed(2)}</span>
             </div>
+            )}
           </>
         )}
         {details.freqSaving > 0 && (
@@ -201,7 +205,14 @@ function PaymentForm({ details, bookingId }) {
           style={{ height: 180, overflowY: 'scroll', border: '1px solid rgba(200,184,154,0.4)', background: '#fdf8f3', padding: '14px 16px', marginBottom: 10 }}
         >
           {[
-            { heading: '1. Deposit & Payment', body: 'A 30% deposit is required to secure your booking and is charged immediately upon confirmation. The remaining balance will be charged automatically once your clean has been completed and marked as done by our team. By proceeding, you authorise London Cleaning Wizard to charge the remaining balance to your saved payment method upon job completion.' },
+            {
+              heading: (details.isContract || details.isEstateAgent) ? '1. Payment' : '1. Deposit & Payment',
+              body: details.isContract
+                ? 'Your first month\'s payment is required to activate your cleaning contract and is charged immediately upon confirmation. Your saved payment method will then be charged automatically for each monthly billing period for the duration of the contract. By proceeding, you authorise London Cleaning Wizard to charge your saved payment method for each monthly period.'
+                : details.isEstateAgent
+                ? 'The full amount for this booking is required to confirm it and is charged immediately upon confirmation. Your card will be securely saved so that any future bookings you request can be charged automatically once each clean has been completed. By proceeding, you authorise London Cleaning Wizard to charge your saved payment method for this booking and any future bookings you request.'
+                : 'A 30% deposit is required to secure your booking and is charged immediately upon confirmation. The remaining balance will be charged automatically once your clean has been completed and marked as done by our team. By proceeding, you authorise London Cleaning Wizard to charge the remaining balance to your saved payment method upon job completion.',
+            },
             { heading: '2. Cancellation & Rescheduling Policy', body: 'One-off bookings / First Booking: Full refund if cancelled more than 48 hours before the scheduled clean. No refund if cancelled less than 48 hours before the clean.\n\nAirbnb and short-let visits: At least 48 hours notice is required to cancel without charge. Cancellations made with less than 48 hours notice will incur a 30% late cancellation fee of the visit price, charged automatically to the saved payment method on file. Where a deposit has already been paid, it will be retained as the cancellation fee.\n\nRegular services (weekly, fortnightly or monthly): You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean. For cancellations with less than 48 hours notice, a charge of 30% of that clean\'s price will be applied to your saved payment method, as your cleaner\'s time will have been reserved.\n\nCancelling two consecutive cleans will end your recurring arrangement and your recurring discount. A new booking will be required, subject to standard first-clean pricing.\n\nIf our cleaner arrives at the scheduled time and is refused access or the clean is declined for any reason, this will be treated as a late cancellation and the applicable charge will apply.\n\nAll cancellations must be made by phone call only on 020 8137 0026. Cancellation requests made by email, text, WhatsApp or any other method will not be accepted as valid notice and will not waive any applicable charges. We reserve the right to review pricing with a minimum of 4 weeks written notice.' },
             { heading: '3. Pet Policy', body: 'All pets must be secured and kept away from our cleaning team for the entire duration of the clean. This is for the safety of both your pet and our staff. Failure to secure pets may result in the clean being abandoned without refund of the deposit.' },
             { heading: '4. Access to Property', body: 'You agree to ensure our team has full access to the property at the agreed time. If access is not provided within 15 minutes of the scheduled start time, the clean may be abandoned and no refund will be issued.' },
@@ -284,7 +295,7 @@ function PaymentForm({ details, bookingId }) {
         }}
       >
         {loading ? <ButtonSpinner /> : null}
-        {loading ? 'Processing…' : `Pay Deposit — £${parseFloat(details.deposit || 0).toFixed(2)}`}
+        {loading ? 'Processing…' : `${details.isEstateAgent ? 'Pay' : 'Pay Deposit'} — £${parseFloat(details.deposit || 0).toFixed(2)}`}
       </button>
 
       <p style={{ fontFamily: "'Jost',sans-serif", fontSize: 11, color: '#8b7355', textAlign: 'center', marginTop: 14, fontWeight: 300 }}>

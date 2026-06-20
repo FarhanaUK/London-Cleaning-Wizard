@@ -35,7 +35,7 @@ export default function EditBookingModal({ editBooking, editData, setEditData, e
     || editBooking.packageId || editData.packageId
     || (((editBooking.packageName || editData.packageName || '') + (editBooking.contractLabel || '')).toLowerCase().includes('airbnb') ? 'airbnb' : '')
     || (((editBooking.packageName || editData.packageName || '') + (editBooking.contractLabel || '')).toLowerCase().includes('commercial') ? 'commercial' : '');
-  const isAirbnb     = rawType === 'airbnb' || String(rawType).toLowerCase().includes('airbnb');
+  const isAirbnb     = rawType === 'airbnb' || rawType === 'estateAgent' || String(rawType).toLowerCase().includes('airbnb') || String(rawType).toLowerCase().includes('estate');
   const isCommercial = rawType === 'commercial' || String(rawType).toLowerCase().includes('commercial');
   const contractAddonList = isAirbnb ? AIRBNB_ADDONS : isCommercial ? COMMERCIAL_ADDONS : null;
   const isContractBooking = !!(editBooking.isContract || editBooking.isContractVisit || editBooking.contractId || contractAddonList);
@@ -101,7 +101,7 @@ export default function EditBookingModal({ editBooking, editData, setEditData, e
             {contractAddonList.map(a => (
               <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer', fontFamily: FONT, fontSize: 13, color: C.text }}>
                 <input type="checkbox"
-                  checked={(editData.addons||[]).some(x => x.id === a.id) || (editData.addonsList||'').toLowerCase().includes(a.label.toLowerCase())}
+                  checked={(editData.addons||[]).some(x => x.id === a.id)}
                   onChange={e => setEditData(p => ({
                     ...p,
                     addons: e.target.checked

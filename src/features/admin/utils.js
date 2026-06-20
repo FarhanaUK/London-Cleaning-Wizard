@@ -1,5 +1,24 @@
 export const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 
+// Estate Agent clean types — shown in the Quotes form and the Add New Visit popup, stored on the
+// booking, and used as the calendar event title. One source of truth for both screens.
+export const ESTATE_CLEAN_TYPES = ['End of Tenancy Cleaning', 'Pre-Tenancy / Move-In Cleaning', 'Void Property Cleaning', 'Deep Cleaning', 'After-Builders / Renovation Cleaning', 'Communal Area Cleaning'];
+
+// Airbnb and Estate Agent are both one-off per-visit property cleans and behave the same way
+// across the admin (job cards, hide pets/signature, charge-on-completion, add-on reminders).
+// Use these helpers so the two types stay in lockstep and no spot gets missed.
+export const isAirbnbType      = b => !!b && (b.isAirbnb === true      || b.clientType === 'airbnb');
+export const isEstateAgentType = b => !!b && (b.isEstateAgent === true || b.clientType === 'estateAgent');
+export const isOneOffPropertyClean = b => isAirbnbType(b) || isEstateAgentType(b);
+
+// Frequency label for display. Airbnb and Estate Agent both use frequency 'flexible', but the
+// "Airbnb Flexible" label is Airbnb-specific — show "Per visit" for estate agents instead.
+export const freqLabel = (b) => {
+  const f = (b && (b.frequency || b.freq)) || 'one-off';
+  if (f === 'flexible') return (b && b.isEstateAgent) ? 'Per visit' : 'Airbnb Flexible';
+  return ({ 'one-off': 'One-off', daily: 'Daily', weekly: 'Weekly', fortnightly: 'Fortnightly', monthly: 'Monthly' })[f] || f || 'One-off';
+};
+
 export const toInputTime = t => {
   if (!t) return '';
   const m = t.match(/(\d+):(\d+)\s*(AM|PM)?/i);

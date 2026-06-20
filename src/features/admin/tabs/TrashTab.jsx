@@ -154,6 +154,9 @@ export default function TrashTab({ bookings, setBookings, isMobile, C }) {
                     {b.isAirbnb && (
                       <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#f59e0b', color: '#fff', letterSpacing: '0.04em' }}>AIRBNB</span>
                     )}
+                    {b.isEstateAgent && (
+                      <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#0d9488', color: '#fff', letterSpacing: '0.04em' }}>ESTATE AGENT</span>
+                    )}
                     {b.contractId && (
                       <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#6b7280', color: '#fff', letterSpacing: '0.04em' }}>CONTRACT VISIT</span>
                     )}

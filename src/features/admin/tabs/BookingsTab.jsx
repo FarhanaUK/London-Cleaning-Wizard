@@ -281,7 +281,8 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
       if (statusFilter === 'phone')               return b.isPhoneBooking === true && !b.isContract;
       if (statusFilter === 'website')             return !b.isPhoneBooking;
       if (statusFilter === 'contracts')           return b.isContract === true;
-      if (statusFilter === 'airbnb')              return b.frequency === 'flexible';
+      if (statusFilter === 'estateAgent')         return b.isEstateAgent === true;
+      if (statusFilter === 'airbnb')              return b.frequency === 'flexible' && !b.isEstateAgent;
       return b.status === statusFilter;
     })
     .filter(b => {
@@ -501,7 +502,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
 
       {/* Status + Frequency filters */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); if (['contracts','airbnb'].includes(e.target.value)) setFreqFilter('all'); setPage(1); }} style={{ ...DATE_INPUT, flex: 1, minWidth: 160 }}>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); if (['contracts','airbnb','estateAgent'].includes(e.target.value)) setFreqFilter('all'); setPage(1); }} style={{ ...DATE_INPUT, flex: 1, minWidth: 160 }}>
           <option value="all">All Statuses</option>
           <option value="pending_deposit">Awaiting Deposit</option>
           <option value="deposit_paid">Deposit Paid — Balance Due</option>
@@ -512,6 +513,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
           <option value="refunded">Refunded</option>
           <option value="contracts">Contracts</option>
           <option value="airbnb">Airbnb Flexible</option>
+          <option value="estateAgent">Estate Agent</option>
           <option value="phone">Phone Bookings</option>
           <option value="website">Website Bookings</option>
         </select>
@@ -623,9 +625,11 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
           </div>
         )}
         {pagedBookings.map(b => {
-          const sc = parseFloat(b.partialRefundAmount) > 0 && b.status === 'cancelled_full_refund'
+          let sc = parseFloat(b.partialRefundAmount) > 0 && b.status === 'cancelled_full_refund'
             ? { bg: '#fef9c3', color: '#854d0e', label: 'Partially Refunded' }
             : STATUS_COLOURS[b.status] || { bg: '#f5f5f5', color: '#5a5a5a', label: b.status };
+          // Estate agents pay in full upfront, so show "Pending Payment" rather than "Pending Deposit"
+          if (b.isEstateAgent && b.status === 'pending_deposit') sc = { ...sc, label: 'Pending Payment' };
           const isOpen = expanded === b.id;
           return (
             <div key={b.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 8, overflow: 'hidden' }}>
@@ -645,7 +649,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                     <span style={{ fontFamily: FONT, fontSize: isMobile ? 14 : 15, fontWeight: 600, color: C.text }}>
-                      {b.isContract && b.bizName ? b.bizName : `${b.firstName} ${b.lastName}`}
+                      {(b.isContract || b.isEstateAgent) && b.bizName ? b.bizName : `${b.firstName} ${b.lastName}`}
                     </span>
                     {b.bookingRef && <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: '1px 7px' }}>{b.bookingRef}</span>}
                   </div>

@@ -4,6 +4,7 @@ import { db } from '../../../firebase/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { PACKAGES, FREQUENCIES } from '../../../data/siteData';
 import { calculateTotal } from '../../../utils/pricing';
+import { isOneOffPropertyClean } from '../utils';
 
 export const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 
@@ -216,7 +217,7 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
       msg = hoursUntil >= 48
         ? `No charge — more than 48 hours notice given.`
         : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(booking.total * 0.3).toFixed(2)} (30% of £${parseFloat(booking.total || 0).toFixed(2)}) will be charged to the customer's saved card.`;
-    } else if (booking.isAirbnb && parseFloat(booking.deposit || 0) === 0) {
+    } else if (isOneOffPropertyClean(booking) && parseFloat(booking.deposit || 0) === 0) {
       msg = hoursUntil >= 48
         ? `No charge — more than 48 hours notice given.`
         : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(parseFloat(booking.total || 0) * 0.3).toFixed(2)} (30% of £${parseFloat(booking.total || 0).toFixed(2)}) will be charged to the customer's saved card.`;
@@ -402,7 +403,7 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
         payload.total     = subtotal;
         payload.remaining = Math.max(0, subtotal - (editBooking.deposit || 0));
       }
-      const isAirbnb = editBooking.isAirbnb || editBooking.clientType === 'airbnb';
+      const isAirbnb = isOneOffPropertyClean(editBooking);
       if (isAirbnb) {
         const storedAddonTotal  = parseFloat(editBooking.addonTotal)         || 0;
         const mediaDiscount     = parseFloat(editBooking.mediaConsentDiscount) || 0;
@@ -421,8 +422,14 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
         }
         payload.addonsList    = (editData.addons || []).map(a => a.name || a.label || '').filter(Boolean).join(', ');
         if (editBooking.status === 'pending_deposit') {
-          payload.deposit   = Math.ceil(payload.total * 0.30 * 100) / 100;
-          payload.remaining = Math.max(0, Math.round((payload.total - payload.deposit) * 100) / 100);
+          if (editBooking.isEstateAgent) {
+            // Estate agents pay in full — deposit is the whole amount, nothing left to charge later
+            payload.deposit   = payload.total;
+            payload.remaining = 0;
+          } else {
+            payload.deposit   = Math.ceil(payload.total * 0.30 * 100) / 100;
+            payload.remaining = Math.max(0, Math.round((payload.total - payload.deposit) * 100) / 100);
+          }
         } else {
           payload.remaining = Math.max(0, Math.round((payload.total - parseFloat(editBooking.deposit || 0)) * 100) / 100);
         }

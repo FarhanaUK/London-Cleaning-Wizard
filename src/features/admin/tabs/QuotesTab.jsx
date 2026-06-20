@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { db } from '../../../firebase/firebase';
 import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import emailjs from '@emailjs/browser';
+import { ESTATE_CLEAN_TYPES } from '../utils';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -126,7 +127,12 @@ function BreakdownRow({ label, value, C, accent, large, last }) {
 
 export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [], marketingSpend = [], supplies = [], bookings = [], savedQuotes = [], onNavigate }) {
   const [clientType,     setClientType]     = useState('airbnb');
+  // Airbnb and Estate Agent are both per-visit property cleans (one-off, no contract). They share
+  // the same form, pricing and booking shape, so 'perVisit' routes those shared branches. Points
+  // that genuinely differ (labels, the saved booking flag) check clientType directly instead.
+  const perVisit = clientType === 'airbnb' || clientType === 'estateAgent';
   const [airbnbPropType, setAirbnbPropType] = useState('flat');
+  const [cleanType,      setCleanType]      = useState(ESTATE_CLEAN_TYPES[0]);
   const [bedrooms,       setBedrooms]       = useState('2');
   const [extraBaths,     setExtraBaths]     = useState('1');
   const [sqm,          setSqm]          = useState('80');
@@ -229,7 +235,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
   const totalHours = useMemo(() => {
     let base;
-    if (clientType === 'airbnb') {
+    if (perVisit) {
       const key = bedrooms === 'studio' ? 'studio' : parseInt(bedrooms, 10);
       base = AIRBNB_BASE_HOURS[key] || 2.5;
       base += Math.max((parseInt(extraBaths, 10) || 1) - 1, 0) * 0.5;
@@ -242,7 +248,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       base = h * (typeMult[intensity] || 1.0) * (complexMult[complexity] || 1.0);
       base += Math.max((parseInt(commBaths, 10) || 1) - 1, 0) * 0.5;
     }
-    const addonList = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+    const addonList = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
     const addonH = addons.reduce((sum, id) => sum + (addonList.find(x => x.id === id)?.h || 0), 0);
     return base + addonH;
   }, [clientType, airbnbPropType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths, addons]);
@@ -252,7 +258,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const minMarg       = (parseFloat(minMargin) || 25) / 100;
     const margin        = Math.min(1 - (1 - minMarg) * (1 - ct.disc), 0.99);
     // Add-ons use fixed prices -- separate from the cost-plus clean calculation
-    const addonList     = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+    const addonList     = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
     const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
     const addonHours    = selectedAddons.reduce((s, a) => s + a.h, 0);
     const addonTotal    = selectedAddons.reduce((s, a) => s + (a.price || 0), 0);
@@ -296,7 +302,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     if (!followUpDate)       { setSaveError('Set a follow-up date.'); return; }
     setSaving(true); setSaveError('');
     try {
-      const addonList = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+      const addonList = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
       const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
       const now = new Date().toISOString();
       await addDoc(collection(db, 'savedQuotes'), {
@@ -320,8 +326,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               to_name: contactName.trim() || bizName.trim(),
               to_email: clientEmail.trim(),
               business_name: bizName.trim(),
-              service_type: clientType === 'airbnb' ? 'Airbnb / Short-let Cleaning' : 'Commercial Cleaning',
-              property_detail: clientType === 'airbnb'
+              service_type: clientType === 'estateAgent' ? 'Estate Agent Cleaning' : clientType === 'airbnb' ? 'Airbnb / Short-let Cleaning' : 'Commercial Cleaning',
+              property_detail: perVisit
                 ? `${bedrooms === 'studio' ? 'Studio' : `${bedrooms}-bed`}, ${extraBaths} bathroom${extraBaths !== '1' ? 's' : ''}`
                 : `${sqm}sqm ${intensity}, ${commBaths} bathroom${commBaths !== '1' ? 's' : ''}`,
               frequency: q.freq.label, contract_type: q.ct.label,
@@ -427,8 +433,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     setSubmitAttempted(true);
     if (clientType !== 'airbnb' && !bizName.trim()) { setBookError('Enter a business name first.'); return; }
     if (!clientEmail.trim()) { setBookError('Enter the client email.'); return; }
-    if (!contractStart)      { setBookError(clientType === 'airbnb' ? 'Set a visit date.' : 'Set a contract start date.'); return; }
-    if (clientType !== 'airbnb' && (frequency === 'daily' || frequency === 'twice' || frequency === 'thrice')) {
+    if (!contractStart)      { setBookError(perVisit ? 'Set a visit date.' : 'Set a contract start date.'); return; }
+    if (!perVisit && (frequency === 'daily' || frequency === 'twice' || frequency === 'thrice')) {
       const required = frequency === 'twice' ? 2 : frequency === 'thrice' ? 3 : 1;
       if (selectedDays.length < required) { setBookError(frequency === 'daily' ? 'Select at least one day before booking.' : `Select ${required} days for ${required}x per week before booking.`); return; }
       const startDay = new Date(contractStart + 'T12:00:00').getDay();
@@ -444,7 +450,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       const nameParts  = contactName.trim().split(' ');
       const firstName  = nameParts[0] || bizName.trim();
       const lastName   = nameParts.slice(1).join(' ') || '';
-      const addonList  = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+      const addonList  = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
       const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
       const nClean         = parseInt(numCleaners, 10) || 1;
       const addonHrs       = selectedAddons.reduce((s, a) => s + (a.h || 0), 0);
@@ -496,29 +502,31 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         updatedAt: now,
       };
 
-      if (clientType === 'airbnb') {
-        // Airbnb: one-off booking — no contract, no visits generated
-        // Media consent discount applies to first visit only; deposit is 30% of the discounted amount
-        const airbnbFirstTotal = bMediaConsent ? Math.round((q.price - 10) * 100) / 100 : q.price;
-        const airbnbDeposit    = Math.ceil(airbnbFirstTotal * 0.30 * 100) / 100;
-        const airbnbRemaining  = Math.round((airbnbFirstTotal - airbnbDeposit) * 100) / 100;
+      if (perVisit) {
+        // Airbnb & Estate Agent: one-off per-visit booking — no contract, no visits generated.
+        // Media consent discount applies to first visit only.
+        const isEA       = clientType === 'estateAgent';
+        const firstTotal = bMediaConsent ? Math.round((q.price - 10) * 100) / 100 : q.price;
+        // Airbnb takes a 30% deposit; Estate Agent is charged in FULL upfront (deposit = full total).
+        const depositAmt   = isEA ? firstTotal : Math.ceil(firstTotal * 0.30 * 100) / 100;
+        const remainingAmt = Math.round((firstTotal - depositAmt) * 100) / 100;
         const ref = await addDoc(collection(db, 'bookings'), {
           ...sharedFields,
-          total:     airbnbFirstTotal,
-          deposit:   airbnbDeposit,
-          remaining: airbnbRemaining,
+          total:     firstTotal,
+          deposit:   depositAmt,
+          remaining: remainingAmt,
           ...(bMediaConsent ? { originalTotal: q.price } : {}),
-          packageId: 'airbnb',
-          packageName: 'Airbnb Turnaround',
+          packageId:   isEA ? 'estate_agent' : 'airbnb',
+          packageName: isEA ? 'Estate Agent Clean' : 'Airbnb Turnaround',
           frequency: 'flexible',
           bathrooms: parseInt(extraBaths, 10) || 1,
           bedrooms,
           propertyType: airbnbPropType,
           size: bedrooms === 'studio' ? 'Studio' : `${bedrooms} bedroom${parseInt(bedrooms) > 1 ? 's' : ''}`,
           hasPets: false,
-          source: 'Airbnb Quote',
+          source: isEA ? 'Estate Agent Quote' : 'Airbnb Quote',
           status: 'pending_deposit',
-          isAirbnb: true,
+          ...(isEA ? { isEstateAgent: true, cleanType } : { isAirbnb: true }),
         });
         fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -605,8 +613,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
   const copyQuote = () => {
     const name = bizName ? `${bizName} -- ` : '';
-    const type = clientType === 'airbnb'
-      ? `${bedrooms === 'studio' ? 'Studio' : `${bedrooms}-bed`} Airbnb`
+    const type = perVisit
+      ? `${bedrooms === 'studio' ? 'Studio' : `${bedrooms}-bed`} ${clientType === 'estateAgent' ? 'Estate Agent' : 'Airbnb'}`
       : `Commercial (${sqm} sqm)`;
     const freqLabel = ` ${q.freq.label.toLowerCase()} clean`;
     const ctNote    = q.ct.id !== 'none' ? ` | ${q.ct.label}` : '';
@@ -665,7 +673,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {clientType !== 'airbnb' && (
                 <div style={{ gridColumn: 'span 2' }}>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Business name <span style={{ color: C.danger }}>*</span></div>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>{clientType === 'estateAgent' ? 'Estate agency name' : 'Business name'} <span style={{ color: C.danger }}>*</span></div>
                   <input value={bizName} onChange={e => setBizName(e.target.value)} placeholder="e.g. Oakwood Office, The Anchor Pub..." style={{ ...inputStyle, borderColor: submitAttempted && !bizName.trim() ? C.danger : undefined }} />
                 </div>
               )}
@@ -706,17 +714,26 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           <Card C={C}>
             <SectionLabel C={C}>Property</SectionLabel>
             <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-              {typeTabBtn('airbnb',     'Airbnb / Short-let')}
-              {typeTabBtn('commercial', 'Commercial')}
+              {typeTabBtn('airbnb',      'Airbnb / Short-let')}
+              {typeTabBtn('estateAgent', 'Estate Agent')}
+              {typeTabBtn('commercial',  'Commercial')}
             </div>
 
-            {clientType === 'airbnb' && (
+            {perVisit && (
               <div style={{ fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
                 This is a per-visit booking, not a quote or contract. Each visit is booked individually -- no fixed schedule. Once booked, all visits can be added as and when needed.
               </div>
             )}
-            {clientType === 'airbnb' ? (
+            {perVisit ? (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {clientType === 'estateAgent' && (
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Type of clean</div>
+                    <select value={cleanType} onChange={e => setCleanType(e.target.value)} style={inputStyle}>
+                      {ESTATE_CLEAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div style={{ gridColumn: 'span 2' }}>
                   <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Property type</div>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -797,7 +814,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           <Card C={C}>
             <SectionLabel C={C}>Add-ons</SectionLabel>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 7 }}>
-              {(clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS).map(a => (
+              {(perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS).map(a => (
                 <label
                   key={a.id}
                   style={{
@@ -829,10 +846,10 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
           {/* Frequency, cleaners, contract */}
           <Card C={C}>
-            <SectionLabel C={C}>{clientType === 'airbnb' ? 'Cleaners' : 'Frequency & contract'}</SectionLabel>
+            <SectionLabel C={C}>{perVisit ? 'Cleaners' : 'Frequency & contract'}</SectionLabel>
 
-            <div style={{ display: 'grid', gridTemplateColumns: clientType === 'airbnb' ? '1fr' : '1fr 1fr', gap: 10, marginBottom: clientType === 'airbnb' ? 0 : 14 }}>
-              {clientType !== 'airbnb' && (
+            <div style={{ display: 'grid', gridTemplateColumns: perVisit ? '1fr' : '1fr 1fr', gap: 10, marginBottom: perVisit ? 0 : 14 }}>
+              {!perVisit && (
                 <>
                   <div>
                     <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>How often</div>
@@ -876,7 +893,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               </div>
             </div>
 
-            {clientType !== 'airbnb' && (
+            {!perVisit && (
               <>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, marginTop: 14 }}>
                   Contract type
@@ -1019,7 +1036,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               </div>
 
               {q.addonTotal > 0 && (() => {
-                const addonList = clientType === 'airbnb' ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+                const addonList = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
                 const selected  = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
                 return (
                   <div style={{ marginTop: 12, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
@@ -1063,7 +1080,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               {q.pct >= 30 && q.pct < 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>healthy</span>}
               {q.pct >= 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>excellent</span>}
             </div>
-          {clientType === 'airbnb' && (() => {
+          {perVisit && (() => {
             const firstTotal = q.price - (bMediaConsent ? 10 : 0);
             const dep        = Math.ceil(firstTotal * 0.30 * 100) / 100;
             const afterClean = Math.round((firstTotal - dep) * 100) / 100;
@@ -1107,7 +1124,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           </Card>
 
           {/* Contract discount schedule — commercial only */}
-          {clientType !== 'airbnb' && <Card C={C}>
+          {!perVisit && <Card C={C}>
             <SectionLabel C={C}>Discount schedule</SectionLabel>
             <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 10 }}>
               Clean price per visit. Add-ons are charged on top at fixed rates.
@@ -1155,7 +1172,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
             <SectionLabel C={C}>Per visit breakdown</SectionLabel>
             <BreakdownRow
               label="Bathrooms"
-              value={`${clientType === 'airbnb' ? (parseInt(extraBaths, 10) || 1) : (parseInt(commBaths, 10) || 1)} included`}
+              value={`${perVisit ? (parseInt(extraBaths, 10) || 1) : (parseInt(commBaths, 10) || 1)} included`}
               C={C}
             />
             <BreakdownRow label="Labour"        value={`£${gbp(q.labor + q.addonLaborCost)}`}      C={C} />
@@ -1218,7 +1235,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 color: '#fff', width: '100%', transition: 'all 0.2s',
               }}
             >
-              {clientType === 'airbnb' ? 'Book first visit' : 'Book this contract'}
+              {perVisit ? 'Book first visit' : 'Book this contract'}
             </button>
             {showBookPanel && (
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1232,7 +1249,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                   return (
                     <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 12px' }}>
                       <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.muted, marginBottom: 8 }}>Pricing Summary</div>
-                      {clientType === 'airbnb' ? (
+                      {perVisit ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           {bMediaConsent ? (
                             <>
@@ -1320,7 +1337,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 {/* Date & time */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{clientType === 'airbnb' ? 'Visit date' : 'Start date'} <span style={{ color: C.danger }}>*</span></div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{perVisit ? 'Visit date' : 'Start date'} <span style={{ color: C.danger }}>*</span></div>
                     <input type="date" value={contractStart} onChange={e => setContractStart(e.target.value)} min={new Date().toISOString().slice(0, 10)} style={inputStyle} />
                   </div>
                   <div>
@@ -1328,7 +1345,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                     <input type="time" value={contractTime} onChange={e => setContractTime(e.target.value)} style={inputStyle} />
                   </div>
                 </div>
-                {contractStart && clientType !== 'airbnb' && (
+                {contractStart && !perVisit && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: -4 }}>
                     Contract ends: {(() => {
                       const ct = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
@@ -1409,7 +1426,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 Quote saved and email sent.
               </div>
             )}
-            {clientType === 'airbnb' ? (
+            {perVisit ? (
               <div style={{ fontSize: 12, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '11px 14px', textAlign: 'center' }}>
                 Quotes are only for contracted commercial jobs
               </div>

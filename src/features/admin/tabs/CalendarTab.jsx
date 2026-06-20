@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { todayUK } from '../../../utils/time';
 import { PACKAGES } from '../../../data/siteData';
-import { fmtDate } from '../utils';
+import { fmtDate, isOneOffPropertyClean, freqLabel } from '../utils';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -249,7 +249,8 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
 
       {/* Booking detail panel */}
       {sel && (() => {
-        const sc = STATUS_COLOURS[sel.status] || { bg: '#f5f5f5', color: '#5a5a5a', label: sel.status };
+        let sc = STATUS_COLOURS[sel.status] || { bg: '#f5f5f5', color: '#5a5a5a', label: sel.status };
+        if (sel.isEstateAgent && sel.status === 'pending_deposit') sc = { ...sc, label: 'Pending Payment' };
         return (
           <div style={{ marginTop: 16, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: isMobile ? 14 : 20, position: 'relative' }}>
             <button onClick={() => setCalSelectedId(null)} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: C.muted }}>✕</button>
@@ -263,7 +264,7 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
                 { l: 'Booking Ref', v: sel.bookingRef || (sel.isContractVisit && sel.contractId ? bookings.find(b => b.id === sel.contractId)?.bookingRef : null) },
                 { l: 'Clean Date',  v: fmtDate(sel.cleanDate) },
                 { l: 'Clean Time',  v: sel.cleanTime },
-                { l: 'Frequency',   v: ({ 'one-off': 'One-off', 'daily': 'Daily', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' })[sel.frequency] || sel.frequency || 'One-off' },
+                { l: 'Frequency',   v: freqLabel(sel) },
                 sel.isContractVisit && sel.bizName && { l: 'Business', v: sel.bizName },
                 sel.isContractVisit && { l: 'Client Type', v: sel.clientType === 'airbnb' ? 'Airbnb' : 'Commercial' },
                 sel.isContractVisit && { l: 'No. of Cleaners', v: sel.numCleaners || '—' },
@@ -282,7 +283,7 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
                 !sel.isContractVisit && { l: 'Pets', v: sel.hasPets ? `Yes — ${sel.petTypes || 'not specified'}` : 'No' },
                 !sel.isContractVisit && (sel.package === 'standard' || sel.packageId === 'standard') && { l: 'Signature Touch', v: sel.signatureTouch !== false ? 'Opted in' : 'Opted out' },
                 !sel.isContractVisit && { l: 'Total',     v: `£${parseFloat(sel.total || 0).toFixed(2)}` },
-                !sel.isContractVisit && { l: 'Deposit',   v: sel.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(sel.deposit || 0).toFixed(2)}` },
+                !sel.isContractVisit && { l: sel.isEstateAgent ? 'Payment' : 'Deposit',   v: sel.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(sel.deposit || 0).toFixed(2)}` },
                 !sel.isContractVisit && { l: 'Remaining', v: `£${parseFloat(sel.remaining || 0).toFixed(2)}` },
                 sel.notes && { l: 'Notes', v: sel.notes },
               ].filter(Boolean).map((r, i) => (
@@ -337,7 +338,7 @@ export default function CalendarTab({ bookings, isMobile, C, onAfterBlock }) {
                         msg = hoursUntil >= 48
                           ? `No charge — more than 48 hours notice given.`
                           : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(sel.total * 0.3).toFixed(2)} (30% of £${parseFloat(sel.total || 0).toFixed(2)}) will be charged to the customer's saved card.`;
-                      } else if (sel.isAirbnb && parseFloat(sel.deposit || 0) === 0) {
+                      } else if (isOneOffPropertyClean(sel) && parseFloat(sel.deposit || 0) === 0) {
                         msg = hoursUntil >= 48
                           ? `No charge — more than 48 hours notice given.`
                           : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(parseFloat(sel.total || 0) * 0.3).toFixed(2)} (30% of £${parseFloat(sel.total || 0).toFixed(2)}) will be charged to the customer's saved card.`;

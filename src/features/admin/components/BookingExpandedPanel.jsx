@@ -1,4 +1,4 @@
-import { calcHours, toInputTime, fmtDuration } from '../utils';
+import { calcHours, toInputTime, fmtDuration, isOneOffPropertyClean, freqLabel, ESTATE_CLEAN_TYPES } from '../utils';
 import emailjs from '@emailjs/browser';
 import DoNotContactToggle from './DoNotContactToggle';
 import { useState, useEffect } from 'react';
@@ -141,6 +141,13 @@ export default function BookingExpandedPanel({
     if (!newVisitModal?.time) { setNewVisitErr('Select a time.'); return; }
     setNewVisitSaving(true); setNewVisitErr('');
     try {
+      // Estate Agent visits are distinct jobs (often a different property), so don't carry over
+      // the previous visit's add-ons — start fresh with none and price the base visit only.
+      const isEA            = b.isEstateAgent === true;
+      const baseVisit       = parseFloat(b.pricePerVisit || 0) || Math.max(0, parseFloat(b.total || 0) + parseFloat(b.mediaConsentDiscount || 0) - parseFloat(b.addonTotal || 0));
+      const visitAddons     = isEA ? [] : (b.addons || []);
+      const visitAddonTotal = isEA ? 0  : parseFloat(b.addonTotal || 0);
+      const visitTotal      = baseVisit + visitAddonTotal;
       const newBooking = {
         customerName:    b.customerName || b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim(),
         firstName:       b.firstName || b.contactName || '',
@@ -149,26 +156,27 @@ export default function BookingExpandedPanel({
         contactName:     b.contactName || '',
         email:           b.email,
         phone:           b.phone || '',
-        addr1:           b.addr1 || '',
-        postcode:        b.postcode || '',
+        addr1:           newVisitModal.addr1 ?? b.addr1 ?? '',
+        postcode:        newVisitModal.postcode ?? b.postcode ?? '',
         bedrooms:        b.bedrooms || '',
         propertyType:    b.propertyType || '',
         size:            b.size || '',
         packageName:     b.packageName || '',
         package:         b.package || '',
-        clientType:      'airbnb',
-        isAirbnb:        true,
+        cleanType:       newVisitModal.cleanType ?? b.cleanType ?? '',
+        clientType:      b.isEstateAgent ? 'estateAgent' : 'airbnb',
+        ...(b.isEstateAgent ? { isEstateAgent: true } : { isAirbnb: true }),
         frequency:       b.frequency || 'one-off',
         numCleaners:     b.numCleaners || 1,
         visitDur:        b.visitDur || b.visitDurationBase || '',
-        addons:          b.addons || [],
-        addonTotal:      parseFloat(b.addonTotal || 0),
-        pricePerVisit:   parseFloat(b.pricePerVisit || 0) || Math.max(0, parseFloat(b.total || 0) + parseFloat(b.mediaConsentDiscount || 0) - parseFloat(b.addonTotal || 0)),
-        total:           (parseFloat(b.pricePerVisit || 0) + parseFloat(b.addonTotal || 0)) || (parseFloat(b.total || 0) + parseFloat(b.mediaConsentDiscount || 0)),
+        addons:          visitAddons,
+        addonTotal:      visitAddonTotal,
+        pricePerVisit:   baseVisit,
+        total:           visitTotal,
         deposit:         0,
-        remaining:       (parseFloat(b.pricePerVisit || 0) + parseFloat(b.addonTotal || 0)) || (parseFloat(b.total || 0) + parseFloat(b.mediaConsentDiscount || 0)),
-        marketingOptOut: false,
-        doNotContact:    false,
+        remaining:       visitTotal,
+        marketingOptOut: b.marketingOptOut ?? false,
+        doNotContact:    b.doNotContact ?? false,
         assignedStaff:   b.assignedStaff || '',
         secondCleaner:   b.secondCleaner || '',
         keys:            b.keys || '',
@@ -435,6 +443,7 @@ export default function BookingExpandedPanel({
         ] : [
           { l: 'Booked On',        v: fmtCreatedAt(b.createdAt) },
           { l: 'Booking Ref',      v: b.bookingRef },
+          b.isEstateAgent && b.bizName && { l: 'Estate Agency', v: b.bizName },
           { l: 'Phone',            v: b.phone },
           { l: 'Email',            v: b.email },
           { l: 'Clean Date',       v: fmtDate(b.cleanDate) },
@@ -445,15 +454,16 @@ export default function BookingExpandedPanel({
           { l: 'Bathrooms',        v: b.bathrooms || '—' },
           b.airbnbListing && { l: 'Airbnb Listing', v: b.airbnbListing },
           { l: 'Keys',             v: b.keys || '—' },
-          { l: 'Frequency',        v: ({ 'one-off': 'One-off', 'daily': 'Daily', 'weekly': 'Weekly', 'fortnightly': 'Fortnightly', 'monthly': 'Monthly', 'flexible': 'Airbnb Flexible' })[b.frequency] || b.frequency || 'One-off' },
+          { l: 'Frequency',        v: freqLabel(b) },
           b.isContractVisit && b.numCleaners && { l: 'No. of Cleaners', v: b.numCleaners },
           b.isContractVisit && b.visitDurationBase && { l: 'Visit Duration', v: `${b.visitDurationBase}h` },
+          b.isEstateAgent && b.cleanType && { l: 'Type of clean', v: b.cleanType },
           { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : (b.addonsList || 'None') },
-          !b.isContractVisit && !b.isAirbnb && !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
+          !b.isContractVisit && !isOneOffPropertyClean(b) && !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
           !b.isContractVisit && (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
           { l: 'Marketing Opt-in', v: (b.doNotContact || b.marketingOptOut) ? '✕ Opted out' : '✓ Opted in' },
           !b.isContractVisit && { l: 'Media Consent',    v: b.mediaConsent ? '✓ Consented to photos/videos on social media' : '✕ No consent given' },
-          ...(b.isAirbnb ? (() => {
+          ...(isOneOffPropertyClean(b) ? (() => {
             const baseClean = parseFloat(b.pricePerVisit || 0);
             const addonAmt  = parseFloat(b.addonTotal   || 0);
             const mediaDisc = parseFloat(b.mediaConsentDiscount || 0);
@@ -472,7 +482,13 @@ export default function BookingExpandedPanel({
             b.mediaConsentDiscount && { l: 'Photo consent discount', v: `-£${parseFloat(b.mediaConsentDiscount).toFixed(2)}`, grn: true },
             { l: 'Total', v: `£${parseFloat(b.total).toFixed(2)}` },
           ]),
-          { l: b.status === 'pending_deposit' ? 'Deposit due (30%)' : 'Deposit paid', v: b.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(b.deposit || 0).toFixed(2)}`, highlight: b.status === 'pending_deposit' },
+          (b.isEstateAgent
+            ? { l: b.status === 'pending_deposit' ? 'Payment due' : (parseFloat(b.deposit || 0) > 0 ? 'Payment received' : 'Payment'),
+                v: b.status === 'pending_deposit' ? 'Pending' : (parseFloat(b.deposit || 0) > 0 ? `£${parseFloat(b.deposit).toFixed(2)}` : 'Charged on completion'),
+                highlight: b.status === 'pending_deposit' }
+            : { l: b.status === 'pending_deposit' ? 'Deposit due (30%)' : 'Deposit paid',
+                v: b.status === 'pending_deposit' ? 'Pending' : `£${parseFloat(b.deposit || 0).toFixed(2)}`,
+                highlight: b.status === 'pending_deposit' }),
           { l: 'Remaining', v: `£${parseFloat(b.remaining).toFixed(2)}` },
           !b.isAutoRecurring && { l: 'Source', v: b.source || '—' },
           b.stripeDepositIntentId   && { l: 'Stripe Deposit PI',   v: b.stripeDepositIntentId },
@@ -1087,9 +1103,9 @@ export default function BookingExpandedPanel({
                     Copy
                   </button>
                 </div>
-                <button onClick={() => handleEmailDepositLink(b)} disabled={emailingLink === b.id || emailedLinks[b.id]}
-                  style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '8px 16px', width: '100%', background: emailedLinks[b.id] ? '#16a34a' : '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: emailedLinks[b.id] ? 'default' : 'pointer' }}>
-                  {emailingLink === b.id ? 'Sending…' : emailedLinks[b.id] ? '✓ Email Sent to Client' : '✉ Email Link to Client'}
+                <button onClick={() => handleEmailDepositLink(b)} disabled={emailingLink === b.id}
+                  style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '8px 16px', width: '100%', background: emailedLinks[b.id] ? '#16a34a' : '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: emailingLink === b.id ? 'default' : 'pointer' }}>
+                  {emailingLink === b.id ? 'Sending…' : emailedLinks[b.id] ? '✓ Sent — Email Again' : '✉ Email Link to Client'}
                 </button>
               </div>
             )}
@@ -1119,7 +1135,7 @@ export default function BookingExpandedPanel({
             </button>
             <button onClick={() => handleMarkDepositPaid(b)} disabled={markingDeposit === b.id}
               style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: 'pointer' }}>
-              {markingDeposit === b.id ? 'Saving…' : `💷 Mark Deposit Paid — £${parseFloat(b.deposit || 0).toFixed(2)}`}
+              {markingDeposit === b.id ? 'Saving…' : `💷 ${b.isEstateAgent ? 'Mark Paid' : 'Mark Deposit Paid'} — £${parseFloat(b.deposit || 0).toFixed(2)}`}
             </button>
           </>
         )}
@@ -1137,9 +1153,9 @@ export default function BookingExpandedPanel({
                 Copy
               </button>
             </div>
-            <button onClick={() => handleEmailDepositLink(b)} disabled={emailingLink === b.id || emailedLinks[b.id]}
-              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '8px 16px', width: '100%', background: emailedLinks[b.id] ? '#16a34a' : '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: emailedLinks[b.id] ? 'default' : 'pointer', marginBottom: 8 }}>
-              {emailingLink === b.id ? 'Sending…' : emailedLinks[b.id] ? '✓ Email Sent to Customer' : '✉ Email Link to Customer'}
+            <button onClick={() => handleEmailDepositLink(b)} disabled={emailingLink === b.id}
+              style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '8px 16px', width: '100%', background: emailedLinks[b.id] ? '#16a34a' : '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: emailingLink === b.id ? 'default' : 'pointer', marginBottom: 8 }}>
+              {emailingLink === b.id ? 'Sending…' : emailedLinks[b.id] ? '✓ Sent — Email Again' : '✉ Email Link to Customer'}
             </button>
             <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.danger, marginBottom: 4 }}>
               Read to customer before sending link:
@@ -1231,10 +1247,10 @@ export default function BookingExpandedPanel({
           </>
         )}
 
-        {/* Add New Visit — Airbnb only */}
-        {b.isAirbnb === true && !isCancelled && (
+        {/* Add New Visit — Airbnb & Estate Agent */}
+        {isOneOffPropertyClean(b) && !isCancelled && (
           <button
-            onClick={() => { setNewVisitErr(''); setNewVisitModal({ date: '', time: b.cleanTime || '' }); }}
+            onClick={() => { setNewVisitErr(''); setNewVisitModal({ date: '', time: b.cleanTime || '', addr1: b.addr1 || '', postcode: b.postcode || '', cleanType: b.cleanType || ESTATE_CLEAN_TYPES[0] }); }}
             style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, padding: '7px 14px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac', borderRadius: 6, cursor: 'pointer' }}>
             + Add New Visit
           </button>
@@ -1434,7 +1450,7 @@ export default function BookingExpandedPanel({
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
             <div style={{ background: C.card, borderRadius: 12, padding: '28px 28px 24px', maxWidth: 400, width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
               <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>Add New Visit</div>
-              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 20 }}>All property details will be copied from this booking. Just set the date and time.</div>
+              <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 20 }}>{b.isEstateAgent ? 'Property details are copied from this booking. Set the date and time, and change the address if this visit is at a different property.' : 'All property details will be copied from this booking. Just set the date and time.'}</div>
 
               <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, fontFamily: FONT, color: C.muted, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div><strong style={{ color: C.text }}>{b.customerName}</strong></div>
@@ -1445,14 +1461,22 @@ export default function BookingExpandedPanel({
 
               <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
                 <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>Check add-ons with the client before confirming</div>
-                {(b.addons || []).length > 0 ? (
+                {b.isEstateAgent ? (
                   <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>
-                    Current add-ons: {(b.addons || []).map(a => a.name || a.label).join(', ')}
+                    This visit starts with no add-ons. Add any the client confirms by editing the booking after you create the visit.
                   </div>
                 ) : (
-                  <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>No add-ons on this booking.</div>
+                  <>
+                    {(b.addons || []).length > 0 ? (
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>
+                        Current add-ons: {(b.addons || []).map(a => a.name || a.label).join(', ')}
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>No add-ons on this booking.</div>
+                    )}
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: '#b45309' }}>Did the client confirm the same add-ons for this visit? Including restocking handling fee if applicable. Edit the booking after creating the visit if anything has changed.</div>
+                  </>
                 )}
-                <div style={{ fontFamily: FONT, fontSize: 11, color: '#b45309' }}>Did the client confirm the same add-ons for this visit? Including restocking handling fee if applicable. Edit the booking after creating the visit if anything has changed.</div>
               </div>
 
               <div style={{ marginBottom: 14 }}>
@@ -1468,6 +1492,29 @@ export default function BookingExpandedPanel({
                   onChange={e => setNewVisitModal(m => ({ ...m, time: e.target.value }))}
                   style={{ ...FIELD_STYLE(C), marginBottom: 0 }} />
               </div>
+
+              {b.isEstateAgent && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>Type of clean</div>
+                  <select value={newVisitModal.cleanType || ESTATE_CLEAN_TYPES[0]}
+                    onChange={e => setNewVisitModal(m => ({ ...m, cleanType: e.target.value }))}
+                    style={{ ...FIELD_STYLE(C), marginBottom: 0 }}>
+                    {ESTATE_CLEAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {b.isEstateAgent && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>Address for this visit</div>
+                  <input type='text' value={newVisitModal.addr1 || ''} placeholder='Street address'
+                    onChange={e => setNewVisitModal(m => ({ ...m, addr1: e.target.value }))}
+                    style={{ ...FIELD_STYLE(C), marginBottom: 8 }} />
+                  <input type='text' value={newVisitModal.postcode || ''} placeholder='Postcode'
+                    onChange={e => setNewVisitModal(m => ({ ...m, postcode: e.target.value.toUpperCase() }))}
+                    style={{ ...FIELD_STYLE(C), marginBottom: 0 }} />
+                </div>
+              )}
 
               {newVisitErr && <div style={{ fontFamily: FONT, fontSize: 12, color: C.danger, marginBottom: 12 }}>{newVisitErr}</div>}
 

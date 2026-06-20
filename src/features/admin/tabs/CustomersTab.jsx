@@ -97,8 +97,9 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
     const key = (b.email || '').toLowerCase().trim();
     if (!key) return;
     if (!customerMap[key]) {
-      customerMap[key] = { email: key, firstName: b.firstName, lastName: b.lastName, phone: b.phone, addr1: b.addr1, postcode: b.postcode, bookings: [] };
+      customerMap[key] = { email: key, firstName: b.firstName, lastName: b.lastName, phone: b.phone, addr1: b.addr1, postcode: b.postcode, bizName: b.bizName || '', bookings: [] };
     }
+    if (b.bizName && !customerMap[key].bizName) customerMap[key].bizName = b.bizName;
     customerMap[key].bookings.push(b);
   });
 
@@ -132,12 +133,15 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
     const activeBooking   = sorted.find(b => !b.status?.startsWith('cancelled')) || sorted[0];
     const doNotContact    = activeBooking?.doNotContact ?? activeBooking?.marketingOptOut ?? false;
     const latestNotes     = sorted.find(b => b.notes)?.notes || '';
-    return { ...c, totalSpend, collected, lastClean, firstClean, isRecurring, hasActive, totalBookings: c.bookings.length, doNotContact, latestNotes, latestBookingId: activeBooking?.id };
+    // Business clients (contracts / estate agents) are identified by their business name
+    const isBiz       = c.bookings.some(b => b.isContract || b.isEstateAgent);
+    const displayName = (isBiz && c.bizName) ? c.bizName : `${c.firstName || ''} ${c.lastName || ''}`.trim();
+    return { ...c, totalSpend, collected, lastClean, firstClean, isRecurring, hasActive, totalBookings: c.bookings.length, doNotContact, latestNotes, latestBookingId: activeBooking?.id, isBiz, displayName };
   }).sort((a, b) => (b.lastClean || '') > (a.lastClean || '') ? 1 : -1);
 
   const filtered = customers.filter(c => {
     const q = customerSearch.toLowerCase();
-    return !q || `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) || c.email.includes(q) || (c.phone || '').includes(q) || (c.postcode || '').toLowerCase().includes(q);
+    return !q || `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) || (c.bizName || '').toLowerCase().includes(q) || c.email.includes(q) || (c.phone || '').includes(q) || (c.postcode || '').toLowerCase().includes(q);
   });
 
   const sc = selectedCustomer ? customers.find(c => c.email === selectedCustomer) : null;
@@ -152,7 +156,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
             <input
               value={customerSearch}
               onChange={e => setCustomerSearch(e.target.value)}
-              placeholder="Search by name, email, phone, postcode…"
+              placeholder="Search by name, business, email, phone, postcode…"
               style={{ ...INPUT, marginBottom: 0, padding: '10px 36px 10px 14px', borderRadius: 8 }}
             />
             {customerSearch && <button onClick={() => setCustomerSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: C.muted }}>×</button>}
@@ -165,7 +169,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
               style={{ background: C.card, border: `1px solid ${selectedCustomer === c.email ? C.accent : C.border}`, borderLeft: `3px solid ${selectedCustomer === c.email ? C.accent : 'transparent'}`, borderRadius: 8, padding: '12px 14px', marginBottom: 8, cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{c.firstName} {c.lastName}</div>
+                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.text }}>{c.displayName}</div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {c.hasActive && <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 500, background: '#f0fdf4', color: C.success, padding: '2px 8px', borderRadius: 20, border: `1px solid rgba(22,163,74,0.2)` }}>Recurring</div>}
                 </div>
@@ -200,9 +204,10 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
               return (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
                   <div>
-                    <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 4 }}>{sc.firstName} {sc.lastName}</div>
+                    <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 4 }}>{sc.displayName}</div>
+                    {sc.isBiz && `${sc.firstName || ''} ${sc.lastName || ''}`.trim() && <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, marginBottom: 4 }}>Contact: {`${sc.firstName || ''} ${sc.lastName || ''}`.trim()}</div>}
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f8fafc', color: C.muted, padding: '3px 10px', borderRadius: 20, border: `1px solid ${C.border}` }}>Residential</div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f8fafc', color: C.muted, padding: '3px 10px', borderRadius: 20, border: `1px solid ${C.border}` }}>{(sc.bookings || []).some(x => x.isEstateAgent) ? 'Estate Agent' : (sc.bookings || []).some(x => x.isContract) ? 'Commercial' : (sc.bookings || []).some(x => x.isAirbnb) ? 'Airbnb' : 'Residential'}</div>
                       {sc.hasActive && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f0fdf4', color: C.success, padding: '3px 10px', borderRadius: 20, border: `1px solid rgba(22,163,74,0.2)` }}>Active Recurring</div>}
                       {offerActive && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, background: '#fffbeb', color: '#92400e', padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(146,64,14,0.2)' }}>⏱ {daysLeft} day{daysLeft !== 1 ? 's' : ''} left on offer</div>}
                       {offerExpired && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f1f5f9', color: C.muted, padding: '3px 10px', borderRadius: 20, border: `1px solid ${C.border}` }}>Offer expired</div>}
@@ -371,7 +376,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                   {b.isContract && <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 400, color: C.muted }}>/mo</span>}
                 </div>
                 <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: STATUS_COLOURS[b.status]?.bg || '#f5f5f5', color: STATUS_COLOURS[b.status]?.color || '#5a5a5a', border: '1px solid rgba(0,0,0,0.06)' }}>
-                  {STATUS_COLOURS[b.status]?.label || b.status}
+                  {(b.isEstateAgent && b.status === 'pending_deposit') ? 'Pending Payment' : (STATUS_COLOURS[b.status]?.label || b.status)}
                 </div>
               </div>
             </div>

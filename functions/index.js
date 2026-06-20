@@ -1458,7 +1458,7 @@ exports.markDepositPaid = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) 
 });
 
 // ── 9. Update booking fields (admin edit) ────────────────────
-exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) => {
+exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY, STRIPE_KEY] }, async (req, res) => {
   if (!guard(req, res)) return;
   const {
     bookingId, updateCustomerProfile, skipEmail,
@@ -1558,18 +1558,37 @@ exports.updateBooking = onRequest({ secrets:[EMAILJS_KEY] }, async (req, res) =>
 
   await snap.ref.update(updates);
 
+  // If the amount changed while a payment link is still pending, update the Stripe PaymentIntent
+  // so the customer is charged the NEW amount — not the stale amount from when the link was made.
+  if (updates.deposit !== undefined
+      && current.status === 'pending_deposit'
+      && current.pendingDepositPIId
+      && Math.round(parseFloat(updates.deposit) * 100) !== Math.round(parseFloat(current.deposit || 0) * 100)) {
+    try {
+      const stripe = new Stripe(STRIPE_KEY.value());
+      await stripe.paymentIntents.update(current.pendingDepositPIId, { amount: Math.round(parseFloat(updates.deposit) * 100) });
+    } catch (e) {
+      console.error('Failed to update pending PaymentIntent amount on edit:', e.message);
+    }
+  }
+
   // Send update email when anything meaningful to the customer changed (not for pending_deposit — booking not yet confirmed)
   if (changes.length > 0 && !skipEmail && process.env.EMAILJS_UPDATE_TEMPLATE && current.status !== 'pending_deposit') {
     const addonsList = (newAddons || []).map(a => a.name).join(', ') || 'None';
     const newRemaining = remaining !== undefined ? parseFloat(remaining) : parseFloat(current.remaining || 0);
     const newTotal     = total     !== undefined ? parseFloat(total)     : parseFloat(current.total     || 0);
+    const freqForEmail = (() => {
+      const f = newFrequency || current.frequency || 'one-off';
+      if (f === 'flexible') return current.isEstateAgent ? 'Per visit' : 'Airbnb Flexible';
+      return ({ 'one-off': 'One-off', daily: 'Daily', weekly: 'Weekly', fortnightly: 'Fortnightly', monthly: 'Monthly' })[f] || f;
+    })();
     const updateData = {
       booking_ref:     current.bookingRef,
-      package_name:    newPackageName,
+      package_name:    current.isEstateAgent && current.cleanType ? current.cleanType : newPackageName,
       date:            newDate.split('-').reverse().join('/'),
       time:            newTime,
       address:         `${newAddr1}, ${newPostcode}`,
-      frequency:       newFrequency || 'One-off',
+      frequency:       freqForEmail,
       addons:          addonsList,
       total:           `£${newTotal.toFixed(2)}`,
       deposit_paid:    `£${parseFloat(current.deposit || 0).toFixed(2)}`,
@@ -1940,6 +1959,7 @@ exports.getDepositDetails = onRequest(async (req, res) => {
     deposit:      b.deposit,
     total:        b.total,
     remaining:    b.remaining,
+    isEstateAgent: b.isEstateAgent === true,
     bookingRef:   b.bookingRef,
     clientSecret: b.pendingDepositClientSecret,
     frequency:    b.frequency || 'one-off',
@@ -2018,11 +2038,16 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
     res.json({ success: true, isContract: true });
     return;
   }
+  // If the "deposit" covered the whole amount (e.g. Estate Agent paid in full upfront, so
+  // remaining is 0), the booking is fully paid — not a deposit with a balance still due.
+  const paidInFull = parseFloat(b.remaining || 0) <= 0;
+  const newStatus  = paidInFull ? 'fully_paid' : 'deposit_paid';
   const updateData = {
-    status:               'deposit_paid',
+    status:               newStatus,
     stripeDepositIntentId: paymentIntentId,
     stripeCustomerId:      customerId,
     depositPaidAt:         new Date(),
+    ...(paidInFull ? { paidAt: new Date() } : {}),
     pendingDepositClientSecret: admin.firestore.FieldValue.delete(),
     pendingDepositCustomerId:   admin.firestore.FieldValue.delete(),
     pendingDepositPIId:         admin.firestore.FieldValue.delete(),
@@ -2065,7 +2090,7 @@ exports.confirmDepositPayment = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] },
       await calendar.events.patch({
         calendarId: process.env.GOOGLE_CALENDAR_ID,
         eventId:    b.calendarEventId,
-        resource:   { colorId: calColorId('deposit_paid', b.frequency), description },
+        resource:   { colorId: calColorId(newStatus, b.frequency), description },
       });
     } catch (e) {
       console.error('confirmDepositPayment: calendar patch failed:', e.message);
@@ -4538,6 +4563,8 @@ exports.createCalendarEvent = onRequest({ timeoutSeconds: 540 }, async (req, res
 
         const name        = b.bizName ? `${b.bizName}` : `${b.firstName || ''} ${b.lastName || ''}`.trim();
         const packageName = b.packageName || b.contractLabel || 'Cleaning';
+        // Estate Agent: use the clean type (End of Tenancy, etc.) as the calendar title
+        const titleLabel  = (b.isEstateAgent && b.cleanType) ? b.cleanType : packageName;
         const slotStart   = toUTCISO(b.cleanDate, b.cleanTime);
         const slotEnd     = new Date(new Date(slotStart).getTime() + 60 * 1000).toISOString();
 
@@ -4545,10 +4572,11 @@ exports.createCalendarEvent = onRequest({ timeoutSeconds: 540 }, async (req, res
         const calEvent = await cal.events.insert({
           calendarId: process.env.GOOGLE_CALENDAR_ID,
           resource: {
-            summary:     `${packageName} — ${name}`,
+            summary:     `${titleLabel} — ${name}`,
             description: [
               b.bookingRef  && `Ref: ${b.bookingRef}`,
               `Customer: ${name}`,
+              b.isEstateAgent && b.cleanType && `Type of clean: ${b.cleanType}`,
               b.email       && `Email: ${b.email}`,
               b.phone       && `Phone: ${b.phone}`,
               b.addr1       && `Address: ${b.addr1}${b.postcode ? ', ' + b.postcode : ''}`,
