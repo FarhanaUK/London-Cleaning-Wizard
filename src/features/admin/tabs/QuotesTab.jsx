@@ -148,6 +148,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   // Commercial can be booked as a fixed-term contract OR a single one-off / trial clean (no contract).
   const [commercialMode, setCommercialMode] = useState('contract');
   const isCommercialOneOff = clientType === 'commercial' && commercialMode === 'oneoff';
+  // One-off discount: enter a % or a £ amount; applied to the total and charged via the payment link.
+  const [oneOffDiscount,     setOneOffDiscount]     = useState('');
+  const [oneOffDiscountUnit, setOneOffDiscountUnit] = useState('%');
   const [numCleaners,  setNumCleaners]  = useState('1');
   const [cleanerRate,  setCleanerRate]  = useState('17');
   const [suppliesCost, setSuppliesCost] = useState('5');
@@ -302,8 +305,14 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const cVal              = ct.months * mRev;
     const cBaseVal          = ct.months * mBaseRev;
     const visitDur          = totalHours / Math.max(parseInt(numCleaners, 10) || 1, 1);
-    return { labor, overheadPerVisit, cost, trueCost, addonLaborCost, basePrice, cleanPrice, price, profit, profitWithAddons, pct, addonTotal, mRev, mBaseRev, mAddonRev, mCost, mTrueCost, mProfit, mProfitWithAddons, cVal, cBaseVal, ct, freq, visitDur, calcPrice, manualQuote };
-  }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, selectedDays, numCleaners, addons, clientType, cleanType, manualPrice]);
+    // One-off discount applied to the whole total (clean + add-ons). % or fixed £.
+    const discInput   = parseFloat(oneOffDiscount) || 0;
+    const discountAmount = oneOffDiscountUnit === '%'
+      ? Math.round(price * Math.min(Math.max(discInput, 0), 100) / 100 * 100) / 100
+      : Math.min(Math.max(discInput, 0), price);
+    const discountedPrice = Math.max(0, Math.round((price - discountAmount) * 100) / 100);
+    return { labor, overheadPerVisit, cost, trueCost, addonLaborCost, basePrice, cleanPrice, price, profit, profitWithAddons, pct, addonTotal, mRev, mBaseRev, mAddonRev, mCost, mTrueCost, mProfit, mProfitWithAddons, cVal, cBaseVal, ct, freq, visitDur, calcPrice, manualQuote, discountAmount, discountedPrice };
+  }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, selectedDays, numCleaners, addons, clientType, cleanType, manualPrice, oneOffDiscount, oneOffDiscountUnit]);
 
   const marginColor = q.pct < 25 ? C.danger : q.pct < 30 ? C.warning : C.success;
 
@@ -556,8 +565,10 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         // same payment link as Estate Agent (card saved); lands fully_paid once paid.
         const ref = await addDoc(collection(db, 'bookings'), {
           ...sharedFields,
-          deposit:   q.price,   // full amount upfront
+          total:     q.discountedPrice,   // discounted total
+          deposit:   q.discountedPrice,   // full discounted amount upfront
           remaining: 0,
+          ...(q.discountAmount > 0 ? { originalTotal: q.price, oneOffDiscountAmount: q.discountAmount } : {}),
           packageId: 'commercial',
           packageName: 'Commercial Cleaning',
           frequency: 'one-off',
@@ -783,7 +794,28 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
             {isCommercialOneOff && (
               <div style={{ fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
-                One-off / trial clean - a single booking with no contract. Set a lower price in "Manual price override" below to give a discount. Paid in full via payment link before the visit, and the card is saved so you can set up a contract later if they like us.
+                One-off / trial clean - a single booking with no contract. Paid in full via payment link before the visit, and the card is saved so you can set up a contract later if they like us.
+              </div>
+            )}
+
+            {isCommercialOneOff && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>First-booking discount (optional)</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input type="number" min="0" value={oneOffDiscount} onChange={e => setOneOffDiscount(e.target.value)} placeholder="0" style={{ ...inputStyle, flex: 1 }} />
+                  {['%', '£'].map(u => (
+                    <button key={u} onClick={() => setOneOffDiscountUnit(u)} style={{
+                      fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '0 16px', borderRadius: 6, cursor: 'pointer',
+                      border: `1px solid ${oneOffDiscountUnit === u ? C.accent : C.border}`,
+                      background: oneOffDiscountUnit === u ? C.accent : C.card, color: oneOffDiscountUnit === u ? '#fff' : C.text,
+                    }}>{u}</button>
+                  ))}
+                </div>
+                {q.discountAmount > 0 && (
+                  <div style={{ fontSize: 12, color: '#16a34a', marginTop: 6, fontWeight: 600 }}>
+                    -£{gbp(q.discountAmount)} off · client pays £{gbp(q.discountedPrice)}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1370,8 +1402,18 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                               <span>Add-ons</span><span style={{ color: C.text, fontWeight: 600 }}>+£{gbp(q.addonTotal)}</span>
                             </div>
                           )}
+                          {q.discountAmount > 0 && (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
+                                <span>Subtotal</span><span style={{ textDecoration: 'line-through' }}>£{gbp(q.price)}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16a34a' }}>
+                                <span>Discount{oneOffDiscountUnit === '%' ? ` (${parseFloat(oneOffDiscount) || 0}%)` : ''}</span><span style={{ fontWeight: 600 }}>-£{gbp(q.discountAmount)}</span>
+                              </div>
+                            </>
+                          )}
                           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6, marginTop: 2, display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text }}>
-                            <span>One-off total (paid in full)</span><span>£{gbp(q.price)}</span>
+                            <span>One-off total (paid in full)</span><span>£{gbp(q.discountedPrice)}</span>
                           </div>
                           <div style={{ fontSize: 11, color: C.muted }}>Charged in full via payment link before the visit. Card saved for any future bookings.</div>
                         </div>
