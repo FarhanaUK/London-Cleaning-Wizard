@@ -1338,12 +1338,17 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               <BreakdownRow label="Overhead share" value={`£${gbp(q.overheadPerVisit)}`}          C={C} />
             )}
             <BreakdownRow label="Your total cost"  value={`£${gbp(q.addonTotal > 0 ? q.trueCost : q.cost)}`} C={C} accent />
-            <BreakdownRow label="Contract clean"  value={`£${gbp(q.cleanPrice)}`}  C={C} accent />
+            <BreakdownRow label={isCommercialOneOff ? 'Clean price' : 'Contract clean'}  value={`£${gbp(q.cleanPrice)}`}  C={C} accent />
             {q.addonTotal > 0 && (
               <BreakdownRow label="Add-ons"        value={`£${gbp(q.addonTotal)}`}  C={C} />
             )}
-            <BreakdownRow label="Total charge"    value={`£${gbp(q.price)}`}        C={C} accent />
-            <BreakdownRow label="Profit" value={`£${gbp(q.addonTotal > 0 ? q.profitWithAddons : q.profit)}`} C={C} last />
+            {isCommercialOneOff && q.discountAmount > 0 && (
+              <BreakdownRow label={`Discount${oneOffDiscountUnit === '%' ? ` (${parseFloat(oneOffDiscount) || 0}%)` : ''}`} value={`-£${gbp(q.discountAmount)}`} C={C} />
+            )}
+            <BreakdownRow label="Total charge"    value={`£${gbp(isCommercialOneOff ? q.discountedPrice : q.price)}`}        C={C} accent />
+            <BreakdownRow label="Profit" value={isCommercialOneOff
+              ? (q.discountedProfit < 0 ? `-£${gbp(Math.abs(q.discountedProfit))}` : `£${gbp(q.discountedProfit)}`)
+              : `£${gbp(q.addonTotal > 0 ? q.profitWithAddons : q.profit)}`} C={C} last />
           </Card>
 
           {/* Monthly + contract value — only for contracts. Airbnb & Estate Agent are per-visit
