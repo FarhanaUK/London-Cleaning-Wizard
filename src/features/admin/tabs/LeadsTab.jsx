@@ -76,6 +76,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const [showImport,  setShowImport]  = useState(false);
   const [importText,  setImportText]  = useState('');
   const [importMap,   setImportMap]   = useState([]);
+  const [skipHeader,  setSkipHeader]  = useState(true);
   const [importing,   setImporting]   = useState(false);
   const [showAdd,     setShowAdd]      = useState(false);
   const [newLead,     setNewLead]     = useState({ businessName: '', address: '', email: '', phone: '', sector: '', website: '' });
@@ -126,13 +127,16 @@ export default function LeadsTab({ leads, isMobile, C }) {
     const rows = importText.split('\n').map(r => r.trim()).filter(Boolean);
     if (rows.length === 0) { setShowImport(false); return; }
     const delim = rowDelim(importText);
-    const cols  = rows[0] ? splitRow(rows[0], delim).length : 0;
-    const map   = Array.from({ length: cols }, (_, i) => importMap[i] ?? defaultImportField(i));
+    const split = rows.map(r => splitRow(r, delim));
+    const maxCols = split.reduce((m, p) => Math.max(m, p.length), 0);
+    // Keep only full-width rows (drops a one-cell title row); optionally drop the header row.
+    let data = split.filter(p => p.length === maxCols);
+    if (skipHeader) data = data.slice(1);
+    const map = Array.from({ length: maxCols }, (_, i) => importMap[i] ?? defaultImportField(i));
     setImporting(true);
     const now = new Date().toISOString();
     try {
-      for (const row of rows) {
-        const parts = splitRow(row, delim);
+      for (const parts of data) {
         const lead = { businessName: '', address: '', email: '', phone: '', sector: '', website: '' };
         map.forEach((field, i) => { if (field && field !== 'skip' && parts[i]) lead[field] = parts[i]; });
         if (LEAD_FIELDS.every(k => !lead[k])) continue;
@@ -170,8 +174,11 @@ export default function LeadsTab({ leads, isMobile, C }) {
     setShowAdd(false);
   };
 
-  // First pasted row, split into columns — used to preview + map columns to fields.
-  const sampleCols = (() => { const r = importText.split('\n').map(x => x.trim()).filter(Boolean)[0]; return r ? splitRow(r, rowDelim(importText)) : []; })();
+  // Parse the paste, use the WIDEST row to detect columns (ignores a one-cell title row above the data).
+  const importSplit  = importText.split('\n').map(x => x.trim()).filter(Boolean).map(r => splitRow(r, rowDelim(importText)));
+  const importMaxCols = importSplit.reduce((m, p) => Math.max(m, p.length), 0);
+  const sampleCols = importSplit.find(p => p.length === importMaxCols) || [];
+  const importCount = Math.max(0, importSplit.filter(p => p.length === importMaxCols).length - (skipHeader ? 1 : 0));
   const effMap = sampleCols.map((_, i) => importMap[i] ?? defaultImportField(i));
 
   const inputStyle = { fontFamily: FONT, fontSize: 13, color: C.text, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '7px 10px', width: '100%', boxSizing: 'border-box', outline: 'none' };
@@ -310,7 +317,11 @@ export default function LeadsTab({ leads, isMobile, C }) {
 
           {sampleCols.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>Match your columns (preview is your first row):</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer', fontFamily: FONT, fontSize: 12, color: C.text }}>
+                <input type="checkbox" checked={skipHeader} onChange={e => setSkipHeader(e.target.checked)} />
+                First data row is a header (skip it) — e.g. "Business Name, Address…"
+              </label>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>Match your columns (preview is your first full row) — {importCount} lead{importCount !== 1 ? 's' : ''} will import:</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {sampleCols.map((sample, i) => (
                   <div key={i} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: '6px 8px', minWidth: 150 }}>
