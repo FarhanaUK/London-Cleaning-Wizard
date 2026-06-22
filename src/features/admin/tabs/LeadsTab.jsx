@@ -13,6 +13,17 @@ const STATUSES = [
 ];
 const statusMeta = id => STATUSES.find(s => s.id === id) || STATUSES[0];
 
+// Call outcomes logged per call (date-stamped) — these feed the weekly Outreach Tracker.
+const CALL_OUTCOMES = [
+  { id: 'no_answer',      label: 'No answer' },
+  { id: 'answered',       label: 'Answered' },
+  { id: 'interested',     label: 'Interested' },
+  { id: 'quote_sent',     label: 'Quote sent' },
+  { id: 'booked',         label: 'Booked' },
+  { id: 'not_interested', label: 'Not interested' },
+];
+const outcomeLabel = id => CALL_OUTCOMES.find(o => o.id === id)?.label || id;
+
 const fmtDate = d => {
   if (!d) return '';
   const [y, m, day] = d.split('-');
@@ -59,6 +70,14 @@ export default function LeadsTab({ leads, isMobile, C }) {
   };
   const updateField = async (id, fields) => {
     try { await updateDoc(doc(db, 'leads', id), { ...fields, updatedAt: new Date().toISOString() }); } catch {}
+  };
+  // Log a dated call outcome (feeds the weekly Outreach Tracker). Terminal outcomes also set status.
+  const logCall = async (l, outcome) => {
+    const callLog = [...(l.callLog || []), { date: today, outcome }];
+    const fields = { callLog };
+    const statusMap = { quote_sent: 'quote_sent', booked: 'booked', not_interested: 'not_interested' };
+    if (statusMap[outcome]) fields.status = statusMap[outcome];
+    try { await updateDoc(doc(db, 'leads', l.id), { ...fields, updatedAt: new Date().toISOString() }); } catch {}
   };
   const removeLead = async (id) => {
     if (!window.confirm('Delete this lead?')) return;
@@ -125,13 +144,39 @@ export default function LeadsTab({ leads, isMobile, C }) {
               {[l.contactName, l.area].filter(Boolean).join(' · ')}
             </div>
           </div>
-          {l.phone && (
-            <a href={`tel:${l.phone}`} style={{ ...btn('#f0fdf4', '#16a34a', '#86efac'), textDecoration: 'none', whiteSpace: 'nowrap' }}>📞 {l.phone}</a>
-          )}
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: l.phone ? C.text : C.muted, whiteSpace: 'nowrap', userSelect: 'all' }}>
+              {l.phone || 'No number'}
+            </div>
+            {(l.callLog || []).length > 0 && (
+              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>{l.callLog.length} call{l.callLog.length !== 1 ? 's' : ''} logged</div>
+            )}
+          </div>
         </div>
 
         {isOpen && (
           <div style={{ marginTop: 12, borderTop: `1px solid ${C.border}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Editable phone + business (add a number for leads that have none) */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
+              <input defaultValue={l.phone || ''} placeholder="Phone number" onBlur={e => { const v = e.target.value.trim(); if (v !== (l.phone || '')) updateField(l.id, { phone: v }); }} style={inputStyle} />
+              <input defaultValue={l.businessName || ''} placeholder="Business name" onBlur={e => { const v = e.target.value.trim(); if (v !== (l.businessName || '')) updateField(l.id, { businessName: v }); }} style={inputStyle} />
+            </div>
+
+            {/* Log a call (stamped with today's date — feeds the weekly Outreach Tracker) */}
+            <div>
+              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 5 }}>Log a call (today)</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {CALL_OUTCOMES.map(o => (
+                  <button key={o.id} onClick={() => logCall(l, o.id)} style={{ ...btn(C.bg, C.text, C.border), fontSize: 11, padding: '5px 11px' }}>{o.label}</button>
+                ))}
+              </div>
+              {(l.callLog || []).length > 0 && (
+                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 6 }}>
+                  Last call: {outcomeLabel(l.callLog[l.callLog.length - 1].outcome)} on {fmtDate(l.callLog[l.callLog.length - 1].date)} · {l.callLog.length} total
+                </div>
+              )}
+            </div>
+
             {/* Status buttons */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {STATUSES.map(s => (

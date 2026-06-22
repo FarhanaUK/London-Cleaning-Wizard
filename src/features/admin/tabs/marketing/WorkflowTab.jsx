@@ -262,7 +262,7 @@ function Stat({ label, value, col }) {
 
 // ── WorkflowTab ───────────────────────────────────────────────────────────────
 
-export default function WorkflowTab({ funnelData = [], bookings = [] }) {
+export default function WorkflowTab({ funnelData = [], bookings = [], leads = [] }) {
   const [tab,         setTab]         = useState('today');
   const [editMode,    setEditMode]    = useState(false);
   const [activePromo, setActivePromo] = useState(undefined);
@@ -364,7 +364,7 @@ export default function WorkflowTab({ funnelData = [], bookings = [] }) {
       <div style={{ padding: isMobile ? '1rem 1rem 3rem' : '1.5rem 1.5rem 3rem', maxWidth: 1100 }}>
         {tab === 'today'    && <TodayContent     bookings={bookings} />}
         {tab === 'funnel'   && <FunnelIntelligenceContent funnelData={funnelData} bookings={bookings} />}
-        {tab === 'outreach' && <OutreachTrackerContent />}
+        {tab === 'outreach' && <OutreachTrackerContent leads={leads} />}
         {tab === 'plan'     && <ActionPlanContent funnelData={funnelData} bookings={bookings} />}
         {tab === 'workflow' && <WorkflowContent  editMode={editMode} />}
         {tab === 'budget'   && <BudgetContent    editMode={editMode} />}

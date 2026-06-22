@@ -956,7 +956,7 @@ export default function AdminPage() {
               {activeView === 'reports'   && <ReportsTab bookings={activeBookings} expenses={expenses} staff={staff} fixedCosts={fixedCosts} supplies={supplies} marketingSpend={marketingSpend} incidents={incidents} isMobile={isMobile} C={C} />}
               {activeView === 'bookings'  && <BookingsTab bookings={activeBookings} setBookings={setBookings} staff={staff} isMobile={isMobile} C={C} user={user} schedulerLogs={schedulerLogs} bannerVisible={bannerVisible} welcomeMsg={welcomeMsg} welcomeColor={welcomeColor} />}
               {activeView === 'marketing'       && <MarketingTab abandonmentStats={abandonmentStats} funnelData={funnelData} bookings={activeBookings} isMobile={isMobile} C={C} />}
-              {activeView === 'campaigns'      && <CampaignWorkflow funnelData={funnelData} bookings={activeBookings} />}
+              {activeView === 'campaigns'      && <CampaignWorkflow funnelData={funnelData} bookings={activeBookings} leads={leads} />}
               {activeView === 'adSpend'        && <MarketingSpendTab isMobile={isMobile} C={C} />}
               {activeView === 'promotions'     && <PromotionsTab isMobile={isMobile} C={C} />}
               {activeView === 'signatureTouch' && <SignatureTouchTab bookings={activeBookings} staff={staff} stDistributions={stDistributions} C={C} />}

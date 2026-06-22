@@ -151,6 +151,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   // One-off discount: enter a % or a £ amount; applied to the total and charged via the payment link.
   const [oneOffDiscount,     setOneOffDiscount]     = useState('');
   const [oneOffDiscountUnit, setOneOffDiscountUnit] = useState('%');
+  // Discount lever is available for cold-call trial targets: estate agents and commercial one-offs.
+  const discountEligible = isCommercialOneOff || clientType === 'estateAgent';
   const [numCleaners,  setNumCleaners]  = useState('1');
   const [cleanerRate,  setCleanerRate]  = useState('17');
   const [suppliesCost, setSuppliesCost] = useState('5');
@@ -319,7 +321,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, selectedDays, numCleaners, addons, clientType, cleanType, manualPrice, oneOffDiscount, oneOffDiscountUnit]);
 
   // For a one-off, the headline margin reflects the discounted price (can be negative).
-  const displayPct  = isCommercialOneOff ? q.discountedPct : q.pct;
+  const displayPct  = discountEligible ? q.discountedPct : q.pct;
   const marginColor = displayPct < 25 ? C.danger : displayPct < 30 ? C.warning : C.success;
 
   const handleSaveQuote = async () => {
@@ -535,7 +537,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         // Airbnb & Estate Agent: one-off per-visit booking — no contract, no visits generated.
         // Media consent discount applies to first visit only.
         const isEA       = clientType === 'estateAgent';
-        const firstTotal = bMediaConsent ? Math.round((q.price - 10) * 100) / 100 : q.price;
+        // Estate Agent can have a first-booking discount; Airbnb does not (field hidden, so 0).
+        const eaDiscounted = isEA && q.discountAmount > 0;
+        const firstTotal = eaDiscounted ? q.discountedPrice : (bMediaConsent ? Math.round((q.price - 10) * 100) / 100 : q.price);
         // Airbnb takes a 30% deposit; Estate Agent is charged in FULL upfront (deposit = full total).
         const depositAmt   = isEA ? firstTotal : Math.ceil(firstTotal * 0.30 * 100) / 100;
         const remainingAmt = Math.round((firstTotal - depositAmt) * 100) / 100;
@@ -544,7 +548,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           total:     firstTotal,
           deposit:   depositAmt,
           remaining: remainingAmt,
-          ...(bMediaConsent ? { originalTotal: q.price } : {}),
+          ...(eaDiscounted ? { originalTotal: q.price, oneOffDiscountAmount: q.discountAmount } : (bMediaConsent ? { originalTotal: q.price } : {})),
           packageId:   isEA ? 'estate_agent' : 'airbnb',
           packageName: isEA ? 'Estate Agent Clean' : 'Airbnb Turnaround',
           frequency: 'flexible',
@@ -804,7 +808,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               </div>
             )}
 
-            {isCommercialOneOff && (
+            {discountEligible && (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>First-booking discount (optional)</div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -1228,7 +1232,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               {displayPct >= 25 && displayPct < 30 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.warning }}>minimum</span>}
               {displayPct >= 30 && displayPct < 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>healthy</span>}
               {displayPct >= 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>excellent</span>}
-              {isCommercialOneOff && (
+              {discountEligible && q.discountAmount > 0 && (
                 <span style={{ width: '100%', textAlign: 'center', fontFamily: FONT, fontSize: 12, fontWeight: 700, color: q.discountedProfit < 0 ? C.danger : C.success }}>
                   {q.discountedProfit < 0
                     ? `You lose £${gbp(Math.abs(q.discountedProfit))} on this job after the discount`
@@ -1338,15 +1342,15 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               <BreakdownRow label="Overhead share" value={`£${gbp(q.overheadPerVisit)}`}          C={C} />
             )}
             <BreakdownRow label="Your total cost"  value={`£${gbp(q.addonTotal > 0 ? q.trueCost : q.cost)}`} C={C} accent />
-            <BreakdownRow label={isCommercialOneOff ? 'Clean price' : 'Contract clean'}  value={`£${gbp(q.cleanPrice)}`}  C={C} accent />
+            <BreakdownRow label={(discountEligible || perVisit) ? 'Clean price' : 'Contract clean'}  value={`£${gbp(q.cleanPrice)}`}  C={C} accent />
             {q.addonTotal > 0 && (
               <BreakdownRow label="Add-ons"        value={`£${gbp(q.addonTotal)}`}  C={C} />
             )}
-            {isCommercialOneOff && q.discountAmount > 0 && (
+            {discountEligible && q.discountAmount > 0 && (
               <BreakdownRow label={`Discount${oneOffDiscountUnit === '%' ? ` (${parseFloat(oneOffDiscount) || 0}%)` : ''}`} value={`-£${gbp(q.discountAmount)}`} C={C} />
             )}
-            <BreakdownRow label="Total charge"    value={`£${gbp(isCommercialOneOff ? q.discountedPrice : q.price)}`}        C={C} accent />
-            <BreakdownRow label="Profit" value={isCommercialOneOff
+            <BreakdownRow label="Total charge"    value={`£${gbp(discountEligible ? q.discountedPrice : q.price)}`}        C={C} accent />
+            <BreakdownRow label="Profit" value={discountEligible
               ? (q.discountedProfit < 0 ? `-£${gbp(Math.abs(q.discountedProfit))}` : `£${gbp(q.discountedProfit)}`)
               : `£${gbp(q.addonTotal > 0 ? q.profitWithAddons : q.profit)}`} C={C} last />
           </Card>

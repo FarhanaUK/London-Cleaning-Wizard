@@ -35,6 +35,23 @@ function getWeekRange(mondayStr) {
   return `${fmt(mon)} – ${fmt(sun)}`;
 }
 
+// Aggregate the Leads tab's dated call logs into the cold-calling numbers for a given week.
+function weekCallStats(leads, mondayStr) {
+  if (!mondayStr) return { calls_made: '', calls_answered: '', calls_interested: '', calls_quotes: '' };
+  const sunD = new Date(mondayStr + 'T12:00:00'); sunD.setDate(sunD.getDate() + 6);
+  const sun = sunD.toISOString().slice(0, 10);
+  let made = 0, answered = 0, interested = 0, quotes = 0;
+  (leads || []).forEach(l => (l.callLog || []).forEach(c => {
+    if (c.date >= mondayStr && c.date <= sun) {
+      made++;
+      if (['answered', 'interested', 'quote_sent', 'booked'].includes(c.outcome)) answered++;
+      if (['interested', 'quote_sent', 'booked'].includes(c.outcome)) interested++;
+      if (c.outcome === 'quote_sent') quotes++;
+    }
+  }));
+  return { calls_made: made, calls_answered: answered, calls_interested: interested, calls_quotes: quotes };
+}
+
 const EMPTY_WEEK = {
   weekOf:       '',
   target_type:  'airbnb',
@@ -352,7 +369,7 @@ function ReferenceCard() {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function OutreachTrackerContent() {
+export default function OutreachTrackerContent({ leads = [] }) {
   const [log,      setLog]      = useState(loadLog);
   const [draft,    setDraft]    = useState({ ...EMPTY_WEEK, weekOf: getMondayOf(new Date().toISOString().slice(0, 10)) });
   const [showForm, setShowForm] = useState(false);
@@ -423,7 +440,7 @@ export default function OutreachTrackerContent() {
 
       {/* Log button */}
       {!showForm && (
-        <button onClick={() => { setShowForm(true); setEditId(null); setDraft({ ...EMPTY_WEEK, weekOf: getMondayOf(new Date().toISOString().slice(0, 10)) }); }} style={{
+        <button onClick={() => { const wk = getMondayOf(new Date().toISOString().slice(0, 10)); setShowForm(true); setEditId(null); setDraft({ ...EMPTY_WEEK, weekOf: wk, ...weekCallStats(leads, wk) }); }} style={{
           fontFamily: FONT, fontSize: 13, padding: '9px 20px', borderRadius: 8,
           background: 'rgba(201,169,110,0.1)', border: `0.5px solid rgba(201,169,110,0.4)`,
           color: MKT.gold, cursor: 'pointer', marginBottom: 20,
@@ -442,7 +459,7 @@ export default function OutreachTrackerContent() {
             <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.dim, marginBottom: 4 }}>Week start (Monday)</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <input type="date" value={draft.weekOf}
-                onChange={e => set('weekOf', getMondayOf(e.target.value))}
+                onChange={e => { const wk = getMondayOf(e.target.value); setDraft(d => ({ ...d, weekOf: wk, ...(editId ? {} : weekCallStats(leads, wk)) })); }}
                 style={{ background: MKT.dark3, border: `0.5px solid ${MKT.border}`, borderRadius: 6, padding: '7px 10px', fontFamily: FONT, fontSize: 13, color: MKT.text, outline: 'none' }} />
               {draft.weekOf && (
                 <span style={{ fontFamily: FONT, fontSize: 12, color: MKT.gold }}>
@@ -468,6 +485,11 @@ export default function OutreachTrackerContent() {
           </div>
 
           <SectionHead label="Cold Calling" hint="Calls made = every dial including voicemails. Answered = real person picked up. Asked for info = they engaged (asked a question, said 'send me more info', or 'call back later') — flat rejections don't count. Quote sent = you actually sent them pricing." />
+          {!editId && (
+            <div style={{ fontFamily: FONT, fontSize: 11, color: MKT.gold, marginBottom: 8, lineHeight: 1.6 }}>
+              Auto-filled from the calls you logged in the Leads tab this week. Adjust if you also called outside the app.
+            </div>
+          )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
             <NumField label="Calls made"         value={draft.calls_made}       onChange={v => set('calls_made', v)} />
             <NumField label="Calls answered"      value={draft.calls_answered}   onChange={v => set('calls_answered', v)} />
