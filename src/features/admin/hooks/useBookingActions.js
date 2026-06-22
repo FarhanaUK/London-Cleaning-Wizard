@@ -240,6 +240,8 @@ export function useBookingActions({ bookings, setBookings, setExpanded }) {
       msg = hoursUntil >= 48
         ? `No charge — more than 48 hours notice given.`
         : `⚠️ Less than 48 hours notice — a late cancellation fee of £${(parseFloat(booking.total || 0) * 0.3).toFixed(2)} (30% of £${parseFloat(booking.total || 0).toFixed(2)}) will be charged to the customer's saved card.`;
+    } else if (booking.isEstateAgent && booking.status === 'fully_paid') {
+      msg = `This estate agent booking is NON-REFUNDABLE. It will be cancelled with no refund — the £${parseFloat(booking.total || 0).toFixed(2)} payment is kept and stays in your reports. The calendar entry will be greyed out (not deleted). Issue any goodwill refund manually in Stripe if you choose to.`;
     } else if (booking.status === 'pending_deposit' || !booking.deposit) {
       msg = `No payment has been taken — booking will be cancelled with no refund required.`;
     } else {

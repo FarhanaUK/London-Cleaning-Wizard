@@ -158,7 +158,12 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
     if (b.status === 'deposit_paid') return Math.max(0, (parseFloat(b.deposit) || 0) - pr);
     return 0;
   };
-  const periodRev      = periodBookings.reduce((s, b) => s + collectedAmt(b), 0) + contractRevForWindow(periodStart, periodEnd);
+  // Bookings cancelled with NO refund (e.g. estate agents, non-refundable once booked) keep their
+  // payment — count the retained amount as revenue so it stays visible in reports.
+  const retainedCancelRev = bookings
+    .filter(b => b.status?.startsWith('cancelled') && parseFloat(b.retainedAmount || 0) > 0 && b.cleanDate >= periodStart && b.cleanDate <= periodEnd)
+    .reduce((s, b) => s + parseFloat(b.retainedAmount || 0), 0);
+  const periodRev      = periodBookings.reduce((s, b) => s + collectedAmt(b), 0) + contractRevForWindow(periodStart, periodEnd) + retainedCancelRev;
   const periodLabour   = periodBookings.reduce((s, b) => s + bookingLabour(b), 0);
   const periodExp      = expenses.filter(e => e.date >= periodStart && e.date <= periodEnd && e.category !== 'Marketing').reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
   const periodMktSpend = marketingSpend.filter(e => e.date >= periodStart && e.date <= periodEnd).reduce((s, e) => s + (parseFloat(e.amount)||0), 0);

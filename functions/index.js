@@ -1052,11 +1052,42 @@ exports.cancelBooking = onRequest({ secrets:[STRIPE_KEY, EMAILJS_KEY] }, async (
   const snap   = await db.collection('bookings').doc(bookingId).get();
   if (!snap.exists) { res.status(404).json({ error:'Booking not found' }); return; }
   const b           = snap.data();
-  if (['fully_paid', 'cancelled_full_refund', 'cancelled_partial_refund', 'cancelled_no_refund'].includes(b.status)) {
+  // Estate Agent jobs are paid in full upfront (status fully_paid) BEFORE the visit, so they can
+  // still be cancelled — but with NO refund (non-refundable per our terms); the payment is retained.
+  const estateNoRefundCancel = b.isEstateAgent && b.status === 'fully_paid';
+  if (!estateNoRefundCancel && ['fully_paid', 'cancelled_full_refund', 'cancelled_partial_refund', 'cancelled_no_refund'].includes(b.status)) {
     res.status(400).json({ error: 'This booking cannot be cancelled in its current status.' }); return;
   }
   const cleanUTC   = b.cleanDateUTC || (b.cleanDate && b.cleanTime ? new Date(`${b.cleanDate}T${b.cleanTime}:00`).toISOString() : null);
   const hoursUntil = cleanUTC ? (new Date(cleanUTC) - new Date()) / 3600000 : Infinity;
+
+  // ── Estate Agent (paid in full) — cancel with NO refund, retain revenue, GREY the calendar ──
+  if (estateNoRefundCancel) {
+    const retained = parseFloat(b.total || 0);
+    await snap.ref.update({ status: 'cancelled_no_refund', cancelledAt: new Date(), cancellationReason: clean(reason||''), refundAmount: 0, retainedAmount: retained });
+    // Grey out (NOT delete) the calendar event so the cancelled visit stays visible as cancelled
+    if (b.calendarEventId) {
+      try {
+        const cal = await getCalendarClient();
+        const who = b.bizName || `${b.firstName||''} ${b.lastName||''}`.trim();
+        const title = `CANCELLED — ${b.cleanType || b.packageName || 'Estate Agent Clean'}${who ? ' — ' + who : ''}`;
+        await cal.events.patch({ calendarId: process.env.GOOGLE_CALENDAR_ID, eventId: b.calendarEventId, resource: { colorId: '8', summary: title } });
+      } catch (e) { console.error('Estate cancel calendar grey-out failed:', e.message); }
+    }
+    const name = b.contactName || b.firstName || b.bizName || '';
+    const cancelData = {
+      booking_ref:  b.bookingRef,
+      package_name: b.cleanType || b.packageName || 'Estate Agent Clean',
+      date:         b.cleanDate ? b.cleanDate.split('-').reverse().join('/') : '',
+      time:         b.cleanTime || '',
+      address:      `${b.addr1 || ''}${b.postcode ? ', ' + b.postcode : ''}`,
+      refund_amount:  'No refund',
+      refund_message: 'This booking has been cancelled. As set out in our terms, payment for estate agent bookings is non-refundable once booked, so no refund applies.',
+    };
+    await sendEmail(process.env.EMAILJS_CANCEL_TEMPLATE, { ...cancelData, to_name: name, to_email: b.email }, EMAILJS_KEY.value()).catch(() => {});
+    await sendEmail(process.env.EMAILJS_CANCEL_ADMIN_TEMPLATE, { ...cancelData, to_email: 'bookings@londoncleaningwizard.com', customer_name: `${name} ${b.lastName||''}`.trim(), customer_email: b.email, customer_phone: b.phone || '', notice_given: `Estate Agent — non-refundable, £${retained.toFixed(2)} payment retained` }, EMAILJS_KEY.value()).catch(() => {});
+    res.json({ success: true, status: 'cancelled_no_refund', refundAmount: 0, retainedAmount: retained }); return;
+  }
 
   // ── Recurring booking cancellation ──────────────────────────
   if (b.isAutoRecurring) {

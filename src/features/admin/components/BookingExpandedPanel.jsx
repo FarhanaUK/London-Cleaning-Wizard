@@ -1234,9 +1234,14 @@ export default function BookingExpandedPanel({
         )}
 
         {/* Fully paid confirmation — not shown for contracts */}
-        {!b.isContract && b.status === 'fully_paid' && (
+        {!b.isContract && b.status === 'fully_paid' && !b.isEstateAgent && (
           <div style={{ fontFamily: FONT, fontSize: 12, color: '#16a34a', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
             ✓ Job complete — full payment received
+          </div>
+        )}
+        {!b.isContract && b.status === 'fully_paid' && b.isEstateAgent && (
+          <div style={{ fontFamily: FONT, fontSize: 12, color: '#b45309', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, padding: '6px 12px', fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+            ⚠ Paid in full — NON-REFUNDABLE at all times. If the customer asks to cancel, no refund is due. Cancelling greys out the calendar entry and keeps the payment in your reports.
           </div>
         )}
 
@@ -1286,8 +1291,8 @@ export default function BookingExpandedPanel({
           </button>
         )}
 
-        {/* Cancel */}
-        {!isCancelled && b.status !== 'fully_paid' && (
+        {/* Cancel — estate agents can be cancelled even when fully_paid (non-refundable) */}
+        {!isCancelled && (b.status !== 'fully_paid' || b.isEstateAgent) && (
           <button
             onClick={() => b.isContract ? setCancelModal(buildContractCancelInfo()) : handleCancel(b)}
             disabled={cancelling === b.id}
