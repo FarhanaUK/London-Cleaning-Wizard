@@ -24,6 +24,16 @@ const CALL_OUTCOMES = [
 ];
 const outcomeLabel = id => CALL_OUTCOMES.find(o => o.id === id)?.label || id;
 
+// Import column mapping: tell the importer which column of the pasted sheet is which field.
+const IMPORT_FIELDS = [
+  { id: 'businessName', label: 'Business name' },
+  { id: 'contactName',  label: 'Contact name' },
+  { id: 'phone',        label: 'Phone number' },
+  { id: 'area',         label: 'Area' },
+  { id: 'skip',         label: '— Skip column —' },
+];
+const defaultImportField = i => ['businessName', 'contactName', 'phone', 'area'][i] || 'skip';
+
 const fmtDate = d => {
   if (!d) return '';
   const [y, m, day] = d.split('-');
@@ -38,6 +48,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const [expanded,    setExpanded]    = useState(null);
   const [showImport,  setShowImport]  = useState(false);
   const [importText,  setImportText]  = useState('');
+  const [importMap,   setImportMap]   = useState([]);
   const [importing,   setImporting]   = useState(false);
   const [showAdd,     setShowAdd]      = useState(false);
   const [newLead,     setNewLead]     = useState({ businessName: '', contactName: '', phone: '', area: '' });
@@ -87,23 +98,32 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const handleImport = async () => {
     const rows = importText.split('\n').map(r => r.trim()).filter(Boolean);
     if (rows.length === 0) { setShowImport(false); return; }
+    const cols = (rows[0] || '').split(/\t|,/).length;
+    const map  = Array.from({ length: cols }, (_, i) => importMap[i] ?? defaultImportField(i));
     setImporting(true);
     const now = new Date().toISOString();
     try {
       for (const row of rows) {
         const parts = row.split(/\t|,/).map(p => p.trim());
-        const [businessName = '', contactName = '', phone = '', area = ''] = parts;
-        if (!businessName && !phone) continue;
+        const lead = { businessName: '', contactName: '', phone: '', area: '' };
+        map.forEach((field, i) => { if (field && field !== 'skip' && parts[i]) lead[field] = parts[i]; });
+        if (!lead.businessName && !lead.phone && !lead.contactName && !lead.area) continue;
         await addDoc(collection(db, 'leads'), {
-          businessName, contactName, phone, area, email: '',
-          status: 'new', callbackDate: '', notes: '', source: 'import',
+          ...lead, email: '', status: 'new', callbackDate: '', notes: '', source: 'import',
           createdAt: now, updatedAt: now,
         });
       }
     } catch {}
     setImporting(false);
     setImportText('');
+    setImportMap([]);
     setShowImport(false);
+  };
+
+  const clearAll = async () => {
+    if (allLeads.length === 0) return;
+    if (!window.confirm(`Delete ALL ${allLeads.length} leads? This cannot be undone. Use this to wipe a bad import before re-importing.`)) return;
+    try { for (const l of allLeads) await deleteDoc(doc(db, 'leads', l.id)); } catch {}
   };
 
   const handleAdd = async () => {
@@ -120,6 +140,10 @@ export default function LeadsTab({ leads, isMobile, C }) {
     setNewLead({ businessName: '', contactName: '', phone: '', area: '' });
     setShowAdd(false);
   };
+
+  // First pasted row, split into columns — used to preview + map columns to fields.
+  const sampleCols = ((importText.split('\n').map(r => r.trim()).filter(Boolean)[0]) || '').split(/\t|,/).map(p => p.trim());
+  const effMap = sampleCols.map((_, i) => importMap[i] ?? defaultImportField(i));
 
   const inputStyle = { fontFamily: FONT, fontSize: 13, color: C.text, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '7px 10px', width: '100%', boxSizing: 'border-box', outline: 'none' };
   const btn = (bg, color, border) => ({ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${border || bg}`, background: bg, color });
@@ -236,9 +260,10 @@ export default function LeadsTab({ leads, isMobile, C }) {
           <h2 style={{ margin: 0, fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text }}>Leads / Call list</h2>
           <p style={{ margin: '4px 0 0', fontFamily: FONT, fontSize: 13, color: C.muted }}>Work your cold-call list, log outcomes and set callbacks.</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => { setShowAdd(s => !s); setShowImport(false); }} style={btn(C.card, C.text, C.border)}>+ Add lead</button>
           <button onClick={() => { setShowImport(s => !s); setShowAdd(false); }} style={btn(C.accent, '#fff', C.accent)}>Import</button>
+          {allLeads.length > 0 && <button onClick={clearAll} style={btn('transparent', '#dc2626', '#fca5a5')}>Clear all</button>}
         </div>
       </div>
 
@@ -246,14 +271,32 @@ export default function LeadsTab({ leads, isMobile, C }) {
       {showImport && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 16 }}>
           <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 8 }}>
-            Paste rows from your Google Sheet, one lead per line. Order: <strong>Business, Contact, Phone, Area</strong> (separated by commas or tabs).
+            Paste rows from your Google Sheet, one lead per line (columns separated by commas or tabs). Then match each column to the right field below — it doesn't matter what order your sheet is in.
           </div>
-          <textarea value={importText} onChange={e => setImportText(e.target.value)} rows={6}
-            placeholder={"Oakwood Office, John Smith, 020 1234 5678, Canary Wharf\nThe Anchor Pub, , 07700 900000, Hackney"}
+          <textarea value={importText} onChange={e => { setImportText(e.target.value); setImportMap([]); }} rows={6}
+            placeholder={"The Nail Spa, , , Canary Wharf\nOakwood Office, John Smith, 020 1234 5678, Hackney"}
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace' }} />
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+
+          {sampleCols.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>Match your columns (preview is your first row):</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {sampleCols.map((sample, i) => (
+                  <div key={i} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: '6px 8px', minWidth: 150 }}>
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: C.text, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={sample}>“{sample || '(empty)'}”</div>
+                    <select value={effMap[i]} onChange={e => { const m = sampleCols.map((_, j) => j === i ? e.target.value : effMap[j]); setImportMap(m); }}
+                      style={{ ...inputStyle, padding: '5px 8px', fontSize: 12 }}>
+                      {IMPORT_FIELDS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button onClick={handleImport} disabled={importing} style={btn(C.accent, '#fff', C.accent)}>{importing ? 'Importing…' : 'Import leads'}</button>
-            <button onClick={() => { setShowImport(false); setImportText(''); }} style={btn(C.bg, C.muted, C.border)}>Cancel</button>
+            <button onClick={() => { setShowImport(false); setImportText(''); setImportMap([]); }} style={btn(C.bg, C.muted, C.border)}>Cancel</button>
           </div>
         </div>
       )}
