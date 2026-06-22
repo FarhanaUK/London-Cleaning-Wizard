@@ -52,7 +52,7 @@ export default function TermsAndConditions() {
             color: "#8b7355",
             letterSpacing: "0.06em",
           }}>
-            Last Updated: June 2026
+            Last Updated: 22 June 2026
           </p>
         </div>
 
@@ -87,6 +87,7 @@ export default function TermsAndConditions() {
                     "Deep cleaning, including end of tenancy and move-in preparation (Deep Clean) — one-off only",
                     "Airbnb and short-let turnaround cleaning — fixed-price packages, one-off or recurring by arrangement",
                     "Office and commercial cleaning — hourly from 3 hours, one-off or recurring by arrangement",
+                    "Estate agent and letting agent property cleaning (end of tenancy, pre-tenancy / move-in, void property, deep, after-builders, and communal area cleans) — priced per property and booked per visit",
                   ].map(s => (
                     <li key={s}>{s}</li>
                   ))}
@@ -113,6 +114,7 @@ export default function TermsAndConditions() {
                 <p style={{ marginTop: 16 }}><strong>Photos and video:</strong> We may request photos or a short video of the property before confirming a quote. Providing accurate information is the client's responsibility. If the actual condition of the property differs significantly from what was described or shown, we reserve the right to adjust the price, reduce the scope, or refuse the clean. In all such cases the deposit will be retained to cover our costs.</p>
                 <p style={{ marginTop: 16 }}><strong>Recurring commercial arrangements:</strong> We offer two types of recurring arrangement for commercial clients. Standard recurring bookings (weekly, fortnightly, or monthly) operate with no fixed term and can be ended by either party with 48 hours written notice. No deposit is taken from the second clean onwards, and payment is charged automatically on completion of each clean. Fixed-term service contracts are also available for commercial and Airbnb clients — see Section 6a for full terms.</p>
                 <p style={{ marginTop: 16 }}><strong>Airbnb visit cancellation:</strong> Airbnb and short-let turnaround visits require at least 48 hours notice to cancel without charge. Cancellations made with less than 48 hours notice will incur a 30% late cancellation fee, charged automatically to the saved payment method on file. Where a deposit has already been paid, it will be retained as the fee. See Section 5 for full cancellation terms.</p>
+                <p style={{ marginTop: 16 }}><strong>Estate and letting agents:</strong> Cleans for estate and letting agents are quoted and booked per property via our quote process. Full payment is taken upfront at the time of booking to confirm the visit, and your card is securely saved (via Stripe) so that any future visits you request can be charged automatically on completion. Each visit may be at a different property address. As payment is taken in full to reserve the visit, these bookings are non-refundable once booked — see Section 5.</p>
               </>
             ),
           },
@@ -120,7 +122,9 @@ export default function TermsAndConditions() {
             title: "4. Deposits & Payments",
             content: (
               <>
-                <p>A 30% deposit is required to secure your booking and is charged immediately upon confirmation. The deposit goes toward the total cost of your clean. The remaining 70% balance will be charged automatically once your clean has been completed and marked as done by our team. By booking, you authorise London Cleaning Wizard to charge the remaining balance to your saved payment method upon job completion.</p>
+                <p>For standard residential bookings, a 30% deposit is required to secure your booking and is charged immediately upon confirmation. The deposit goes toward the total cost of your clean. The remaining 70% balance will be charged automatically once your clean has been completed and marked as done by our team. By booking, you authorise London Cleaning Wizard to charge the remaining balance to your saved payment method upon job completion.</p>
+                <p style={{ marginTop: 16 }}><strong>Estate and letting agent bookings:</strong> Payment is taken in full upfront at the time of booking rather than as a deposit. Your card is securely saved so that any further visits you request can be charged automatically on completion.</p>
+                <p style={{ marginTop: 16 }}><strong>Fixed-term service contracts:</strong> Contract bookings are billed monthly, with the first month's payment taken upfront to confirm the contract. See Section 6a for full contract terms.</p>
                 <p style={{ marginTop: 16 }}><strong>Payment Method:</strong> All payments are taken by card via Stripe. No other payment methods are accepted.</p>
                 <p style={{ marginTop: 16 }}><strong>Missed Payment:</strong> If a card payment is declined upon job completion, we will automatically retry the charge on the following day. If the second attempt also fails, a formal invoice will be issued with a payment deadline. An administration fee of £15 may be added after the deadline. Additional admin fees may be applied for continued non-payment. Future services may be refused and unpaid balances may result in debt recovery or legal action.</p>
               </>
@@ -137,6 +141,7 @@ export default function TermsAndConditions() {
                   <li>Less than 48 hours' notice, same-day cancellation, or no access provided: Deposit is non-refundable</li>
                 </ul>
                 <p style={{ marginTop: 16 }}><strong>Airbnb and short-let visits:</strong> At least 48 hours notice is required to cancel without charge. Cancellations made with less than 48 hours notice will incur a 30% late cancellation fee of the visit price, charged automatically to the saved payment method on file. Where a deposit has already been paid, it will be retained as the cancellation fee.</p>
+                <p style={{ marginTop: 16 }}><strong>Estate and letting agent bookings:</strong> As payment is taken in full to reserve the visit, estate and letting agent bookings are non-refundable once booked. If a booking is cancelled, the payment is retained in full. Any goodwill refund is entirely at our discretion.</p>
                 <p style={{ marginTop: 16 }}><strong>Regular services (weekly, fortnightly or monthly):</strong> You may cancel your recurring arrangement at any time with at least 48 hours notice before your next scheduled clean at no charge. For cancellations with less than 48 hours notice, a charge of 30% of that clean's price will be applied to your saved payment method, as your cleaner's time will have been reserved.</p>
                 <p style={{ marginTop: 16 }}>Cancelling two consecutive cleans will end your recurring arrangement and your recurring discount. A new booking will be required, subject to standard first-clean pricing.</p>
                 <p style={{ marginTop: 16 }}>If our cleaner arrives at the scheduled time and is refused access or the clean is declined for any reason, this will be treated as a late cancellation and the applicable charge will apply.</p>
