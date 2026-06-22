@@ -3,6 +3,7 @@ import { db } from '../../../firebase/firebase';
 import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import emailjs from '@emailjs/browser';
 import { ESTATE_CLEAN_TYPES, ESTATE_CLEAN_MULTIPLIERS, ESTATE_CLEAN_DESCRIPTIONS, estateAddonsForType } from '../utils';
+import CallScript from '../components/CallScript';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -140,6 +141,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   const [complexity,   setComplexity]   = useState('normal');
   const [commBaths,    setCommBaths]    = useState('1');
   const [addons,       setAddons]       = useState([]);
+  const [showScript,   setShowScript]   = useState(false);
   const [frequency,    setFrequency]    = useState('weekly');
   const [selectedDays, setSelectedDays] = useState([]);
   const [contract,     setContract]     = useState('monthly');
@@ -664,12 +666,21 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     <div style={{ padding: isMobile ? '1rem' : '1.5rem 2rem', fontFamily: FONT }}>
 
       {/* Header */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>Quotes / Enquiries & Pricing</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: C.muted }}>
-          Book Airbnb visits and quote commercial contracts -- with full cost and profit visibility.
-        </p>
+      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>Quotes / Enquiries & Pricing</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: C.muted }}>
+            Book Airbnb visits and quote commercial contracts -- with full cost and profit visibility.
+          </p>
+        </div>
+        <button onClick={() => setShowScript(s => !s)} style={{
+          fontFamily: FONT, fontSize: 13, fontWeight: 600, padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+          background: showScript ? C.accent : C.card, color: showScript ? '#fff' : C.text,
+          border: `1px solid ${showScript ? C.accent : C.border}`, whiteSpace: 'nowrap',
+        }}>📞 {showScript ? 'Hide' : 'Call'} Script</button>
       </div>
+
+      {showScript && <CallScript onClose={() => setShowScript(false)} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 360px', gap: '1.25rem', alignItems: 'start' }}>
 
