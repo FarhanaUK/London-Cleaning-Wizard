@@ -311,10 +311,16 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       ? Math.round(price * Math.min(Math.max(discInput, 0), 100) / 100 * 100) / 100
       : Math.min(Math.max(discInput, 0), price);
     const discountedPrice = Math.max(0, Math.round((price - discountAmount) * 100) / 100);
-    return { labor, overheadPerVisit, cost, trueCost, addonLaborCost, basePrice, cleanPrice, price, profit, profitWithAddons, pct, addonTotal, mRev, mBaseRev, mAddonRev, mCost, mTrueCost, mProfit, mProfitWithAddons, cVal, cBaseVal, ct, freq, visitDur, calcPrice, manualQuote, discountAmount, discountedPrice };
+    // Profit/margin AFTER the discount, on the full job (revenue - all costs incl. add-on labour).
+    // Goes negative when the discount is below cost so the loss is visible.
+    const discountedProfit = Math.round((discountedPrice - trueCost) * 100) / 100;
+    const discountedPct    = discountedPrice > 0 ? (discountedProfit / discountedPrice) * 100 : (discountedProfit < 0 ? -100 : 0);
+    return { labor, overheadPerVisit, cost, trueCost, addonLaborCost, basePrice, cleanPrice, price, profit, profitWithAddons, pct, addonTotal, mRev, mBaseRev, mAddonRev, mCost, mTrueCost, mProfit, mProfitWithAddons, cVal, cBaseVal, ct, freq, visitDur, calcPrice, manualQuote, discountAmount, discountedPrice, discountedProfit, discountedPct };
   }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, selectedDays, numCleaners, addons, clientType, cleanType, manualPrice, oneOffDiscount, oneOffDiscountUnit]);
 
-  const marginColor = q.pct < 25 ? C.danger : q.pct < 30 ? C.warning : C.success;
+  // For a one-off, the headline margin reflects the discounted price (can be negative).
+  const displayPct  = isCommercialOneOff ? q.discountedPct : q.pct;
+  const marginColor = displayPct < 25 ? C.danger : displayPct < 30 ? C.warning : C.success;
 
   const handleSaveQuote = async () => {
     setSubmitAttempted(true);
@@ -1137,7 +1143,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         <div style={{ position: isMobile ? 'static' : 'sticky', top: 20, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
           {/* Big price card */}
-          <Card C={C} style={{ border: `1px solid ${q.pct < 20 ? C.danger : C.border}` }}>
+          <Card C={C} style={{ border: `1px solid ${displayPct < 20 ? C.danger : C.border}` }}>
             <div style={{ padding: '0.5rem 0 0.75rem' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
@@ -1212,15 +1218,23 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
             </div>
 
             {/* Margin pill */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '9px 0 6px', borderTop: `1px solid ${C.border}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '9px 0 6px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
               <div style={{ width: 9, height: 9, borderRadius: '50%', background: marginColor, flexShrink: 0 }} />
               <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: marginColor }}>
-                {q.pct.toFixed(1)}% profit margin
+                {displayPct.toFixed(1)}% profit margin
               </span>
-              {q.pct < 25  && <span style={{ fontFamily: FONT, fontSize: 11, color: C.danger  }}>too low</span>}
-              {q.pct >= 25 && q.pct < 30 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.warning }}>minimum</span>}
-              {q.pct >= 30 && q.pct < 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>healthy</span>}
-              {q.pct >= 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>excellent</span>}
+              {displayPct < 0 && <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: C.danger }}>making a loss</span>}
+              {displayPct >= 0 && displayPct < 25  && <span style={{ fontFamily: FONT, fontSize: 11, color: C.danger  }}>too low</span>}
+              {displayPct >= 25 && displayPct < 30 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.warning }}>minimum</span>}
+              {displayPct >= 30 && displayPct < 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>healthy</span>}
+              {displayPct >= 40 && <span style={{ fontFamily: FONT, fontSize: 11, color: C.success }}>excellent</span>}
+              {isCommercialOneOff && (
+                <span style={{ width: '100%', textAlign: 'center', fontFamily: FONT, fontSize: 12, fontWeight: 700, color: q.discountedProfit < 0 ? C.danger : C.success }}>
+                  {q.discountedProfit < 0
+                    ? `You lose £${gbp(Math.abs(q.discountedProfit))} on this job after the discount`
+                    : `You make £${gbp(q.discountedProfit)} on this job after the discount`}
+                </span>
+              )}
             </div>
           {perVisit && (() => {
             const firstTotal = q.price - (bMediaConsent ? 10 : 0);
