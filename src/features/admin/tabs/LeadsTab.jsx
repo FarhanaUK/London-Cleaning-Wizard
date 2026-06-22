@@ -1,0 +1,256 @@
+import { useState, useMemo } from 'react';
+import { db } from '../../../firebase/firebase';
+import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+
+const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+
+const STATUSES = [
+  { id: 'new',            label: 'To call',        color: '#1d4ed8', bg: '#eff6ff' },
+  { id: 'callback',       label: 'Callback',       color: '#d97706', bg: '#fffbeb' },
+  { id: 'quote_sent',     label: 'Quote sent',     color: '#7c3aed', bg: '#f5f3ff' },
+  { id: 'booked',         label: 'Booked',         color: '#16a34a', bg: '#f0fdf4' },
+  { id: 'not_interested', label: 'Not interested', color: '#6b7280', bg: '#f3f4f6' },
+];
+const statusMeta = id => STATUSES.find(s => s.id === id) || STATUSES[0];
+
+const fmtDate = d => {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+};
+const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+export default function LeadsTab({ leads, isMobile, C }) {
+  const today = todayStr();
+  const [filter,      setFilter]      = useState('all');
+  const [search,      setSearch]      = useState('');
+  const [expanded,    setExpanded]    = useState(null);
+  const [showImport,  setShowImport]  = useState(false);
+  const [importText,  setImportText]  = useState('');
+  const [importing,   setImporting]   = useState(false);
+  const [showAdd,     setShowAdd]      = useState(false);
+  const [newLead,     setNewLead]     = useState({ businessName: '', contactName: '', phone: '', area: '' });
+
+  const allLeads = leads || [];
+
+  // Callbacks due today or overdue
+  const dueLeads = useMemo(() =>
+    allLeads
+      .filter(l => l.status === 'callback' && l.callbackDate && l.callbackDate <= today)
+      .sort((a, b) => (a.callbackDate || '').localeCompare(b.callbackDate || '')),
+    [allLeads, today]);
+
+  const counts = useMemo(() => ({
+    toCall:  allLeads.filter(l => l.status === 'new').length,
+    due:     dueLeads.length,
+    booked:  allLeads.filter(l => l.status === 'booked').length,
+  }), [allLeads, dueLeads]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allLeads
+      .filter(l => filter === 'all' ? true : l.status === filter)
+      .filter(l => !q || [l.businessName, l.contactName, l.phone, l.area].some(v => (v || '').toLowerCase().includes(q)))
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }, [allLeads, filter, search]);
+
+  const setStatus = async (id, status, extra = {}) => {
+    try { await updateDoc(doc(db, 'leads', id), { status, ...extra, updatedAt: new Date().toISOString() }); } catch {}
+  };
+  const updateField = async (id, fields) => {
+    try { await updateDoc(doc(db, 'leads', id), { ...fields, updatedAt: new Date().toISOString() }); } catch {}
+  };
+  const removeLead = async (id) => {
+    if (!window.confirm('Delete this lead?')) return;
+    try { await deleteDoc(doc(db, 'leads', id)); } catch {}
+  };
+
+  const handleImport = async () => {
+    const rows = importText.split('\n').map(r => r.trim()).filter(Boolean);
+    if (rows.length === 0) { setShowImport(false); return; }
+    setImporting(true);
+    const now = new Date().toISOString();
+    try {
+      for (const row of rows) {
+        const parts = row.split(/\t|,/).map(p => p.trim());
+        const [businessName = '', contactName = '', phone = '', area = ''] = parts;
+        if (!businessName && !phone) continue;
+        await addDoc(collection(db, 'leads'), {
+          businessName, contactName, phone, area, email: '',
+          status: 'new', callbackDate: '', notes: '', source: 'import',
+          createdAt: now, updatedAt: now,
+        });
+      }
+    } catch {}
+    setImporting(false);
+    setImportText('');
+    setShowImport(false);
+  };
+
+  const handleAdd = async () => {
+    if (!newLead.businessName.trim() && !newLead.phone.trim()) return;
+    const now = new Date().toISOString();
+    try {
+      await addDoc(collection(db, 'leads'), {
+        businessName: newLead.businessName.trim(), contactName: newLead.contactName.trim(),
+        phone: newLead.phone.trim(), area: newLead.area.trim(), email: '',
+        status: 'new', callbackDate: '', notes: '', source: 'manual',
+        createdAt: now, updatedAt: now,
+      });
+    } catch {}
+    setNewLead({ businessName: '', contactName: '', phone: '', area: '' });
+    setShowAdd(false);
+  };
+
+  const inputStyle = { fontFamily: FONT, fontSize: 13, color: C.text, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '7px 10px', width: '100%', boxSizing: 'border-box', outline: 'none' };
+  const btn = (bg, color, border) => ({ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${border || bg}`, background: bg, color });
+
+  const LeadRow = ({ l, due }) => {
+    const sm = statusMeta(l.status);
+    const isOpen = expanded === l.id;
+    return (
+      <div style={{ background: due ? '#fffbeb' : C.card, border: `1px solid ${due ? '#fcd34d' : C.border}`, borderRadius: 8, padding: '12px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setExpanded(isOpen ? null : l.id)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
+              <span style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.text }}>{l.businessName || l.contactName || l.phone || 'Lead'}</span>
+              <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.05em', background: sm.bg, color: sm.color }}>{sm.label}</span>
+              {l.status === 'callback' && l.callbackDate && (
+                <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: l.callbackDate <= today ? '#dc2626' : C.muted }}>
+                  {l.callbackDate < today ? `Overdue · ${fmtDate(l.callbackDate)}` : l.callbackDate === today ? 'Call back today' : `Call back ${fmtDate(l.callbackDate)}`}
+                </span>
+              )}
+            </div>
+            <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>
+              {[l.contactName, l.area].filter(Boolean).join(' · ')}
+            </div>
+          </div>
+          {l.phone && (
+            <a href={`tel:${l.phone}`} style={{ ...btn('#f0fdf4', '#16a34a', '#86efac'), textDecoration: 'none', whiteSpace: 'nowrap' }}>📞 {l.phone}</a>
+          )}
+        </div>
+
+        {isOpen && (
+          <div style={{ marginTop: 12, borderTop: `1px solid ${C.border}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Status buttons */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {STATUSES.map(s => (
+                <button key={s.id} onClick={() => setStatus(l.id, s.id, s.id === 'callback' ? {} : { callbackDate: s.id === 'callback' ? l.callbackDate : '' })}
+                  style={{ ...btn(l.status === s.id ? s.color : C.bg, l.status === s.id ? '#fff' : C.text, l.status === s.id ? s.color : C.border), fontSize: 11, padding: '5px 11px' }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            {/* Callback date */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>Call back on:</span>
+              <input type="date" value={l.callbackDate || ''} min={today}
+                onChange={e => updateField(l.id, { callbackDate: e.target.value, status: e.target.value ? 'callback' : l.status })}
+                style={{ ...inputStyle, width: 'auto' }} />
+            </div>
+            {/* Notes */}
+            <textarea defaultValue={l.notes || ''} placeholder="Call notes — who you spoke to, what was said..." rows={3}
+              onBlur={e => { if (e.target.value !== (l.notes || '')) updateField(l.id, { notes: e.target.value }); }}
+              style={{ ...inputStyle, resize: 'vertical' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{ fontFamily: FONT, fontSize: 11, color: C.muted }}>{l.phone}{l.email ? ` · ${l.email}` : ''}</span>
+              <button onClick={() => removeLead(l.id)} style={{ ...btn('transparent', '#dc2626', '#fca5a5'), fontSize: 11, padding: '5px 11px' }}>Delete</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: 0, fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text }}>Leads / Call list</h2>
+          <p style={{ margin: '4px 0 0', fontFamily: FONT, fontSize: 13, color: C.muted }}>Work your cold-call list, log outcomes and set callbacks.</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => { setShowAdd(s => !s); setShowImport(false); }} style={btn(C.card, C.text, C.border)}>+ Add lead</button>
+          <button onClick={() => { setShowImport(s => !s); setShowAdd(false); }} style={btn(C.accent, '#fff', C.accent)}>Import</button>
+        </div>
+      </div>
+
+      {/* Import panel */}
+      {showImport && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 16 }}>
+          <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 8 }}>
+            Paste rows from your Google Sheet, one lead per line. Order: <strong>Business, Contact, Phone, Area</strong> (separated by commas or tabs).
+          </div>
+          <textarea value={importText} onChange={e => setImportText(e.target.value)} rows={6}
+            placeholder={"Oakwood Office, John Smith, 020 1234 5678, Canary Wharf\nThe Anchor Pub, , 07700 900000, Hackney"}
+            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace' }} />
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button onClick={handleImport} disabled={importing} style={btn(C.accent, '#fff', C.accent)}>{importing ? 'Importing…' : 'Import leads'}</button>
+            <button onClick={() => { setShowImport(false); setImportText(''); }} style={btn(C.bg, C.muted, C.border)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Add panel */}
+      {showAdd && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 16, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
+          <input placeholder="Business name" value={newLead.businessName} onChange={e => setNewLead(p => ({ ...p, businessName: e.target.value }))} style={inputStyle} />
+          <input placeholder="Contact name" value={newLead.contactName} onChange={e => setNewLead(p => ({ ...p, contactName: e.target.value }))} style={inputStyle} />
+          <input placeholder="Phone" value={newLead.phone} onChange={e => setNewLead(p => ({ ...p, phone: e.target.value }))} style={inputStyle} />
+          <input placeholder="Area" value={newLead.area} onChange={e => setNewLead(p => ({ ...p, area: e.target.value }))} style={inputStyle} />
+          <div style={{ gridColumn: isMobile ? 'auto' : 'span 2', display: 'flex', gap: 8 }}>
+            <button onClick={handleAdd} style={btn(C.accent, '#fff', C.accent)}>Add lead</button>
+            <button onClick={() => setShowAdd(false)} style={btn(C.bg, C.muted, C.border)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Summary strip */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        {[
+          { label: 'To call',       value: counts.toCall, color: '#1d4ed8', bg: '#eff6ff' },
+          { label: 'Callbacks due', value: counts.due,    color: counts.due > 0 ? '#dc2626' : C.muted, bg: counts.due > 0 ? '#fef2f2' : C.card },
+          { label: 'Booked',        value: counts.booked, color: '#16a34a', bg: '#f0fdf4' },
+        ].map(s => (
+          <div key={s.label} style={{ flex: 1, minWidth: 100, background: s.bg, border: `1px solid ${s.color}33`, borderRadius: 8, padding: '12px 16px' }}>
+            <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: s.color, marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Callbacks due */}
+      {dueLeads.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>📞 Call back now ({dueLeads.length})</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {dueLeads.map(l => <LeadRow key={l.id} l={l} due />)}
+          </div>
+        </div>
+      )}
+
+      {/* Filters + search */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+        {[{ id: 'all', label: 'All' }, ...STATUSES].map(s => (
+          <button key={s.id} onClick={() => setFilter(s.id)}
+            style={{ ...btn(filter === s.id ? C.text : C.bg, filter === s.id ? '#fff' : C.text, filter === s.id ? C.text : C.border), fontSize: 11, padding: '5px 11px' }}>
+            {s.label}
+          </button>
+        ))}
+        <input placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputStyle, width: 'auto', flex: 1, minWidth: 140 }} />
+      </div>
+
+      {/* Lead list */}
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '50px 0', fontFamily: FONT, fontSize: 14, color: C.muted }}>
+          {allLeads.length === 0 ? 'No leads yet. Click Import to paste in your call list.' : 'No leads match this filter.'}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {filtered.map(l => <LeadRow key={l.id} l={l} />)}
+        </div>
+      )}
+    </div>
+  );
+}

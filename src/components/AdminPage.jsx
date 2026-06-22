@@ -24,6 +24,7 @@ const SignatureTouchTab  = lazy(() => import('../features/admin/tabs/SignatureTo
 const TrashTab           = lazy(() => import('../features/admin/tabs/TrashTab'));
 const MarketingSpendTab  = lazy(() => import('../features/admin/tabs/MarketingSpendTab'));
 const QuotesTab          = lazy(() => import('../features/admin/tabs/QuotesTab'));
+const LeadsTab           = lazy(() => import('../features/admin/tabs/LeadsTab'));
 const ActionsTab         = lazy(() => import('../features/admin/tabs/ActionsTab'));
 const ServicesTab        = lazy(() => import('../features/admin/tabs/ServicesTab'));
 
@@ -76,6 +77,7 @@ const NAV_ITEMS = [
   { id: 'signatureTouch', label: 'Signature Touch', icon: '✦'  },
   { id: 'services',  label: 'Services',  icon: '🧹' },
   { id: 'sop',       label: 'SOP',       icon: '📖' },
+  { id: 'leads',          label: 'Leads / Call List', icon: '📇' },
   { id: 'quotes',         label: 'Quotes / Enquiries & Pricing', icon: '💰' },
   { id: 'trash',          label: 'Trash',           icon: '🗑'  },
 ];
@@ -194,6 +196,7 @@ export default function AdminPage() {
   const [funnelData,            setFunnelData]            = useState([]);
   const [stDistributions,       setStDistributions]       = useState([]);
   const [savedQuotes,           setSavedQuotes]           = useState([]);
+  const [leads,                 setLeads]                 = useState([]);
   const [incidents,             setIncidents]             = useState([]);
   useEffect(() => onAuthStateChanged(auth, async u => {
     setUser(u);
@@ -272,6 +275,14 @@ export default function AdminPage() {
     return onSnapshot(
       query(collection(db, 'savedQuotes'), orderBy('createdAt', 'desc')),
       snap => setSavedQuotes(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(
+      query(collection(db, 'leads'), orderBy('createdAt', 'desc')),
+      snap => setLeads(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
   }, [user]);
 
@@ -932,7 +943,7 @@ export default function AdminPage() {
             const deletedContractIds = new Set(bookings.filter(b => b.isContract && b.deleted).map(b => b.id));
             const activeBookings = bookings.filter(b => !b.deleted && !(b.contractId && deletedContractIds.has(b.contractId)));
             return <>
-              {activeView === 'actions'   && <ActionsTab savedQuotes={savedQuotes} bookings={activeBookings} isMobile={isMobile} C={C} onNavigate={setActiveView} />}
+              {activeView === 'actions'   && <ActionsTab savedQuotes={savedQuotes} leads={leads} bookings={activeBookings} isMobile={isMobile} C={C} onNavigate={setActiveView} />}
               {activeView === 'calendar'  && <CalendarTab bookings={activeBookings} isMobile={isMobile} C={C} />}
               {activeView === 'dashboard' && <DashboardTab bookings={activeBookings} staff={staff} isMobile={isMobile} C={C} />}
               {activeView === 'customers' && <CustomersTab bookings={activeBookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
@@ -949,6 +960,7 @@ export default function AdminPage() {
               {activeView === 'adSpend'        && <MarketingSpendTab isMobile={isMobile} C={C} />}
               {activeView === 'promotions'     && <PromotionsTab isMobile={isMobile} C={C} />}
               {activeView === 'signatureTouch' && <SignatureTouchTab bookings={activeBookings} staff={staff} stDistributions={stDistributions} C={C} />}
+              {activeView === 'leads'          && <LeadsTab leads={leads} isMobile={isMobile} C={C} />}
               {activeView === 'quotes'         && <QuotesTab isMobile={isMobile} C={C} expenses={expenses} fixedCosts={fixedCosts} marketingSpend={marketingSpend} supplies={supplies} bookings={bookings} savedQuotes={savedQuotes} onNavigate={setActiveView} />}
               {activeView === 'trash'          && <TrashTab bookings={bookings} setBookings={setBookings} isMobile={isMobile} C={C} />}
             </>;

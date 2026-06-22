@@ -92,6 +92,11 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Leads / cold-call list — admin only
+    match /leads/{id} {
+      allow read, write: if request.auth != null;
+    }
+
     // Incidents (damage, refunds, unexpected costs) — admin only
     match /incidents/{id} {
       allow read, write: if request.auth != null;

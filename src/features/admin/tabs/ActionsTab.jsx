@@ -30,7 +30,7 @@ const snoozeItem = (id, days, today) => {
   localStorage.setItem(SNOOZE_KEY, JSON.stringify(s));
 };
 
-export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavigate, onCountChange }) {
+export default function ActionsTab({ savedQuotes, leads, bookings, isMobile, C, onNavigate, onCountChange }) {
   const today = new Date().toISOString().slice(0, 10);
 
   const [rescheduleId, setRescheduleId] = useState(null);
@@ -60,6 +60,24 @@ export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavig
           overdue: diff < 0,
           diffDays: diff,
           data: sq,
+        });
+      });
+
+    // Lead callbacks: overdue or due within 7 days
+    (leads || [])
+      .filter(l => l.status === 'callback' && l.callbackDate && l.callbackDate <= in7days)
+      .filter(l => !isItemSnoozed('lead_' + l.id, today))
+      .forEach(l => {
+        const diff = daysDiff(l.callbackDate, today);
+        items.push({
+          type: 'lead_callback',
+          id: 'lead_' + l.id,
+          name: l.businessName || l.contactName || l.phone || 'Lead',
+          meta: [l.contactName, l.area, l.phone].filter(Boolean).join(' · ') || 'Cold-call lead',
+          dueDate: l.callbackDate,
+          overdue: diff < 0,
+          diffDays: diff,
+          data: l,
         });
       });
 
@@ -100,7 +118,7 @@ export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavig
     });
 
     return items.sort((a, b) => a.diffDays - b.diffDays);
-  }, [savedQuotes, bookings, today, snoozeBump, notifBump]);
+  }, [savedQuotes, leads, bookings, today, snoozeBump, notifBump]);
 
   useEffect(() => { onCountChange?.(actions.length); }, [actions.length, onCountChange]);
 
@@ -189,6 +207,7 @@ export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavig
         {actions.map(item => {
           const isQuote    = item.type === 'quote_followup';
           const isBellAction = item.type === 'bell_action';
+          const isLead     = item.type === 'lead_callback';
           const borderCol  = item.overdue ? '#fca5a5' : item.diffDays <= 3 ? '#fde68a' : C.border;
           const bgCol      = item.overdue ? '#fff5f5' : C.card;
           const isRescheduling = rescheduleId === item.id;
@@ -200,10 +219,10 @@ export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavig
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
                     <span style={{
                       fontFamily: FONT, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, letterSpacing: '0.05em', textTransform: 'uppercase',
-                      background: isQuote ? '#eff6ff' : isBellAction ? '#fef2f2' : '#fef3c7',
-                      color: isQuote ? '#1d4ed8' : isBellAction ? '#dc2626' : '#92400e',
+                      background: isQuote ? '#eff6ff' : isBellAction ? '#fef2f2' : isLead ? '#fffbeb' : '#fef3c7',
+                      color: isQuote ? '#1d4ed8' : isBellAction ? '#dc2626' : isLead ? '#d97706' : '#92400e',
                     }}>
-                      {isQuote ? 'Quote follow-up' : isBellAction ? 'Action needed' : 'Contract ending'}
+                      {isQuote ? 'Quote follow-up' : isBellAction ? 'Action needed' : isLead ? 'Lead callback' : 'Contract ending'}
                     </span>
                     {!isBellAction && (
                       <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: urgencyColor(item) }}>
@@ -229,10 +248,20 @@ export default function ActionsTab({ savedQuotes, bookings, isMobile, C, onNavig
                       </button>
                     </>
                   )}
-                  {!isQuote && !isBellAction && (
+                  {!isQuote && !isBellAction && !isLead && (
                     <button style={BTN(C.bg, C.text, C.border)} onClick={() => onNavigate('bookings')}>
                       View contract
                     </button>
+                  )}
+                  {isLead && (
+                    <>
+                      {item.data?.phone && (
+                        <a href={`tel:${item.data.phone}`} style={{ ...BTN('#f0fdf4', '#16a34a', '#86efac'), textDecoration: 'none' }}>📞 Call</a>
+                      )}
+                      <button style={BTN(C.bg, C.text, C.border)} onClick={() => onNavigate('leads')}>
+                        Go to Leads
+                      </button>
+                    </>
                   )}
                   {isBellAction && (
                     <>
