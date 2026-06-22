@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { db } from '../../../firebase/firebase';
 import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import emailjs from '@emailjs/browser';
-import { ESTATE_CLEAN_TYPES, ESTATE_CLEAN_MULTIPLIERS } from '../utils';
+import { ESTATE_CLEAN_TYPES, ESTATE_CLEAN_MULTIPLIERS, ESTATE_CLEAN_DESCRIPTIONS, estateAddonsForType } from '../utils';
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -251,7 +251,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       base = h * (typeMult[intensity] || 1.0) * (complexMult[complexity] || 1.0);
       base += Math.max((parseInt(commBaths, 10) || 1) - 1, 0) * 0.5;
     }
-    const addonList = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+    const addonList = clientType === 'estateAgent' ? estateAddonsForType(cleanType) : perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
     const addonH = addons.reduce((sum, id) => sum + (addonList.find(x => x.id === id)?.h || 0), 0);
     return base + addonH;
   }, [clientType, cleanType, airbnbPropType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths, addons]);
@@ -261,7 +261,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const minMarg       = (parseFloat(minMargin) || 25) / 100;
     const margin        = Math.min(1 - (1 - minMarg) * (1 - ct.disc), 0.99);
     // Add-ons use fixed prices -- separate from the cost-plus clean calculation
-    const addonList     = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+    const addonList     = clientType === 'estateAgent' ? estateAddonsForType(cleanType) : perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
     const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
     const addonHours    = selectedAddons.reduce((s, a) => s + a.h, 0);
     const addonTotal    = selectedAddons.reduce((s, a) => s + (a.price || 0), 0);
@@ -309,7 +309,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     if (!followUpDate)       { setSaveError('Set a follow-up date.'); return; }
     setSaving(true); setSaveError('');
     try {
-      const addonList = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+      const addonList = clientType === 'estateAgent' ? estateAddonsForType(cleanType) : perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
       const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
       const now = new Date().toISOString();
       await addDoc(collection(db, 'savedQuotes'), {
@@ -459,7 +459,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       const nameParts  = contactName.trim().split(' ');
       const firstName  = nameParts[0] || bizName.trim();
       const lastName   = nameParts.slice(1).join(' ') || '';
-      const addonList  = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+      const addonList  = clientType === 'estateAgent' ? estateAddonsForType(cleanType) : perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
       const selectedAddons = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
       const nClean         = parseInt(numCleaners, 10) || 1;
       const addonHrs       = selectedAddons.reduce((s, a) => s + (a.h || 0), 0);
@@ -738,7 +738,13 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 {clientType === 'estateAgent' && (
                   <div style={{ gridColumn: 'span 2' }}>
                     <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>Type of clean <span style={{ color: C.danger }}>*</span></div>
-                    <select value={cleanType} onChange={e => setCleanType(e.target.value)} style={{ ...inputStyle, borderColor: submitAttempted && !cleanType ? C.danger : undefined }}>
+                    <select value={cleanType} onChange={e => {
+                      const nt = e.target.value;
+                      setCleanType(nt);
+                      // Drop any selected add-ons that this clean type doesn't offer
+                      const valid = estateAddonsForType(nt).map(a => a.id);
+                      setAddons(prev => prev.filter(id => valid.includes(id)));
+                    }} style={{ ...inputStyle, borderColor: submitAttempted && !cleanType ? C.danger : undefined }}>
                       <option value="">Select type of clean…</option>
                       {ESTATE_CLEAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
@@ -747,6 +753,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                       : q.manualQuote
                         ? <div style={{ fontSize: 10, color: '#b45309', marginTop: 4 }}>Quoted manually (varies too much to auto-price) — enter the price in "Manual price override" below.</div>
                         : <div style={{ fontSize: 10, color: C.faint || C.muted, marginTop: 4 }}>Auto-priced at {ESTATE_CLEAN_MULTIPLIERS[cleanType]}× the base clean. You can still override below.</div>}
+                    {cleanType && ESTATE_CLEAN_DESCRIPTIONS[cleanType] && (
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 8, padding: '8px 10px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, lineHeight: 1.5 }}>
+                        {ESTATE_CLEAN_DESCRIPTIONS[cleanType]}
+                      </div>
+                    )}
                   </div>
                 )}
                 <div style={{ gridColumn: 'span 2' }}>
@@ -828,8 +839,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           {/* Add-ons */}
           <Card C={C}>
             <SectionLabel C={C}>Add-ons</SectionLabel>
+            {clientType === 'estateAgent' && !cleanType && (
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Select a type of clean above to see the add-ons available for it.</div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 7 }}>
-              {(perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS).map(a => (
+              {(clientType === 'estateAgent' ? estateAddonsForType(cleanType) : perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS).map(a => (
                 <label
                   key={a.id}
                   style={{
@@ -1073,7 +1087,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               </div>
 
               {q.addonTotal > 0 && (() => {
-                const addonList = perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
+                const addonList = clientType === 'estateAgent' ? estateAddonsForType(cleanType) : perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
                 const selected  = addons.map(id => addonList.find(a => a.id === id)).filter(Boolean);
                 return (
                   <div style={{ marginTop: 12, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>

@@ -15,6 +15,43 @@ export const ESTATE_CLEAN_MULTIPLIERS = {
   'Communal Area Cleaning':               null,
 };
 
+// Plain-English description of what each estate clean type entails — shown by the clean-type picker
+// in the Quotes form, the Add New Visit popup and the Edit modal so the right job is booked.
+export const ESTATE_CLEAN_DESCRIPTIONS = {
+  'End of Tenancy Cleaning':              'Tenant has moved out. A full reset of the whole property to pass the inventory check and prepare for new tenants — kitchen, bathrooms, appliances, inside cupboards, floors and all surfaces.',
+  'Pre-Tenancy / Move-In Cleaning':       'A new tenant is about to move in. Makes the property fresh, presentable and hygienic before occupation.',
+  'Void Property Cleaning':               'Property sitting empty between tenants. Keeps it in good condition and ready for viewings and marketing.',
+  'Deep Cleaning':                        'Property in poor or neglected condition. Tackles heavy build-up across kitchens, bathrooms, appliances and surfaces.',
+  'After-Builders / Renovation Cleaning': 'After building, maintenance or refurbishment work. Removes dust and debris and makes the property presentable. Priced manually as it varies by job.',
+  'Communal Area Cleaning':               'Shared areas in managed blocks — hallways, staircases, shared entrances and lifts. Priced manually per block.',
+};
+
+// Estate Agent add-ons. Unlike Airbnb/short-let, estate cleans (end of tenancy, void, etc.) need a
+// different set, and which ones apply depends on the clean type — so each type maps to its own list.
+// One source of truth for the Quotes form and the Edit modal. `h` is labour hours for the pricer.
+export const ESTATE_ADDONS = [
+  { id: 'oven',      label: 'Oven deep clean',               h: 0.5,  price: 40, note: 'Interior, racks, door and casing' },
+  { id: 'fridge',    label: 'Inside fridge / freezer',       h: 0.33, price: 18, note: 'Full interior clean / defrost' },
+  { id: 'windows',   label: 'Internal windows',              h: 0.5,  price: 20, note: 'Standard windows, inside only' },
+  { id: 'limescale', label: 'Limescale & bathroom descale',  h: 0.5,  price: 30, note: 'Intensive descale of taps, tiles, glass and sanitaryware' },
+  { id: 'patio',     label: 'Balcony / patio',               h: 0.33, price: 30 },
+  { id: 'bins',      label: 'Bin store / refuse area clean',  h: 0.4,  price: 25 },
+];
+
+// Which add-ons are offered for each clean type.
+export const ESTATE_ADDONS_BY_TYPE = {
+  'End of Tenancy Cleaning':              ['oven', 'fridge', 'windows', 'limescale', 'patio'],
+  'Pre-Tenancy / Move-In Cleaning':       ['oven', 'fridge', 'windows', 'limescale'],
+  'Void Property Cleaning':               ['windows', 'limescale', 'patio'],
+  'Deep Cleaning':                        ['oven', 'fridge', 'windows', 'limescale'],
+  'After-Builders / Renovation Cleaning': ['windows', 'patio'],
+  'Communal Area Cleaning':               ['windows', 'patio', 'bins'],
+};
+
+// Add-ons available for a given estate clean type (empty until a type is chosen).
+export const estateAddonsForType = (cleanType) =>
+  (ESTATE_ADDONS_BY_TYPE[cleanType] || []).map(id => ESTATE_ADDONS.find(a => a.id === id)).filter(Boolean);
+
 // Airbnb and Estate Agent are both one-off per-visit property cleans and behave the same way
 // across the admin (job cards, hide pets/signature, charge-on-completion, add-on reminders).
 // Use these helpers so the two types stay in lockstep and no spot gets missed.

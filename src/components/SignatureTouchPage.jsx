@@ -50,7 +50,6 @@ const ROOMS = [
     room: "Living Areas",
     items: [
       "All surfaces dusted and polished",
-      "Upholstery vacuumed",
       "Skirting boards wiped",
       "Mirrors and glass polished",
       "Floors vacuumed and mopped",

@@ -1,5 +1,6 @@
 import { PACKAGES, FREQUENCIES, ADDONS } from '../../../data/siteData';
 import { TIMES } from '../../../constants/timeOptions';
+import { estateAddonsForType, ESTATE_CLEAN_DESCRIPTIONS } from '../utils';
 
 const FONT   = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const FIELD  = C => ({ width: '100%', padding: '8px 12px', fontFamily: FONT, fontSize: 13, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, outline: 'none', boxSizing: 'border-box' });
@@ -35,9 +36,12 @@ export default function EditBookingModal({ editBooking, editData, setEditData, e
     || editBooking.packageId || editData.packageId
     || (((editBooking.packageName || editData.packageName || '') + (editBooking.contractLabel || '')).toLowerCase().includes('airbnb') ? 'airbnb' : '')
     || (((editBooking.packageName || editData.packageName || '') + (editBooking.contractLabel || '')).toLowerCase().includes('commercial') ? 'commercial' : '');
-  const isAirbnb     = rawType === 'airbnb' || rawType === 'estateAgent' || String(rawType).toLowerCase().includes('airbnb') || String(rawType).toLowerCase().includes('estate');
+  const isEstate     = editBooking.isEstateAgent === true || editData.isEstateAgent === true || rawType === 'estateAgent' || String(rawType).toLowerCase().includes('estate');
+  const isAirbnb     = !isEstate && (rawType === 'airbnb' || String(rawType).toLowerCase().includes('airbnb'));
   const isCommercial = rawType === 'commercial' || String(rawType).toLowerCase().includes('commercial');
-  const contractAddonList = isAirbnb ? AIRBNB_ADDONS : isCommercial ? COMMERCIAL_ADDONS : null;
+  const editCleanType = editData.cleanType || editBooking.cleanType || '';
+  // Estate agents get add-ons specific to their clean type; Airbnb/commercial keep their fixed lists.
+  const contractAddonList = isEstate ? estateAddonsForType(editCleanType) : isAirbnb ? AIRBNB_ADDONS : isCommercial ? COMMERCIAL_ADDONS : null;
   const isContractBooking = !!(editBooking.isContract || editBooking.isContractVisit || editBooking.contractId || contractAddonList);
 
   return (
@@ -94,6 +98,14 @@ export default function EditBookingModal({ editBooking, editData, setEditData, e
               <span>{FREQUENCIES.find(f => f.id === (editData.frequency || 'one-off'))?.label || 'One-off'}</span>
               <span style={{ fontFamily: FONT, fontSize: 10, color: C.muted }}>Use Stop Series or Convert to Recurring to change</span>
             </div>
+          </FieldRow>
+        )}
+        {isEstate && editCleanType && (
+          <FieldRow label="Type of clean" C={C}>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: 500 }}>{editCleanType}</div>
+            {ESTATE_CLEAN_DESCRIPTIONS[editCleanType] && (
+              <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>{ESTATE_CLEAN_DESCRIPTIONS[editCleanType]}</div>
+            )}
           </FieldRow>
         )}
         {isContractBooking && contractAddonList && (
