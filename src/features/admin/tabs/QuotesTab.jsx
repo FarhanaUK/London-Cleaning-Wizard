@@ -1594,9 +1594,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 Quote saved and email sent.
               </div>
             )}
-            {perVisit ? (
+            {(perVisit || isCommercialOneOff) ? (
               <div style={{ fontSize: 12, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '11px 14px', textAlign: 'center' }}>
-                Quotes are only for contracted commercial jobs
+                {isCommercialOneOff
+                  ? 'One-off trials are booked directly with a payment link, not quoted. The discount only applies on booking.'
+                  : 'Quotes are only for contracted commercial jobs'}
               </div>
             ) : (
               <button
@@ -1611,7 +1613,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 Save quote + send email
               </button>
             )}
-            {showSavePanel && (
+            {showSavePanel && !isCommercialOneOff && (
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Follow-up date <span style={{ color: C.danger }}>*</span></div>
