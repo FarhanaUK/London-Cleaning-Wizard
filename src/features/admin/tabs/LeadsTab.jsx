@@ -37,6 +37,18 @@ const IMPORT_FIELDS = [
 const LEAD_FIELDS = ['businessName', 'address', 'email', 'phone', 'sector', 'website'];
 const defaultImportField = i => LEAD_FIELDS[i] || 'skip';
 
+// Auto-match a column to a field by its header text (e.g. "Business Name" -> businessName).
+const guessFieldFromHeader = (header) => {
+  const h = (header || '').toLowerCase();
+  if (/e-?mail/.test(h))                 return 'email';
+  if (/website|url|web\b|site/.test(h))  return 'website';
+  if (/phone|tel|mobile/.test(h))        return 'phone';
+  if (/business\s*name|company|trading/.test(h)) return 'businessName';
+  if (/sector|industry|category/.test(h)) return 'sector';
+  if (/address/.test(h))                 return 'address';
+  return 'skip';
+};
+
 // Read-only fields shown in the expanded lead (phone is handled separately as the one editable field).
 const INFO_FIELDS = [
   { key: 'businessName', label: 'Business name' },
@@ -77,6 +89,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const [importText,  setImportText]  = useState('');
   const [importMap,   setImportMap]   = useState([]);
   const [skipHeader,  setSkipHeader]  = useState(true);
+  const [showMapping, setShowMapping] = useState(false);
   const [importing,   setImporting]   = useState(false);
   const [showAdd,     setShowAdd]      = useState(false);
   const [newLead,     setNewLead]     = useState({ businessName: '', address: '', email: '', phone: '', sector: '', website: '' });
@@ -131,8 +144,9 @@ export default function LeadsTab({ leads, isMobile, C }) {
     const maxCols = split.reduce((m, p) => Math.max(m, p.length), 0);
     // Keep only full-width rows (drops a one-cell title row); optionally drop the header row.
     let data = split.filter(p => p.length === maxCols);
+    const headerRow = data[0] || [];
     if (skipHeader) data = data.slice(1);
-    const map = Array.from({ length: maxCols }, (_, i) => importMap[i] ?? defaultImportField(i));
+    const map = Array.from({ length: maxCols }, (_, i) => importMap[i] ?? (skipHeader && headerRow[i] ? guessFieldFromHeader(headerRow[i]) : defaultImportField(i)));
     setImporting(true);
     const now = new Date().toISOString();
     try {
@@ -179,7 +193,9 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const importMaxCols = importSplit.reduce((m, p) => Math.max(m, p.length), 0);
   const sampleCols = importSplit.find(p => p.length === importMaxCols) || [];
   const importCount = Math.max(0, importSplit.filter(p => p.length === importMaxCols).length - (skipHeader ? 1 : 0));
-  const effMap = sampleCols.map((_, i) => importMap[i] ?? defaultImportField(i));
+  // Auto-detect each field from the header text (sampleCols is the header row when skipHeader is on).
+  const effMap = sampleCols.map((_, i) => importMap[i] ?? (skipHeader && sampleCols[i] ? guessFieldFromHeader(sampleCols[i]) : defaultImportField(i)));
+  const detectedLabels = LEAD_FIELDS.filter(f => effMap.includes(f)).map(f => IMPORT_FIELDS.find(x => x.id === f)?.label);
 
   const inputStyle = { fontFamily: FONT, fontSize: 13, color: C.text, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '7px 10px', width: '100%', boxSizing: 'border-box', outline: 'none' };
   const btn = (bg, color, border) => ({ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${border || bg}`, background: bg, color });
@@ -309,19 +325,22 @@ export default function LeadsTab({ leads, isMobile, C }) {
       {showImport && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 16 }}>
           <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 8 }}>
-            Paste rows from your Google Sheet, one lead per line (columns separated by commas or tabs). Then match each column to the right field below — it doesn't matter what order your sheet is in.
+            Copy your lead sheet (including the header row) and paste it here, then press Import. It detects the business name, address, email, phone, sector and website from your column headers automatically.
           </div>
           <textarea value={importText} onChange={e => { setImportText(e.target.value); setImportMap([]); }} rows={6}
-            placeholder={"The Nail Spa, 12 High St E14, hello@nailspa.com, 020 1234 5678, Beauty, nailspa.com\nOakwood Office, 5 Mill Rd E8, , , Offices, oakwood.co.uk"}
+            placeholder={"Paste your sheet here…"}
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace' }} />
 
           {sampleCols.length > 0 && (
+            <div style={{ marginTop: 10, fontFamily: FONT, fontSize: 12 }}>
+              <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {importCount} lead{importCount !== 1 ? 's' : ''} ready.</span>{' '}
+              <span style={{ color: C.muted }}>Detected: {detectedLabels.length ? detectedLabels.join(', ') : 'nothing yet — check your headers'}.</span>{' '}
+              <button onClick={() => setShowMapping(s => !s)} style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', fontFamily: FONT, fontSize: 12, padding: 0, textDecoration: 'underline' }}>{showMapping ? 'Hide columns' : 'Adjust columns'}</button>
+            </div>
+          )}
+
+          {showMapping && sampleCols.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer', fontFamily: FONT, fontSize: 12, color: C.text }}>
-                <input type="checkbox" checked={skipHeader} onChange={e => setSkipHeader(e.target.checked)} />
-                First data row is a header (skip it) — e.g. "Business Name, Address…"
-              </label>
-              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>Match your columns (preview is your first full row) — {importCount} lead{importCount !== 1 ? 's' : ''} will import:</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {sampleCols.map((sample, i) => (
                   <div key={i} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: '6px 8px', minWidth: 150 }}>
@@ -338,7 +357,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button onClick={handleImport} disabled={importing} style={btn(C.accent, '#fff', C.accent)}>{importing ? 'Importing…' : 'Import leads'}</button>
-            <button onClick={() => { setShowImport(false); setImportText(''); setImportMap([]); }} style={btn(C.bg, C.muted, C.border)}>Cancel</button>
+            <button onClick={() => { setShowImport(false); setImportText(''); setImportMap([]); setShowMapping(false); }} style={btn(C.bg, C.muted, C.border)}>Cancel</button>
           </div>
         </div>
       )}
