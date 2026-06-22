@@ -15,15 +15,16 @@ export const ESTATE_CLEAN_MULTIPLIERS = {
   'Communal Area Cleaning':               null,
 };
 
-// Plain-English description of what each estate clean type entails — shown by the clean-type picker
-// in the Quotes form, the Add New Visit popup and the Edit modal so the right job is booked.
+// Description of each estate clean type, written to tell you how HARD/heavy the job is (so you know
+// the effort and why it is priced the way it is). Shown by the clean-type picker in the Quotes form,
+// the Add New Visit popup and the Edit modal.
 export const ESTATE_CLEAN_DESCRIPTIONS = {
-  'End of Tenancy Cleaning':              'Tenant has moved out. A full reset of the whole property to pass the inventory check and prepare for new tenants — kitchen, bathrooms, appliances, inside cupboards, floors and all surfaces.',
-  'Pre-Tenancy / Move-In Cleaning':       'A new tenant is about to move in. Makes the property fresh, presentable and hygienic before occupation.',
-  'Void Property Cleaning':               'Property sitting empty between tenants. Keeps it in good condition and ready for viewings and marketing.',
-  'Deep Cleaning':                        'Property in poor or neglected condition. Tackles heavy build-up across kitchens, bathrooms, appliances and surfaces.',
-  'After-Builders / Renovation Cleaning': 'After building, maintenance or refurbishment work. Removes dust and debris and makes the property presentable. Priced manually as it varies by job.',
-  'Communal Area Cleaning':               'Shared areas in managed blocks — hallways, staircases, shared entrances and lifts. Priced manually per block.',
+  'End of Tenancy Cleaning':              'Heaviest, hardest clean. A full deep reset of the whole property to pass the inventory check: inside every cupboard and appliance, all bathrooms and the kitchen scrubbed top to bottom. The most labour-intensive job, priced at 1.6x a standard clean.',
+  'Pre-Tenancy / Move-In Cleaning':       'Moderately heavy. A thorough clean to make a property fresh and hygienic before a new tenant moves in. More than a standard clean, but lighter than an end of tenancy. Priced at 1.25x.',
+  'Void Property Cleaning':               'Light clean. The property is empty and already fairly clean, so just a freshen-up and dust to keep it presentable for viewings. Quicker than a standard clean, priced at 0.9x.',
+  'Deep Cleaning':                        'Heavy clean. Tackles serious build-up and neglect across kitchens, bathrooms, appliances and surfaces. Hard, time-consuming work, priced at 1.5x.',
+  'After-Builders / Renovation Cleaning': 'Heavy but highly variable. Removing fine builders dust and debris after works can be a light touch-up or a major job, so it is priced manually each time.',
+  'Communal Area Cleaning':               'Effort varies by block. Shared hallways, stairs, entrances and lifts. How hard it is depends on the size and state of the block, so it is priced manually.',
 };
 
 // Estate Agent add-ons. Unlike Airbnb/short-let, estate cleans (end of tenancy, void, etc.) need a

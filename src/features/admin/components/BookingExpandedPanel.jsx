@@ -1,4 +1,4 @@
-import { calcHours, toInputTime, fmtDuration, isOneOffPropertyClean, freqLabel, ESTATE_CLEAN_TYPES } from '../utils';
+import { calcHours, toInputTime, fmtDuration, isOneOffPropertyClean, freqLabel, ESTATE_CLEAN_TYPES, ESTATE_CLEAN_DESCRIPTIONS, estateAddonsForType } from '../utils';
 import emailjs from '@emailjs/browser';
 import DoNotContactToggle from './DoNotContactToggle';
 import { useState, useEffect } from 'react';
@@ -154,8 +154,14 @@ export default function BookingExpandedPanel({
       // the previous visit's add-ons — start fresh with none and price the base visit only.
       const isEA            = b.isEstateAgent === true;
       const baseVisit       = parseFloat(b.pricePerVisit || 0) || Math.max(0, parseFloat(b.total || 0) + parseFloat(b.mediaConsentDiscount || 0) - parseFloat(b.addonTotal || 0));
-      const visitAddons     = isEA ? [] : (b.addons || []);
-      const visitAddonTotal = isEA ? 0  : parseFloat(b.addonTotal || 0);
+      // Estate visits are distinct jobs: pick this visit's own add-ons from its clean type.
+      const eaSelected      = isEA
+        ? estateAddonsForType(newVisitModal.cleanType ?? b.cleanType ?? '')
+            .filter(a => (newVisitModal.addons || []).includes(a.id))
+            .map(a => ({ id: a.id, name: a.label, price: a.price, h: a.h || 0 }))
+        : [];
+      const visitAddons     = isEA ? eaSelected : (b.addons || []);
+      const visitAddonTotal = isEA ? eaSelected.reduce((s, a) => s + parseFloat(a.price || 0), 0) : parseFloat(b.addonTotal || 0);
       const visitTotal      = baseVisit + visitAddonTotal;
       const newBooking = {
         customerName:    b.customerName || b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim(),
@@ -180,6 +186,7 @@ export default function BookingExpandedPanel({
         visitDur:        b.visitDur || b.visitDurationBase || '',
         addons:          visitAddons,
         addonTotal:      visitAddonTotal,
+        addonsList:      visitAddons.map(a => a.name || a.label).join(', '),
         pricePerVisit:   baseVisit,
         total:           visitTotal,
         deposit:         0,
@@ -468,6 +475,7 @@ export default function BookingExpandedPanel({
           b.isContractVisit && b.visitDurationBase && { l: 'Visit Duration', v: `${b.visitDurationBase}h` },
           b.isEstateAgent && b.cleanType && { l: 'Type of clean', v: b.cleanType },
           { l: 'Add-ons',          v: b.addons?.length ? b.addons.map(a => a.name).join(', ') : (b.addonsList || 'None') },
+          b.notes && { l: 'Notes', v: b.notes },
           !b.isContractVisit && !isOneOffPropertyClean(b) && !['hourly','office_cleaning'].includes(b.package || b.packageId) && { l: 'Pets', v: b.hasPets ? `Yes — ${b.petTypes || 'not specified'}` : 'No' },
           !b.isContractVisit && (b.package === 'standard' || b.packageId === 'standard') && { l: 'Signature Touch', v: b.signatureTouch === false ? `Opted out${b.signatureTouchNotes ? ` — ${b.signatureTouchNotes}` : ''}` : '✓ Opted in' },
           { l: 'Marketing Opt-in', v: (b.doNotContact || b.marketingOptOut) ? '✕ Opted out' : '✓ Opted in' },
@@ -871,12 +879,7 @@ export default function BookingExpandedPanel({
         );
       })()}
 
-      {/* Notes */}
-      {b.notes && (
-        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 14px', marginBottom: 14, fontFamily: FONT, fontSize: 12, color: C.muted, fontStyle: 'italic' }}>
-          Notes: {b.notes}
-        </div>
-      )}
+      {/* Notes now shown in the details grid above for every booking type */}
 
       {/* Hours worked — shown for regular bookings and contract visits (not master contract docs) */}
       {!b.isContract && <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
@@ -1473,25 +1476,19 @@ export default function BookingExpandedPanel({
                 {b.assignedStaff && <div>Cleaner: {b.assignedStaff}{b.secondCleaner ? ` & ${b.secondCleaner}` : ''}</div>}
               </div>
 
-              <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
-                <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>Check add-ons with the client before confirming</div>
-                {b.isEstateAgent ? (
-                  <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>
-                    This visit starts with no add-ons. Add any the client confirms by editing the booking after you create the visit.
-                  </div>
-                ) : (
-                  <>
-                    {(b.addons || []).length > 0 ? (
-                      <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>
-                        Current add-ons: {(b.addons || []).map(a => a.name || a.label).join(', ')}
-                      </div>
-                    ) : (
-                      <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>No add-ons on this booking.</div>
-                    )}
-                    <div style={{ fontFamily: FONT, fontSize: 11, color: '#b45309' }}>Did the client confirm the same add-ons for this visit? Including restocking handling fee if applicable. Edit the booking after creating the visit if anything has changed.</div>
-                  </>
-                )}
-              </div>
+              {!b.isEstateAgent && (
+                <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>Check add-ons with the client before confirming</div>
+                  {(b.addons || []).length > 0 ? (
+                    <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>
+                      Current add-ons: {(b.addons || []).map(a => a.name || a.label).join(', ')}
+                    </div>
+                  ) : (
+                    <div style={{ fontFamily: FONT, fontSize: 12, color: '#92400e', marginBottom: 6 }}>No add-ons on this booking.</div>
+                  )}
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: '#b45309' }}>Did the client confirm the same add-ons for this visit? Including restocking handling fee if applicable. Edit the booking after creating the visit if anything has changed.</div>
+                </div>
+              )}
 
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>Visit date *</div>
@@ -1507,16 +1504,40 @@ export default function BookingExpandedPanel({
                   style={{ ...FIELD_STYLE(C), marginBottom: 0 }} />
               </div>
 
-              {b.isEstateAgent && (
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>Type of clean</div>
-                  <select value={newVisitModal.cleanType || ESTATE_CLEAN_TYPES[0]}
-                    onChange={e => setNewVisitModal(m => ({ ...m, cleanType: e.target.value }))}
-                    style={{ ...FIELD_STYLE(C), marginBottom: 0 }}>
-                    {ESTATE_CLEAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-              )}
+              {b.isEstateAgent && (() => {
+                const ct = newVisitModal.cleanType || ESTATE_CLEAN_TYPES[0];
+                const addonOpts = estateAddonsForType(ct);
+                const selAddons = newVisitModal.addons || [];
+                return (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, marginBottom: 4 }}>Type of clean</div>
+                    <select value={ct}
+                      onChange={e => {
+                        const nt = e.target.value;
+                        const valid = estateAddonsForType(nt).map(a => a.id);
+                        setNewVisitModal(m => ({ ...m, cleanType: nt, addons: (m.addons || []).filter(id => valid.includes(id)) }));
+                      }}
+                      style={{ ...FIELD_STYLE(C), marginBottom: 0 }}>
+                      {ESTATE_CLEAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    {ESTATE_CLEAN_DESCRIPTIONS[ct] && (
+                      <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 6, padding: '8px 10px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, lineHeight: 1.5 }}>
+                        {ESTATE_CLEAN_DESCRIPTIONS[ct]}
+                      </div>
+                    )}
+                    <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted, margin: '14px 0 6px' }}>Add-ons for this visit</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {addonOpts.map(a => (
+                        <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: FONT, fontSize: 13, color: C.text }}>
+                          <input type='checkbox' checked={selAddons.includes(a.id)}
+                            onChange={e => setNewVisitModal(m => ({ ...m, addons: e.target.checked ? [...(m.addons || []), a.id] : (m.addons || []).filter(x => x !== a.id) }))} />
+                          {a.label} · £{a.price}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {b.isEstateAgent && (
                 <div style={{ marginBottom: 20 }}>
