@@ -137,12 +137,13 @@ const FLOW = {
   },
 
   gatekeeper_no_one: {
-    context: "🛡️ No clear decision maker - find the closest person.",
-    you: "Got it - is there a manager or owner I could have a very quick word with? I'll be two minutes max.",
+    context: "✅ They handle it themselves - they ARE the decision maker.",
+    you: "Oh perfect - so you're the right person then! My name's Fahana, I run a premium cleaning company in East London called Cleaning Wizard. I'll be really quick - do you currently have anyone coming in to clean, or does the team handle it between yourselves?",
     responses: [
-      { label: "They put me through to owner/manager", next: "decision_maker_opener" },
-      { label: "They say the owner isn't in", next: "gatekeeper_unavailable" },
-      { label: "They say they handle it themselves", next: "decision_maker_opener" },
+      { label: "We do it ourselves", next: "dm_does_own_cleaning" },
+      { label: "We have a cleaner already", next: "dm_has_cleaner" },
+      { label: "We're not interested", next: "dm_hard_no" },
+      { label: "We don't really need cleaning", next: "dm_no_need" },
     ],
   },
 
@@ -647,10 +648,9 @@ export default function CallScript({ onClose }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {current.responses.map((r, i) => (
               <button key={i} onClick={() => handleResponse(r.next, r.label)}
-                style={{ background: "#16161D", border: "1px solid #2A2A35", borderRadius: 10, padding: "13px 16px", color: "#C8C8DC", fontSize: 14, textAlign: "left", cursor: "pointer", fontFamily: "inherit", lineHeight: 1.5, transition: "all 0.15s ease", display: "flex", alignItems: "center", gap: 12 }}
+                style={{ background: "#16161D", border: "1px solid #2A2A35", borderRadius: 10, padding: "13px 16px", color: "#C8C8DC", fontSize: 14, textAlign: "left", cursor: "pointer", fontFamily: "inherit", lineHeight: 1.5, transition: "all 0.15s ease" }}
                 onMouseEnter={e => { e.currentTarget.style.background = `${accent}18`; e.currentTarget.style.borderColor = `${accent}60`; e.currentTarget.style.color = "#E8E8F0"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "#16161D"; e.currentTarget.style.borderColor = "#2A2A35"; e.currentTarget.style.color = "#C8C8DC"; }}>
-                <span style={{ width: 24, height: 24, borderRadius: 6, background: "#2A2A35", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#666678", flexShrink: 0 }}>{i + 1}</span>
                 {r.label}
               </button>
             ))}
