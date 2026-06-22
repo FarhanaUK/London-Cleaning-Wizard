@@ -27,12 +27,39 @@ const outcomeLabel = id => CALL_OUTCOMES.find(o => o.id === id)?.label || id;
 // Import column mapping: tell the importer which column of the pasted sheet is which field.
 const IMPORT_FIELDS = [
   { id: 'businessName', label: 'Business name' },
-  { id: 'contactName',  label: 'Contact name' },
+  { id: 'address',      label: 'Address' },
+  { id: 'email',        label: 'Email' },
   { id: 'phone',        label: 'Phone number' },
-  { id: 'area',         label: 'Area' },
+  { id: 'sector',       label: 'Sector' },
+  { id: 'website',      label: 'Website' },
   { id: 'skip',         label: '— Skip column —' },
 ];
-const defaultImportField = i => ['businessName', 'contactName', 'phone', 'area'][i] || 'skip';
+const LEAD_FIELDS = ['businessName', 'address', 'email', 'phone', 'sector', 'website'];
+const defaultImportField = i => LEAD_FIELDS[i] || 'skip';
+
+// Read-only fields shown in the expanded lead (phone is handled separately as the one editable field).
+const INFO_FIELDS = [
+  { key: 'businessName', label: 'Business name' },
+  { key: 'address',      label: 'Address' },
+  { key: 'sector',       label: 'Sector' },
+  { key: 'email',        label: 'Email',   type: 'email' },
+  { key: 'website',      label: 'Website', type: 'url' },
+];
+
+// Split a pasted row into columns. Spreadsheet copies are tab-separated, so use tabs when present;
+// otherwise comma, with basic "quoted, value" handling so commas inside a cell don't break it.
+const splitRow = (row, delim) => {
+  if (delim === '\t') return row.split('\t').map(s => s.trim());
+  const out = []; let cur = ''; let inQ = false;
+  for (const ch of row) {
+    if (ch === '"') { inQ = !inQ; continue; }
+    if (ch === ',' && !inQ) { out.push(cur.trim()); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+};
+const rowDelim = text => (text.includes('\t') ? '\t' : ',');
 
 const fmtDate = d => {
   if (!d) return '';
@@ -51,7 +78,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const [importMap,   setImportMap]   = useState([]);
   const [importing,   setImporting]   = useState(false);
   const [showAdd,     setShowAdd]      = useState(false);
-  const [newLead,     setNewLead]     = useState({ businessName: '', contactName: '', phone: '', area: '' });
+  const [newLead,     setNewLead]     = useState({ businessName: '', address: '', email: '', phone: '', sector: '', website: '' });
 
   const allLeads = leads || [];
 
@@ -72,7 +99,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
     const q = search.trim().toLowerCase();
     return allLeads
       .filter(l => filter === 'all' ? true : l.status === filter)
-      .filter(l => !q || [l.businessName, l.contactName, l.phone, l.area].some(v => (v || '').toLowerCase().includes(q)))
+      .filter(l => !q || [l.businessName, l.address, l.email, l.phone, l.sector, l.website].some(v => (v || '').toLowerCase().includes(q)))
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   }, [allLeads, filter, search]);
 
@@ -98,18 +125,19 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const handleImport = async () => {
     const rows = importText.split('\n').map(r => r.trim()).filter(Boolean);
     if (rows.length === 0) { setShowImport(false); return; }
-    const cols = (rows[0] || '').split(/\t|,/).length;
-    const map  = Array.from({ length: cols }, (_, i) => importMap[i] ?? defaultImportField(i));
+    const delim = rowDelim(importText);
+    const cols  = rows[0] ? splitRow(rows[0], delim).length : 0;
+    const map   = Array.from({ length: cols }, (_, i) => importMap[i] ?? defaultImportField(i));
     setImporting(true);
     const now = new Date().toISOString();
     try {
       for (const row of rows) {
-        const parts = row.split(/\t|,/).map(p => p.trim());
-        const lead = { businessName: '', contactName: '', phone: '', area: '' };
+        const parts = splitRow(row, delim);
+        const lead = { businessName: '', address: '', email: '', phone: '', sector: '', website: '' };
         map.forEach((field, i) => { if (field && field !== 'skip' && parts[i]) lead[field] = parts[i]; });
-        if (!lead.businessName && !lead.phone && !lead.contactName && !lead.area) continue;
+        if (LEAD_FIELDS.every(k => !lead[k])) continue;
         await addDoc(collection(db, 'leads'), {
-          ...lead, email: '', status: 'new', callbackDate: '', notes: '', source: 'import',
+          ...lead, status: 'new', callbackDate: '', notes: '', source: 'import',
           createdAt: now, updatedAt: now,
         });
       }
@@ -131,18 +159,19 @@ export default function LeadsTab({ leads, isMobile, C }) {
     const now = new Date().toISOString();
     try {
       await addDoc(collection(db, 'leads'), {
-        businessName: newLead.businessName.trim(), contactName: newLead.contactName.trim(),
-        phone: newLead.phone.trim(), area: newLead.area.trim(), email: '',
+        businessName: newLead.businessName.trim(), address: newLead.address.trim(),
+        email: newLead.email.trim(), phone: newLead.phone.trim(),
+        sector: newLead.sector.trim(), website: newLead.website.trim(),
         status: 'new', callbackDate: '', notes: '', source: 'manual',
         createdAt: now, updatedAt: now,
       });
     } catch {}
-    setNewLead({ businessName: '', contactName: '', phone: '', area: '' });
+    setNewLead({ businessName: '', address: '', email: '', phone: '', sector: '', website: '' });
     setShowAdd(false);
   };
 
   // First pasted row, split into columns — used to preview + map columns to fields.
-  const sampleCols = ((importText.split('\n').map(r => r.trim()).filter(Boolean)[0]) || '').split(/\t|,/).map(p => p.trim());
+  const sampleCols = (() => { const r = importText.split('\n').map(x => x.trim()).filter(Boolean)[0]; return r ? splitRow(r, rowDelim(importText)) : []; })();
   const effMap = sampleCols.map((_, i) => importMap[i] ?? defaultImportField(i));
 
   const inputStyle = { fontFamily: FONT, fontSize: 13, color: C.text, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '7px 10px', width: '100%', boxSizing: 'border-box', outline: 'none' };
@@ -156,7 +185,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setExpanded(isOpen ? null : l.id)}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
-              <span style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.text }}>{l.businessName || l.contactName || l.phone || 'Lead'}</span>
+              <span style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.text }}>{l.businessName || l.phone || 'Lead'}</span>
               <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.05em', background: sm.bg, color: sm.color }}>{sm.label}</span>
               {l.status === 'callback' && l.callbackDate && (
                 <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: l.callbackDate <= today ? '#dc2626' : C.muted }}>
@@ -165,7 +194,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
               )}
             </div>
             <div style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>
-              {[l.contactName, l.area].filter(Boolean).join(' · ')}
+              {[l.sector, l.address].filter(Boolean).join(' · ')}
             </div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -180,24 +209,26 @@ export default function LeadsTab({ leads, isMobile, C }) {
 
         {isOpen && (
           <div style={{ marginTop: 12, borderTop: `1px solid ${C.border}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* Lead details — every field labelled and editable so you can correct/fill anything,
-                e.g. add a phone number, or move a value that imported into the wrong column. */}
-            <div>
-              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>Lead details (tap a box to edit)</div>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
-                {[
-                  { key: 'businessName', label: 'Business name' },
-                  { key: 'contactName',  label: 'Contact name' },
-                  { key: 'phone',        label: 'Phone number' },
-                  { key: 'area',         label: 'Area' },
-                ].map(f => (
-                  <div key={f.key}>
-                    <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: C.muted, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{f.label}</div>
-                    <input defaultValue={l[f.key] || ''} placeholder={f.label}
-                      onBlur={e => { const v = e.target.value.trim(); if (v !== (l[f.key] || '')) updateField(l.id, { [f.key]: v }); }}
-                      style={inputStyle} />
-                  </div>
-                ))}
+            {/* Lead details — read-only business info. Only the phone number is editable. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {INFO_FIELDS.map(f => (
+                <div key={f.key} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+                  <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em', minWidth: 96, flexShrink: 0 }}>{f.label}</span>
+                  {!l[f.key]
+                    ? <span style={{ fontFamily: FONT, fontSize: 13, color: C.muted }}>—</span>
+                    : f.type === 'email'
+                      ? <a href={`mailto:${l[f.key]}`} style={{ fontFamily: FONT, fontSize: 13, color: C.accent, wordBreak: 'break-all' }}>{l[f.key]}</a>
+                      : f.type === 'url'
+                        ? <a href={(l[f.key].startsWith('http') ? l[f.key] : `https://${l[f.key]}`)} target="_blank" rel="noreferrer" style={{ fontFamily: FONT, fontSize: 13, color: C.accent, wordBreak: 'break-all' }}>{l[f.key]}</a>
+                        : <span style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: f.key === 'businessName' ? 600 : 400 }}>{l[f.key]}</span>}
+                </div>
+              ))}
+              {/* Phone — the only editable field */}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 2 }}>
+                <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em', minWidth: 96, flexShrink: 0 }}>Phone</span>
+                <input defaultValue={l.phone || ''} placeholder="Add phone number"
+                  onBlur={e => { const v = e.target.value.trim(); if (v !== (l.phone || '')) updateField(l.id, { phone: v }); }}
+                  style={{ ...inputStyle, maxWidth: 240 }} />
               </div>
             </div>
 
@@ -274,7 +305,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
             Paste rows from your Google Sheet, one lead per line (columns separated by commas or tabs). Then match each column to the right field below — it doesn't matter what order your sheet is in.
           </div>
           <textarea value={importText} onChange={e => { setImportText(e.target.value); setImportMap([]); }} rows={6}
-            placeholder={"The Nail Spa, , , Canary Wharf\nOakwood Office, John Smith, 020 1234 5678, Hackney"}
+            placeholder={"The Nail Spa, 12 High St E14, hello@nailspa.com, 020 1234 5678, Beauty, nailspa.com\nOakwood Office, 5 Mill Rd E8, , , Offices, oakwood.co.uk"}
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace' }} />
 
           {sampleCols.length > 0 && (
@@ -305,9 +336,11 @@ export default function LeadsTab({ leads, isMobile, C }) {
       {showAdd && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', marginBottom: 16, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
           <input placeholder="Business name" value={newLead.businessName} onChange={e => setNewLead(p => ({ ...p, businessName: e.target.value }))} style={inputStyle} />
-          <input placeholder="Contact name" value={newLead.contactName} onChange={e => setNewLead(p => ({ ...p, contactName: e.target.value }))} style={inputStyle} />
+          <input placeholder="Address" value={newLead.address} onChange={e => setNewLead(p => ({ ...p, address: e.target.value }))} style={inputStyle} />
+          <input placeholder="Email" value={newLead.email} onChange={e => setNewLead(p => ({ ...p, email: e.target.value }))} style={inputStyle} />
           <input placeholder="Phone" value={newLead.phone} onChange={e => setNewLead(p => ({ ...p, phone: e.target.value }))} style={inputStyle} />
-          <input placeholder="Area" value={newLead.area} onChange={e => setNewLead(p => ({ ...p, area: e.target.value }))} style={inputStyle} />
+          <input placeholder="Sector" value={newLead.sector} onChange={e => setNewLead(p => ({ ...p, sector: e.target.value }))} style={inputStyle} />
+          <input placeholder="Website" value={newLead.website} onChange={e => setNewLead(p => ({ ...p, website: e.target.value }))} style={inputStyle} />
           <div style={{ gridColumn: isMobile ? 'auto' : 'span 2', display: 'flex', gap: 8 }}>
             <button onClick={handleAdd} style={btn(C.accent, '#fff', C.accent)}>Add lead</button>
             <button onClick={() => setShowAdd(false)} style={btn(C.bg, C.muted, C.border)}>Cancel</button>
