@@ -156,10 +156,25 @@ export default function LeadsTab({ leads, isMobile, C }) {
 
         {isOpen && (
           <div style={{ marginTop: 12, borderTop: `1px solid ${C.border}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* Editable phone + business (add a number for leads that have none) */}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
-              <input defaultValue={l.phone || ''} placeholder="Phone number" onBlur={e => { const v = e.target.value.trim(); if (v !== (l.phone || '')) updateField(l.id, { phone: v }); }} style={inputStyle} />
-              <input defaultValue={l.businessName || ''} placeholder="Business name" onBlur={e => { const v = e.target.value.trim(); if (v !== (l.businessName || '')) updateField(l.id, { businessName: v }); }} style={inputStyle} />
+            {/* Lead details — every field labelled and editable so you can correct/fill anything,
+                e.g. add a phone number, or move a value that imported into the wrong column. */}
+            <div>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 6 }}>Lead details (tap a box to edit)</div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
+                {[
+                  { key: 'businessName', label: 'Business name' },
+                  { key: 'contactName',  label: 'Contact name' },
+                  { key: 'phone',        label: 'Phone number' },
+                  { key: 'area',         label: 'Area' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: C.muted, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{f.label}</div>
+                    <input defaultValue={l[f.key] || ''} placeholder={f.label}
+                      onBlur={e => { const v = e.target.value.trim(); if (v !== (l[f.key] || '')) updateField(l.id, { [f.key]: v }); }}
+                      style={inputStyle} />
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Log a call (stamped with today's date — feeds the weekly Outreach Tracker) */}
@@ -177,14 +192,20 @@ export default function LeadsTab({ leads, isMobile, C }) {
               )}
             </div>
 
-            {/* Status buttons */}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {/* Status buttons — tap the highlighted one again to clear it back to To call */}
+            <div>
+              <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 5 }}>Status <span style={{ fontWeight: 400 }}>(tap the highlighted one again to undo)</span></div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {STATUSES.map(s => (
-                <button key={s.id} onClick={() => setStatus(l.id, s.id, s.id === 'callback' ? {} : { callbackDate: s.id === 'callback' ? l.callbackDate : '' })}
+                <button key={s.id} onClick={() => {
+                  if (l.status === s.id) { setStatus(l.id, 'new', { callbackDate: '' }); return; }
+                  setStatus(l.id, s.id, s.id === 'callback' ? {} : { callbackDate: '' });
+                }}
                   style={{ ...btn(l.status === s.id ? s.color : C.bg, l.status === s.id ? '#fff' : C.text, l.status === s.id ? s.color : C.border), fontSize: 11, padding: '5px 11px' }}>
                   {s.label}
                 </button>
               ))}
+              </div>
             </div>
             {/* Callback date */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
