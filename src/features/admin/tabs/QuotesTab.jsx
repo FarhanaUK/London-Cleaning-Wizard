@@ -145,6 +145,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   const [frequency,    setFrequency]    = useState('weekly');
   const [selectedDays, setSelectedDays] = useState([]);
   const [contract,     setContract]     = useState('monthly');
+  // Commercial can be booked as a fixed-term contract OR a single one-off / trial clean (no contract).
+  const [commercialMode, setCommercialMode] = useState('contract');
+  const isCommercialOneOff = clientType === 'commercial' && commercialMode === 'oneoff';
   const [numCleaners,  setNumCleaners]  = useState('1');
   const [cleanerRate,  setCleanerRate]  = useState('17');
   const [suppliesCost, setSuppliesCost] = useState('5');
@@ -444,8 +447,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     if (!clientEmail.trim()) { setBookError('Enter the client email.'); return; }
     if (clientType === 'estateAgent' && !cleanType) { setBookError('Please select a type of clean before booking.'); return; }
     if (q.manualQuote && !(parseFloat(manualPrice) > 0)) { setBookError(`${cleanType} is quoted manually — enter a price in "Manual price override" first.`); return; }
-    if (!contractStart)      { setBookError(perVisit ? 'Set a visit date.' : 'Set a contract start date.'); return; }
-    if (!perVisit && (frequency === 'daily' || frequency === 'twice' || frequency === 'thrice')) {
+    if (!contractStart)      { setBookError((perVisit || isCommercialOneOff) ? 'Set a visit date.' : 'Set a contract start date.'); return; }
+    if (!perVisit && !isCommercialOneOff && (frequency === 'daily' || frequency === 'twice' || frequency === 'thrice')) {
       const required = frequency === 'twice' ? 2 : frequency === 'thrice' ? 3 : 1;
       if (selectedDays.length < required) { setBookError(frequency === 'daily' ? 'Select at least one day before booking.' : `Select ${required} days for ${required}x per week before booking.`); return; }
       const startDay = new Date(contractStart + 'T12:00:00').getDay();
@@ -538,6 +541,32 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           source: isEA ? 'Estate Agent Quote' : 'Airbnb Quote',
           status: 'pending_deposit',
           ...(isEA ? { isEstateAgent: true, cleanType } : { isAirbnb: true }),
+        });
+        fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId: ref.id }),
+        }).catch(() => {});
+        fetch(import.meta.env.VITE_CF_CREATE_CALENDAR_EVENT, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId: ref.id }),
+        }).catch(() => {});
+
+      } else if (isCommercialOneOff) {
+        // Commercial one-off / trial: a single booking, NO contract. Paid in full upfront via the
+        // same payment link as Estate Agent (card saved); lands fully_paid once paid.
+        const ref = await addDoc(collection(db, 'bookings'), {
+          ...sharedFields,
+          deposit:   q.price,   // full amount upfront
+          remaining: 0,
+          packageId: 'commercial',
+          packageName: 'Commercial Cleaning',
+          frequency: 'one-off',
+          bathrooms: parseInt(commBaths, 10) || 1,
+          hasPets: false,
+          source: 'Commercial One-off Quote',
+          status: 'pending_deposit',
+          isCommercialOneOff: true,
+          cleanDateUTC: new Date(`${contractStart}T${contractTime}:00`).toISOString(),
         });
         fetch(import.meta.env.VITE_CF_ASSIGN_CONTRACT_REF, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -739,6 +768,25 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               {typeTabBtn('commercial',  'Commercial')}
             </div>
 
+            {clientType === 'commercial' && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                {[['contract', 'Contract'], ['oneoff', 'One-off / trial']].map(([id, label]) => (
+                  <button key={id} onClick={() => setCommercialMode(id)} style={{
+                    flex: 1, fontFamily: FONT, fontSize: 12, padding: '8px 12px', borderRadius: 6, cursor: 'pointer',
+                    border: `1px solid ${commercialMode === id ? C.accent : C.border}`,
+                    background: commercialMode === id ? C.accent : C.card, color: commercialMode === id ? '#fff' : C.text,
+                    fontWeight: commercialMode === id ? 600 : 400,
+                  }}>{label}</button>
+                ))}
+              </div>
+            )}
+
+            {isCommercialOneOff && (
+              <div style={{ fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
+                One-off / trial clean - a single booking with no contract. Set a lower price in "Manual price override" below to give a discount. Paid in full via payment link before the visit, and the card is saved so you can set up a contract later if they like us.
+              </div>
+            )}
+
             {perVisit && (
               <div style={{ fontSize: 12, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
                 This is a per-visit booking, not a quote or contract. Each visit is booked individually -- no fixed schedule. Once booked, all visits can be added as and when needed.
@@ -886,10 +934,10 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
           {/* Frequency, cleaners, contract */}
           <Card C={C}>
-            <SectionLabel C={C}>{perVisit ? 'Cleaners' : 'Frequency & contract'}</SectionLabel>
+            <SectionLabel C={C}>{(perVisit || isCommercialOneOff) ? 'Cleaners' : 'Frequency & contract'}</SectionLabel>
 
-            <div style={{ display: 'grid', gridTemplateColumns: perVisit ? '1fr' : '1fr 1fr', gap: 10, marginBottom: perVisit ? 0 : 14 }}>
-              {!perVisit && (
+            <div style={{ display: 'grid', gridTemplateColumns: (perVisit || isCommercialOneOff) ? '1fr' : '1fr 1fr', gap: 10, marginBottom: (perVisit || isCommercialOneOff) ? 0 : 14 }}>
+              {!perVisit && !isCommercialOneOff && (
                 <>
                   <div>
                     <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>How often</div>
@@ -933,7 +981,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
               </div>
             </div>
 
-            {!perVisit && (
+            {!perVisit && !isCommercialOneOff && (
               <>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, marginTop: 14 }}>
                   Contract type
@@ -1185,8 +1233,8 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
           })()}
           </Card>
 
-          {/* Contract discount schedule — commercial only */}
-          {!perVisit && <Card C={C}>
+          {/* Contract discount schedule — commercial contract only */}
+          {!perVisit && !isCommercialOneOff && <Card C={C}>
             <SectionLabel C={C}>Discount schedule</SectionLabel>
             <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 10 }}>
               Clean price per visit. Add-ons are charged on top at fixed rates.
@@ -1254,7 +1302,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
 
           {/* Monthly + contract value — only for contracts. Airbnb & Estate Agent are per-visit
               with an unknown monthly cadence, so a monthly projection isn't meaningful. */}
-          {q.freq.vpm > 0 && !perVisit && (
+          {q.freq.vpm > 0 && !perVisit && !isCommercialOneOff && (
             <Card C={C} style={{ borderColor: '#fbbf24' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, padding: '4px 8px', background: '#fef3c7', borderRadius: 5, width: 'fit-content' }}>
                 <span style={{ fontSize: 11 }}>🔒</span>
@@ -1298,7 +1346,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 color: '#fff', width: '100%', transition: 'all 0.2s',
               }}
             >
-              {perVisit ? 'Book first visit' : 'Book this contract'}
+              {perVisit ? 'Book first visit' : isCommercialOneOff ? 'Book one-off clean' : 'Book this contract'}
             </button>
             {showBookPanel && (
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1312,7 +1360,22 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                   return (
                     <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 12px' }}>
                       <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.muted, marginBottom: 8 }}>Pricing Summary</div>
-                      {perVisit ? (
+                      {isCommercialOneOff ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
+                            <span>Base clean{q.addonTotal > 0 ? ' (excl. add-ons)' : ''}</span><span style={{ color: C.text, fontWeight: 600 }}>£{gbp(q.price - q.addonTotal)}</span>
+                          </div>
+                          {q.addonTotal > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.muted }}>
+                              <span>Add-ons</span><span style={{ color: C.text, fontWeight: 600 }}>+£{gbp(q.addonTotal)}</span>
+                            </div>
+                          )}
+                          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6, marginTop: 2, display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.text }}>
+                            <span>One-off total (paid in full)</span><span>£{gbp(q.price)}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: C.muted }}>Charged in full via payment link before the visit. Card saved for any future bookings.</div>
+                        </div>
+                      ) : perVisit ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           {bMediaConsent ? (
                             <>
@@ -1400,7 +1463,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 {/* Date & time */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{perVisit ? 'Visit date' : 'Start date'} <span style={{ color: C.danger }}>*</span></div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{(perVisit || isCommercialOneOff) ? 'Visit date' : 'Start date'} <span style={{ color: C.danger }}>*</span></div>
                     <input type="date" value={contractStart} onChange={e => setContractStart(e.target.value)} min={new Date().toISOString().slice(0, 10)} style={inputStyle} />
                   </div>
                   <div>
@@ -1408,7 +1471,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                     <input type="time" value={contractTime} onChange={e => setContractTime(e.target.value)} style={inputStyle} />
                   </div>
                 </div>
-                {contractStart && !perVisit && (
+                {contractStart && !perVisit && !isCommercialOneOff && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: -4 }}>
                     Contract ends: {(() => {
                       const ct = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];

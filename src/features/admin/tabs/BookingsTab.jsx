@@ -649,7 +649,7 @@ export default function BookingsTab({ bookings, setBookings, staff, isMobile, C,
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                     <span style={{ fontFamily: FONT, fontSize: isMobile ? 14 : 15, fontWeight: 600, color: C.text }}>
-                      {(b.isContract || b.isEstateAgent) && b.bizName ? b.bizName : `${b.firstName} ${b.lastName}`}
+                      {(b.isContract || b.isEstateAgent || b.isCommercialOneOff) && b.bizName ? b.bizName : `${b.firstName} ${b.lastName}`}
                     </span>
                     {b.bookingRef && <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, color: C.muted, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: '1px 7px' }}>{b.bookingRef}</span>}
                   </div>

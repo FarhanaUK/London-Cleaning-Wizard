@@ -134,7 +134,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
     const doNotContact    = activeBooking?.doNotContact ?? activeBooking?.marketingOptOut ?? false;
     const latestNotes     = sorted.find(b => b.notes)?.notes || '';
     // Business clients (contracts / estate agents) are identified by their business name
-    const isBiz       = c.bookings.some(b => b.isContract || b.isEstateAgent);
+    const isBiz       = c.bookings.some(b => b.isContract || b.isEstateAgent || b.isCommercialOneOff);
     const displayName = (isBiz && c.bizName) ? c.bizName : `${c.firstName || ''} ${c.lastName || ''}`.trim();
     return { ...c, totalSpend, collected, lastClean, firstClean, isRecurring, hasActive, totalBookings: c.bookings.length, doNotContact, latestNotes, latestBookingId: activeBooking?.id, isBiz, displayName };
   }).sort((a, b) => (b.lastClean || '') > (a.lastClean || '') ? 1 : -1);
@@ -207,7 +207,7 @@ export default function CustomersTab({ bookings, setBookings, isMobile, C }) {
                     <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 4 }}>{sc.displayName}</div>
                     {sc.isBiz && `${sc.firstName || ''} ${sc.lastName || ''}`.trim() && <div style={{ fontFamily: FONT, fontSize: 13, color: C.muted, marginBottom: 4 }}>Contact: {`${sc.firstName || ''} ${sc.lastName || ''}`.trim()}</div>}
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f8fafc', color: C.muted, padding: '3px 10px', borderRadius: 20, border: `1px solid ${C.border}` }}>{(sc.bookings || []).some(x => x.isEstateAgent) ? 'Estate Agent' : (sc.bookings || []).some(x => x.isContract) ? 'Commercial' : (sc.bookings || []).some(x => x.isAirbnb) ? 'Airbnb' : 'Residential'}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f8fafc', color: C.muted, padding: '3px 10px', borderRadius: 20, border: `1px solid ${C.border}` }}>{(sc.bookings || []).some(x => x.isEstateAgent) ? 'Estate Agent' : (sc.bookings || []).some(x => x.isContract || x.isCommercialOneOff) ? 'Commercial' : (sc.bookings || []).some(x => x.isAirbnb) ? 'Airbnb' : 'Residential'}</div>
                       {sc.hasActive && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f0fdf4', color: C.success, padding: '3px 10px', borderRadius: 20, border: `1px solid rgba(22,163,74,0.2)` }}>Active Recurring</div>}
                       {offerActive && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, background: '#fffbeb', color: '#92400e', padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(146,64,14,0.2)' }}>⏱ {daysLeft} day{daysLeft !== 1 ? 's' : ''} left on offer</div>}
                       {offerExpired && <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 500, background: '#f1f5f9', color: C.muted, padding: '3px 10px', borderRadius: 20, border: `1px solid ${C.border}` }}>Offer expired</div>}
