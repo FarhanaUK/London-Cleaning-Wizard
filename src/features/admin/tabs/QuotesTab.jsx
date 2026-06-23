@@ -176,6 +176,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   const [suppliesCost, setSuppliesCost] = useState('5');
   const [travelCost,   setTravelCost]   = useState('5');
   const [minMargin,    setMinMargin]    = useState('25');
+  // Charge-out rate (£/hr you bill). When set, it drives the price and your costs come out of
+  // profit (trimming supplies/travel/overhead grows profit, not the price). Blank = costs + margin.
+  const [chargeRate,   setChargeRate]   = useState('36');
   const [targetVisits, setTargetVisits] = useState('15');
 
   const [bizName,       setBizName]       = useState('');
@@ -303,7 +306,10 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const overheadPerVisit = overhead.total / overheadDivisor;
     const cost          = labor + (parseFloat(suppliesCost) || 0) + (parseFloat(travelCost) || 0) + overheadPerVisit;
     const basePrice     = cost / (1 - margin);
-    const autoClean     = basePrice * (1 - ct.disc);
+    // If a charge-out rate is set, the price is hours x rate (costs come out of profit, not the
+    // price). Otherwise fall back to cost-plus on the full cost.
+    const rate          = parseFloat(chargeRate) || 0;
+    const autoClean     = rate > 0 ? baseHours * rate : basePrice * (1 - ct.disc);
     const manualVal     = (manualPrice !== '' && parseFloat(manualPrice) > 0) ? parseFloat(manualPrice) : null;
     // All estate types now auto-price (After-Builders via mess level, Communal via block details).
     const manualQuote   = false;
@@ -340,7 +346,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const discountedProfit = Math.round((discountedPrice - trueCost) * 100) / 100;
     const discountedPct    = discountedPrice > 0 ? (discountedProfit / discountedPrice) * 100 : (discountedProfit < 0 ? -100 : 0);
     return { labor, overheadPerVisit, cost, trueCost, addonLaborCost, basePrice, cleanPrice, price, profit, profitWithAddons, pct, addonTotal, mRev, mBaseRev, mAddonRev, mCost, mTrueCost, mProfit, mProfitWithAddons, cVal, cBaseVal, ct, freq, visitDur, calcPrice, manualQuote, discountAmount, discountedPrice, discountedProfit, discountedPct };
-  }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, overhead, targetVisits, contract, frequency, selectedDays, numCleaners, addons, clientType, cleanType, manualPrice, oneOffDiscount, oneOffDiscountUnit]);
+  }, [totalHours, cleanerRate, suppliesCost, travelCost, minMargin, chargeRate, overhead, targetVisits, contract, frequency, selectedDays, numCleaners, addons, clientType, cleanType, manualPrice, oneOffDiscount, oneOffDiscountUnit]);
 
   // For a one-off, the headline margin reflects the discounted price (can be negative).
   const displayPct  = discountEligible ? q.discountedPct : q.pct;
@@ -362,7 +368,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
         addr1: addr1.trim(), addr2: addr2.trim(), postcode: postcode.trim().toUpperCase(),
         notes: quoteNotes.trim(),
         clientType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths,
-        addons, frequency, selectedDays, contract, numCleaners, cleanerRate, suppliesCost, travelCost, minMargin,
+        addons, frequency, selectedDays, contract, numCleaners, cleanerRate, suppliesCost, travelCost, minMargin, chargeRate,
         pricePerVisit: q.price, monthlyValue: q.mRev, contractValue: q.cVal,
         contractLabel: q.ct.label, frequencyLabel: q.freq.label,
         status: 'quote_sent', followUpDate, createdAt: now, updatedAt: now,
@@ -424,6 +430,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     setNumCleaners(sq.numCleaners || '1'); setCleanerRate(sq.cleanerRate || '17');
     setSuppliesCost(sq.suppliesCost || '5'); setTravelCost(sq.travelCost || '5');
     setMinMargin(sq.minMargin || '25');
+    setChargeRate(sq.chargeRate ?? '36');
     setLoadedQuoteId(sq.id || null);
     setQuoteSearch('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1136,10 +1143,17 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                 </div>
               ))}
               <div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Charge-out rate (£/hr)</div>
+                <input type="number" min={0} value={chargeRate} onChange={e => setChargeRate(e.target.value)} placeholder="e.g. 36" style={{ ...inputStyle, borderColor: parseFloat(chargeRate) > 0 ? C.accent : undefined }} />
+                <div style={{ fontSize: 10, color: C.faint || C.muted, marginTop: 3 }}>
+                  What you bill per hour. This sets the price, so trimming supplies/travel/overhead grows your profit, not the price. Blank = price off costs + margin instead.
+                </div>
+              </div>
+              <div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>Your profit margin (%)</div>
                 <input type="number" min={1} max={90} value={minMargin} onChange={e => setMinMargin(e.target.value)} style={inputStyle} />
                 <div style={{ fontSize: 10, color: C.faint || C.muted, marginTop: 3 }}>
-                  The % of every charge you keep as profit. Discounts are handled automatically on top.
+                  {parseFloat(chargeRate) > 0 ? 'Used only as the floor warning while a charge-out rate is set. Your real margin shows on the price card.' : 'The % of every charge you keep as profit. Discounts are handled automatically on top.'}
                 </div>
               </div>
               <div>
