@@ -1238,9 +1238,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                   </>
                 )}
                 {(cleanType === AFTER_BUILDERS || cleanType === COMMUNAL) && (
-                  <div style={{ marginTop: 10, padding: '8px 10px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, textAlign: 'left' }}>
-                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 3 }}>⚠ Estimate only — don't quote blind</div>
-                    <div style={{ fontFamily: FONT, fontSize: 11, color: '#92400e', lineHeight: 1.5 }}>
+                  <div style={{ marginTop: 10, padding: '8px 10px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, textAlign: 'left' }}>
+                    <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: '#dc2626', marginBottom: 3 }}>⚠ Estimate only — don't quote blind</div>
+                    <div style={{ fontFamily: FONT, fontSize: 11, color: '#dc2626', lineHeight: 1.5 }}>
                       Don't give the customer a final price until you've reviewed a video walk-through or done a site visit — the scope varies too much. Consider a £50 site-visit fee, redeemable against the booking.
                     </div>
                   </div>
