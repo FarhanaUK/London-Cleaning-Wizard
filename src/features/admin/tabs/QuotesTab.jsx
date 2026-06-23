@@ -39,41 +39,18 @@ const COMMERCIAL_ADDONS = [
   { id: 'appliances', label: 'Microwave & appliances',          h: 0.25, price: 15 },
 ];
 
-// On-screen pricing guide for the two estate clean types that are quoted manually (they vary too
-// much for a fixed formula). Shown when one of them is selected so you can work out the number.
-const MANUAL_GUIDE = {
-  'After-Builders / Renovation Cleaning': {
-    intro: 'Price on hours, not bedrooms - the amount of mess is what drives it.',
-    rows: [
-      ['Light (dust only, minor works)', '~1.3x a normal clean'],
-      ['Standard (typical refurb)',      '~1.7x'],
-      ['Heavy (gut renovation / debris)','~2.2x'],
-    ],
-    steps: [
-      'Estimate cleaner-hours (hours x number of cleaners).',
-      'Cost = hours x £17 + supplies (~£15) + travel £5 + overhead £14.',
-      'Price = cost ÷ 0.65 (35% margin). Round up.',
-    ],
-    example: 'Example: 2-bed flat, standard refurb - 2 cleaners x 4h = ~£170 cost, so about £270.',
-    range: 'London range: £250-450 for a flat. Quote after seeing photos or a site visit.',
-  },
-  'Communal Area Cleaning': {
-    intro: 'Priced per block, not by bedrooms - add up the areas.',
-    rows: [
-      ['Base (entrance / lobby)',        '~1 hr'],
-      ['Each floor of stairs / landings','+0.4 hr'],
-      ['Lift',                           '+0.4 hr'],
-      ['Bin / refuse store',             '+0.4 hr'],
-    ],
-    steps: [
-      'Add up the hours from the factors above (x number of cleaners).',
-      'Cost = hours x £17 + supplies £5 + travel £5 + overhead £14.',
-      'Price = cost ÷ 0.65 (35% margin). Round up.',
-    ],
-    example: 'Example: 3 floors, no lift, bin store = ~2.6 hrs, so about £105.',
-    range: 'London range: £60-120 per visit for a small block; more with a lift.',
-  },
-};
+// After-Builders is auto-priced off the property size x a mess level you pick (the thing that
+// actually varies). Communal is auto-priced off block details (floors / lift / bin), not bedrooms.
+const AB_LEVELS = [
+  { id: 'light',    label: 'Light',    mult: 1.3, note: 'dust only, minor works' },
+  { id: 'standard', label: 'Standard', mult: 1.7, note: 'typical refurb' },
+  { id: 'heavy',    label: 'Heavy',    mult: 2.2, note: 'gut renovation, debris' },
+];
+const AB_MULT = id => (AB_LEVELS.find(l => l.id === id)?.mult ?? 1.7);
+const AFTER_BUILDERS = 'After-Builders / Renovation Cleaning';
+const COMMUNAL = 'Communal Area Cleaning';
+// Communal hours: base entrance/lobby + per floor of stairs + lift + bin store.
+const communalHours = (floors, lift, bin) => 1 + (parseInt(floors, 10) || 0) * 0.4 + (lift ? 0.4 : 0) + (bin ? 0.4 : 0);
 
 const CONTRACTS = [
   { id: 'monthly', label: 'Monthly rolling',  disc: 0.00, months: 1,  note: 'Cancel with 1 month notice' },
@@ -189,6 +166,11 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
   const [oneOffDiscountUnit, setOneOffDiscountUnit] = useState('%');
   // Discount lever is available for cold-call trial targets: estate agents and commercial one-offs.
   const discountEligible = isCommercialOneOff || clientType === 'estateAgent';
+  // Estimator inputs for the two estate types that don't price off bedrooms.
+  const [abLevel,    setAbLevel]    = useState('standard');  // After-Builders mess level
+  const [commFloors, setCommFloors] = useState('3');         // Communal: number of floors
+  const [commLift,   setCommLift]   = useState(false);
+  const [commBin,    setCommBin]    = useState(false);
   const [numCleaners,  setNumCleaners]  = useState('1');
   const [cleanerRate,  setCleanerRate]  = useState('17');
   const [suppliesCost, setSuppliesCost] = useState('5');
@@ -286,9 +268,13 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
       base = AIRBNB_BASE_HOURS[key] || 2.5;
       base += Math.max((parseInt(extraBaths, 10) || 1) - 1, 0) * 0.5;
       if (airbnbPropType === 'house') base += 0.75; // stairs, landing, hallways
-      // Estate Agent: scale the clean by type (end of tenancy heavier, void lighter).
-      // Manual-quote types (null) keep base hours just as a rough labour estimate.
-      if (clientType === 'estateAgent') base *= (ESTATE_CLEAN_MULTIPLIERS[cleanType] ?? 1);
+      // Estate Agent: scale the clean by type. After-Builders uses the picked mess level; Communal
+      // ignores bedrooms and uses block details; the rest use their fixed multiplier.
+      if (clientType === 'estateAgent') {
+        if (cleanType === COMMUNAL)            base = communalHours(commFloors, commLift, commBin);
+        else if (cleanType === AFTER_BUILDERS) base *= AB_MULT(abLevel);
+        else                                   base *= (ESTATE_CLEAN_MULTIPLIERS[cleanType] ?? 1);
+      }
     } else {
       const s = parseFloat(sqm) || 80;
       let h = s <= 50 ? 1.5 : s <= 100 ? 2.5 : s <= 150 ? 3.5 : s <= 200 ? 4.5 : s <= 300 ? 6.0 : 8.0;
@@ -300,7 +286,7 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const addonList = clientType === 'estateAgent' ? estateAddonsForType(cleanType) : perVisit ? AIRBNB_ADDONS : COMMERCIAL_ADDONS;
     const addonH = addons.reduce((sum, id) => sum + (addonList.find(x => x.id === id)?.h || 0), 0);
     return base + addonH;
-  }, [clientType, cleanType, airbnbPropType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths, addons]);
+  }, [clientType, cleanType, airbnbPropType, bedrooms, extraBaths, sqm, intensity, complexity, commBaths, addons, abLevel, commFloors, commLift, commBin]);
 
   const q = useMemo(() => {
     const ct            = CONTRACTS.find(c => c.id === contract) || CONTRACTS[0];
@@ -319,9 +305,9 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
     const basePrice     = cost / (1 - margin);
     const autoClean     = basePrice * (1 - ct.disc);
     const manualVal     = (manualPrice !== '' && parseFloat(manualPrice) > 0) ? parseFloat(manualPrice) : null;
-    // After-Builders / Communal are manual-quote only: no auto price, the admin types it in.
-    const manualQuote   = clientType === 'estateAgent' && !!cleanType && ESTATE_CLEAN_MULTIPLIERS[cleanType] === null;
-    const cleanPrice    = manualQuote ? (manualVal ?? 0) : (manualVal ?? autoClean);
+    // All estate types now auto-price (After-Builders via mess level, Communal via block details).
+    const manualQuote   = false;
+    const cleanPrice    = manualVal ?? autoClean;
     const calcPrice     = autoClean + addonTotal;
     const price         = cleanPrice + addonTotal;
     const effectiveClean = cleanPrice;
@@ -887,35 +873,50 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                     </select>
                     {!cleanType
                       ? <div style={{ fontSize: 10, color: C.danger, marginTop: 4 }}>Required — choose the type of clean.</div>
-                      : q.manualQuote
-                        ? <div style={{ fontSize: 10, color: '#b45309', marginTop: 4 }}>Quoted manually (varies too much to auto-price) — enter the price in "Manual price override" below.</div>
-                        : <div style={{ fontSize: 10, color: C.faint || C.muted, marginTop: 4 }}>Auto-priced at {ESTATE_CLEAN_MULTIPLIERS[cleanType]}× the base clean. You can still override below.</div>}
+                      : ESTATE_CLEAN_MULTIPLIERS[cleanType]
+                        ? <div style={{ fontSize: 10, color: C.faint || C.muted, marginTop: 4 }}>Auto-priced at {ESTATE_CLEAN_MULTIPLIERS[cleanType]}× the base clean. You can still override below.</div>
+                        : <div style={{ fontSize: 10, color: C.faint || C.muted, marginTop: 4 }}>Auto-priced from the options below. You can still override the price.</div>}
                     {cleanType && ESTATE_CLEAN_DESCRIPTIONS[cleanType] && (
                       <div style={{ fontSize: 11, color: C.muted, marginTop: 8, padding: '8px 10px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, lineHeight: 1.5 }}>
                         {ESTATE_CLEAN_DESCRIPTIONS[cleanType]}
                       </div>
                     )}
-                    {q.manualQuote && MANUAL_GUIDE[cleanType] && (() => {
-                      const g = MANUAL_GUIDE[cleanType];
-                      return (
-                        <div style={{ marginTop: 8, padding: '10px 12px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>💡 How to price this</div>
-                          <div style={{ fontSize: 11, color: '#92400e', marginBottom: 7, lineHeight: 1.5 }}>{g.intro}</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 7 }}>
-                            {g.rows.map(([a, b], i) => (
-                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 11, color: '#92400e' }}>
-                                <span>{a}</span><span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{b}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <ol style={{ margin: '0 0 7px', paddingLeft: 15, fontSize: 11, color: '#92400e', lineHeight: 1.55 }}>
-                            {g.steps.map((s, i) => <li key={i}>{s}</li>)}
-                          </ol>
-                          <div style={{ fontSize: 11, color: '#92400e', fontWeight: 600, marginBottom: 3 }}>{g.example}</div>
-                          <div style={{ fontSize: 10, color: '#b45309' }}>{g.range}</div>
+                    {cleanType === AFTER_BUILDERS && (
+                      <div style={{ marginTop: 8, padding: '10px 12px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>How much mess? (sets the price)</div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {AB_LEVELS.map(l => (
+                            <button key={l.id} onClick={() => setAbLevel(l.id)} style={{
+                              flex: 1, fontFamily: FONT, cursor: 'pointer', borderRadius: 6, padding: '7px 6px', textAlign: 'center',
+                              border: `1px solid ${abLevel === l.id ? C.accent : '#fcd34d'}`,
+                              background: abLevel === l.id ? C.accent : '#fff', color: abLevel === l.id ? '#fff' : '#92400e',
+                            }}>
+                              <div style={{ fontSize: 12, fontWeight: 700 }}>{l.label}</div>
+                              <div style={{ fontSize: 9, opacity: 0.85, marginTop: 1 }}>{l.note}</div>
+                            </button>
+                          ))}
                         </div>
-                      );
-                    })()}
+                        <div style={{ fontSize: 10, color: '#b45309', marginTop: 6 }}>Auto-priced from the property size x this. Tweak the price in "Manual price override" if needed.</div>
+                      </div>
+                    )}
+                    {cleanType === COMMUNAL && (
+                      <div style={{ marginTop: 8, padding: '10px 12px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 7 }}>Block details (set the price)</div>
+                        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 12, color: '#92400e' }}>Floors</span>
+                            <input type="number" min="1" value={commFloors} onChange={e => setCommFloors(e.target.value)} style={{ ...inputStyle, width: 64 }} />
+                          </div>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400e', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={commLift} onChange={e => setCommLift(e.target.checked)} /> Lift
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400e', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={commBin} onChange={e => setCommBin(e.target.checked)} /> Bin / refuse store
+                          </label>
+                        </div>
+                        <div style={{ fontSize: 10, color: '#b45309', marginTop: 6 }}>Priced per block from these (bedrooms ignored). Tweak the price in "Manual price override" if needed.</div>
+                      </div>
+                    )}
                   </div>
                 )}
                 <div style={{ gridColumn: 'span 2' }}>
