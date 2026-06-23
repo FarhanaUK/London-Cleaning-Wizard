@@ -42,15 +42,15 @@ const COMMERCIAL_ADDONS = [
 // After-Builders is auto-priced off the property size x a mess level you pick (the thing that
 // actually varies). Communal is auto-priced off block details (floors / lift / bin), not bedrooms.
 const AB_LEVELS = [
-  { id: 'light',    label: 'Light',    mult: 1.3, note: 'dust only, minor works' },
-  { id: 'standard', label: 'Standard', mult: 1.7, note: 'typical refurb' },
-  { id: 'heavy',    label: 'Heavy',    mult: 2.2, note: 'gut renovation, debris' },
+  { id: 'light',    label: 'Light',    mult: 2.2, note: 'dust only, minor works' },
+  { id: 'standard', label: 'Standard', mult: 3.0, note: 'typical refurb' },
+  { id: 'heavy',    label: 'Heavy',    mult: 4.0, note: 'gut renovation, debris' },
 ];
 const AB_MULT = id => (AB_LEVELS.find(l => l.id === id)?.mult ?? 1.7);
 const AFTER_BUILDERS = 'After-Builders / Renovation Cleaning';
 const COMMUNAL = 'Communal Area Cleaning';
 // Communal hours: base entrance/lobby + per floor of stairs + lift + bin store.
-const communalHours = (floors, lift, bin) => 1 + (parseInt(floors, 10) || 0) * 0.4 + (lift ? 0.4 : 0) + (bin ? 0.4 : 0);
+const communalHours = (floors, lift, bin) => 1.5 + (parseInt(floors, 10) || 0) * 0.5 + (lift ? 0.4 : 0) + (bin ? 0.4 : 0);
 
 const CONTRACTS = [
   { id: 'monthly', label: 'Monthly rolling',  disc: 0.00, months: 1,  note: 'Cancel with 1 month notice' },
