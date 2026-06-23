@@ -39,6 +39,42 @@ const COMMERCIAL_ADDONS = [
   { id: 'appliances', label: 'Microwave & appliances',          h: 0.25, price: 15 },
 ];
 
+// On-screen pricing guide for the two estate clean types that are quoted manually (they vary too
+// much for a fixed formula). Shown when one of them is selected so you can work out the number.
+const MANUAL_GUIDE = {
+  'After-Builders / Renovation Cleaning': {
+    intro: 'Price on hours, not bedrooms - the amount of mess is what drives it.',
+    rows: [
+      ['Light (dust only, minor works)', '~1.3x a normal clean'],
+      ['Standard (typical refurb)',      '~1.7x'],
+      ['Heavy (gut renovation / debris)','~2.2x'],
+    ],
+    steps: [
+      'Estimate cleaner-hours (hours x number of cleaners).',
+      'Cost = hours x £17 + supplies (~£15) + travel £5 + overhead £14.',
+      'Price = cost ÷ 0.65 (35% margin). Round up.',
+    ],
+    example: 'Example: 2-bed flat, standard refurb - 2 cleaners x 4h = ~£170 cost, so about £270.',
+    range: 'London range: £250-450 for a flat. Quote after seeing photos or a site visit.',
+  },
+  'Communal Area Cleaning': {
+    intro: 'Priced per block, not by bedrooms - add up the areas.',
+    rows: [
+      ['Base (entrance / lobby)',        '~1 hr'],
+      ['Each floor of stairs / landings','+0.4 hr'],
+      ['Lift',                           '+0.4 hr'],
+      ['Bin / refuse store',             '+0.4 hr'],
+    ],
+    steps: [
+      'Add up the hours from the factors above (x number of cleaners).',
+      'Cost = hours x £17 + supplies £5 + travel £5 + overhead £14.',
+      'Price = cost ÷ 0.65 (35% margin). Round up.',
+    ],
+    example: 'Example: 3 floors, no lift, bin store = ~2.6 hrs, so about £105.',
+    range: 'London range: £60-120 per visit for a small block; more with a lift.',
+  },
+};
+
 const CONTRACTS = [
   { id: 'monthly', label: 'Monthly rolling',  disc: 0.00, months: 1,  note: 'Cancel with 1 month notice' },
   { id: '3mo',     label: '3-month',          disc: 0.00, months: 3,  note: 'Guaranteed 3 months of revenue' },
@@ -859,6 +895,27 @@ export default function QuotesTab({ isMobile, C, expenses = [], fixedCosts = [],
                         {ESTATE_CLEAN_DESCRIPTIONS[cleanType]}
                       </div>
                     )}
+                    {q.manualQuote && MANUAL_GUIDE[cleanType] && (() => {
+                      const g = MANUAL_GUIDE[cleanType];
+                      return (
+                        <div style={{ marginTop: 8, padding: '10px 12px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>💡 How to price this</div>
+                          <div style={{ fontSize: 11, color: '#92400e', marginBottom: 7, lineHeight: 1.5 }}>{g.intro}</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 7 }}>
+                            {g.rows.map(([a, b], i) => (
+                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 11, color: '#92400e' }}>
+                                <span>{a}</span><span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{b}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <ol style={{ margin: '0 0 7px', paddingLeft: 15, fontSize: 11, color: '#92400e', lineHeight: 1.55 }}>
+                            {g.steps.map((s, i) => <li key={i}>{s}</li>)}
+                          </ol>
+                          <div style={{ fontSize: 11, color: '#92400e', fontWeight: 600, marginBottom: 3 }}>{g.example}</div>
+                          <div style={{ fontSize: 10, color: '#b45309' }}>{g.range}</div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
                 <div style={{ gridColumn: 'span 2' }}>
