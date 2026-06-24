@@ -124,9 +124,15 @@ export default function LeadsTab({ leads, isMobile, C }) {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const qDigits = q.replace(/\D/g, '');  // digits only, so phone spacing doesn't matter
     return allLeads
       .filter(l => filter === 'all' ? true : l.status === filter)
-      .filter(l => !q || [l.businessName, l.address, l.email, l.phone, l.sector, l.website].some(v => (v || '').toLowerCase().includes(q)))
+      .filter(l => {
+        if (!q) return true;
+        const textMatch  = [l.businessName, l.address, l.email, l.phone, l.sector, l.website].some(v => (v || '').toLowerCase().includes(q));
+        const phoneMatch = qDigits.length >= 3 && (l.phone || '').replace(/\D/g, '').includes(qDigits);
+        return textMatch || phoneMatch;
+      })
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   }, [allLeads, filter, search]);
 
