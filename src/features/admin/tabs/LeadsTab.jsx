@@ -284,11 +284,11 @@ export default function LeadsTab({ leads, isMobile, C }) {
               {(l.callLog || []).length > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 4 }}>{l.callLog.length} call{l.callLog.length !== 1 ? 's' : ''} logged — tap × to remove a mistake</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     {l.callLog.map((c, i) => ({ c, i })).reverse().slice(0, 6).map(({ c, i }) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontFamily: FONT, fontSize: 11, color: C.muted }}>
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: FONT, fontSize: 11, color: C.muted }}>
                         <span>{outcomeLabel(c.outcome)} · {fmtDate(c.date)}</span>
-                        <button onClick={() => removeCall(l, i)} title="Remove this logged call" style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: '0 4px' }}>×</button>
+                        <button onClick={() => removeCall(l, i)} title="Remove this logged call" style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626', cursor: 'pointer', fontSize: 11, fontWeight: 700, lineHeight: 1, borderRadius: 4, padding: '3px 8px' }}>✕ Remove</button>
                       </div>
                     ))}
                   </div>
