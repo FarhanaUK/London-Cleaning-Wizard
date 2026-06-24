@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { db } from '../../../firebase/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
@@ -397,7 +397,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>📞 Call back now ({dueLeads.length})</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {dueLeads.map(l => <LeadRow key={l.id} l={l} due />)}
+            {dueLeads.map(l => <Fragment key={l.id}>{LeadRow({ l, due: true })}</Fragment>)}
           </div>
         </div>
       )}
@@ -420,7 +420,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {filtered.map(l => <LeadRow key={l.id} l={l} />)}
+          {filtered.map(l => <Fragment key={l.id}>{LeadRow({ l })}</Fragment>)}
         </div>
       )}
     </div>
