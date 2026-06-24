@@ -103,11 +103,24 @@ export default function LeadsTab({ leads, isMobile, C }) {
       .sort((a, b) => (a.callbackDate || '').localeCompare(b.callbackDate || '')),
     [allLeads, today]);
 
-  const counts = useMemo(() => ({
-    toCall:  allLeads.filter(l => l.status === 'new').length,
-    due:     dueLeads.length,
-    booked:  allLeads.filter(l => l.status === 'booked').length,
-  }), [allLeads, dueLeads]);
+  const counts = useMemo(() => {
+    // Count logged calls per day from every lead's callLog.
+    const byDay = {};
+    allLeads.forEach(l => (l.callLog || []).forEach(c => { if (c?.date) byDay[c.date] = (byDay[c.date] || 0) + 1; }));
+    const addDays = (ds, n) => { const d = new Date(ds + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const ds = addDays(today, -i);
+      days.push({ date: ds, label: new Date(ds + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }), count: byDay[ds] || 0 });
+    }
+    return {
+      toCall:  allLeads.filter(l => l.status === 'new').length,
+      due:     dueLeads.length,
+      booked:  allLeads.filter(l => l.status === 'booked').length,
+      callsToday: byDay[today] || 0,
+      days,
+    };
+  }, [allLeads, dueLeads, today]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -381,6 +394,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
       {/* Summary strip */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
         {[
+          { label: 'Calls today',   value: counts.callsToday, color: '#7c3aed', bg: '#f5f3ff' },
           { label: 'To call',       value: counts.toCall, color: '#1d4ed8', bg: '#eff6ff' },
           { label: 'Callbacks due', value: counts.due,    color: counts.due > 0 ? '#dc2626' : C.muted, bg: counts.due > 0 ? '#fef2f2' : C.card },
           { label: 'Booked',        value: counts.booked, color: '#16a34a', bg: '#f0fdf4' },
@@ -390,6 +404,23 @@ export default function LeadsTab({ leads, isMobile, C }) {
             <div style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</div>
           </div>
         ))}
+      </div>
+
+      {/* Calls per day (last 7 days) */}
+      <div style={{ marginBottom: 24, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px' }}>
+        <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 10 }}>Calls logged per day (last 7 days) · {counts.days.reduce((s, d) => s + d.count, 0)} this week</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          {(() => { const maxCalls = Math.max(1, ...counts.days.map(d => d.count)); return counts.days.map(d => {
+            const isToday = d.date === today;
+            return (
+              <div key={d.date} style={{ flex: 1, minWidth: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: isToday ? C.accent : C.text }}>{d.count}</div>
+                <div style={{ width: '65%', height: Math.max(3, Math.round((d.count / maxCalls) * 46)), background: isToday ? C.accent : `${C.accent}55`, borderRadius: 3 }} />
+                <div style={{ fontFamily: FONT, fontSize: 9, color: isToday ? C.accent : C.muted, fontWeight: isToday ? 700 : 400 }}>{d.label}</div>
+              </div>
+            );
+          }); })()}
+        </div>
       </div>
 
       {/* Callbacks due */}
