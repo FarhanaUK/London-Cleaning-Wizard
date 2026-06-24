@@ -144,6 +144,11 @@ export default function LeadsTab({ leads, isMobile, C }) {
     if (statusMap[outcome]) fields.status = statusMap[outcome];
     try { await updateDoc(doc(db, 'leads', l.id), { ...fields, updatedAt: new Date().toISOString() }); } catch {}
   };
+  // Remove a single logged call (e.g. an accidental click) by its index in the callLog.
+  const removeCall = async (l, idx) => {
+    const callLog = (l.callLog || []).filter((_, i) => i !== idx);
+    try { await updateDoc(doc(db, 'leads', l.id), { callLog, updatedAt: new Date().toISOString() }); } catch {}
+  };
   const removeLead = async (id) => {
     if (!window.confirm('Delete this lead?')) return;
     try { await deleteDoc(doc(db, 'leads', id)); } catch {}
@@ -277,8 +282,17 @@ export default function LeadsTab({ leads, isMobile, C }) {
                 ))}
               </div>
               {(l.callLog || []).length > 0 && (
-                <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 6 }}>
-                  Last call: {outcomeLabel(l.callLog[l.callLog.length - 1].outcome)} on {fmtDate(l.callLog[l.callLog.length - 1].date)} · {l.callLog.length} total
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginBottom: 4 }}>{l.callLog.length} call{l.callLog.length !== 1 ? 's' : ''} logged — tap × to remove a mistake</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {l.callLog.map((c, i) => ({ c, i })).reverse().slice(0, 6).map(({ c, i }) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontFamily: FONT, fontSize: 11, color: C.muted }}>
+                        <span>{outcomeLabel(c.outcome)} · {fmtDate(c.date)}</span>
+                        <button onClick={() => removeCall(l, i)} title="Remove this logged call" style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: '0 4px' }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                  {l.callLog.length > 6 && <div style={{ fontFamily: FONT, fontSize: 10, color: C.muted, marginTop: 2 }}>Showing the latest 6 of {l.callLog.length}.</div>}
                 </div>
               )}
             </div>
