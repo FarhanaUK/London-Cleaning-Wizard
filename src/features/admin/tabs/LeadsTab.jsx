@@ -365,7 +365,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
         <div>
           <h2 style={{ margin: 0, fontFamily: FONT, fontSize: 22, fontWeight: 700, color: C.text }}>Leads / Call list</h2>
-          <p style={{ margin: '4px 0 0', fontFamily: FONT, fontSize: 13, color: C.muted }}>Work your cold-call list, log outcomes and set callbacks.</p>
+          <p style={{ margin: '4px 0 0', fontFamily: FONT, fontSize: 13, color: C.muted }}>Work your cold-call list, log outcomes and set callbacks. · <strong style={{ color: C.text }}>{allLeads.length}</strong> leads total</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => { setShowAdd(s => !s); setShowImport(false); }} style={btn(C.card, C.text, C.border)}>+ Add lead</button>
