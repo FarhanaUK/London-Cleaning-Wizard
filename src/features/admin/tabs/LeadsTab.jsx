@@ -7,6 +7,8 @@ const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const STATUSES = [
   { id: 'new',            label: 'To call',        color: '#1d4ed8', bg: '#eff6ff' },
   { id: 'callback',       label: 'Callback',       color: '#d97706', bg: '#fffbeb' },
+  { id: 'info_sent',      label: 'Info sent',      color: '#0891b2', bg: '#ecfeff' },
+  { id: 'visit_only',     label: 'Visit only',     color: '#b45309', bg: '#fffbeb' },
   { id: 'quote_sent',     label: 'Quote sent',     color: '#7c3aed', bg: '#f5f3ff' },
   { id: 'booked',         label: 'Booked',         color: '#16a34a', bg: '#f0fdf4' },
   { id: 'not_interested', label: 'Not interested', color: '#6b7280', bg: '#f3f4f6' },
