@@ -12,6 +12,7 @@ const STATUSES = [
   { id: 'quote_sent',     label: 'Quote sent',     color: '#7c3aed', bg: '#f5f3ff' },
   { id: 'booked',         label: 'Booked',         color: '#16a34a', bg: '#f0fdf4' },
   { id: 'not_interested', label: 'Not interested', color: '#6b7280', bg: '#f3f4f6' },
+  { id: 'bad_number',     label: 'Wrong number',   color: '#9ca3af', bg: '#f3f4f6' },
 ];
 const statusMeta = id => STATUSES.find(s => s.id === id) || STATUSES[0];
 
@@ -23,6 +24,7 @@ const CALL_OUTCOMES = [
   { id: 'quote_sent',     label: 'Quote sent' },
   { id: 'booked',         label: 'Booked' },
   { id: 'not_interested', label: 'Not interested' },
+  { id: 'wrong_number',   label: 'Wrong number' },
 ];
 const outcomeLabel = id => CALL_OUTCOMES.find(o => o.id === id)?.label || id;
 
@@ -156,7 +158,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const logCall = async (l, outcome) => {
     const callLog = [...(l.callLog || []), { date: today, outcome }];
     const fields = { callLog };
-    const statusMap = { quote_sent: 'quote_sent', booked: 'booked', not_interested: 'not_interested' };
+    const statusMap = { quote_sent: 'quote_sent', booked: 'booked', not_interested: 'not_interested', wrong_number: 'bad_number' };
     if (statusMap[outcome]) fields.status = statusMap[outcome];
     try { await updateDoc(doc(db, 'leads', l.id), { ...fields, updatedAt: new Date().toISOString() }); } catch {}
   };
