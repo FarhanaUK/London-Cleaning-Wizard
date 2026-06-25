@@ -94,6 +94,7 @@ const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europ
 export default function LeadsTab({ leads, isMobile, C }) {
   const today = todayStr();
   const [filter,      setFilter]      = useState('all');
+  const [sectorFilter, setSectorFilter] = useState('all');
   const [search,      setSearch]      = useState('');
   const [expanded,    setExpanded]    = useState(null);
   const [showImport,  setShowImport]  = useState(false);
@@ -134,13 +135,22 @@ export default function LeadsTab({ leads, isMobile, C }) {
     };
   }, [allLeads, dueLeads, today]);
 
+  // Distinct business types present in the list, for the sector filter dropdown.
+  const sectors = useMemo(() => {
+    const set = new Map();  // lowercased key -> original-cased label (first seen)
+    allLeads.forEach(l => { const s = (l.sector || '').trim(); if (s && !set.has(s.toLowerCase())) set.set(s.toLowerCase(), s); });
+    return [...set.values()].sort((a, b) => a.localeCompare(b));
+  }, [allLeads]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const qDigits = q.replace(/\D/g, '');  // digits only, so phone spacing doesn't matter
+    const sec = sectorFilter.toLowerCase();
     return allLeads
       // Keep the lead you currently have open pinned in the list even if its status
       // no longer matches the active filter, so actioning it doesn't make the open row vanish.
       .filter(l => filter === 'all' ? true : (l.status === filter || l.id === expanded))
+      .filter(l => sectorFilter === 'all' ? true : (l.sector || '').trim().toLowerCase() === sec || l.id === expanded)
       .filter(l => {
         if (!q) return true;
         const textMatch  = [l.businessName, l.address, l.email, l.phone, l.sector, l.website].some(v => (v || '').toLowerCase().includes(q));
@@ -148,7 +158,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
         return textMatch || phoneMatch;
       })
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  }, [allLeads, filter, search, expanded]);
+  }, [allLeads, filter, sectorFilter, search, expanded]);
 
   const setStatus = async (id, status, extra = {}) => {
     try { await updateDoc(doc(db, 'leads', id), { status, ...extra, updatedAt: new Date().toISOString() }); } catch {}
@@ -517,6 +527,12 @@ export default function LeadsTab({ leads, isMobile, C }) {
             {s.label}
           </button>
         ))}
+        {sectors.length > 0 && (
+          <select value={sectorFilter} onChange={e => setSectorFilter(e.target.value)} style={{ ...inputStyle, width: 'auto' }}>
+            <option value="all">All business types</option>
+            {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
         <input placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputStyle, width: 'auto', flex: 1, minWidth: 140 }} />
       </div>
 
