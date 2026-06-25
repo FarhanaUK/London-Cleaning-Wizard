@@ -138,7 +138,9 @@ export default function LeadsTab({ leads, isMobile, C }) {
     const q = search.trim().toLowerCase();
     const qDigits = q.replace(/\D/g, '');  // digits only, so phone spacing doesn't matter
     return allLeads
-      .filter(l => filter === 'all' ? true : l.status === filter)
+      // Keep the lead you currently have open pinned in the list even if its status
+      // no longer matches the active filter, so actioning it doesn't make the open row vanish.
+      .filter(l => filter === 'all' ? true : (l.status === filter || l.id === expanded))
       .filter(l => {
         if (!q) return true;
         const textMatch  = [l.businessName, l.address, l.email, l.phone, l.sector, l.website].some(v => (v || '').toLowerCase().includes(q));
@@ -146,7 +148,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
         return textMatch || phoneMatch;
       })
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  }, [allLeads, filter, search]);
+  }, [allLeads, filter, search, expanded]);
 
   const setStatus = async (id, status, extra = {}) => {
     try { await updateDoc(doc(db, 'leads', id), { status, ...extra, updatedAt: new Date().toISOString() }); } catch {}
