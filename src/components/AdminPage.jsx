@@ -646,18 +646,20 @@ export default function AdminPage() {
     });
   }, [user, bookings]);
 
-  // Monthly CSV backup reminder — fires in last week of each month
+  // Monthly CSV backup reminder — fires in the first week of each month, for the previous (now
+  // complete) month, so the backup captures the whole month.
   useEffect(() => {
     if (!user) return;
     const now = new Date();
-    if (now.getDate() < 25) return;
-    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    if (now.getDate() > 7) return;
+    const prev = new Date(now.getFullYear(), now.getMonth(), 0); // last day of the previous month
+    const monthKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
     addNotification({
       id:      `monthly_csv_${monthKey}`,
       type:    'action',
       icon:    '📥',
-      title:   'Download monthly backup',
-      message: `End of ${now.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} — download bookings, expenses, and reports as CSV to keep a monthly backup.`,
+      title:   'Download last month\'s backup',
+      message: `${prev.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} is complete — go to Reports and download your bookings and expenses as a CSV backup.`,
       link:    'reports',
     });
   }, [user]);

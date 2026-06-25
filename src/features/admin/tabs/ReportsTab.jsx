@@ -468,10 +468,44 @@ export default function ReportsTab({ bookings, expenses, staff, fixedCosts, supp
   const RLABEL = { fontFamily: FONT, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: 4 };
   const BIZ    = '#1e40af';
 
+  const escapeCsv = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const downloadCsv = (rows, filename) => {
+    const csv = rows.map(r => r.map(escapeCsv).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const exportBookings = () => {
+    const header = ['Booked on', 'Ref', 'Name / Business', 'Phone', 'Email', 'Clean date', 'Time', 'Service', 'Frequency', 'Status', 'Total', 'Deposit', 'Remaining'];
+    const rows = (bookings || []).filter(b => !b.isContract && !b.isTrashed).map(b => [
+      b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-GB') : '', b.bookingRef || '',
+      b.bizName || `${b.firstName || ''} ${b.lastName || ''}`.trim(), b.phone || '', b.email || '',
+      fmtDate(b.cleanDate), b.cleanTime || '', b.packageName || b.cleanType || '', b.frequency || 'one-off',
+      b.status || '', b.total || 0, b.deposit || 0, b.remaining || 0,
+    ]);
+    downloadCsv([header, ...rows], `bookings-${new Date().toISOString().slice(0, 7)}.csv`);
+  };
+  const exportExpenses = () => {
+    const header = ['Date', 'Category', 'Description', 'Amount'];
+    const rows = (expenses || []).map(e => [e.date || '', e.category || '', e.description || e.name || '', e.amount || 0]);
+    downloadCsv([header, ...rows], `expenses-${new Date().toISOString().slice(0, 7)}.csv`);
+  };
+
   return (
     <div>
       {/* Title */}
       <div style={{ fontFamily: FONT, fontSize: isMobile ? 20 : 24, fontWeight: 700, color: C.text, marginBottom: 16 }}>Reports</div>
+
+      {/* Download backup */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.text }}>📥 Download backup</div>
+          <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>Save a CSV copy of your data — worth doing once a month for safekeeping.</div>
+        </div>
+        <button onClick={exportBookings} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>Bookings CSV</button>
+        <button onClick={exportExpenses} style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>Expenses CSV</button>
+      </div>
 
       {/* Mode tabs */}
       <div style={{ display: 'flex', borderBottom: `2px solid ${C.border}`, marginBottom: 20 }}>
