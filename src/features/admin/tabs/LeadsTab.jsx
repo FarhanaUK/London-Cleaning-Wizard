@@ -92,6 +92,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const [showMapping, setShowMapping] = useState(false);
   const [importing,   setImporting]   = useState(false);
   const [showAdd,     setShowAdd]      = useState(false);
+  const [copiedId,    setCopiedId]    = useState(null);
   const [newLead,     setNewLead]     = useState({ businessName: '', address: '', email: '', phone: '', sector: '', website: '' });
 
   const allLeads = leads || [];
@@ -154,6 +155,13 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const removeCall = async (l, idx) => {
     const callLog = (l.callLog || []).filter((_, i) => i !== idx);
     try { await updateDoc(doc(db, 'leads', l.id), { callLog, updatedAt: new Date().toISOString() }); } catch {}
+  };
+  const copyPhone = (l) => {
+    if (!l.phone) return;
+    navigator.clipboard?.writeText(l.phone).then(() => {
+      setCopiedId(l.id);
+      setTimeout(() => setCopiedId(c => (c === l.id ? null : c)), 1500);
+    }).catch(() => {});
   };
   const removeLead = async (id) => {
     if (!window.confirm('Delete this lead?')) return;
@@ -245,9 +253,14 @@ export default function LeadsTab({ leads, isMobile, C }) {
             </div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: l.phone ? C.text : C.muted, whiteSpace: 'nowrap', userSelect: 'all' }}>
-              {l.phone || 'No number'}
-            </div>
+            {l.phone ? (
+              <button onClick={(e) => { e.stopPropagation(); copyPhone(l); }} title="Click to copy number"
+                style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, color: copiedId === l.id ? '#16a34a' : C.text }}>
+                {copiedId === l.id ? '✓ Copied' : <>{l.phone}<span style={{ fontSize: 12 }}>📋</span></>}
+              </button>
+            ) : (
+              <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.muted, whiteSpace: 'nowrap' }}>No number</div>
+            )}
             {(l.callLog || []).length > 0 && (
               <div style={{ fontFamily: FONT, fontSize: 11, color: C.muted, marginTop: 2 }}>{l.callLog.length} call{l.callLog.length !== 1 ? 's' : ''} logged</div>
             )}
