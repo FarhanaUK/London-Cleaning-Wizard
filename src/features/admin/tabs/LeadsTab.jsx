@@ -75,6 +75,13 @@ const splitRow = (row, delim) => {
 };
 const rowDelim = text => (text.includes('\t') ? '\t' : ',');
 
+// Duplicate key for a lead: phone digits if present, else business name + address (lowercased).
+const leadKey = (l) => {
+  const phone = (l.phone || '').replace(/\D/g, '');
+  if (phone) return 'p:' + phone;
+  return 'n:' + (l.businessName || '').trim().toLowerCase() + '|' + (l.address || '').trim().toLowerCase();
+};
+
 const fmtDate = d => {
   if (!d) return '';
   const [y, m, day] = d.split('-');
@@ -181,6 +188,8 @@ export default function LeadsTab({ leads, isMobile, C }) {
     const headerRow = data[0] || [];
     if (skipHeader) data = data.slice(1);
     const map = Array.from({ length: maxCols }, (_, i) => importMap[i] ?? (skipHeader && headerRow[i] ? guessFieldFromHeader(headerRow[i]) : defaultImportField(i)));
+    const existing = new Set(allLeads.map(leadKey));  // skip leads we already have
+    const seen = new Set();                           // and rows duplicated within this paste
     setImporting(true);
     const now = new Date().toISOString();
     try {
@@ -188,6 +197,9 @@ export default function LeadsTab({ leads, isMobile, C }) {
         const lead = { businessName: '', address: '', email: '', phone: '', sector: '', website: '' };
         map.forEach((field, i) => { if (field && field !== 'skip' && parts[i]) lead[field] = parts[i]; });
         if (LEAD_FIELDS.every(k => !lead[k])) continue;
+        const key = leadKey(lead);
+        if (existing.has(key) || seen.has(key)) continue;
+        seen.add(key);
         await addDoc(collection(db, 'leads'), {
           ...lead, status: 'new', callbackDate: '', notes: '', source: 'import',
           createdAt: now, updatedAt: now,
@@ -226,10 +238,25 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const importSplit  = importText.split('\n').map(x => x.trim()).filter(Boolean).map(r => splitRow(r, rowDelim(importText)));
   const importMaxCols = importSplit.reduce((m, p) => Math.max(m, p.length), 0);
   const sampleCols = importSplit.find(p => p.length === importMaxCols) || [];
-  const importCount = Math.max(0, importSplit.filter(p => p.length === importMaxCols).length - (skipHeader ? 1 : 0));
   // Auto-detect each field from the header text (sampleCols is the header row when skipHeader is on).
   const effMap = sampleCols.map((_, i) => importMap[i] ?? (skipHeader && sampleCols[i] ? guessFieldFromHeader(sampleCols[i]) : defaultImportField(i)));
   const detectedLabels = LEAD_FIELDS.filter(f => effMap.includes(f)).map(f => IMPORT_FIELDS.find(x => x.id === f)?.label);
+  // Count how many rows are new vs duplicates (of an existing lead or an earlier row in the paste).
+  const { importCount, importDups } = (() => {
+    let data = importSplit.filter(p => p.length === importMaxCols);
+    if (skipHeader) data = data.slice(1);
+    const existing = new Set(allLeads.map(leadKey)); const seen = new Set();
+    let count = 0, dups = 0;
+    for (const parts of data) {
+      const lead = { businessName: '', address: '', email: '', phone: '', sector: '', website: '' };
+      effMap.forEach((field, i) => { if (field && field !== 'skip' && parts[i]) lead[field] = parts[i]; });
+      if (LEAD_FIELDS.every(k => !lead[k])) continue;
+      const key = leadKey(lead);
+      if (existing.has(key) || seen.has(key)) { dups++; continue; }
+      seen.add(key); count++;
+    }
+    return { importCount: count, importDups: dups };
+  })();
 
   const inputStyle = { fontFamily: FONT, fontSize: 13, color: C.text, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '7px 10px', width: '100%', boxSizing: 'border-box', outline: 'none' };
   const btn = (bg, color, border) => ({ fontFamily: FONT, fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${border || bg}`, background: bg, color });
@@ -386,7 +413,8 @@ export default function LeadsTab({ leads, isMobile, C }) {
 
           {sampleCols.length > 0 && (
             <div style={{ marginTop: 10, fontFamily: FONT, fontSize: 12 }}>
-              <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {importCount} lead{importCount !== 1 ? 's' : ''} ready.</span>{' '}
+              <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {importCount} new lead{importCount !== 1 ? 's' : ''} ready.</span>{' '}
+              {importDups > 0 && <span style={{ color: '#b45309', fontWeight: 600 }}>{importDups} duplicate{importDups !== 1 ? 's' : ''} will be skipped.</span>}{' '}
               <span style={{ color: C.muted }}>Detected: {detectedLabels.length ? detectedLabels.join(', ') : 'nothing yet — check your headers'}.</span>{' '}
               <button onClick={() => setShowMapping(s => !s)} style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', fontFamily: FONT, fontSize: 12, padding: 0, textDecoration: 'underline' }}>{showMapping ? 'Hide columns' : 'Adjust columns'}</button>
             </div>
