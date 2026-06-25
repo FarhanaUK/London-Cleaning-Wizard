@@ -489,6 +489,9 @@ export default function LeadsTab({ leads, isMobile, C }) {
             );
           }); })()}
         </div>
+        <div style={{ fontFamily: FONT, fontSize: 11, color: '#dc2626', marginTop: 10, lineHeight: 1.5 }}>
+          ⚠ This counts every call you log, and you can log more than one per lead, so it is not the number of leads. It also does not reduce "To call" — a lead only leaves "To call" when you set a status (Callback, Booked, Not interested, etc.).
+        </div>
       </div>
 
       {/* Callbacks due */}
