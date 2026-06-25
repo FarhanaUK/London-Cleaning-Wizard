@@ -283,12 +283,17 @@ export default function LeadsTab({ leads, isMobile, C }) {
                         : <span style={{ fontFamily: FONT, fontSize: 13, color: C.text, fontWeight: f.key === 'businessName' ? 600 : 400 }}>{l[f.key]}</span>}
                 </div>
               ))}
-              {/* Phone — the only editable field */}
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 2 }}>
+              {/* Phone — the only editable field, with a one-click copy */}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
                 <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em', minWidth: 96, flexShrink: 0 }}>Phone</span>
                 <input defaultValue={l.phone || ''} placeholder="Add phone number"
                   onBlur={e => { const v = e.target.value.trim(); if (v !== (l.phone || '')) updateField(l.id, { phone: v }); }}
-                  style={{ ...inputStyle, maxWidth: 240 }} />
+                  style={{ ...inputStyle, maxWidth: 200 }} />
+                {l.phone && (
+                  <button onClick={() => copyPhone(l)} title="Copy number" style={{ ...btn(copiedId === l.id ? '#16a34a' : C.bg, copiedId === l.id ? '#fff' : C.text, copiedId === l.id ? '#16a34a' : C.border), fontSize: 12 }}>
+                    {copiedId === l.id ? '✓ Copied' : '📋 Copy'}
+                  </button>
+                )}
               </div>
             </div>
 
