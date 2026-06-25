@@ -113,7 +113,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
   const dueLeads = useMemo(() =>
     allLeads
       .filter(l => l.status === 'callback' && l.callbackDate && l.callbackDate <= today)
-      .sort((a, b) => (a.callbackDate || '').localeCompare(b.callbackDate || '')),
+      .sort((a, b) => (`${a.callbackDate} ${a.callbackTime || '99:99'}`).localeCompare(`${b.callbackDate} ${b.callbackTime || '99:99'}`)),
     [allLeads, today]);
 
   const counts = useMemo(() => {
@@ -288,6 +288,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
               {l.status === 'callback' && l.callbackDate && (
                 <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: l.callbackDate <= today ? '#dc2626' : C.muted }}>
                   {l.callbackDate < today ? `Overdue · ${fmtDate(l.callbackDate)}` : l.callbackDate === today ? 'Call back today' : `Call back ${fmtDate(l.callbackDate)}`}
+                  {l.callbackTime ? ` at ${l.callbackTime}` : ''}
                 </span>
               )}
             </div>
@@ -385,6 +386,13 @@ export default function LeadsTab({ leads, isMobile, C }) {
               <input type="date" value={l.callbackDate || ''} min={today}
                 onChange={e => updateField(l.id, { callbackDate: e.target.value, status: e.target.value ? 'callback' : l.status })}
                 style={{ ...inputStyle, width: 'auto' }} />
+              <span style={{ fontFamily: FONT, fontSize: 12, color: C.muted }}>at</span>
+              <input type="time" value={l.callbackTime || ''}
+                onChange={e => updateField(l.id, { callbackTime: e.target.value, ...(e.target.value && !l.callbackDate ? { callbackDate: today, status: 'callback' } : {}) })}
+                style={{ ...inputStyle, width: 'auto' }} />
+              {l.callbackTime && (
+                <button onClick={() => updateField(l.id, { callbackTime: '' })} title="Clear time" style={{ ...btn('transparent', C.muted, C.border), fontSize: 11, padding: '4px 9px' }}>Clear time</button>
+              )}
             </div>
             {/* Notes */}
             <textarea defaultValue={l.notes || ''} placeholder="Call notes — who you spoke to, what was said..." rows={3}

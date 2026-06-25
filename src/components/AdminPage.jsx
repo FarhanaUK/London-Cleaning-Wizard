@@ -286,6 +286,32 @@ export default function AdminPage() {
     );
   }, [user]);
 
+  // Lead callback alerts: fire a notification when a scheduled callback's time arrives.
+  // Re-checks every minute so a time reached while the app is open still alerts.
+  useEffect(() => {
+    if (!user || !leads.length) return;
+    const checkCallbacks = () => {
+      const today    = new Date().toLocaleDateString('en-CA',   { timeZone: 'Europe/London' });
+      const nowTime  = new Date().toLocaleTimeString('en-GB',   { timeZone: 'Europe/London', hour12: false, hour: '2-digit', minute: '2-digit' });
+      leads.forEach(l => {
+        if (l.status !== 'callback' || !l.callbackDate) return;
+        const due = l.callbackDate < today || (l.callbackDate === today && (!l.callbackTime || l.callbackTime <= nowTime));
+        if (!due) return;
+        addNotification({
+          id: `lead_callback_${l.id}_${l.callbackDate}${l.callbackTime ? '_' + l.callbackTime : ''}`,
+          type: 'action',
+          icon: '📞',
+          title: `Time to call ${l.businessName || 'a lead'}`,
+          message: l.callbackTime ? `Your ${l.callbackTime} callback is due now.` : 'Your scheduled callback is due now.',
+          link: 'leads',
+        });
+      });
+    };
+    checkCallbacks();
+    const iv = setInterval(checkCallbacks, 60000);
+    return () => clearInterval(iv);
+  }, [user, leads]);
+
   useEffect(() => {
     if (!user || savedQuotes.length === 0) return;
     const today = new Date().toISOString().slice(0, 10);
