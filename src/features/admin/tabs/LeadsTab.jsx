@@ -464,6 +464,7 @@ export default function LeadsTab({ leads, isMobile, C }) {
         {[
           { label: 'Calls today',   value: counts.callsToday, color: '#7c3aed', bg: '#f5f3ff' },
           { label: 'To call',       value: counts.toCall, color: '#1d4ed8', bg: '#eff6ff' },
+          { label: 'Handled',       value: allLeads.length - counts.toCall, color: '#0891b2', bg: '#ecfeff' },
           { label: 'Callbacks due', value: counts.due,    color: counts.due > 0 ? '#dc2626' : C.muted, bg: counts.due > 0 ? '#fef2f2' : C.card },
           { label: 'Booked',        value: counts.booked, color: '#16a34a', bg: '#f0fdf4' },
         ].map(s => (
